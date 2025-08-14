@@ -749,7 +749,7 @@ runner:
 
 #### 4.1.1 健康检查接口
 
-**GET /api/v1/health**
+**GET /api/v1/health** - 处理文件：`internal/handler/http/health.go`
 - **功能**：检查Agent节点健康状态
 - **响应**：
 ```json
@@ -770,7 +770,7 @@ runner:
 
 #### 4.1.2 配置管理接口
 
-**GET /api/v1/config**
+**GET /api/v1/config** - 处理文件：`internal/handler/http/config.go`
 - **功能**：获取当前配置信息
 - **响应**：
 ```json
@@ -788,7 +788,7 @@ runner:
 }
 ```
 
-**PUT /api/v1/config**
+**PUT /api/v1/config** - 处理文件：`internal/handler/http/config.go`
 - **功能**：更新配置信息
 - **请求体**：
 ```json
@@ -807,7 +807,7 @@ runner:
 
 #### 4.1.3 任务管理接口
 
-**GET /api/v1/tasks**
+**GET /api/v1/tasks** - 处理文件：`internal/handler/http/task.go`
 - **功能**：获取任务列表
 - **响应**：
 ```json
@@ -825,7 +825,7 @@ runner:
 }
 ```
 
-**GET /api/v1/tasks/{task_id}**
+**GET /api/v1/tasks/{task_id}** - 处理文件：`internal/handler/http/task.go`
 - **功能**：获取特定任务详情
 - **响应**：
 ```json
@@ -848,7 +848,7 @@ runner:
 }
 ```
 
-**POST /api/v1/tasks/{task_id}/control**
+**POST /api/v1/tasks/{task_id}/control** - 处理文件：`internal/handler/http/task.go`
 - **功能**：控制任务执行（暂停/恢复/取消）
 - **请求体**：
 ```json
@@ -859,7 +859,7 @@ runner:
 
 #### 4.1.4 插件管理接口
 
-**GET /api/v1/plugins**
+**GET /api/v1/plugins** - 处理文件：`internal/handler/http/plugin.go`
 - **功能**：获取插件列表
 - **响应**：
 ```json
@@ -881,7 +881,7 @@ runner:
 }
 ```
 
-**POST /api/v1/plugins/{plugin_name}/control**
+**POST /api/v1/plugins/{plugin_name}/control** - 处理文件：`internal/handler/http/plugin.go`
 - **功能**：控制插件状态（启用/禁用）
 - **请求体**：
 ```json
@@ -890,7 +890,7 @@ runner:
 }
 ```
 
-**POST /api/v1/plugins/{plugin_name}/execute**
+**POST /api/v1/plugins/{plugin_name}/execute** - 处理文件：`internal/handler/http/plugin.go`
 - **功能**：执行插件功能
 - **请求体**：
 ```json
@@ -904,7 +904,7 @@ runner:
 
 #### 4.1.5 系统指标接口
 
-**GET /api/v1/metrics**
+**GET /api/v1/metrics** - 处理文件：`internal/handler/http/metrics.go`
 - **功能**：获取系统监控指标
 - **响应**：
 ```json
@@ -938,28 +938,30 @@ runner:
 
 #### 4.2.1 Agent服务接口
 
+**gRPC服务定义** (`internal/grpc/agent_service.go`)
+
 ```protobuf
 // Agent节点服务定义
 service AgentService {
-  // 节点注册
+  // 节点注册 - 处理文件: internal/handler/grpc/register.go
   rpc RegisterAgent(RegisterRequest) returns (RegisterResponse);
   
-  // 心跳保持
+  // 心跳保持 - 处理文件: internal/handler/grpc/heartbeat.go
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
   
-  // 接收任务
+  // 接收任务 - 处理文件: internal/handler/grpc/task.go
   rpc ReceiveTask(TaskRequest) returns (TaskResponse);
   
-  // 上报状态
+  // 上报状态 - 处理文件: internal/handler/grpc/status.go
   rpc ReportStatus(StatusRequest) returns (StatusResponse);
   
-  // 上传结果
+  // 上传结果 - 处理文件: internal/handler/grpc/result.go
   rpc UploadResult(stream ResultRequest) returns (ResultResponse);
   
-  // 配置更新
+  // 配置更新 - 处理文件: internal/handler/grpc/config.go
   rpc UpdateConfig(ConfigRequest) returns (ConfigResponse);
   
-  // 插件控制
+  // 插件控制 - 处理文件: internal/handler/grpc/plugin.go
   rpc ControlPlugin(PluginRequest) returns (PluginResponse);
 }
 

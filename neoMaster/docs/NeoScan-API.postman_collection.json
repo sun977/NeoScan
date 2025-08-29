@@ -1,0 +1,670 @@
+{
+	"info": {
+		"_postman_id": "neoscan-master-api",
+		"name": "NeoScan Master API",
+		"description": "NeoScan Master 服务器API接口集合",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "neoscan"
+	},
+	"item": [
+		{
+			"name": "健康检查",
+			"item": [
+				{
+					"name": "健康检查",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"health"
+							]
+						},
+						"description": "检查服务器健康状态"
+					},
+					"response": []
+				},
+				{
+					"name": "就绪检查",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/ready",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"ready"
+							]
+						},
+						"description": "检查服务器就绪状态"
+					},
+					"response": []
+				},
+				{
+					"name": "存活检查",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/live",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"live"
+							]
+						},
+						"description": "检查服务器存活状态"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "认证",
+			"item": [
+				{
+					"name": "用户登录",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// 自动保存访问令牌到环境变量",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.success && response.data.access_token) {",
+									"        pm.environment.set('access_token', response.data.access_token);",
+									"        pm.environment.set('refresh_token', response.data.refresh_token);",
+									"        console.log('令牌已保存到环境变量');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "用户登录获取JWT令牌"
+					},
+					"response": []
+				},
+				{
+					"name": "获取登录表单",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "获取登录表单页面"
+					},
+					"response": []
+				},
+				{
+					"name": "刷新令牌",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "使用刷新令牌获取新的访问令牌"
+					},
+					"response": []
+				},
+				{
+					"name": "从请求头刷新令牌",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{refresh_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/refresh-header",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"refresh-header"
+							]
+						},
+						"description": "从Authorization头刷新令牌"
+					},
+					"response": []
+				},
+				{
+					"name": "检查令牌过期时间",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"{{access_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/check-expiry",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"check-expiry"
+							]
+						},
+						"description": "检查令牌过期时间"
+					},
+					"response": []
+				},
+				{
+					"name": "用户登出",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "用户登出，使当前令牌失效"
+					},
+					"response": []
+				},
+				{
+					"name": "用户全部登出",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/logout-all",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout-all"
+							]
+						},
+						"description": "用户全部设备登出，使所有令牌失效"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "用户信息",
+			"item": [
+				{
+					"name": "获取当前用户信息",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/user/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"profile"
+							]
+						},
+						"description": "获取当前登录用户的详细信息"
+					},
+					"response": []
+				},
+				{
+					"name": "修改用户密码",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"old_password\": \"旧密码\",\n  \"new_password\": \"新密码\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/user/change-password",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"change-password"
+							]
+						},
+						"description": "修改当前用户密码"
+					},
+					"response": []
+				},
+				{
+					"name": "获取用户权限",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/user/permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"permissions"
+							]
+						},
+						"description": "获取当前用户的权限列表"
+					},
+					"response": []
+				},
+				{
+					"name": "获取用户角色",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/user/roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"roles"
+							]
+						},
+						"description": "获取当前用户的角色列表"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "管理员-用户管理",
+			"item": [
+				{
+					"name": "获取用户列表",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/list?page=1&limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"list"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "获取所有用户列表"
+					},
+					"response": []
+				},
+				{
+					"name": "创建用户",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"newuser\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"roles\": [\"user\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/create",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"create"
+							]
+						},
+						"description": "创建新用户"
+					},
+					"response": []
+				},
+				{
+					"name": "获取用户详情",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"1"
+							]
+						},
+						"description": "根据ID获取用户详细信息"
+					},
+					"response": []
+				},
+				{
+					"name": "更新用户信息",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"updateduser\",\n  \"email\": \"updated@example.com\",\n  \"roles\": [\"user\", \"moderator\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"1"
+							]
+						},
+						"description": "更新用户信息"
+					},
+					"response": []
+				},
+				{
+					"name": "删除用户",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"1"
+							]
+						},
+						"description": "删除用户"
+					},
+					"response": []
+				},
+				{
+					"name": "激活用户",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/1/activate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"1",
+								"activate"
+							]
+						},
+						"description": "激活用户账户"
+					},
+					"response": []
+				},
+				{
+					"name": "停用用户",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/users/1/deactivate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"users",
+								"1",
+								"deactivate"
+							]
+						},
+						"description": "停用用户账户"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// 全局预请求脚本",
+					"console.log('发送请求:', pm.request.url.toString());"
+				]
+			}
+		},
+		{
+			"listen": "test",
+				"script": {
+					"type": "text/javascript",
+					"exec": [
+						"// 全局测试脚本",
+						"console.log('响应状态:', pm.response.code);",
+						"console.log('响应时间:', pm.response.responseTime + 'ms');"
+					]
+				}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8123",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

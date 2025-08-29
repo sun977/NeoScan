@@ -32,6 +32,7 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 }
 
 // CreateUser 创建用户
+// UserRepository 结构体的 CreateUser 方法
 func (r *UserRepository) CreateUser(ctx context.Context, user *model.User) error {
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
@@ -95,9 +96,9 @@ func (r *UserRepository) UpdatePasswordWithVersion(ctx context.Context, userID u
 // UpdateLastLogin 更新用户最后登录时间
 func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID uint) error {
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"last_login":   time.Now(),
-		"login_count":  gorm.Expr("login_count + 1"),
-		"updated_at":   time.Now(),
+		"last_login":  time.Now(),
+		"login_count": gorm.Expr("login_count + 1"),
+		"updated_at":  time.Now(),
 	}).Error
 }
 
@@ -138,7 +139,7 @@ func (r *UserRepository) GetUserRoles(ctx context.Context, userID uint) ([]*mode
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return user.Roles, nil
 }
 
@@ -149,14 +150,14 @@ func (r *UserRepository) GetUserPermissions(ctx context.Context, userID uint) ([
 	if err != nil {
 		return nil, err
 	}
-	
+
 	permissionMap := make(map[uint]*model.Permission)
 	for _, role := range user.Roles {
 		for _, permission := range role.Permissions {
 			permissionMap[permission.ID] = &permission
 		}
 	}
-	
+
 	permissions := make([]*model.Permission, 0, len(permissionMap))
 	for _, permission := range permissionMap {
 		permissions = append(permissions, permission)
@@ -170,12 +171,12 @@ func (r *UserRepository) AssignRoleToUser(ctx context.Context, userID, roleID ui
 	if err := r.db.WithContext(ctx).First(&user, userID).Error; err != nil {
 		return err
 	}
-	
+
 	var role model.Role
 	if err := r.db.WithContext(ctx).First(&role, roleID).Error; err != nil {
 		return err
 	}
-	
+
 	return r.db.WithContext(ctx).Model(&user).Association("Roles").Append(&role)
 }
 
@@ -185,12 +186,12 @@ func (r *UserRepository) RemoveRoleFromUser(ctx context.Context, userID, roleID 
 	if err := r.db.WithContext(ctx).First(&user, userID).Error; err != nil {
 		return err
 	}
-	
+
 	var role model.Role
 	if err := r.db.WithContext(ctx).First(&role, roleID).Error; err != nil {
 		return err
 	}
-	
+
 	return r.db.WithContext(ctx).Model(&user).Association("Roles").Delete(&role)
 }
 
@@ -198,11 +199,11 @@ func (r *UserRepository) RemoveRoleFromUser(ctx context.Context, userID, roleID 
 func (r *UserRepository) ListUsers(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
 	var users []*model.User
 	var total int64
-	
+
 	if err := r.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	
+
 	err := r.db.WithContext(ctx).Offset(offset).Limit(limit).Find(&users).Error
 	return users, total, err
 }

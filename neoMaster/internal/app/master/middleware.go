@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"neomaster/internal/model"
 	"neomaster/internal/service/auth"
+
+	"github.com/gin-gonic/gin"
 )
 
 // MiddlewareManager 中间件管理器
@@ -62,7 +63,7 @@ func (m *MiddlewareManager) JWTAuthMiddleware(next http.Handler) http.Handler {
 		// 将用户信息添加到请求上下文
 		ctx := context.WithValue(r.Context(), "user_id", claims.ID)
 		ctx = context.WithValue(ctx, "username", claims.Username)
-		ctx = context.WithValue(ctx, "roles", []string{}) // User模型中没有直接的Roles字段
+		ctx = context.WithValue(ctx, "roles", []string{})       // User模型中没有直接的Roles字段
 		ctx = context.WithValue(ctx, "permissions", []string{}) // User模型中没有直接的Permissions字段
 		ctx = context.WithValue(ctx, "claims", claims)
 
@@ -176,11 +177,11 @@ func (m *MiddlewareManager) RequireActiveUser(next http.Handler) http.Handler {
 		}
 
 		// 检查用户是否处于活跃状态
-			isActive, err := m.rbacService.IsUserActive(r.Context(), uint(userID))
-			if err != nil {
-				m.writeErrorResponse(w, http.StatusInternalServerError, "failed to check user status", err)
-				return
-			}
+		isActive, err := m.rbacService.IsUserActive(r.Context(), uint(userID))
+		if err != nil {
+			m.writeErrorResponse(w, http.StatusInternalServerError, "failed to check user status", err)
+			return
+		}
 
 		if !isActive {
 			m.writeErrorResponse(w, http.StatusForbidden, "user account is inactive", nil)

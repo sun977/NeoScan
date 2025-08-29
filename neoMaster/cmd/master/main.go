@@ -20,18 +20,24 @@ func main() {
 		log.Fatalf("Failed to create app: %v", err)
 	}
 
-	// 获取Gin引擎
+	// 获取配置和Gin引擎
+	config := app.GetConfig()
 	engine := app.GetRouter().GetEngine()
 
 	// 创建HTTP服务器
+	addr := fmt.Sprintf("%s:%d", config.Server.Host, config.Server.Port)
 	server := &http.Server{
-		Addr:    ":8080",
-		Handler: engine,
+		Addr:           addr,
+		Handler:        engine,
+		ReadTimeout:    config.Server.ReadTimeout,
+		WriteTimeout:   config.Server.WriteTimeout,
+		IdleTimeout:    config.Server.IdleTimeout,
+		MaxHeaderBytes: config.Server.MaxHeaderBytes,
 	}
 
 	// 启动服务器的goroutine
 	go func() {
-		log.Println("Starting server on :8080")
+		log.Printf("Starting server on %s", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}

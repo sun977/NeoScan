@@ -43,7 +43,7 @@ database:
 
 # JWT配置
 jwt:
-  secret: "neoscan_jwt_secret"  # 通过环境变量设置
+  secret: "neoscan_jwt_secret_key_at_least_32_characters_long"  # 通过环境变量设置
   issuer: "neoscan"
   access_token_expire: 24h
   refresh_token_expire: 168h  # 7天

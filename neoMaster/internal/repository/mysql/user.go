@@ -87,9 +87,9 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *model.User) error
 // UpdatePasswordWithVersion 更新用户密码并递增密码版本号
 func (r *UserRepository) UpdatePasswordWithVersion(ctx context.Context, userID uint, passwordHash string) error {
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"password_hash": passwordHash,
-		"password_v":    gorm.Expr("password_v + 1"),
-		"updated_at":    time.Now(),
+		"password":   passwordHash,
+		"password_v": gorm.Expr("password_v + 1"),
+		"updated_at": time.Now(),
 	}).Error
 }
 

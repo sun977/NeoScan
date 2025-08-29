@@ -1,0 +1,153 @@
+# NeoScan Master 测试环境配置文件
+
+# 服务器配置
+server:
+  host: "127.0.0.1"
+  port: 8081
+  mode: "test"
+  read_timeout: 10s
+  write_timeout: 10s
+  idle_timeout: 30s
+  max_header_bytes: 1048576
+
+# 数据库配置
+database:
+  mysql:
+    host: "localhost"
+    port: 3306
+    username: "root"
+    password: ""  # 通过环境变量设置
+    database: "neoscan_test"
+    charset: "utf8mb4"
+    parse_time: true
+    loc: "Local"
+    max_idle_conns: 5
+    max_open_conns: 20
+    conn_max_lifetime: 1800s
+    conn_max_idle_time: 900s
+    log_level: "warn"
+  
+  redis:
+    host: "localhost"
+    port: 6379
+    password: ""
+    database: 1  # 使用不同的数据库
+    pool_size: 5
+    min_idle_conns: 2
+    dial_timeout: 3s
+    read_timeout: 2s
+    write_timeout: 2s
+    pool_timeout: 3s
+    idle_timeout: 180s
+
+# JWT配置
+jwt:
+  secret: "test_jwt_secret_key_for_testing_only"
+  issuer: "neoscan-test"
+  access_token_expire: 1h
+  refresh_token_expire: 24h
+  algorithm: "HS256"
+
+# 日志配置
+log:
+  level: "warn"
+  format: "text"
+  output: "stdout"
+  file_path: "logs/test.log"
+  max_size: 10
+  max_backups: 2
+  max_age: 7
+  compress: false
+  caller: false
+  stack_trace: false
+
+# 安全配置
+security:
+  cors:
+    allow_origins: ["http://localhost:3000", "http://127.0.0.1:3000"]
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers: ["*"]
+    expose_headers: ["Content-Length"]
+    allow_credentials: true
+    max_age: 1h
+  
+  rate_limit:
+    enabled: false  # 测试环境关闭限流
+    requests_per_minute: 1000
+    burst: 2000
+  
+  csrf:
+    enabled: false
+    secret: "test_csrf_secret"
+
+# 会话配置
+session:
+  store: "memory"  # 测试环境使用内存存储
+  key: "neoscan_test_session"
+  max_age: 3600
+  secure: false
+  http_only: true
+  same_site: "lax"
+
+# WebSocket配置
+websocket:
+  enabled: true
+  path: "/ws"
+  read_buffer_size: 512
+  write_buffer_size: 512
+  check_origin: false
+  heartbeat_interval: 10s
+  max_connections: 100
+
+# 文件上传配置
+upload:
+  max_size: 1048576  # 1MB
+  allowed_types: [".jpg", ".png", ".txt"]
+  upload_path: "test_uploads/"
+  url_prefix: "/test_uploads/"
+
+# 邮件配置
+mail:
+  enabled: false  # 测试环境关闭邮件
+  smtp_host: "localhost"
+  smtp_port: 1025  # 使用测试SMTP端口
+  username: "test@example.com"
+  password: "test_password"
+  from_email: "test@neoscan.com"
+  from_name: "NeoScan Test"
+
+# 监控配置
+monitoring:
+  metrics:
+    enabled: false  # 测试环境关闭监控
+    path: "/metrics"
+  
+  health:
+    enabled: true
+    path: "/health"
+  
+  pprof:
+    enabled: false
+    path: "/debug/pprof"
+
+# 应用配置
+app:
+  name: "NeoScan Master Test"
+  version: "1.0.0-test"
+  environment: "test"
+  debug: false
+  timezone: "UTC"
+  language: "en-US"
+  
+  # 功能开关
+  features:
+    user_registration: true
+    email_verification: false
+    password_reset: false
+    two_factor_auth: false
+    audit_log: false
+    api_documentation: true
+
+# 第三方服务配置
+third_party:
+  placeholder: true

@@ -48,18 +48,24 @@ type UserRole struct {
 }
 
 // TableName 指定用户表名
+// User 结构体的方法 - 指定用户表名
 func (User) TableName() string {
 	return "users"
 }
 
 // TableName 指定用户角色关联表名
+// UserRole 结构体的方法 - 指定用户角色关联表名
 func (UserRole) TableName() string {
 	return "user_roles"
 }
 
 // HasRole 检查用户是否拥有指定角色
+// User 结构体的方法 - 检查用户是否拥有指定角色
+// 指针接受者  方法名   参数列表  返回值列表
 func (u *User) HasRole(roleName string) bool {
+	// 遍历用户拥有的角色，_ 表示忽略索引，role 表示角色对象，u.Roles 表示用户拥有的角色列表
 	for _, role := range u.Roles {
+		// Role 结构体中有 Name 字段，这里是对比输入和角色名称是否一致
 		if role.Name == roleName {
 			return true
 		}
@@ -68,6 +74,7 @@ func (u *User) HasRole(roleName string) bool {
 }
 
 // HasPermission 检查用户是否拥有指定权限
+// User 结构体的方法 - 检查用户是否拥有指定权限
 func (u *User) HasPermission(permissionName string) bool {
 	for _, role := range u.Roles {
 		for _, permission := range role.Permissions {
@@ -80,6 +87,7 @@ func (u *User) HasPermission(permissionName string) bool {
 }
 
 // IsActive 检查用户是否处于活跃状态
+// User 结构体的方法 - 检查用户是否处于活跃状态
 func (u *User) IsActive() bool {
 	return u.Status == UserStatusEnabled
 }

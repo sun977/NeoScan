@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"neomaster/internal/model"
 	"neomaster/internal/service/auth"
+
+	"github.com/gin-gonic/gin"
 )
 
 // RefreshHandler 令牌刷新接口处理器
@@ -139,8 +140,8 @@ func (h *RefreshHandler) CheckTokenExpiry(w http.ResponseWriter, r *http.Request
 	// 构建过期信息响应
 	expiryInfo := map[string]interface{}{
 		"remaining_seconds": int64(remainingTime.Seconds()),
-		"remaining_time": remainingTime.String(),
-		"is_expiring_soon": remainingTime.Minutes() < 5, // 5分钟内过期算即将过期
+		"remaining_time":    remainingTime.String(),
+		"is_expiring_soon":  remainingTime.Minutes() < 5, // 5分钟内过期算即将过期
 	}
 
 	// 返回成功响应

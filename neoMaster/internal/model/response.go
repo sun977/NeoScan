@@ -40,6 +40,7 @@ type UserInfo struct {
 	CreatedAt   time.Time  `json:"created_at"`    // 创建时间
 	Roles       []string   `json:"roles"`         // 用户角色名称列表
 	Permissions []string   `json:"permissions"`   // 用户权限名称列表
+	Remark      string     `json:"remark"`        // 备注
 }
 
 // ValidationError 验证错误结构

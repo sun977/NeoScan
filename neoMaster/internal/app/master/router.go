@@ -1,0 +1,353 @@
+package master
+
+import (
+	"net/http"
+	"time"
+
+	authHandler "neomaster/internal/handler/auth"
+	authPkg "neomaster/internal/pkg/auth"
+	"neomaster/internal/repository/mysql"
+	redisRepo "neomaster/internal/repository/redis"
+	authService "neomaster/internal/service/auth"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
+)
+
+// Router 路由管理器
+type Router struct {
+	engine            *gin.Engine
+	middlewareManager *MiddlewareManager
+	loginHandler      *authHandler.LoginHandler
+	logoutHandler     *authHandler.LogoutHandler
+	refreshHandler    *authHandler.RefreshHandler
+}
+
+// NewRouter 创建路由管理器实例
+func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router {
+	// 初始化工具包
+	jwtManager := authPkg.NewJWTManager(jwtSecret, time.Hour, 24*time.Hour)
+	passwordConfig := &authPkg.PasswordConfig{
+		Memory:      64 * 1024, // 64MB
+		Iterations:  3,
+		Parallelism: 2,
+		SaltLength:  32,
+		KeyLength:   32,
+	}
+	passwordManager := authPkg.NewPasswordManager(passwordConfig)
+	userRepo := mysql.NewUserRepository(db) // 注意：这里需要修改为使用sqlx.DB
+	sessionRepo := redisRepo.NewSessionRepository(redisClient)
+
+	// 初始化服务
+	jwtService := authService.NewJWTService(jwtManager, userRepo)
+	rbacService := authService.NewRBACService(userRepo)
+	_ = authService.NewPasswordService(userRepo, sessionRepo, passwordManager, 24*time.Hour) // 暂时不使用
+	sessionService := authService.NewSessionService(userRepo, passwordManager, jwtService, rbacService)
+
+	// 初始化中间件管理器（传入jwtService用于密码版本验证）
+	middlewareManager := NewMiddlewareManager(sessionService, rbacService, jwtService)
+
+	// 初始化处理器
+	loginHandler := authHandler.NewLoginHandler(sessionService)
+	logoutHandler := authHandler.NewLogoutHandler(sessionService)
+	refreshHandler := authHandler.NewRefreshHandler(sessionService)
+
+	// 创建Gin引擎
+	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
+	engine := gin.New()
+
+	return &Router{
+		engine:            engine,
+		middlewareManager: middlewareManager,
+		loginHandler:      loginHandler,
+		logoutHandler:     logoutHandler,
+		refreshHandler:    refreshHandler,
+	}
+}
+
+// SetupRoutes 设置路由
+func (r *Router) SetupRoutes() {
+	// 设置全局中间件
+	r.engine.Use(r.middlewareManager.GinCORSMiddleware())
+	r.engine.Use(r.middlewareManager.GinSecurityHeadersMiddleware())
+	r.engine.Use(r.middlewareManager.GinLoggingMiddleware())
+	r.engine.Use(r.middlewareManager.GinRateLimitMiddleware())
+
+	// API版本路由组
+	api := r.engine.Group("/api")
+	v1 := api.Group("/v1")
+
+	// 公共路由（不需要认证）
+	r.setupPublicRoutes(v1)
+
+	// 认证路由（需要JWT认证）
+	r.setupAuthRoutes(v1)
+
+	// 管理员路由（需要管理员权限）
+	r.setupAdminRoutes(v1)
+
+	// 健康检查路由
+	r.setupHealthRoutes(api)
+}
+
+// setupPublicRoutes 设置公共路由
+func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
+	// 认证相关公共路由
+	auth := v1.Group("/auth")
+	{
+		// 用户登录
+		auth.POST("/login", r.loginHandler.GinLogin)
+		// 获取登录表单页面（可选）
+		auth.GET("/login", r.loginHandler.GinGetLoginForm)
+		// 刷新令牌
+		auth.POST("/refresh", r.refreshHandler.GinRefreshToken)
+		// 从请求头刷新令牌
+		auth.POST("/refresh-header", r.refreshHandler.GinRefreshTokenFromHeader)
+		// 检查令牌过期时间
+		auth.POST("/check-expiry", r.refreshHandler.GinCheckTokenExpiry)
+	}
+}
+
+// setupAuthRoutes 设置认证路由
+func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
+	// 认证相关路由（需要JWT认证）
+	auth := v1.Group("/auth")
+	auth.Use(r.middlewareManager.GinJWTAuthMiddleware())
+	auth.Use(r.middlewareManager.GinUserActiveMiddleware())
+	{
+		// 用户登出
+		auth.POST("/logout", r.logoutHandler.GinLogout)
+		// 用户全部登出
+		auth.POST("/logout-all", r.logoutHandler.GinLogoutAll)
+	}
+
+	// 用户相关路由（需要JWT认证和用户激活状态检查）
+	user := v1.Group("/user")
+	user.Use(r.middlewareManager.GinJWTAuthMiddleware())
+	user.Use(r.middlewareManager.GinUserActiveMiddleware())
+	{
+		// 获取当前用户信息
+		user.GET("/profile", r.getUserProfile)
+		// 修改用户密码
+		user.POST("/change-password", r.changePassword)
+		// 获取用户权限
+		user.GET("/permissions", r.getUserPermissions)
+		// 获取用户角色
+		user.GET("/roles", r.getUserRoles)
+	}
+}
+
+// setupAdminRoutes 设置管理员路由
+func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
+	// 管理员路由组（需要JWT认证、用户激活状态检查和管理员权限）
+	admin := v1.Group("/admin")
+	admin.Use(r.middlewareManager.GinJWTAuthMiddleware())
+	admin.Use(r.middlewareManager.GinUserActiveMiddleware())
+	admin.Use(r.middlewareManager.GinAdminRoleMiddleware())
+
+	// 用户管理
+	userMgmt := admin.Group("/users")
+	{
+		userMgmt.GET("/list", r.listUsers)
+		userMgmt.POST("/create", r.createUser)
+		userMgmt.GET("/:id", r.getUserByID)
+		userMgmt.PUT("/:id", r.updateUser)
+		userMgmt.DELETE("/:id", r.deleteUser)
+		userMgmt.POST("/:id/activate", r.activateUser)
+		userMgmt.POST("/:id/deactivate", r.deactivateUser)
+	}
+
+	// 角色管理
+	roleMgmt := admin.Group("/roles")
+	{
+		roleMgmt.GET("/list", r.listRoles)
+		roleMgmt.POST("/create", r.createRole)
+		roleMgmt.GET("/:id", r.getRoleByID)
+		roleMgmt.PUT("/:id", r.updateRole)
+		roleMgmt.DELETE("/:id", r.deleteRole)
+	}
+
+	// 权限管理
+	permMgmt := admin.Group("/permissions")
+	{
+		permMgmt.GET("/list", r.listPermissions)
+		permMgmt.POST("/create", r.createPermission)
+		permMgmt.GET("/:id", r.getPermissionByID)
+		permMgmt.PUT("/:id", r.updatePermission)
+		permMgmt.DELETE("/:id", r.deletePermission)
+	}
+
+	// 会话管理
+	sessionMgmt := admin.Group("/sessions")
+	{
+		sessionMgmt.GET("/list", r.listActiveSessions)
+		sessionMgmt.POST("/:sessionId/revoke", r.revokeSession)
+		sessionMgmt.POST("/user/:userId/revoke-all", r.revokeAllUserSessions)
+	}
+}
+
+// setupHealthRoutes 设置健康检查路由
+func (r *Router) setupHealthRoutes(api *gin.RouterGroup) {
+	// 健康检查
+	api.GET("/health", r.healthCheck)
+	// 就绪检查
+	api.GET("/ready", r.readinessCheck)
+	// 存活检查
+	api.GET("/live", r.livenessCheck)
+}
+
+// GetEngine 获取Gin引擎实例
+func (r *Router) GetEngine() *gin.Engine {
+	return r.engine
+}
+
+// 处理器方法（这些方法需要在后续实现）
+
+// 用户相关处理器
+func (r *Router) getUserProfile(c *gin.Context) {
+	// TODO: 实现获取用户资料
+	c.JSON(http.StatusOK, gin.H{"message": "get user profile - not implemented yet"})
+}
+
+func (r *Router) changePassword(c *gin.Context) {
+	// TODO: 实现修改密码
+	c.JSON(http.StatusOK, gin.H{"message": "change password - not implemented yet"})
+}
+
+func (r *Router) getUserPermissions(c *gin.Context) {
+	// TODO: 实现获取用户权限
+	c.JSON(http.StatusOK, gin.H{"message": "get user permissions - not implemented yet"})
+}
+
+func (r *Router) getUserRoles(c *gin.Context) {
+	// TODO: 实现获取用户角色
+	c.JSON(http.StatusOK, gin.H{"message": "get user roles - not implemented yet"})
+}
+
+// 管理员用户管理处理器
+func (r *Router) listUsers(c *gin.Context) {
+	// TODO: 实现用户列表
+	c.JSON(http.StatusOK, gin.H{"message": "list users - not implemented yet"})
+}
+
+func (r *Router) createUser(c *gin.Context) {
+	// TODO: 实现创建用户
+	c.JSON(http.StatusOK, gin.H{"message": "create user - not implemented yet"})
+}
+
+func (r *Router) getUserByID(c *gin.Context) {
+	// TODO: 实现根据ID获取用户
+	c.JSON(http.StatusOK, gin.H{"message": "get user by id - not implemented yet"})
+}
+
+func (r *Router) updateUser(c *gin.Context) {
+	// TODO: 实现更新用户
+	c.JSON(http.StatusOK, gin.H{"message": "update user - not implemented yet"})
+}
+
+func (r *Router) deleteUser(c *gin.Context) {
+	// TODO: 实现删除用户
+	c.JSON(http.StatusOK, gin.H{"message": "delete user - not implemented yet"})
+}
+
+func (r *Router) activateUser(c *gin.Context) {
+	// TODO: 实现激活用户
+	c.JSON(http.StatusOK, gin.H{"message": "activate user - not implemented yet"})
+}
+
+func (r *Router) deactivateUser(c *gin.Context) {
+	// TODO: 实现停用用户
+	c.JSON(http.StatusOK, gin.H{"message": "deactivate user - not implemented yet"})
+}
+
+// 角色管理处理器
+func (r *Router) listRoles(c *gin.Context) {
+	// TODO: 实现角色列表
+	c.JSON(http.StatusOK, gin.H{"message": "list roles - not implemented yet"})
+}
+
+func (r *Router) createRole(c *gin.Context) {
+	// TODO: 实现创建角色
+	c.JSON(http.StatusOK, gin.H{"message": "create role - not implemented yet"})
+}
+
+func (r *Router) getRoleByID(c *gin.Context) {
+	// TODO: 实现根据ID获取角色
+	c.JSON(http.StatusOK, gin.H{"message": "get role by id - not implemented yet"})
+}
+
+func (r *Router) updateRole(c *gin.Context) {
+	// TODO: 实现更新角色
+	c.JSON(http.StatusOK, gin.H{"message": "update role - not implemented yet"})
+}
+
+func (r *Router) deleteRole(c *gin.Context) {
+	// TODO: 实现删除角色
+	c.JSON(http.StatusOK, gin.H{"message": "delete role - not implemented yet"})
+}
+
+// 权限管理处理器
+func (r *Router) listPermissions(c *gin.Context) {
+	// TODO: 实现权限列表
+	c.JSON(http.StatusOK, gin.H{"message": "list permissions - not implemented yet"})
+}
+
+func (r *Router) createPermission(c *gin.Context) {
+	// TODO: 实现创建权限
+	c.JSON(http.StatusOK, gin.H{"message": "create permission - not implemented yet"})
+}
+
+func (r *Router) getPermissionByID(c *gin.Context) {
+	// TODO: 实现根据ID获取权限
+	c.JSON(http.StatusOK, gin.H{"message": "get permission by id - not implemented yet"})
+}
+
+func (r *Router) updatePermission(c *gin.Context) {
+	// TODO: 实现更新权限
+	c.JSON(http.StatusOK, gin.H{"message": "update permission - not implemented yet"})
+}
+
+func (r *Router) deletePermission(c *gin.Context) {
+	// TODO: 实现删除权限
+	c.JSON(http.StatusOK, gin.H{"message": "delete permission - not implemented yet"})
+}
+
+// 会话管理处理器
+func (r *Router) listActiveSessions(c *gin.Context) {
+	// TODO: 实现活跃会话列表
+	c.JSON(http.StatusOK, gin.H{"message": "list active sessions - not implemented yet"})
+}
+
+func (r *Router) revokeSession(c *gin.Context) {
+	// TODO: 实现撤销会话
+	c.JSON(http.StatusOK, gin.H{"message": "revoke session - not implemented yet"})
+}
+
+func (r *Router) revokeAllUserSessions(c *gin.Context) {
+	// TODO: 实现撤销用户所有会话
+	c.JSON(http.StatusOK, gin.H{"message": "revoke all user sessions - not implemented yet"})
+}
+
+// 健康检查处理器
+func (r *Router) healthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "healthy",
+		"timestamp": c.GetHeader("Date"),
+	})
+}
+
+func (r *Router) readinessCheck(c *gin.Context) {
+	// TODO: 检查依赖服务（数据库、Redis等）是否就绪
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "ready",
+		"timestamp": c.GetHeader("Date"),
+	})
+}
+
+func (r *Router) livenessCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "alive",
+		"timestamp": c.GetHeader("Date"),
+	})
+}

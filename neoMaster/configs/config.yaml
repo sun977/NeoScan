@@ -4,7 +4,7 @@
 # 服务器配置
 server:
   host: "0.0.0.0"
-  port: 8080
+  port: 8123
   mode: "debug"  # debug, release, test
   read_timeout: 30s
   write_timeout: 30s
@@ -17,7 +17,7 @@ database:
     host: "localhost"
     port: 3306
     username: "root"
-    password: ""  # 通过环境变量设置
+    password: "ROOT"  # 通过环境变量设置
     database: "neoscan_dev"
     charset: "utf8mb4"
     parse_time: true
@@ -43,7 +43,7 @@ database:
 
 # JWT配置
 jwt:
-  secret: ""  # 通过环境变量设置
+  secret: "neoscan_jwt_secret"  # 通过环境变量设置
   issuer: "neoscan"
   access_token_expire: 24h
   refresh_token_expire: 168h  # 7天
@@ -83,7 +83,7 @@ security:
 
 # 会话配置
 session:
-  store: "redis"  # memory, redis
+  store: "memory"  # memory, redis   默认memory
   key: "neoscan_session"
   max_age: 86400  # 24小时
   secure: false

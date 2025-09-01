@@ -291,7 +291,7 @@ func (m *MiddlewareManager) writeErrorResponse(w http.ResponseWriter, statusCode
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
 		Code:    statusCode,
-		Success: false,
+		Status:  "error",
 		Message: message,
 	}
 
@@ -381,7 +381,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		accessToken, err := m.extractTokenFromGinHeader(c)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "missing or invalid authorization header",
 				"error":   err.Error(),
 			})
@@ -393,7 +393,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		claims, err := m.sessionService.ValidateSession(c.Request.Context(), accessToken)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "invalid or expired token",
 				"error":   err.Error(),
 			})
@@ -410,7 +410,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 			// 暂时跳过密码版本验证，允许请求继续
 		} else if !validVersion {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "token version mismatch, please login again",
 			})
 			c.Abort()
@@ -436,7 +436,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 		userID, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "user not authenticated",
 			})
 			c.Abort()
@@ -448,7 +448,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 		userIDUint, ok := userID.(uint)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "invalid user ID type",
 			})
 			c.Abort()
@@ -457,7 +457,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 		isActive, err := m.rbacService.IsUserActive(c.Request.Context(), userIDUint)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "failed to check user status",
 				"error":   err.Error(),
 			})
@@ -467,7 +467,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 
 		if !isActive {
 			c.JSON(http.StatusForbidden, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "user account is inactive",
 			})
 			c.Abort()
@@ -486,7 +486,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 		userID, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "user not authenticated",
 			})
 			c.Abort()
@@ -498,7 +498,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 		userIDUint, ok := userID.(uint)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "invalid user ID type",
 			})
 			c.Abort()
@@ -507,7 +507,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 		hasRole, err := m.rbacService.CheckRole(c.Request.Context(), userIDUint, "admin")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "failed to check role",
 				"error":   err.Error(),
 			})
@@ -517,7 +517,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 
 		if !hasRole {
 			c.JSON(http.StatusForbidden, gin.H{
-				"success": false,
+				"status":  "error",
 				"message": "insufficient role privileges",
 			})
 			c.Abort()

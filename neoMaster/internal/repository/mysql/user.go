@@ -1,39 +1,112 @@
 /**
- * 数据访问层:用户数据访问层
+ * 用户仓库层:用户数据访问和业务逻辑层
  * @author: sun977
  * @date: 2025.08.29
- * @description: 用户数据访问层
+ * @description: 用户数据访问和业务逻辑处理
  * @func:
- * 	1.创建用户
- * 	2.根据ID获取用户
- * 	3.根据用户名获取用户
+ * 	1.创建用户（包含密码哈希等业务逻辑）
+ * 	2.更新用户
+ * 	3.删除用户
+ * 	4.获取用户信息
+ * 	5.用户认证相关操作
  */
 package mysql
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"neomaster/internal/model"
+	"neomaster/internal/pkg/auth"
 
 	"gorm.io/gorm"
 )
 
-// UserRepository 用户数据访问层
+// UserRepository 用户仓库结构体
+// 负责处理用户相关的数据访问和业务逻辑，包括密码哈希等安全操作
 type UserRepository struct {
-	db *gorm.DB
+	db              *gorm.DB              // 数据库连接
+	passwordManager *auth.PasswordManager // 密码管理器
 }
 
-// NewUserRepository 创建用户数据访问层实例
-func NewUserRepository(db *gorm.DB) *UserRepository {
+// NewUserRepository 创建用户仓库实例
+// 注入数据库连接和密码管理器，支持完整的用户业务逻辑处理
+func NewUserRepository(db *gorm.DB, passwordManager *auth.PasswordManager) *UserRepository {
 	return &UserRepository{
-		db: db,
+		db:              db,
+		passwordManager: passwordManager,
 	}
 }
 
-// CreateUser 创建用户
-// UserRepository 结构体的 CreateUser 方法
-func (r *UserRepository) CreateUser(ctx context.Context, user *model.User) error {
+// SetPasswordManager 设置密码管理器（用于测试或动态配置）
+func (r *UserRepository) SetPasswordManager(passwordManager *auth.PasswordManager) {
+	r.passwordManager = passwordManager
+}
+
+// CreateUser 创建用户（包含业务逻辑）
+// 处理用户创建的完整流程，包括参数验证、重复检查、密码哈希等
+func (r *UserRepository) CreateUser(ctx context.Context, req *model.CreateUserRequest) (*model.User, error) {
+	// 参数验证
+	if req == nil {
+		return nil, errors.New("创建用户请求不能为空")
+	}
+
+	if req.Username == "" {
+		return nil, errors.New("用户名不能为空")
+	}
+
+	if req.Email == "" {
+		return nil, errors.New("邮箱不能为空")
+	}
+
+	if req.Password == "" {
+		return nil, errors.New("密码不能为空")
+	}
+
+	// 检查用户名是否已存在
+	existingUser, err := r.GetUserByUsername(ctx, req.Username)
+	if err == nil && existingUser != nil {
+		return nil, errors.New("用户名已存在")
+	}
+
+	// 检查邮箱是否已存在
+	existingUser, err = r.GetUserByEmail(ctx, req.Email)
+	if err == nil && existingUser != nil {
+		return nil, errors.New("邮箱已存在")
+	}
+
+	// 哈希密码（业务逻辑处理）
+	hashedPassword, err := r.passwordManager.HashPassword(req.Password)
+	if err != nil {
+		return nil, fmt.Errorf("密码哈希失败: %w", err)
+	}
+
+	// 创建用户模型
+	user := &model.User{
+		Username:  req.Username,
+		Email:     req.Email,
+		Password:  hashedPassword, // 使用哈希后的密码
+		Status:    model.UserStatusEnabled,
+		PasswordV: 1, // 设置密码版本
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// 存储到数据库
+	err = r.db.WithContext(ctx).Create(user).Error
+	if err != nil {
+		return nil, fmt.Errorf("创建用户失败: %w", err)
+	}
+
+	return user, nil
+}
+
+// CreateUserDirect 直接创建用户（仅用于内部调用，不包含业务逻辑验证）
+// 主要用于测试或特殊场景，密码应该已经被哈希处理
+func (r *UserRepository) CreateUserDirect(ctx context.Context, user *model.User) error {
+	// 仅负责数据存储，不进行业务逻辑处理
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 	return r.db.WithContext(ctx).Create(user).Error
@@ -45,7 +118,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uint) (*model.User,
 	err := r.db.WithContext(ctx).First(&user, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil
+			return nil, fmt.Errorf("用户不存在")
 		}
 		return nil, err
 	}
@@ -58,7 +131,7 @@ func (r *UserRepository) GetUserByUsername(ctx context.Context, username string)
 	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil
+			return nil, fmt.Errorf("用户不存在")
 		}
 		return nil, err
 	}
@@ -71,7 +144,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil
+			return nil, fmt.Errorf("用户不存在")
 		}
 		return nil, err
 	}
@@ -95,10 +168,11 @@ func (r *UserRepository) UpdatePasswordWithVersion(ctx context.Context, userID u
 
 // UpdateLastLogin 更新用户最后登录时间
 func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID uint) error {
+	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"last_login":  time.Now(),
-		"login_count": gorm.Expr("login_count + 1"),
-		"updated_at":  time.Now(),
+		"last_login_at": now,
+		"last_login_ip": "", // 这里可以传入IP参数，暂时设为空
+		"updated_at":    now,
 	}).Error
 }
 
@@ -116,7 +190,14 @@ func (r *UserRepository) IncrementPasswordVersion(ctx context.Context, userID ui
 
 // DeleteUser 软删除用户
 func (r *UserRepository) DeleteUser(ctx context.Context, userID uint) error {
-	return r.db.WithContext(ctx).Delete(&model.User{}, userID).Error
+	result := r.db.WithContext(ctx).Delete(&model.User{}, userID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // GetUserWithRolesAndPermissions 获取用户及其角色和权限
@@ -213,4 +294,179 @@ func (r *UserRepository) UserExists(ctx context.Context, username, email string)
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.User{}).Where("username = ? OR email = ?", username, email).Count(&count).Error
 	return count > 0, err
+}
+
+// ===== 业务逻辑方法（原UserService方法） =====
+
+// UpdateUserWithBusinessLogic 更新用户信息（包含业务逻辑）
+// 处理用户更新的完整流程，包括参数验证、重复检查、密码哈希等
+func (r *UserRepository) UpdateUserWithBusinessLogic(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+	// 参数验证
+	if userID == 0 {
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	if req == nil {
+		return nil, errors.New("更新用户请求不能为空")
+	}
+
+	// 获取现有用户
+	user, err := r.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	// 更新字段
+	if req.Email != "" && req.Email != user.Email {
+		// 检查新邮箱是否已存在
+		existingUser, err := r.GetUserByEmail(ctx, req.Email)
+		if err == nil && existingUser != nil && existingUser.ID != userID {
+			return nil, errors.New("邮箱已存在")
+		}
+		user.Email = req.Email
+	}
+
+	if req.Status != nil {
+		user.Status = *req.Status
+	}
+
+	// 如果需要更新密码
+	if req.Password != "" {
+		hashedPassword, err := r.passwordManager.HashPassword(req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("密码哈希失败: %w", err)
+		}
+		user.Password = hashedPassword
+		user.PasswordV++ // 增加密码版本
+	}
+
+	user.UpdatedAt = time.Now()
+
+	// 更新到数据库
+	err = r.UpdateUser(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("更新用户失败: %w", err)
+	}
+
+	return user, nil
+}
+
+// DeleteUserWithBusinessLogic 删除用户（包含业务逻辑）
+// 处理用户删除的完整流程，包括参数验证、存在性检查等
+func (r *UserRepository) DeleteUserWithBusinessLogic(ctx context.Context, userID uint) error {
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+
+	// 检查用户是否存在
+	user, err := r.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return errors.New("用户不存在")
+	}
+
+	// 调用数据层删除用户
+	return r.DeleteUser(ctx, userID)
+}
+
+// GetUserByIDWithBusinessLogic 根据ID获取用户（包含业务逻辑验证）
+func (r *UserRepository) GetUserByIDWithBusinessLogic(ctx context.Context, userID uint) (*model.User, error) {
+	if userID == 0 {
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	return r.GetUserByID(ctx, userID)
+}
+
+// GetUserByUsernameWithBusinessLogic 根据用户名获取用户（包含业务逻辑验证）
+func (r *UserRepository) GetUserByUsernameWithBusinessLogic(ctx context.Context, username string) (*model.User, error) {
+	if username == "" {
+		return nil, errors.New("用户名不能为空")
+	}
+
+	return r.GetUserByUsername(ctx, username)
+}
+
+// GetUserByEmailWithBusinessLogic 根据邮箱获取用户（包含业务逻辑验证）
+func (r *UserRepository) GetUserByEmailWithBusinessLogic(ctx context.Context, email string) (*model.User, error) {
+	if email == "" {
+		return nil, errors.New("邮箱不能为空")
+	}
+
+	return r.GetUserByEmail(ctx, email)
+}
+
+// ListUsersWithBusinessLogic 获取用户列表（包含业务逻辑验证）
+func (r *UserRepository) ListUsersWithBusinessLogic(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
+	if offset < 0 {
+		offset = 0
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 20 // 默认每页20条
+	}
+
+	return r.ListUsers(ctx, offset, limit)
+}
+
+// ChangePassword 修改密码（包含完整的业务逻辑）
+// 处理密码修改的完整流程，包括原密码验证、新密码哈希、版本更新等
+func (r *UserRepository) ChangePassword(ctx context.Context, userID uint, oldPassword, newPassword string) error {
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+
+	if oldPassword == "" {
+		return errors.New("原密码不能为空")
+	}
+
+	if newPassword == "" {
+		return errors.New("新密码不能为空")
+	}
+
+	// 获取用户信息
+	user, err := r.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return errors.New("用户不存在")
+	}
+
+	// 验证原密码
+	valid, err := r.passwordManager.VerifyPassword(oldPassword, user.Password)
+	if err != nil {
+		return fmt.Errorf("密码验证失败: %w", err)
+	}
+
+	if !valid {
+		return errors.New("原密码错误")
+	}
+
+	// 哈希新密码
+	hashedPassword, err := r.passwordManager.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("新密码哈希失败: %w", err)
+	}
+
+	// 更新密码和版本
+	user.Password = hashedPassword
+	user.PasswordV++
+	user.UpdatedAt = time.Now()
+
+	// 调用数据层更新
+	err = r.UpdateUser(ctx, user)
+	if err != nil {
+		return fmt.Errorf("更新密码失败: %w", err)
+	}
+
+	return nil
 }

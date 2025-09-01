@@ -152,16 +152,16 @@ func (s *JWTService) RefreshTokens(ctx context.Context, refreshToken string) (*a
 		return nil, err
 	}
 
-	// 第二步：从刷新令牌中提取用户ID
-	// 刷新令牌的Subject字段包含用户ID信息
-	userID, err := s.jwtManager.GetUserIDFromToken(refreshToken)
+	// 第二步：从刷新令牌中提取用户名
+	// 刷新令牌的Subject字段包含用户名信息
+	username, err := s.jwtManager.GetUsernameFromRefreshToken(refreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user ID from token: %w", err)
+		return nil, fmt.Errorf("failed to get username from token: %w", err)
 	}
 
-	// 第三步：根据用户ID获取最新的用户信息
+	// 第三步：根据用户名获取最新的用户信息
 	// 这里需要查询数据库确保用户仍然存在且状态正常
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	user, err := s.userRepo.GetUserByUsername(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -393,6 +393,49 @@ func (s *JWTService) ValidateUserRole(ctx context.Context, userID uint, roleName
 
 	// 没有找到匹配的角色，返回false
 	return false, nil
+}
+
+// ValidateUserRoleFromToken 从令牌中验证用户是否具有特定角色
+// 这是一个便捷方法，直接从JWT令牌中获取角色信息进行验证
+// 参数:
+//   - tokenString: JWT令牌字符串
+//   - roleName: 角色名称
+//
+// 返回: 是否具有该角色的布尔值和错误信息
+func (s *JWTService) ValidateUserRoleFromToken(tokenString, roleName string) (bool, error) {
+	// 验证令牌并获取声明信息
+	claims, err := s.ValidateAccessToken(tokenString)
+	if err != nil {
+		return false, err
+	}
+
+	// 检查令牌中的角色列表
+	for _, role := range claims.Roles {
+		if role == roleName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// ValidateUserPermissionFromToken 从JWT令牌验证用户权限的便捷方法
+// 这个方法提供了基于令牌的权限验证，无需预先获取用户ID
+// 参数:
+//   - tokenString: JWT访问令牌
+//   - resource: 资源名称
+//   - action: 操作名称
+//
+// 返回: 是否具有权限的布尔值和错误信息
+func (s *JWTService) ValidateUserPermissionFromToken(tokenString, resource, action string) (bool, error) {
+	// 从令牌中获取用户ID
+	userID, err := s.jwtManager.GetUserIDFromToken(tokenString)
+	if err != nil {
+		return false, fmt.Errorf("failed to get user ID from token: %w", err)
+	}
+
+	// 调用基于用户ID的权限验证方法
+	return s.ValidateUserPermission(context.Background(), userID, resource, action)
 }
 
 // ValidatePasswordVersion 验证令牌中的密码版本是否与用户当前密码版本匹配

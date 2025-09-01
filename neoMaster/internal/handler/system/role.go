@@ -21,8 +21,8 @@ func NewRoleHandler() *RoleHandler {
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	// TODO: 实现创建角色逻辑
 	c.JSON(http.StatusNotImplemented, gin.H{
-		"code":    http.StatusNotImplemented,
-		"success": false,
+		"code":   http.StatusNotImplemented,
+		"status": "error",
 		"message": "not implemented",
 	})
 }
@@ -31,8 +31,8 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 func (h *RoleHandler) GetRoles(c *gin.Context) {
 	// TODO: 实现获取角色列表逻辑
 	c.JSON(http.StatusNotImplemented, gin.H{
-		"code":    http.StatusNotImplemented,
-		"success": false,
+		"code":   http.StatusNotImplemented,
+		"status": "error",
 		"message": "not implemented",
 	})
 }
@@ -41,8 +41,8 @@ func (h *RoleHandler) GetRoles(c *gin.Context) {
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	// TODO: 实现更新角色逻辑
 	c.JSON(http.StatusNotImplemented, gin.H{
-		"code":    http.StatusNotImplemented,
-		"success": false,
+		"code":   http.StatusNotImplemented,
+		"status": "error",
 		"message": "not implemented",
 	})
 }
@@ -51,8 +51,8 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	// TODO: 实现删除角色逻辑
 	c.JSON(http.StatusNotImplemented, gin.H{
-		"code":    http.StatusNotImplemented,
-		"success": false,
+		"code":   http.StatusNotImplemented,
+		"status": "error",
 		"message": "not implemented",
 	})
 }

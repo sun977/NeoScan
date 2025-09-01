@@ -20,29 +20,49 @@ func NewUserHandler() *UserHandler {
 // CreateUser 创建用户
 func (h *UserHandler) CreateUser(c *gin.Context) {
 	// TODO: 实现创建用户逻辑
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"code":    http.StatusNotImplemented,
+		"success": false,
+		"message": "not implemented",
+	})
 }
 
 // GetUsers 获取用户列表
 func (h *UserHandler) GetUsers(c *gin.Context) {
 	// TODO: 实现获取用户列表逻辑
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"code":    http.StatusNotImplemented,
+		"success": false,
+		"message": "not implemented",
+	})
 }
 
 // GetUser 获取单个用户
 func (h *UserHandler) GetUser(c *gin.Context) {
 	// TODO: 实现获取单个用户逻辑
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"code":    http.StatusNotImplemented,
+		"success": false,
+		"message": "not implemented",
+	})
 }
 
 // UpdateUser 更新用户
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	// TODO: 实现更新用户逻辑
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"code":    http.StatusNotImplemented,
+		"success": false,
+		"message": "not implemented",
+	})
 }
 
 // DeleteUser 删除用户
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	// TODO: 实现删除用户逻辑
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"code":    http.StatusNotImplemented,
+		"success": false,
+		"message": "not implemented",
+	})
 }

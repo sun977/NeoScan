@@ -290,6 +290,7 @@ func (m *MiddlewareManager) extractTokenFromHeader(r *http.Request) (string, err
 func (m *MiddlewareManager) writeErrorResponse(w http.ResponseWriter, statusCode int, message string, err error) {
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
+		Code:    statusCode,
 		Success: false,
 		Message: message,
 	}

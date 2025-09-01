@@ -204,6 +204,7 @@ func (h *RefreshHandler) getErrorStatusCode(err error) int {
 func (h *RefreshHandler) writeSuccessResponse(w http.ResponseWriter, statusCode int, message string, data interface{}) {
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
+		Code:    statusCode,
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -218,6 +219,7 @@ func (h *RefreshHandler) writeSuccessResponse(w http.ResponseWriter, statusCode 
 func (h *RefreshHandler) writeErrorResponse(w http.ResponseWriter, statusCode int, message string, err error) {
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
+		Code:    statusCode,
 		Success: false,
 		Message: message,
 		Error:   err.Error(),
@@ -234,6 +236,7 @@ func (h *RefreshHandler) GinRefreshToken(c *gin.Context) {
 	var req model.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
 			Success: false,
 			Message: "invalid request body",
 			Error:   err.Error(),
@@ -244,6 +247,7 @@ func (h *RefreshHandler) GinRefreshToken(c *gin.Context) {
 	// 验证请求参数
 	if err := h.validateRefreshRequest(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
 			Success: false,
 			Message: "validation failed",
 			Error:   err.Error(),
@@ -257,6 +261,7 @@ func (h *RefreshHandler) GinRefreshToken(c *gin.Context) {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
 		c.JSON(statusCode, model.APIResponse{
+			Code:    statusCode,
 			Success: false,
 			Message: "refresh token failed",
 			Error:   err.Error(),
@@ -266,6 +271,7 @@ func (h *RefreshHandler) GinRefreshToken(c *gin.Context) {
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
 		Success: true,
 		Message: "refresh token successful",
 		Data:    resp,
@@ -278,6 +284,7 @@ func (h *RefreshHandler) GinRefreshTokenFromHeader(c *gin.Context) {
 	refreshToken, err := h.extractTokenFromGinHeader(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
 			Success: false,
 			Message: "missing or invalid authorization header",
 			Error:   err.Error(),
@@ -296,6 +303,7 @@ func (h *RefreshHandler) GinRefreshTokenFromHeader(c *gin.Context) {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
 		c.JSON(statusCode, model.APIResponse{
+			Code:    statusCode,
 			Success: false,
 			Message: "refresh token failed",
 			Error:   err.Error(),
@@ -305,6 +313,7 @@ func (h *RefreshHandler) GinRefreshTokenFromHeader(c *gin.Context) {
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
 		Success: true,
 		Message: "refresh token successful",
 		Data:    resp,
@@ -317,6 +326,7 @@ func (h *RefreshHandler) GinCheckTokenExpiry(c *gin.Context) {
 	accessToken, err := h.extractTokenFromGinHeader(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
 			Success: false,
 			Message: "missing or invalid authorization header",
 			Error:   err.Error(),
@@ -329,6 +339,7 @@ func (h *RefreshHandler) GinCheckTokenExpiry(c *gin.Context) {
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		c.JSON(statusCode, model.APIResponse{
+			Code:    statusCode,
 			Success: false,
 			Message: "check token expiry failed",
 			Error:   err.Error(),
@@ -345,6 +356,7 @@ func (h *RefreshHandler) GinCheckTokenExpiry(c *gin.Context) {
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
 		Success: true,
 		Message: "check token expiry successful",
 		Data:    expiryInfo,

@@ -1,249 +1,425 @@
+// Package auth 提供JWT认证相关的服务层实现
+// 这个包封装了JWT令牌的生成、验证、刷新等核心业务逻辑
 package auth
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"time"
+	"context" // 用于传递请求上下文，支持超时控制和取消操作
+	"errors"  // 用于创建和处理错误信息
+	"fmt"     // 用于格式化字符串和错误信息
+	"time"    // 用于处理时间相关操作，如令牌过期时间计算
 
-	"neomaster/internal/model"
-	"neomaster/internal/pkg/auth"
-	"neomaster/internal/repository/mysql"
+	"neomaster/internal/model"            // 导入数据模型定义
+	"neomaster/internal/pkg/auth"         // 导入JWT工具包，提供底层JWT操作
+	"neomaster/internal/repository/mysql" // 导入MySQL数据访问层
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v5" // 导入JWT库，用于令牌解析和验证
 )
 
-// JWTService JWT认证服务
+// JWTService JWT认证服务结构体
+// 这是服务层的核心结构，封装了JWT相关的所有业务逻辑
+// 采用依赖注入的方式，将JWT管理器和用户仓库作为依赖项
 type JWTService struct {
-	jwtManager *auth.JWTManager
-	userRepo   *mysql.UserRepository
+	jwtManager *auth.JWTManager      // JWT管理器，负责令牌的底层操作（生成、验证、解析）
+	userRepo   *mysql.UserRepository // 用户数据仓库，负责用户相关的数据库操作
 }
 
 // NewJWTService 创建JWT服务实例
+// 这是一个构造函数，使用依赖注入模式创建JWTService实例
+// 参数:
+//   - jwtManager: JWT管理器实例，提供令牌操作的底层功能
+//   - userRepo: 用户仓库实例，提供用户数据访问功能
+//
+// 返回: JWTService指针，包含所有JWT相关的业务方法
 func NewJWTService(jwtManager *auth.JWTManager, userRepo *mysql.UserRepository) *JWTService {
 	return &JWTService{
-		jwtManager: jwtManager,
-		userRepo:   userRepo,
+		jwtManager: jwtManager, // 注入JWT管理器依赖
+		userRepo:   userRepo,   // 注入用户仓库依赖
 	}
 }
 
 // GenerateTokens 生成访问令牌和刷新令牌
+// 这是JWT服务的核心方法之一，为已认证用户生成令牌对
+// 参数:
+//   - ctx: 请求上下文，用于超时控制和请求追踪
+//   - user: 用户模型实例，包含用户基本信息
+//
+// 返回: TokenPair指针（包含access_token和refresh_token）和错误信息
 func (s *JWTService) GenerateTokens(ctx context.Context, user *model.User) (*auth.TokenPair, error) {
+	// 参数验证：确保用户对象不为空
+	// 这是防御性编程的体现，避免空指针异常
 	if user == nil {
 		return nil, errors.New("user cannot be nil")
 	}
 
-	// 获取用户角色和权限
+	// 获取用户完整信息，包括角色和权限
+	// 这里需要查询数据库获取用户的角色权限信息，用于构建JWT声明
 	userWithPerms, err := s.userRepo.GetUserWithRolesAndPermissions(ctx, user.ID)
 	if err != nil {
+		// 使用fmt.Errorf包装错误，保留原始错误信息，便于调试
 		return nil, fmt.Errorf("failed to get user permissions: %w", err)
 	}
 
 	// 构建权限列表（通过角色获取）
+	// 权限格式为 "resource:action"，如 "user:create", "post:read"
+	// 使用make([]string, 0)创建空切片，容量会自动扩展
 	permissions := make([]string, 0)
-	for _, role := range userWithPerms.Roles {
-		for _, perm := range role.Permissions {
+	for _, role := range userWithPerms.Roles { // 遍历用户的所有角色
+		for _, perm := range role.Permissions { // 遍历每个角色的所有权限
+			// 将权限格式化为 "资源:操作" 的字符串格式
+			// 这种格式便于后续权限验证时的字符串匹配
 			permissions = append(permissions, fmt.Sprintf("%s:%s", perm.Resource, perm.Action))
 		}
 	}
 
 	// 构建角色列表
+	// 预分配切片容量，避免多次内存重新分配，提高性能
 	roles := make([]string, 0, len(userWithPerms.Roles))
-	for _, role := range userWithPerms.Roles {
-		roles = append(roles, role.Name)
+	for _, role := range userWithPerms.Roles { // 遍历用户角色
+		roles = append(roles, role.Name) // 提取角色名称
 	}
 
 	// 生成令牌对
+	// 调用JWT管理器生成访问令牌和刷新令牌
+	// 传入用户的关键信息用于构建JWT声明
 	tokenPair, err := s.jwtManager.GenerateTokenPair(
-		userWithPerms.ID,
-		userWithPerms.Username,
-		userWithPerms.Email,
-		userWithPerms.PasswordV, // 添加密码版本号
-		roles,
+		userWithPerms.ID,        // 用户ID，作为JWT的Subject
+		userWithPerms.Username,  // 用户名，用于标识用户
+		userWithPerms.Email,     // 用户邮箱，额外的用户标识
+		userWithPerms.PasswordV, // 密码版本号，用于密码变更后使旧令牌失效
+		roles,                   // 用户角色列表，用于权限控制
 	)
 	if err != nil {
+		// 令牌生成失败，包装错误信息返回
 		return nil, fmt.Errorf("failed to generate token pair: %w", err)
 	}
 
+	// 成功生成令牌对，返回给调用者
 	return tokenPair, nil
 }
 
 // ValidateAccessToken 验证访问令牌
+// 这个方法用于验证客户端提供的访问令牌是否有效
+// 参数:
+//   - tokenString: 待验证的JWT令牌字符串
+//
+// 返回: JWT声明信息和错误信息
 func (s *JWTService) ValidateAccessToken(tokenString string) (*auth.JWTClaims, error) {
+	// 调用JWT管理器验证令牌的签名、过期时间等
+	// 这里会检查令牌格式、签名有效性、是否过期等
 	claims, err := s.jwtManager.ValidateAccessToken(tokenString)
 	if err != nil {
+		// 验证失败，包装错误信息，提供更明确的错误描述
 		return nil, fmt.Errorf("invalid access token: %w", err)
 	}
 
+	// 验证成功，返回解析出的JWT声明信息
 	return claims, nil
 }
 
 // ValidateRefreshToken 验证刷新令牌
+// 刷新令牌用于获取新的访问令牌，通常有更长的有效期
+// 参数:
+//   - tokenString: 待验证的刷新令牌字符串
+//
+// 返回: JWT标准声明信息和错误信息
 func (s *JWTService) ValidateRefreshToken(tokenString string) (*jwt.RegisteredClaims, error) {
+	// 验证刷新令牌的有效性
+	// 刷新令牌通常只包含标准声明，不包含用户权限等敏感信息
 	claims, err := s.jwtManager.ValidateRefreshToken(tokenString)
 	if err != nil {
+		// 刷新令牌验证失败，返回错误
 		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
+	// 验证成功，返回标准JWT声明
 	return claims, nil
 }
 
 // RefreshTokens 刷新令牌
+// 使用有效的刷新令牌获取新的访问令牌和刷新令牌对
+// 这是JWT无状态认证中延长会话的核心机制
+// 参数:
+//   - ctx: 请求上下文
+//   - refreshToken: 有效的刷新令牌字符串
+//
+// 返回: 新的令牌对和错误信息
 func (s *JWTService) RefreshTokens(ctx context.Context, refreshToken string) (*auth.TokenPair, error) {
-	// 验证刷新令牌
+	// 第一步：验证刷新令牌的有效性
+	// 检查令牌格式、签名、过期时间等
 	_, err := s.ValidateRefreshToken(refreshToken)
 	if err != nil {
+		// 刷新令牌无效，直接返回错误
 		return nil, err
 	}
 
-	// 从Subject中获取用户ID
+	// 第二步：从刷新令牌中提取用户ID
+	// 刷新令牌的Subject字段包含用户ID信息
 	userID, err := s.jwtManager.GetUserIDFromToken(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user ID from token: %w", err)
 	}
 
-	// 获取用户信息
+	// 第三步：根据用户ID获取最新的用户信息
+	// 这里需要查询数据库确保用户仍然存在且状态正常
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	// 检查用户是否存在
 	if user == nil {
 		return nil, errors.New("user not found")
 	}
 
+	// 检查用户账户状态
+	// 如果用户被禁用，则不允许刷新令牌
 	if !user.IsActive() {
 		return nil, errors.New("user is inactive")
 	}
 
-	// 生成新的令牌对
+	// 第四步：为用户生成新的令牌对
+	// 这会重新获取用户的最新角色权限信息
 	return s.GenerateTokens(ctx, user)
 }
 
 // GetUserFromToken 从令牌中获取用户信息
+// 这个方法用于根据访问令牌获取完整的用户信息
+// 常用于需要用户详细信息的业务场景
+// 参数:
+//   - ctx: 请求上下文
+//   - tokenString: 有效的访问令牌字符串
+//
+// 返回: 用户模型实例和错误信息
 func (s *JWTService) GetUserFromToken(ctx context.Context, tokenString string) (*model.User, error) {
+	// 第一步：验证访问令牌并获取声明信息
 	claims, err := s.ValidateAccessToken(tokenString)
 	if err != nil {
+		// 令牌验证失败，直接返回错误
 		return nil, err
 	}
 
+	// 第二步：根据令牌中的用户ID查询数据库获取用户信息
+	// 这确保获取的是最新的用户数据，而不是令牌中可能过时的信息
 	user, err := s.userRepo.GetUserByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	// 检查用户是否存在
+	// 用户可能在令牌有效期内被删除
 	if user == nil {
 		return nil, errors.New("user not found")
 	}
 
+	// 返回完整的用户信息
 	return user, nil
 }
 
 // CheckTokenExpiry 检查令牌是否即将过期
+// 这个方法用于提前检测令牌是否接近过期，便于客户端主动刷新令牌
+// 参数:
+//   - tokenString: 待检查的访问令牌字符串
+//   - threshold: 过期阈值时间，如果剩余时间小于此值则认为即将过期
+//
+// 返回: 是否即将过期的布尔值和错误信息
 func (s *JWTService) CheckTokenExpiry(tokenString string, threshold time.Duration) (bool, error) {
+	// 验证令牌并获取声明信息
 	claims, err := s.ValidateAccessToken(tokenString)
 	if err != nil {
+		// 令牌无效，返回错误
 		return false, err
 	}
 
-	// 检查是否在阈值时间内过期
+	// 检查令牌是否包含过期时间
+	// 标准JWT应该包含exp声明
 	if claims.ExpiresAt == nil {
 		return false, errors.New("token has no expiry time")
 	}
+
+	// 获取令牌过期时间
 	expiryTime := claims.ExpiresAt.Time
+	// 计算剩余时间，如果小于等于阈值则认为即将过期
+	// time.Until返回到指定时间的持续时间
 	return time.Until(expiryTime) <= threshold, nil
 }
 
 // RevokeToken 撤销令牌（通过黑名单机制）
+// 这个方法用于主动撤销有效的令牌，常用于用户登出或安全事件处理
+// JWT本身是无状态的，撤销需要通过黑名单机制实现
+// 参数:
+//   - ctx: 请求上下文
+//   - tokenString: 待撤销的访问令牌字符串
+//
+// 返回: 错误信息
 func (s *JWTService) RevokeToken(ctx context.Context, tokenString string) error {
+	// 首先验证令牌的有效性
 	claims, err := s.ValidateAccessToken(tokenString)
 	if err != nil {
+		// 令牌无效，无需撤销
 		return err
 	}
 
-	// 这里可以实现令牌黑名单机制
-	// 例如将令牌ID存储到Redis中，直到令牌过期
+	// TODO: 实现令牌黑名单机制
+	// 可以将令牌的JTI（JWT ID）或整个令牌存储到Redis中
+	// 设置过期时间为令牌的剩余有效时间
+	// 在验证令牌时需要检查黑名单
+	// 例如：
+	// 1. 将claims.ID存储到Redis集合中
+	// 2. 设置过期时间为claims.ExpiresAt
+	// 3. 在ValidateAccessToken中增加黑名单检查
+
 	// 暂时返回nil，表示撤销成功
+	// 实际项目中需要实现具体的黑名单逻辑
 	_ = claims
 	return nil
 }
 
 // GetTokenClaims 获取令牌声明信息
+// 这个方法用于解析令牌并获取其中包含的声明信息
+// 与ValidateAccessToken功能相同，提供更语义化的方法名
+// 参数:
+//   - tokenString: JWT令牌字符串
+//
+// 返回: JWT声明信息和错误信息
 func (s *JWTService) GetTokenClaims(tokenString string) (*auth.JWTClaims, error) {
+	// 直接调用ValidateAccessToken方法
+	// 这里复用验证逻辑，确保只有有效令牌才能获取声明信息
 	return s.ValidateAccessToken(tokenString)
 }
 
 // IsTokenValid 检查令牌是否有效
+// 这是一个便捷方法，只返回令牌是否有效的布尔值
+// 适用于只需要知道令牌有效性而不需要具体错误信息的场景
+// 参数:
+//   - tokenString: JWT令牌字符串
+//
+// 返回: 令牌是否有效的布尔值
 func (s *JWTService) IsTokenValid(tokenString string) bool {
+	// 调用ValidateAccessToken进行验证
+	// 忽略具体的错误信息，只关心是否验证成功
 	_, err := s.ValidateAccessToken(tokenString)
+	// 如果没有错误，则令牌有效
 	return err == nil
 }
 
 // GetTokenRemainingTime 获取令牌剩余有效时间
+// 这个方法用于计算令牌还有多长时间过期
+// 可用于客户端显示会话剩余时间或决定是否需要刷新令牌
+// 参数:
+//   - tokenString: JWT令牌字符串
+//
+// 返回: 剩余有效时间和错误信息
 func (s *JWTService) GetTokenRemainingTime(tokenString string) (time.Duration, error) {
+	// 验证令牌并获取声明信息
 	claims, err := s.ValidateAccessToken(tokenString)
 	if err != nil {
+		// 令牌无效，返回0时间和错误
 		return 0, err
 	}
 
+	// 检查令牌是否包含过期时间
 	if claims.ExpiresAt == nil {
 		return 0, errors.New("token has no expiry time")
 	}
+
+	// 获取过期时间并计算剩余时间
 	expiryTime := claims.ExpiresAt.Time
 	remaining := time.Until(expiryTime)
 
+	// 如果剩余时间为负数，说明令牌已过期
 	if remaining < 0 {
 		return 0, errors.New("token has expired")
 	}
 
+	// 返回剩余有效时间
 	return remaining, nil
 }
 
 // ValidateUserPermission 验证用户是否具有特定权限
+// 这个方法用于基于角色的访问控制（RBAC），检查用户是否有执行特定操作的权限
+// 参数:
+//   - ctx: 请求上下文
+//   - userID: 用户ID
+//   - resource: 资源名称，如 "user", "post", "admin"
+//   - action: 操作名称，如 "create", "read", "update", "delete"
+//
+// 返回: 是否具有权限的布尔值和错误信息
 func (s *JWTService) ValidateUserPermission(ctx context.Context, userID uint, resource, action string) (bool, error) {
+	// 从数据库获取用户的所有权限
+	// 这里会通过用户角色关联查询获取权限列表
 	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user permissions: %w", err)
 	}
 
+	// 遍历用户权限列表，查找匹配的权限
 	for _, perm := range permissions {
+		// 检查资源和操作是否完全匹配
+		// 权限验证采用精确匹配策略
 		if perm.Resource == resource && perm.Action == action {
+			// 找到匹配的权限，返回true
 			return true, nil
 		}
 	}
 
+	// 没有找到匹配的权限，返回false
 	return false, nil
 }
 
 // ValidateUserRole 验证用户是否具有特定角色
+// 这个方法用于角色验证，检查用户是否被分配了特定的角色
+// 角色验证通常用于粗粒度的权限控制
+// 参数:
+//   - ctx: 请求上下文
+//   - userID: 用户ID
+//   - roleName: 角色名称，如 "admin", "user", "moderator"
+//
+// 返回: 是否具有该角色的布尔值和错误信息
 func (s *JWTService) ValidateUserRole(ctx context.Context, userID uint, roleName string) (bool, error) {
+	// 从数据库获取用户的所有角色
 	roles, err := s.userRepo.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user roles: %w", err)
 	}
 
+	// 遍历用户角色列表，查找匹配的角色
 	for _, role := range roles {
+		// 检查角色名称是否匹配
 		if role.Name == roleName {
+			// 找到匹配的角色，返回true
 			return true, nil
 		}
 	}
 
+	// 没有找到匹配的角色，返回false
 	return false, nil
 }
 
 // ValidatePasswordVersion 验证令牌中的密码版本是否与用户当前密码版本匹配
+// 这是一个重要的安全机制，用于在用户修改密码后使所有旧令牌失效
+// 当用户修改密码时，密码版本号会递增，使得基于旧版本号的令牌失效
+// 参数:
+//   - ctx: 请求上下文
+//   - tokenString: 待验证的访问令牌字符串
+//
+// 返回: 密码版本是否匹配的布尔值和错误信息
 func (s *JWTService) ValidatePasswordVersion(ctx context.Context, tokenString string) (bool, error) {
+	// 首先验证令牌并获取声明信息
 	claims, err := s.ValidateAccessToken(tokenString)
 	if err != nil {
+		// 令牌验证失败，直接返回错误
 		return false, err
 	}
 
-	// 优先从缓存获取密码版本
+	// 从数据库获取用户当前的密码版本号
+	// 优先从缓存获取以提高性能，缓存未命中时查询数据库
 	currentPasswordV, err := s.userRepo.GetUserPasswordVersion(ctx, uint(claims.UserID))
 	if err != nil {
 		return false, fmt.Errorf("failed to get user password version: %w", err)
 	}
 
-	// 检查密码版本是否匹配
+	// 比较令牌中的密码版本与数据库中的当前版本
+	// 如果版本号不匹配，说明用户在令牌签发后修改了密码
+	// 此时应该拒绝该令牌，要求用户重新登录
 	return claims.PasswordV == currentPasswordV, nil
 }

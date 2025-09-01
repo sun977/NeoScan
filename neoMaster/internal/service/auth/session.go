@@ -55,14 +55,11 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	// 尝试通过用户名查找
 	user, err = s.userRepo.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// 如果通过用户名没找到，尝试通过邮箱查找
-	if user == nil {
+		// 如果通过用户名没找到，尝试通过邮箱查找
 		user, err = s.userRepo.GetUserByEmail(ctx, req.Username)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get user: %w", err)
+			// 用户不存在，返回统一的错误信息以保护隐私
+			return nil, errors.New("invalid username or password")
 		}
 	}
 

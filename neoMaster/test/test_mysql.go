@@ -1,20 +1,21 @@
-package main
+package test
 
 import (
 	"fmt"
 	"log"
+	"testing"
 
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/database"
 )
 
-func main() {
+func TestMySQLConnection(t *testing.T) {
 	fmt.Println("开始测试MySQL连接...")
 
 	// 加载配置
 	cfg, err := config.LoadConfig("", "development")
 	if err != nil {
-		log.Fatalf("加载配置失败: %v", err)
+		t.Fatalf("加载配置失败: %v", err)
 	}
 
 	fmt.Printf("MySQL配置信息:\n")
@@ -28,7 +29,7 @@ func main() {
 	fmt.Println("\n尝试连接MySQL数据库...")
 	db, err := database.NewMySQLConnection(&cfg.Database.MySQL)
 	if err != nil {
-		log.Fatalf("MySQL连接失败: %v", err)
+		t.Fatalf("MySQL连接失败: %v", err)
 	}
 
 	fmt.Println("✅ MySQL连接成功!")
@@ -38,7 +39,7 @@ func main() {
 	var version string
 	err = db.Raw("SELECT VERSION()").Scan(&version).Error
 	if err != nil {
-		log.Fatalf("查询MySQL版本失败: %v", err)
+		t.Fatalf("查询MySQL版本失败: %v", err)
 	}
 
 	fmt.Printf("✅ MySQL版本: %s\n", version)
@@ -48,7 +49,7 @@ func main() {
 	var dbExists int
 	err = db.Raw("SELECT COUNT(*) FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?", cfg.Database.MySQL.Database).Scan(&dbExists).Error
 	if err != nil {
-		log.Fatalf("检查数据库存在性失败: %v", err)
+		t.Fatalf("检查数据库存在性失败: %v", err)
 	}
 
 	if dbExists > 0 {
@@ -62,7 +63,7 @@ func main() {
 	var tableExists int
 	err = db.Raw("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users'", cfg.Database.MySQL.Database).Scan(&tableExists).Error
 	if err != nil {
-		log.Fatalf("检查用户表存在性失败: %v", err)
+		t.Fatalf("检查用户表存在性失败: %v", err)
 	}
 
 	if tableExists > 0 {

@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"neomaster/internal/model"
@@ -86,10 +87,11 @@ func (h *LoginHandler) validateLoginRequest(req *model.LoginRequest) error {
 
 // getErrorStatusCode 根据错误类型获取HTTP状态码
 func (h *LoginHandler) getErrorStatusCode(err error) int {
+	errorMsg := err.Error()
 	switch {
-	case err.Error() == "invalid username or password":
+	case strings.Contains(errorMsg, "invalid username or password"):
 		return http.StatusUnauthorized
-	case err.Error() == "user account is inactive":
+	case strings.Contains(errorMsg, "user account is inactive"):
 		return http.StatusForbidden
 	default:
 		return http.StatusInternalServerError
@@ -101,7 +103,7 @@ func (h *LoginHandler) writeSuccessResponse(w http.ResponseWriter, statusCode in
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
 		Code:    statusCode,
-		Success: true,
+		Status:  "success",
 		Message: message,
 		Data:    data,
 	}
@@ -116,7 +118,7 @@ func (h *LoginHandler) writeErrorResponse(w http.ResponseWriter, statusCode int,
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
 		Code:    statusCode,
-		Success: false,
+		Status:  "error",
 		Message: message,
 		Error:   err.Error(),
 	}
@@ -223,8 +225,8 @@ func (h *LoginHandler) GinLogin(c *gin.Context) {
 	var req model.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    http.StatusBadRequest,
-			"success": false,
+			"code":   http.StatusBadRequest,
+			"status": "error",
 			"message": "invalid request body",
 			"error":   err.Error(),
 		})
@@ -234,8 +236,8 @@ func (h *LoginHandler) GinLogin(c *gin.Context) {
 	// 验证请求参数
 	if err := h.validateLoginRequest(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    http.StatusBadRequest,
-			"success": false,
+			"code":   http.StatusBadRequest,
+			"status": "error",
 			"message": "validation failed",
 			"error":   err.Error(),
 		})
@@ -248,8 +250,8 @@ func (h *LoginHandler) GinLogin(c *gin.Context) {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
 		c.JSON(statusCode, gin.H{
-			"code":    statusCode,
-			"success": false,
+			"code":   statusCode,
+			"status": "error",
 			"message": "login failed",
 			"error":   err.Error(),
 		})
@@ -258,8 +260,7 @@ func (h *LoginHandler) GinLogin(c *gin.Context) {
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, gin.H{
-		"code":    http.StatusOK,
-		"success": true,
+		"status": "success",
 		"message": "login successful",
 		"data":    resp,
 	})

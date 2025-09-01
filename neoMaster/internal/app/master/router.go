@@ -36,7 +36,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		KeyLength:   32,
 	}
 	passwordManager := authPkg.NewPasswordManager(passwordConfig)
-	userRepo := mysql.NewUserRepository(db) // 注意：这里需要修改为使用sqlx.DB
+	userRepo := mysql.NewUserRepository(db, passwordManager) // 注入密码管理器
 	sessionRepo := redisRepo.NewSessionRepository(redisClient)
 
 	// 初始化服务

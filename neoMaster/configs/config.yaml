@@ -83,7 +83,7 @@ security:
 
 # 会话配置
 session:
-  store: "memory"  # memory, redis   默认memory
+  store: "redis"  # memory, redis   默认memory
   key: "neoscan_session"
   max_age: 86400  # 24小时
   secure: false

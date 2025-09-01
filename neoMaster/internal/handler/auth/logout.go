@@ -144,7 +144,7 @@ func (h *LogoutHandler) writeSuccessResponse(w http.ResponseWriter, statusCode i
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
 		Code:    statusCode,
-		Success: true,
+		Status:  "success",
 		Message: message,
 		Data:    data,
 	}
@@ -159,7 +159,7 @@ func (h *LogoutHandler) writeErrorResponse(w http.ResponseWriter, statusCode int
 	w.WriteHeader(statusCode)
 	response := model.APIResponse{
 		Code:    statusCode,
-		Success: false,
+		Status:  "error",
 		Message: message,
 		Error:   err.Error(),
 	}
@@ -176,7 +176,7 @@ func (h *LogoutHandler) GinLogout(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
-			Success: false,
+			Status:  "error",
 			Message: "missing or invalid authorization header",
 			Error:   err.Error(),
 		})
@@ -190,7 +190,7 @@ func (h *LogoutHandler) GinLogout(c *gin.Context) {
 		statusCode := h.getErrorStatusCode(err)
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
-			Success: false,
+			Status:  "error",
 			Message: "logout failed",
 			Error:   err.Error(),
 		})
@@ -198,11 +198,10 @@ func (h *LogoutHandler) GinLogout(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
-		Code:    http.StatusOK,
-		Success: true,
-		Message: "logout successful",
-		Data:    nil,
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"message": "logout successful",
+		"data":    nil,
 	})
 }
 
@@ -212,7 +211,7 @@ func (h *LogoutHandler) GinLogoutAll(c *gin.Context) {
 	accessToken, err := h.extractTokenFromGinHeader(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Success: false,
+			Status:  "error",
 			Message: "missing or invalid authorization header",
 			Error:   err.Error(),
 		})
@@ -223,7 +222,7 @@ func (h *LogoutHandler) GinLogoutAll(c *gin.Context) {
 	claims, err := h.sessionService.ValidateSession(c.Request.Context(), accessToken)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Success: false,
+			Status:  "error",
 			Message: "invalid token",
 			Error:   err.Error(),
 		})
@@ -235,7 +234,7 @@ func (h *LogoutHandler) GinLogoutAll(c *gin.Context) {
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		c.JSON(statusCode, model.APIResponse{
-			Success: false,
+			Status:  "error",
 			Message: "logout all failed",
 			Error:   err.Error(),
 		})
@@ -244,7 +243,7 @@ func (h *LogoutHandler) GinLogoutAll(c *gin.Context) {
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{
-		Success: true,
+		Status:  "success",
 		Message: "logout all successful",
 		Data: map[string]interface{}{
 			"user_id": claims.ID,

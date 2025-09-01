@@ -13,6 +13,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5" // 引入jwt包
@@ -159,9 +160,9 @@ func ExtractTokenFromHeader(authHeader string) string {
 
 // generateJTI 生成JWT ID
 func generateJTI() string {
-	// 这里可以使用UUID或其他唯一标识符生成方法
-	// 为了简化，这里使用时间戳
-	return time.Now().Format("20060102150405") + "-" + time.Now().Format("000000")
+	// 使用纳秒级时间戳确保唯一性
+	now := time.Now()
+	return now.Format("20060102150405") + "-" + fmt.Sprintf("%09d", now.Nanosecond())
 }
 
 // TokenPair 令牌对
@@ -190,13 +191,22 @@ func (j *JWTManager) GenerateTokenPair(userID uint, username, email string, pass
 	}, nil
 }
 
-// GetUserIDFromToken 从令牌中获取用户ID
+// GetUserIDFromToken 从访问令牌中获取用户ID
 func (j *JWTManager) GetUserIDFromToken(tokenString string) (uint, error) {
 	claims, err := j.ValidateAccessToken(tokenString)
 	if err != nil {
 		return 0, err
 	}
 	return claims.UserID, nil
+}
+
+// GetUsernameFromRefreshToken 从刷新令牌中获取用户名
+func (j *JWTManager) GetUsernameFromRefreshToken(tokenString string) (string, error) {
+	claims, err := j.ValidateRefreshToken(tokenString)
+	if err != nil {
+		return "", err
+	}
+	return claims.Subject, nil
 }
 
 // GetUsernameFromToken 从令牌中获取用户名

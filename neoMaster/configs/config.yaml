@@ -31,7 +31,7 @@ database:
   redis:
     host: "localhost"
     port: 6379
-    password: ""  # 通过环境变量设置
+    password: ""    # 开发环境redis密码为空 # 通过环境变量设置
     database: 0
     pool_size: 10
     min_idle_conns: 5

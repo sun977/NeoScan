@@ -68,10 +68,10 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 
 	// 创建处理器
 	userHandler := system.NewUserHandler(ts.SessionService)
-	loginHandler := auth.NewLoginHandler(ts.AuthService)
-	logoutHandler := auth.NewLogoutHandler(ts.AuthService)
-	refreshHandler := auth.NewRefreshHandler(ts.AuthService)
-	registerHandler := auth.NewRegisterHandler(ts.AuthService)
+	loginHandler := auth.NewLoginHandler(ts.SessionService)
+	logoutHandler := auth.NewLogoutHandler(ts.SessionService)
+	refreshHandler := auth.NewRefreshHandler(ts.SessionService)
+	registerHandler := auth.NewRegisterHandler(ts.SessionService)
 
 	// 检查中间件管理器是否可用
 	if ts.MiddlewareManager == nil {
@@ -82,21 +82,30 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 	// 公开路由
 	public := router.Group("/api/v1")
 	{
-		// 注册路由
-		public.POST("/register", registerHandler.Register)
-		public.POST("/login", loginHandler.Login)
-		public.POST("/refresh", refreshHandler.RefreshToken)
+		auth := public.Group("/auth")
+		{
+			auth.POST("/register", registerHandler.Register)
+			auth.POST("/login", loginHandler.Login)
+			auth.POST("/refresh", refreshHandler.RefreshToken)
+		}
 	}
 
 	// 需要认证的路由
-	auth := router.Group("/api/v1")
-	auth.Use(ts.MiddlewareManager.GinJWTAuthMiddleware())
+	authRoutes := router.Group("/api/v1")
+	authRoutes.Use(ts.MiddlewareManager.GinJWTAuthMiddleware())
 	{
-		auth.POST("/logout", logoutHandler.Logout)
-		auth.GET("/user/profile", userHandler.GetUser)
-		auth.PUT("/user/profile", userHandler.UpdateUser)
-		// TODO: 实现密码修改方法
-		// auth.POST("/user/change-password", userHandler.ChangePassword)
+		authGroup := authRoutes.Group("/auth")
+		{
+			authGroup.POST("/logout", logoutHandler.Logout)
+		}
+		
+		userGroup := authRoutes.Group("/user")
+		{
+			userGroup.GET("/profile", userHandler.GetUser)
+			userGroup.PUT("/profile", userHandler.UpdateUser)
+			// TODO: 实现密码修改方法
+			// userGroup.POST("/change-password", userHandler.ChangePassword)
+		}
 	}
 
 	// 管理员路由组
@@ -116,9 +125,6 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 
 // testUserRegistrationAPI 测试用户注册API
 func testUserRegistrationAPI(t *testing.T, ts *TestSuite) {
-	// 跳过注册API测试，因为注册端点尚未实现
-	t.Skip("跳过用户注册API测试：注册端点尚未实现")
-
 	router := setupTestRouter(ts)
 
 	// 测试正常注册
@@ -129,14 +135,31 @@ func testUserRegistrationAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	body, _ := json.Marshal(registerData)
-	req := httptest.NewRequest("POST", "/api/v1/register", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
 
-	// 由于注册端点未实现，应该返回404
-	AssertEqual(t, http.StatusNotFound, w.Code, "未实现的注册端点应该返回404状态码")
+	// 注册应该成功
+	AssertEqual(t, http.StatusCreated, w.Code, "注册应该返回201状态码")
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	AssertNoError(t, err, "解析响应不应该出错")
+
+	AssertEqual(t, "success", response["status"], "响应状态应该是success")
+	AssertEqual(t, "registration successful", response["message"], "响应消息应该正确")
+
+	// 测试重复注册
+	req2 := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+
+	router.ServeHTTP(w2, req2)
+
+	// 重复注册应该返回冲突错误
+	AssertEqual(t, http.StatusConflict, w2.Code, "重复注册应该返回409状态码")
 }
 
 // testUserLoginAPI 测试用户登录API
@@ -153,7 +176,7 @@ func testUserLoginAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	body, _ := json.Marshal(loginData)
-	req := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -182,7 +205,7 @@ func testUserLoginAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	emailBody, _ := json.Marshal(emailLoginData)
-	req2 := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(emailBody))
+	req2 := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(emailBody))
 	req2.Header.Set("Content-Type", "application/json")
 	w2 := httptest.NewRecorder()
 
@@ -197,7 +220,7 @@ func testUserLoginAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	wrongBody, _ := json.Marshal(wrongPasswordData)
-	req3 := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(wrongBody))
+	req3 := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(wrongBody))
 	req3.Header.Set("Content-Type", "application/json")
 	w3 := httptest.NewRecorder()
 
@@ -212,7 +235,7 @@ func testUserLoginAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	nonExistentBody, _ := json.Marshal(nonExistentData)
-	req4 := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(nonExistentBody))
+	req4 := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(nonExistentBody))
 	req4.Header.Set("Content-Type", "application/json")
 	w4 := httptest.NewRecorder()
 
@@ -236,7 +259,7 @@ func testUserLogoutAPI(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试正常登出
-	req := httptest.NewRequest("POST", "/api/v1/logout", nil)
+	req := httptest.NewRequest("POST", "/api/v1/auth/logout", nil)
 	req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
 	w := httptest.NewRecorder()
 
@@ -251,7 +274,7 @@ func testUserLogoutAPI(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, "success", response["status"], "响应状态应该是success")
 
 	// 测试无令牌登出
-	req2 := httptest.NewRequest("POST", "/api/v1/logout", nil)
+	req2 := httptest.NewRequest("POST", "/api/v1/auth/logout", nil)
 	w2 := httptest.NewRecorder()
 
 	router.ServeHTTP(w2, req2)
@@ -259,7 +282,7 @@ func testUserLogoutAPI(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, http.StatusUnauthorized, w2.Code, "无令牌登出应该返回401状态码")
 
 	// 测试无效令牌登出
-	req3 := httptest.NewRequest("POST", "/api/v1/logout", nil)
+	req3 := httptest.NewRequest("POST", "/api/v1/auth/logout", nil)
 	req3.Header.Set("Authorization", "Bearer invalid.token")
 	w3 := httptest.NewRecorder()
 
@@ -288,7 +311,7 @@ func testTokenRefreshAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	body, _ := json.Marshal(refreshData)
-	req := httptest.NewRequest("POST", "/api/v1/refresh", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/auth/refresh", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -312,7 +335,7 @@ func testTokenRefreshAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	invalidBody, _ := json.Marshal(invalidRefreshData)
-	req2 := httptest.NewRequest("POST", "/api/v1/refresh", bytes.NewBuffer(invalidBody))
+	req2 := httptest.NewRequest("POST", "/api/v1/auth/refresh", bytes.NewBuffer(invalidBody))
 	req2.Header.Set("Content-Type", "application/json")
 	w2 := httptest.NewRecorder()
 
@@ -326,7 +349,7 @@ func testTokenRefreshAPI(t *testing.T, ts *TestSuite) {
 	}
 
 	accessTokenBody, _ := json.Marshal(accessTokenRefreshData)
-	req3 := httptest.NewRequest("POST", "/api/v1/refresh", bytes.NewBuffer(accessTokenBody))
+	req3 := httptest.NewRequest("POST", "/api/v1/auth/refresh", bytes.NewBuffer(accessTokenBody))
 	req3.Header.Set("Content-Type", "application/json")
 	w3 := httptest.NewRecorder()
 
@@ -453,13 +476,22 @@ func testPermissionValidationAPI(t *testing.T, ts *TestSuite) {
 
 // testCompleteUserFlow 测试完整的用户流程
 func testCompleteUserFlow(t *testing.T, ts *TestSuite) {
-	// 跳过完整用户流程测试，因为依赖注册端点
-	t.Skip("跳过完整用户流程测试：依赖未实现的注册端点")
-
 	router := setupTestRouter(ts)
 
-	// 1. 直接创建测试用户（跳过注册步骤）
-	_ = ts.CreateTestUser(t, "flowuser", "flow@test.com", "password123")
+	// 1. 用户注册
+	registerData := map[string]interface{}{
+		"username": "flowuser",
+		"email":    "flow@test.com",
+		"password": "password123",
+	}
+
+	registerBody, _ := json.Marshal(registerData)
+	registerReq := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(registerBody))
+	registerReq.Header.Set("Content-Type", "application/json")
+	registerW := httptest.NewRecorder()
+
+	router.ServeHTTP(registerW, registerReq)
+	AssertEqual(t, http.StatusCreated, registerW.Code, "注册应该成功")
 
 	// 2. 用户登录
 	loginData := map[string]interface{}{
@@ -468,7 +500,7 @@ func testCompleteUserFlow(t *testing.T, ts *TestSuite) {
 	}
 
 	loginBody, _ := json.Marshal(loginData)
-	loginReq := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(loginBody))
+	loginReq := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(loginBody))
 	loginReq.Header.Set("Content-Type", "application/json")
 	loginW := httptest.NewRecorder()
 
@@ -499,7 +531,7 @@ func testCompleteUserFlow(t *testing.T, ts *TestSuite) {
 	}
 
 	refreshBody, _ := json.Marshal(refreshData)
-	refreshReq := httptest.NewRequest("POST", "/api/v1/refresh", bytes.NewBuffer(refreshBody))
+	refreshReq := httptest.NewRequest("POST", "/api/v1/auth/refresh", bytes.NewBuffer(refreshBody))
 	refreshReq.Header.Set("Content-Type", "application/json")
 	refreshW := httptest.NewRecorder()
 
@@ -523,7 +555,7 @@ func testCompleteUserFlow(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, http.StatusOK, profileW2.Code, "使用新令牌获取用户信息应该成功")
 
 	// 6. 用户登出
-	logoutReq := httptest.NewRequest("POST", "/api/v1/logout", nil)
+	logoutReq := httptest.NewRequest("POST", "/api/v1/auth/logout", nil)
 	logoutReq.Header.Set("Authorization", "Bearer "+newAccessToken)
 	logoutW := httptest.NewRecorder()
 
@@ -551,7 +583,7 @@ func TestAPIErrorHandling(t *testing.T) {
 
 		t.Run("JSON格式错误", func(t *testing.T) {
 			// 发送无效JSON
-			req := httptest.NewRequest("POST", "/api/v1/register", bytes.NewBufferString("invalid json"))
+			req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBufferString("invalid json"))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
@@ -568,7 +600,7 @@ func TestAPIErrorHandling(t *testing.T) {
 			}
 
 			body, _ := json.Marshal(data)
-			req := httptest.NewRequest("POST", "/api/v1/register", bytes.NewBuffer(body))
+			req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(body))
 			// 不设置Content-Type
 			w := httptest.NewRecorder()
 
@@ -579,7 +611,7 @@ func TestAPIErrorHandling(t *testing.T) {
 		})
 
 		t.Run("不支持的HTTP方法", func(t *testing.T) {
-			req := httptest.NewRequest("DELETE", "/api/v1/register", nil)
+			req := httptest.NewRequest("DELETE", "/api/v1/auth/register", nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

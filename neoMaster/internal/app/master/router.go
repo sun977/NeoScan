@@ -22,6 +22,7 @@ type Router struct {
 	loginHandler      *authHandler.LoginHandler
 	logoutHandler     *authHandler.LogoutHandler
 	refreshHandler    *authHandler.RefreshHandler
+	registerHandler   *authHandler.RegisterHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -52,6 +53,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	loginHandler := authHandler.NewLoginHandler(sessionService)
 	logoutHandler := authHandler.NewLogoutHandler(sessionService)
 	refreshHandler := authHandler.NewRefreshHandler(sessionService)
+	registerHandler := authHandler.NewRegisterHandler(sessionService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -63,6 +65,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		loginHandler:      loginHandler,
 		logoutHandler:     logoutHandler,
 		refreshHandler:    refreshHandler,
+		registerHandler:   registerHandler,
 	}
 }
 
@@ -96,6 +99,8 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 	// 认证相关公共路由
 	auth := v1.Group("/auth")
 	{
+		// 用户注册
+		auth.POST("/register", r.registerHandler.Register)
 		// 用户登录
 		auth.POST("/login", r.loginHandler.Login)
 		// 获取登录表单页面（可选）

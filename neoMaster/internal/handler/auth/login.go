@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"neomaster/internal/model"
 	"neomaster/internal/service/auth"
+
+	"github.com/gin-gonic/gin"
 )
 
 // LoginHandler 登录接口处理器
@@ -220,24 +221,26 @@ func (h *LoginHandler) GetLoginForm(w http.ResponseWriter, r *http.Request) {
 // Gin框架处理器适配器
 
 // GinLogin Gin登录处理器
-func (h *LoginHandler) GinLogin(c *gin.Context) {
+func (h *LoginHandler) GinLogin(c *gin.Context) { // c 是 *gin.Context 类型，提供了处理 HTTP 请求的上下文
 	// 解析请求体
-	var req model.LoginRequest
+	var req model.LoginRequest // 创建一个LoginRequest结构体变量
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// 使用Gin的ShouldBindJSON方法解析并绑定请求体到req结构体中
+		// 如果解析失败，返回400 Bad Request错误
 		c.JSON(http.StatusBadRequest, gin.H{
-			"code":   http.StatusBadRequest,
-			"status": "error",
+			"code":    http.StatusBadRequest, // 400
+			"status":  "error",
 			"message": "invalid request body",
 			"error":   err.Error(),
 		})
-		return
+		return // 终止当前处理函数
 	}
 
 	// 验证请求参数
 	if err := h.validateLoginRequest(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"code":   http.StatusBadRequest,
-			"status": "error",
+			"code":    http.StatusBadRequest,
+			"status":  "error",
 			"message": "validation failed",
 			"error":   err.Error(),
 		})
@@ -250,8 +253,8 @@ func (h *LoginHandler) GinLogin(c *gin.Context) {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
 		c.JSON(statusCode, gin.H{
-			"code":   statusCode,
-			"status": "error",
+			"code":    statusCode,
+			"status":  "error",
 			"message": "login failed",
 			"error":   err.Error(),
 		})
@@ -260,7 +263,7 @@ func (h *LoginHandler) GinLogin(c *gin.Context) {
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
+		"status":  "success",
 		"message": "login successful",
 		"data":    resp,
 	})

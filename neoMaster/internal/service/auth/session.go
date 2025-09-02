@@ -313,3 +313,79 @@ func (s *SessionService) IsTokenExpiringSoon(accessToken string, threshold time.
 func (s *SessionService) GetTokenRemainingTime(accessToken string) (time.Duration, error) {
 	return s.jwtService.GetTokenRemainingTime(accessToken)
 }
+
+// Register 用户注册
+func (s *SessionService) Register(ctx context.Context, req *model.RegisterRequest) (*model.RegisterResponse, error) {
+	if req == nil {
+		return nil, errors.New("register request cannot be nil")
+	}
+
+	if req.Username == "" {
+		return nil, model.ErrInvalidUsername
+	}
+
+	if req.Email == "" {
+		return nil, model.ErrInvalidEmail
+	}
+
+	if req.Password == "" {
+		return nil, model.ErrInvalidPassword
+	}
+
+	// 检查用户名是否已存在
+	existingUser, _ := s.userRepo.GetUserByUsername(ctx, req.Username)
+	if existingUser != nil {
+		return nil, model.ErrUsernameAlreadyExists
+	}
+
+	// 检查邮箱是否已存在
+	existingUser, _ = s.userRepo.GetUserByEmail(ctx, req.Email)
+	if existingUser != nil {
+		return nil, model.ErrEmailAlreadyExists
+	}
+
+	// 创建用户请求对象
+	createUserReq := &model.CreateUserRequest{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password, // CreateUser方法会处理密码哈希
+		Nickname: req.Nickname,
+		Phone:    req.Phone,
+	}
+
+	// 保存用户到数据库
+	user, err := s.userRepo.CreateUser(ctx, createUserReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// 生成令牌
+	tokenPair, err := s.jwtService.GenerateTokens(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	// 构建用户信息响应
+	userInfo := &model.UserInfo{
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		Nickname:    user.Nickname,
+		Phone:       user.Phone,
+		Status:      user.Status,
+		CreatedAt:   user.CreatedAt,
+		Roles:       []string{"user"}, // 默认角色
+		Permissions: []string{},       // 默认权限为空
+	}
+
+	// 构建注册响应
+	response := &model.RegisterResponse{
+		User:         userInfo,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    tokenPair.ExpiresIn,
+		Message:      "Registration successful",
+	}
+
+	return response, nil
+}

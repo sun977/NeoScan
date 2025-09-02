@@ -18,6 +18,15 @@ type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"` // 刷新令牌，必填
 }
 
+// RegisterRequest 用户注册请求结构
+type RegisterRequest struct {
+	Username string `json:"username" validate:"required,min=3,max=50"` // 用户名，必填，3-50字符
+	Email    string `json:"email" validate:"required,email"`          // 邮箱地址，必填，必须符合邮箱格式
+	Password string `json:"password" validate:"required,min=6"`        // 密码，必填，最少6字符
+	Nickname string `json:"nickname"`                                 // 用户昵称，可选
+	Phone    string `json:"phone"`                                    // 手机号码，可选
+}
+
 // CreateUserRequest 创建用户请求结构
 type CreateUserRequest struct {
 	Username string `json:"username" validate:"required,min=3,max=50"` // 用户名，必填，3-50字符

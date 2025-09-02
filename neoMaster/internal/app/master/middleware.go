@@ -529,6 +529,57 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 	}
 }
 
+// GinRequireAnyRole Gin任意角色验证中间件
+// 支持多角色验证，用户只需要拥有其中任意一个角色即可通过验证
+func (m *MiddlewareManager) GinRequireAnyRole(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 从上下文获取用户ID
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status":  "error",
+				"message": "user not authenticated",
+			})
+			c.Abort()
+			return
+		}
+
+		// 检查用户是否拥有任意一个角色
+		// 修复类型转换问题：JWT中间件设置的user_id是uint类型
+		userIDUint, ok := userID.(uint)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": "invalid user ID type",
+			})
+			c.Abort()
+			return
+		}
+		hasAnyRole, err := m.rbacService.CheckAnyRole(c.Request.Context(), userIDUint, roles)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": "failed to check role",
+				"error":   err.Error(),
+			})
+			c.Abort()
+			return
+		}
+
+		if !hasAnyRole {
+			c.JSON(http.StatusForbidden, gin.H{
+				"status":  "error",
+				"message": "insufficient role privileges",
+			})
+			c.Abort()
+			return
+		}
+
+		// 继续处理请求
+		c.Next()
+	}
+}
+
 // GinCORSMiddleware Gin CORS中间件
 func (m *MiddlewareManager) GinCORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {

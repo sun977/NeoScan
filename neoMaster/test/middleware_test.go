@@ -120,8 +120,8 @@ func setupTestRouterWithMiddleware(ts *TestSuite) *gin.Engine {
 	// 需要多个角色之一的路由
 	moderator := router.Group("/api/v1/moderator")
 	moderator.Use(ts.MiddlewareManager.GinJWTAuthMiddleware())
-	// 注意：MiddlewareManager可能没有RequireAnyRole方法，这里先用AdminRole代替
-	moderator.Use(ts.MiddlewareManager.GinAdminRoleMiddleware())
+	// 使用GinRequireAnyRole方法支持admin或moderator角色访问
+	moderator.Use(ts.MiddlewareManager.GinRequireAnyRole("admin", "moderator"))
 	{
 		moderator.GET("/posts", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"message": "admin or moderator endpoint"})

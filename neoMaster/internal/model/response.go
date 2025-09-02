@@ -27,6 +27,15 @@ type RefreshTokenResponse struct {
 	TokenType    string `json:"token_type"`    // 令牌类型，通常为"Bearer"
 }
 
+// RegisterResponse 用户注册响应结构
+type RegisterResponse struct {
+	User         *UserInfo `json:"user"`          // 用户信息
+	AccessToken  string    `json:"access_token"`  // 访问令牌
+	RefreshToken string    `json:"refresh_token"` // 刷新令牌
+	ExpiresIn    int64     `json:"expires_in"`    // 令牌过期时间（秒）
+	Message      string    `json:"message"`       // 注册成功消息
+}
+
 // UserInfo 用户信息响应结构
 type UserInfo struct {
 	ID          uint       `json:"id"`            // 用户ID
@@ -43,16 +52,7 @@ type UserInfo struct {
 	Remark      string     `json:"remark"`        // 备注
 }
 
-// ValidationError 验证错误结构
-type ValidationError struct {
-	Field   string `json:"field"`   // 验证失败的字段名
-	Message string `json:"message"` // 错误消息
-}
 
-// Error 实现error接口
-func (e *ValidationError) Error() string {
-	return e.Message
-}
 
 // APIResponse 通用API响应结构
 type APIResponse struct {

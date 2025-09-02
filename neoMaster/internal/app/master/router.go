@@ -97,15 +97,15 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 	auth := v1.Group("/auth")
 	{
 		// 用户登录
-		auth.POST("/login", r.loginHandler.GinLogin)
+		auth.POST("/login", r.loginHandler.Login)
 		// 获取登录表单页面（可选）
-		auth.GET("/login", r.loginHandler.GinGetLoginForm)
+		auth.GET("/login", r.loginHandler.GetLoginForm)
 		// 刷新令牌
-		auth.POST("/refresh", r.refreshHandler.GinRefreshToken)
+		auth.POST("/refresh", r.refreshHandler.RefreshToken)
 		// 从请求头刷新令牌
-		auth.POST("/refresh-header", r.refreshHandler.GinRefreshTokenFromHeader)
+		auth.POST("/refresh-header", r.refreshHandler.RefreshTokenFromHeader)
 		// 检查令牌过期时间
-		auth.POST("/check-expiry", r.refreshHandler.GinCheckTokenExpiry)
+		auth.POST("/check-expiry", r.refreshHandler.CheckTokenExpiry)
 	}
 }
 
@@ -117,9 +117,9 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	auth.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 用户登出
-		auth.POST("/logout", r.logoutHandler.GinLogout)
+		auth.POST("/logout", r.logoutHandler.Logout)
 		// 用户全部登出
-		auth.POST("/logout-all", r.logoutHandler.GinLogoutAll)
+		auth.POST("/logout-all", r.logoutHandler.LogoutAll)
 	}
 
 	// 用户相关路由（需要JWT认证和用户激活状态检查）

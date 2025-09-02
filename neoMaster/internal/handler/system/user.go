@@ -3,18 +3,22 @@ package system
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"neomaster/internal/service/auth"
 )
 
 // UserHandler 用户管理处理器
 type UserHandler struct {
-	// TODO: 添加依赖注入
+	sessionService *auth.SessionService // 会话服务，用于获取用户信息
 }
 
 // NewUserHandler 创建用户管理处理器
-func NewUserHandler() *UserHandler {
-	return &UserHandler{}
+func NewUserHandler(sessionService *auth.SessionService) *UserHandler {
+	return &UserHandler{
+		sessionService: sessionService,
+	}
 }
 
 // CreateUser 创建用户
@@ -37,13 +41,56 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 	})
 }
 
-// GetUser 获取单个用户
+// GetUser 获取单个用户（当前用户信息）
 func (h *UserHandler) GetUser(c *gin.Context) {
-	// TODO: 实现获取单个用户逻辑
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"code":    http.StatusNotImplemented,
-		"status":  "error",
-		"message": "not implemented",
+	// 从请求头获取Authorization令牌
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"status":  "error",
+			"message": "authorization header required",
+		})
+		return
+	}
+
+	// 提取Bearer令牌
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"status":  "error",
+			"message": "invalid authorization header format",
+		})
+		return
+	}
+
+	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
+	if accessToken == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"status":  "error",
+			"message": "access token required",
+		})
+		return
+	}
+
+	// 获取当前用户信息
+	userInfo, err := h.sessionService.GetCurrentUser(c.Request.Context(), accessToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"status":  "error",
+			"message": "failed to get user info",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 返回用户信息
+	c.JSON(http.StatusOK, gin.H{
+		"code":   http.StatusOK,
+		"status": "success",
+		"data":   userInfo,
 	})
 }
 

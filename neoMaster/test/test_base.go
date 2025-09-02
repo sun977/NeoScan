@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"neomaster/internal/app/master"
 	"neomaster/internal/config"
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
@@ -16,7 +17,6 @@ import (
 	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	authService "neomaster/internal/service/auth"
-	"neomaster/internal/app/master"
 
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
@@ -33,14 +33,14 @@ type TestConfig struct {
 // TestSuite 测试套件，包含所有测试需要的依赖
 type TestSuite struct {
 	*TestConfig
-	UserRepo        *mysql.UserRepository        // 用户仓库（包含业务逻辑）
-	SessionRepo     *redisRepo.SessionRepository // 会话仓库
-	JWTService      *authService.JWTService      // JWT服务
-	AuthService     *authService.SessionService  // 认证服务
-	RBACService     *authService.RBACService     // RBAC服务
-	passwordManager *auth.PasswordManager        // 密码管理器
-	SessionService *authService.SessionService  // 会话服务（别名）
-	MiddlewareManager *master.MiddlewareManager // 中间件管理器
+	UserRepo          *mysql.UserRepository        // 用户仓库（包含业务逻辑）
+	SessionRepo       *redisRepo.SessionRepository // 会话仓库
+	JWTService        *authService.JWTService      // JWT服务
+	AuthService       *authService.SessionService  // 认证服务
+	RBACService       *authService.RBACService     // RBAC服务
+	passwordManager   *auth.PasswordManager        // 密码管理器
+	SessionService    *authService.SessionService  // 会话服务（别名）
+	MiddlewareManager *master.MiddlewareManager    // 中间件管理器
 }
 
 // SetupTestEnvironment 设置测试环境
@@ -136,7 +136,7 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 		AuthService:       authSvc,
 		RBACService:       rbacService,
 		passwordManager:   auth.NewPasswordManager(nil), // 初始化密码管理器
-		SessionService:    authSvc,        // 会话服务使用认证服务
+		SessionService:    authSvc,                      // 会话服务使用认证服务
 		MiddlewareManager: middlewareManager,
 	}
 }
@@ -162,6 +162,9 @@ func (tc *TestConfig) SetupTestDatabase(t *testing.T) {
 	if err := tc.migrateTestDatabase(); err != nil {
 		t.Fatalf("测试数据库迁移失败: %v", err)
 	}
+
+	// 清理测试数据，确保每个测试开始时数据库是干净的
+	tc.CleanupTestDatabase(t)
 
 	t.Logf("✅ 测试数据库 %s 设置完成", dbName)
 }
@@ -297,7 +300,7 @@ func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password stri
 	return user
 }
 
-// CreateTestRole 创建测试角色
+// CreateTestRole 创建测试角色，如果角色已存在则返回已存在的角色
 func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *model.Role {
 	// 如果数据库连接不可用，返回nil
 	if ts.UserRepo == nil {
@@ -307,6 +310,16 @@ func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *mod
 
 	ctx := context.Background()
 
+	// 首先检查角色是否已存在
+	var existingRole model.Role
+	err := ts.DB.WithContext(ctx).Where("name = ?", name).First(&existingRole).Error
+	if err == nil {
+		// 角色已存在，返回已存在的角色
+		t.Logf("🔄 使用已存在的测试角色: %s (ID: %d)", name, existingRole.ID)
+		return &existingRole
+	}
+
+	// 角色不存在，创建新角色
 	role := &model.Role{
 		Name:        name,
 		Description: description,
@@ -316,7 +329,7 @@ func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *mod
 	}
 
 	// 保存到数据库
-	err := ts.DB.WithContext(ctx).Create(role).Error
+	err = ts.DB.WithContext(ctx).Create(role).Error
 	if err != nil {
 		t.Fatalf("创建测试角色失败: %v", err)
 	}
@@ -334,7 +347,7 @@ func (ts *TestSuite) AssignRoleToUser(t *testing.T, userID, roleID uint) {
 	}
 
 	ctx := context.Background()
-	
+
 	// 调用UserRepository的角色分配方法
 	err := ts.UserRepo.AssignRoleToUser(ctx, userID, roleID)
 	if err != nil {

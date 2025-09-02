@@ -138,7 +138,7 @@ WHERE r.name = 'guest' AND p.name IN ('user:read', 'role:read', 'permission:read
 
 -- 创建默认管理员用户（密码需要在应用中加密后更新）
 INSERT INTO `users` (`username`, `email`, `password`, `nickname`, `status`) VALUES
-('admin', 'admin@neoscan.com', 'temp_password_need_hash', '系统管理员', 1);
+('admin', 'admin@neoscan.com', '$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ', '系统管理员', 1);
 
 -- 为默认管理员分配管理员角色
 INSERT INTO `user_roles` (`user_id`, `role_id`) 

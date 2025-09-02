@@ -40,6 +40,10 @@ func (h *RegisterHandler) getErrorStatusCode(err error) int {
 	switch err {
 	case model.ErrUserAlreadyExists:
 		return http.StatusConflict
+	case model.ErrUsernameAlreadyExists:
+		return http.StatusConflict
+	case model.ErrEmailAlreadyExists:
+		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError
 	}

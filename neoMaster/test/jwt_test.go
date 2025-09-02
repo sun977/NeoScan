@@ -197,8 +197,8 @@ func testTokenExpiry(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "检查令牌过期不应该出错")
 	AssertFalse(t, expiring, "令牌不应该即将过期")
 
-	// 测试令牌即将过期（使用很大的阈值）
-	expiring, err = ts.JWTService.CheckTokenExpiry(tokenPair.AccessToken, 24*time.Hour)
+	// 测试令牌即将过期（使用大于令牌有效期的阈值，令牌有效期24小时，使用25小时阈值）
+	expiring, err = ts.JWTService.CheckTokenExpiry(tokenPair.AccessToken, 25*time.Hour)
 	AssertNoError(t, err, "检查令牌过期不应该出错")
 	AssertTrue(t, expiring, "令牌应该即将过期")
 
@@ -206,7 +206,8 @@ func testTokenExpiry(t *testing.T, ts *TestSuite) {
 	remainingTime, err := ts.JWTService.GetTokenRemainingTime(tokenPair.AccessToken)
 	AssertNoError(t, err, "获取令牌剩余时间不应该出错")
 	AssertTrue(t, remainingTime > 0, "剩余时间应该大于0")
-	AssertTrue(t, remainingTime < 2*time.Hour, "剩余时间应该小于2小时")
+	AssertTrue(t, remainingTime < 25*time.Hour, "剩余时间应该小于25小时")
+	AssertTrue(t, remainingTime > 23*time.Hour, "剩余时间应该大于23小时")
 
 	// 测试令牌有效性检查
 	valid := ts.JWTService.IsTokenValid(tokenPair.AccessToken)

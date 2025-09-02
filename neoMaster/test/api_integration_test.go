@@ -83,16 +83,16 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 	public := router.Group("/api/v1")
 	{
 		// 注册路由
-		public.POST("/register", registerHandler.GinRegister)
-		public.POST("/login", loginHandler.GinLogin)
-		public.POST("/refresh", refreshHandler.GinRefreshToken)
+		public.POST("/register", registerHandler.Register)
+		public.POST("/login", loginHandler.Login)
+		public.POST("/refresh", refreshHandler.RefreshToken)
 	}
 
 	// 需要认证的路由
 	auth := router.Group("/api/v1")
 	auth.Use(ts.MiddlewareManager.GinJWTAuthMiddleware())
 	{
-		auth.POST("/logout", logoutHandler.GinLogout)
+		auth.POST("/logout", logoutHandler.Logout)
 		auth.GET("/user/profile", userHandler.GetUser)
 		auth.PUT("/user/profile", userHandler.UpdateUser)
 		// TODO: 实现密码修改方法

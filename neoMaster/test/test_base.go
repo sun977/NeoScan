@@ -74,10 +74,11 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	}
 
 	// 创建JWT管理器
+	// 注意：配置文件中的过期时间已经是time.Duration格式（如24h），不需要再乘以time.Hour
 	jwtManager := auth.NewJWTManager(
 		cfg.JWT.Secret,
-		time.Duration(cfg.JWT.AccessTokenExpire)*time.Hour,
-		time.Duration(cfg.JWT.RefreshTokenExpire)*time.Hour,
+		cfg.JWT.AccessTokenExpire,
+		cfg.JWT.RefreshTokenExpire,
 	)
 
 	// 初始化测试配置

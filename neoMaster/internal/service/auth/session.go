@@ -40,7 +40,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if req == nil {
 		logger.LogError(errors.New("login request cannot be nil"), "", 0, "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, errors.New("login request cannot be nil")
 	}
@@ -48,7 +48,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if req.Username == "" {
 		logger.LogError(errors.New("username cannot be empty"), "", 0, "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, errors.New("username cannot be empty")
 	}
@@ -56,7 +56,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if req.Password == "" {
 		logger.LogError(errors.New("password cannot be empty"), "", 0, "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, errors.New("password cannot be empty")
 	}
@@ -73,10 +73,10 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 		if err != nil {
 			// 用户不存在，返回统一的错误信息以保护隐私
 			logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username": req.Username,
-			"timestamp": time.Now(),
-		})
+				"operation": "login",
+				"username":  req.Username,
+				"timestamp": logger.NowFormatted(),
+			})
 			return nil, errors.New("invalid username or password")
 		}
 	}
@@ -84,8 +84,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if user == nil {
 		logger.LogError(errors.New("user query result is nil"), "", 0, "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"username": req.Username,
-			"timestamp": time.Now(),
+			"username":  req.Username,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, errors.New("invalid username or password")
 	}
@@ -94,9 +94,9 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if !user.IsActive() {
 		logger.LogError(errors.New("user account is not active"), "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"username": user.Username,
-			"status": user.Status,
-			"timestamp": time.Now(),
+			"username":  user.Username,
+			"status":    user.Status,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, errors.New("user account is inactive")
 	}
@@ -106,16 +106,16 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if err != nil {
 		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"username": user.Username,
-			"timestamp": time.Now(),
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 	if !isValid {
 		logger.LogError(errors.New("password is incorrect"), "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"username": user.Username,
-			"timestamp": time.Now(),
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, errors.New("invalid username or password")
 	}
@@ -125,8 +125,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if err != nil {
 		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"username": user.Username,
-			"timestamp": time.Now(),
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
@@ -142,8 +142,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	if err != nil {
 		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
-			"username": user.Username,
-			"timestamp": time.Now(),
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to get user permissions: %w", err)
 	}
@@ -167,7 +167,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 		"email":      user.Email,
 		"roles":      roles,
 		"session_id": tokenPair.AccessToken[:10] + "...", // 只记录token前缀
-		"timestamp":  time.Now(),
+		"timestamp":  logger.NowFormatted(),
 	})
 
 	return &model.LoginResponse{
@@ -195,7 +195,7 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	if accessToken == "" {
 		logger.LogError(errors.New("access token cannot be empty"), "", 0, "", "user_logout", "POST", map[string]interface{}{
 			"operation": "logout",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("access token cannot be empty")
 	}
@@ -204,9 +204,9 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	user, err := s.jwtService.GetUserFromToken(ctx, accessToken)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
-			"operation": "logout",
+			"operation":    "logout",
 			"token_prefix": accessToken[:10] + "...",
-			"timestamp": time.Now(),
+			"timestamp":    logger.NowFormatted(),
 		})
 		// 继续执行撤销操作，即使获取用户信息失败
 	}
@@ -214,9 +214,9 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 撤销令牌
 	if err := s.jwtService.RevokeToken(ctx, accessToken); err != nil {
 		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
-			"operation": "logout",
+			"operation":    "logout",
 			"token_prefix": accessToken[:10] + "...",
-			"timestamp": time.Now(),
+			"timestamp":    logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to revoke token: %w", err)
 	}
@@ -224,7 +224,7 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 记录成功登出的业务日志
 	logData := map[string]interface{}{
 		"token_prefix": accessToken[:10] + "...",
-		"timestamp": time.Now(),
+		"timestamp":    time.Now(),
 	}
 	if user != nil {
 		logData["user_id"] = user.ID
@@ -317,7 +317,7 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if req == nil {
 		logger.LogError(errors.New("change password request cannot be nil"), "", 0, "", "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("change password request cannot be nil")
 	}
@@ -325,7 +325,7 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if userID == 0 {
 		logger.LogError(errors.New("invalid user ID"), "", userID, "", "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("invalid user ID")
 	}
@@ -333,7 +333,7 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if req.OldPassword == "" {
 		logger.LogError(errors.New("old password cannot be empty"), "", userID, "", "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("old password cannot be empty")
 	}
@@ -341,7 +341,7 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if req.NewPassword == "" {
 		logger.LogError(errors.New("new password cannot be empty"), "", userID, "", "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("new password cannot be empty")
 	}
@@ -351,7 +351,7 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if err != nil {
 		logger.LogError(err, "", userID, "", "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -359,7 +359,7 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if user == nil {
 		logger.LogError(errors.New("user not found"), "", userID, "", "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("user not found")
 	}
@@ -369,14 +369,14 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if err != nil {
 		logger.LogError(err, "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to verify password: %w", err)
 	}
 	if !isValid {
 		logger.LogError(errors.New("old password is incorrect"), "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("old password is incorrect")
 	}
@@ -384,9 +384,9 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	// 验证新密码强度（需要实现密码强度验证函数）
 	if len(req.NewPassword) < 8 {
 		logger.LogError(errors.New("new password must be at least 8 characters long"), "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
-			"operation": "change_password",
+			"operation":       "change_password",
 			"password_length": len(req.NewPassword),
-			"timestamp": time.Now(),
+			"timestamp":       logger.NowFormatted(),
 		})
 		return errors.New("new password must be at least 8 characters long")
 	}
@@ -396,7 +396,7 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if err != nil {
 		logger.LogError(err, "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to hash new password: %w", err)
 	}
@@ -405,14 +405,14 @@ func (s *SessionService) ChangePassword(ctx context.Context, userID uint, req *m
 	if err := s.userRepo.UpdatePasswordWithVersion(ctx, userID, newPasswordHash); err != nil {
 		logger.LogError(err, "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
 	// 记录成功修改密码的业务日志
 	logger.LogBusinessOperation("password_change", userID, user.Username, "", "", "success", "用户修改密码成功", map[string]interface{}{
-		"timestamp": time.Now(),
+		"timestamp": logger.NowFormatted(),
 	})
 
 	return nil
@@ -463,7 +463,7 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if req == nil {
 		logger.LogError(errors.New("register request cannot be nil"), "", 0, "", "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, errors.New("register request cannot be nil")
 	}
@@ -471,7 +471,7 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if req.Username == "" {
 		logger.LogError(errors.New("username cannot be empty"), "", 0, "", "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, model.ErrInvalidUsername
 	}
@@ -479,7 +479,7 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if req.Email == "" {
 		logger.LogError(errors.New("email cannot be empty"), "", 0, req.Username, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, model.ErrInvalidEmail
 	}
@@ -487,8 +487,8 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if req.Password == "" {
 		logger.LogError(errors.New("password cannot be empty"), "", 0, req.Username, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"email": req.Email,
-			"timestamp": time.Now(),
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, model.ErrInvalidPassword
 	}
@@ -498,8 +498,8 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if existingUser != nil {
 		logger.LogError(errors.New("username already exists"), "", 0, req.Username, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"email": req.Email,
-			"timestamp": time.Now(),
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, model.ErrUsernameAlreadyExists
 	}
@@ -509,8 +509,8 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if existingUser != nil {
 		logger.LogError(errors.New("email already exists"), "", 0, req.Username, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"email": req.Email,
-			"timestamp": time.Now(),
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, model.ErrEmailAlreadyExists
 	}
@@ -529,8 +529,8 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if err != nil {
 		logger.LogError(err, "", 0, req.Username, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"email": req.Email,
-			"timestamp": time.Now(),
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -540,8 +540,8 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 	if err != nil {
 		logger.LogError(err, "", uint(user.ID), user.Username, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
-			"email": user.Email,
-			"timestamp": time.Now(),
+			"email":     user.Email,
+			"timestamp": logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
@@ -574,7 +574,7 @@ func (s *SessionService) Register(ctx context.Context, req *model.RegisterReques
 		"nickname":   user.Nickname,
 		"phone":      user.Phone,
 		"session_id": tokenPair.AccessToken[:10] + "...", // 只记录token前缀
-		"timestamp":  time.Now(),
+		"timestamp":  logger.NowFormatted(),
 	})
 
 	return response, nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/logger"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,9 +12,9 @@ func main() {
 	// 配置日志为文本格式输出到控制台（更易读）
 	cfg := &config.LogConfig{
 		Level:  "info",
-		Format: "text",  // 使用文本格式，更易读
+		Format: "text", // 使用文本格式，更易读
 		Output: "stdout",
-		Caller: false,   // 关闭调用者信息，输出更简洁
+		Caller: false, // 关闭调用者信息，输出更简洁
 	}
 
 	// 初始化日志管理器
@@ -25,14 +26,14 @@ func main() {
 	// 1. 业务操作日志示例
 	fmt.Println("1. 业务操作日志（用户登录）:")
 	logger.LogBusinessOperation(
-		"login",                    // 操作类型
-		1001,                       // 用户ID
-		"testuser",                 // 用户名
-		"192.168.1.100",            // 客户端IP
-		"req-12345",                // 请求ID
-		"success",                  // 操作结果
-		"用户登录成功",                // 消息
-		map[string]interface{}{     // 额外字段
+		"login",         // 操作类型
+		1001,            // 用户ID
+		"testuser",      // 用户名
+		"192.168.1.100", // 客户端IP
+		"req-12345",     // 请求ID
+		"success",       // 操作结果
+		"用户登录成功",        // 消息
+		map[string]interface{}{ // 额外字段
 			"login_method": "password",
 			"device":       "web",
 		},
@@ -49,7 +50,7 @@ func main() {
 		"failed", // 失败状态
 		"用户名或密码错误",
 		map[string]interface{}{
-			"login_method": "password",
+			"login_method":  "password",
 			"attempt_count": 3,
 		},
 	)
@@ -72,12 +73,12 @@ func main() {
 	fmt.Println("")
 	fmt.Println("4. 系统事件日志示例:")
 	logger.LogSystemEvent(
-		"database",     // 组件
-		"startup",      // 事件
-		"数据库连接池初始化完成", // 消息
+		"database",       // 组件
+		"startup",        // 事件
+		"数据库连接池初始化完成",    // 消息
 		logrus.InfoLevel, // 日志级别
 		map[string]interface{}{
-			"max_connections": 100,
+			"max_connections":  100,
 			"idle_connections": 10,
 		},
 	)

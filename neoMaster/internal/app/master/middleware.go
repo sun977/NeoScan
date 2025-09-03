@@ -233,20 +233,20 @@ func (m *MiddlewareManager) LoggingMiddleware(next http.Handler) http.Handler {
 
 		// 记录访问日志
 		duration := time.Since(start)
-		
+
 		// 使用日志格式化器记录HTTP请求
 		logger.LogBusinessOperation("http_request", 0, "", "", "", "info", "HTTP请求", map[string]interface{}{
-			"operation": "http_request",
-			"method":       r.Method,
-			"url":          r.URL.String(),
-			"status_code":  rec.statusCode,
-			"duration":     duration.Milliseconds(),
-			"client_ip":    r.RemoteAddr,
-			"user_agent":   r.UserAgent(),
-			"referer":      r.Referer(),
-			"request_size": r.ContentLength,
+			"operation":     "http_request",
+			"method":        r.Method,
+			"url":           r.URL.String(),
+			"status_code":   rec.statusCode,
+			"duration":      duration.Milliseconds(),
+			"client_ip":     r.RemoteAddr,
+			"user_agent":    r.UserAgent(),
+			"referer":       r.Referer(),
+			"request_size":  r.ContentLength,
 			"response_size": int64(rec.size),
-			"timestamp":    start,
+			"timestamp":     logger.NowFormatted(),
 		})
 	})
 }
@@ -650,7 +650,7 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 		// 记录访问日志
 		duration := time.Since(start)
 		statusCode := c.Writer.Status()
-		
+
 		// 获取用户信息（如果已认证）
 		userID := ""
 		username := ""
@@ -664,7 +664,7 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 				username = unameStr
 			}
 		}
-		
+
 		// 使用日志格式化器记录API请求
 		userIDUint := uint(0)
 		if userID != "" {
@@ -673,33 +673,33 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 			}
 		}
 		logger.LogBusinessOperation("http_request", userIDUint, username, "", "", "info", "API请求", map[string]interface{}{
-			"operation": "http_request",
-			"method":       c.Request.Method,
-			"url":          c.Request.URL.String(),
-			"status_code":  statusCode,
-			"duration":     duration.Milliseconds(),
-			"client_ip":    c.ClientIP(),
-			"user_agent":   c.Request.UserAgent(),
-			"referer":      c.Request.Referer(),
-			"request_size": c.Request.ContentLength,
+			"operation":     "http_request",
+			"method":        c.Request.Method,
+			"url":           c.Request.URL.String(),
+			"status_code":   statusCode,
+			"duration":      duration.Milliseconds(),
+			"client_ip":     c.ClientIP(),
+			"user_agent":    c.Request.UserAgent(),
+			"referer":       c.Request.Referer(),
+			"request_size":  c.Request.ContentLength,
 			"response_size": int64(c.Writer.Size()),
-			"timestamp":    start,
+			"timestamp":     logger.NowFormatted(),
 		})
-		
+
 		// 如果是错误状态码，记录错误日志
 		if statusCode >= 400 {
 			errorMsg := ""
 			if errors := c.Errors; len(errors) > 0 {
 				errorMsg = errors.String()
 			}
-			
+
 			logger.LogError(fmt.Errorf("HTTP %d: %s", statusCode, errorMsg), "", userIDUint, username, "http_request", c.Request.Method, map[string]interface{}{
-				"operation": "http_request",
+				"operation":   "http_request",
 				"method":      c.Request.Method,
 				"url":         c.Request.URL.String(),
 				"status_code": statusCode,
 				"client_ip":   c.ClientIP(),
-				"timestamp": logger.NowFormatted(),
+				"timestamp":   logger.NowFormatted(),
 			})
 		}
 	}

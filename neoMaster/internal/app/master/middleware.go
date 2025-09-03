@@ -699,7 +699,7 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 				"url":         c.Request.URL.String(),
 				"status_code": statusCode,
 				"client_ip":   c.ClientIP(),
-				"timestamp": time.Now(),
+				"timestamp": logger.NowFormatted(),
 			})
 		}
 	}

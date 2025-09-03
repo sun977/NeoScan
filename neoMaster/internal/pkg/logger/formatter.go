@@ -148,15 +148,14 @@ func LogBusinessOperation(operation string, userID uint, username, clientIP, req
 
 	// 构建业务日志条目
 	entry := BusinessLogEntry{
-		Timestamp:   time.Now(),
-		Operation:   operation,
-		UserID:      userID,
-		Username:    username,
-		ClientIP:    clientIP,
-		Result:      result,
-		Message:     message,
-		RequestID:   requestID,
-		ExtraFields: extraFields,
+		Timestamp: time.Now(),
+		Operation: operation,
+		UserID:    userID,
+		Username:  username,
+		ClientIP:  clientIP,
+		Result:    result,
+		Message:   message,
+		RequestID: requestID,
 	}
 
 	// 构建日志字段
@@ -173,10 +172,8 @@ func LogBusinessOperation(operation string, userID uint, username, clientIP, req
 	}
 
 	// 添加额外字段
-	if extraFields != nil {
-		for k, v := range extraFields {
-			fields[k] = v
-		}
+	for k, v := range extraFields {
+		fields[k] = v
 	}
 
 	// 根据结果选择日志级别
@@ -200,15 +197,14 @@ func LogError(err error, requestID string, userID uint, clientIP, path, method s
 
 	// 构建错误日志条目
 	entry := ErrorLogEntry{
-		Timestamp:   time.Now(),
-		Level:       "error",
-		Error:       err.Error(),
-		RequestID:   requestID,
-		UserID:      userID,
-		ClientIP:    clientIP,
-		Path:        path,
-		Method:      method,
-		ExtraFields: extraFields,
+		Timestamp: time.Now(),
+		Level:     "error",
+		Error:     err.Error(),
+		RequestID: requestID,
+		UserID:    userID,
+		ClientIP:  clientIP,
+		Path:      path,
+		Method:    method,
 	}
 
 	// 构建日志字段
@@ -225,10 +221,8 @@ func LogError(err error, requestID string, userID uint, clientIP, path, method s
 	}
 
 	// 添加额外字段
-	if extraFields != nil {
-		for k, v := range extraFields {
-			fields[k] = v
-		}
+	for k, v := range extraFields {
+		fields[k] = v
 	}
 
 	// 记录错误日志
@@ -244,12 +238,11 @@ func LogSystemEvent(component, event, message string, level logrus.Level, extraF
 
 	// 构建系统日志条目
 	entry := SystemLogEntry{
-		Timestamp:   time.Now(),
-		Component:   component,
-		Event:       event,
-		Message:     message,
-		Level:       level.String(),
-		ExtraFields: extraFields,
+		Timestamp: time.Now(),
+		Component: component,
+		Event:     event,
+		Message:   message,
+		Level:     level.String(),
 	}
 
 	// 构建日志字段
@@ -263,10 +256,8 @@ func LogSystemEvent(component, event, message string, level logrus.Level, extraF
 	}
 
 	// 添加额外字段
-	if extraFields != nil {
-		for k, v := range extraFields {
-			fields[k] = v
-		}
+	for k, v := range extraFields {
+		fields[k] = v
 	}
 
 	// 根据级别记录日志
@@ -295,16 +286,15 @@ func LogAuditOperation(userID uint, username, action, resource, result, clientIP
 
 	// 构建审计日志条目
 	entry := AuditLogEntry{
-		Timestamp:   time.Now(),
-		UserID:      userID,
-		Username:    username,
-		Action:      action,
-		Resource:    resource,
-		Result:      result,
-		ClientIP:    clientIP,
-		UserAgent:   userAgent,
-		RequestID:   requestID,
-		ExtraFields: extraFields,
+		Timestamp: time.Now(),
+		UserID:    userID,
+		Username:  username,
+		Action:    action,
+		Resource:  resource,
+		Result:    result,
+		ClientIP:  clientIP,
+		UserAgent: userAgent,
+		RequestID: requestID,
 	}
 
 	// 构建日志字段
@@ -322,10 +312,8 @@ func LogAuditOperation(userID uint, username, action, resource, result, clientIP
 	}
 
 	// 添加额外字段
-	if extraFields != nil {
-		for k, v := range extraFields {
-			fields[k] = v
-		}
+	for k, v := range extraFields {
+		fields[k] = v
 	}
 
 	// 记录审计日志

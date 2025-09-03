@@ -440,7 +440,8 @@ func (r *UserRepository) UpdateUserWithBusinessLogic(ctx context.Context, userID
 	// 更新字段
 	if req.Email != "" && req.Email != user.Email {
 		// 检查新邮箱是否已存在
-		existingUser, err := r.GetUserByEmail(ctx, req.Email)
+		var existingUser *model.User
+		existingUser, err = r.GetUserByEmail(ctx, req.Email)
 		if err == nil && existingUser != nil && existingUser.ID != userID {
 			return nil, errors.New("邮箱已存在")
 		}
@@ -453,7 +454,8 @@ func (r *UserRepository) UpdateUserWithBusinessLogic(ctx context.Context, userID
 
 	// 如果需要更新密码
 	if req.Password != "" {
-		hashedPassword, err := r.passwordManager.HashPassword(req.Password)
+		var hashedPassword string
+		hashedPassword, err = r.passwordManager.HashPassword(req.Password)
 		if err != nil {
 			return nil, fmt.Errorf("密码哈希失败: %w", err)
 		}

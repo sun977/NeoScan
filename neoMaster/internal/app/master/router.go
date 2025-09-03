@@ -74,7 +74,7 @@ func (r *Router) SetupRoutes() {
 	// 设置全局中间件
 	r.engine.Use(r.middlewareManager.GinCORSMiddleware())
 	r.engine.Use(r.middlewareManager.GinSecurityHeadersMiddleware())
-	r.engine.Use(r.middlewareManager.GinLoggingMiddleware())
+	r.engine.Use(r.middlewareManager.GinLoggingMiddleware()) // 日志中间件注册
 	r.engine.Use(r.middlewareManager.GinRateLimitMiddleware())
 
 	// API版本路由组

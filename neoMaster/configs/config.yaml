@@ -51,16 +51,16 @@ jwt:
 
 # 日志配置
 log:
-  level: "info"  # debug, info, warn, error, fatal, panic
-  format: "json"  # json, text
-  output: "stdout"  # stdout, stderr, file
-  file_path: "logs/app.log"
-  max_size: 100  # MB
-  max_backups: 5
-  max_age: 30  # days
-  compress: true
-  caller: true
-  stack_trace: true
+  level: "debug"  # debug, info, warn, error, fatal, panic
+  format: "json"  # json, text  # 日志格式
+  output: "file"  # stdout, stderr, file  # 日志输出位置
+  file_path: "logs/app.log"  # 日志文件路径(仅当output为file时生效)
+  max_size: 100  # MB  # 日志文件最大大小(MB)
+  max_backups: 5  # 日志文件最大备份数
+  max_age: 30  # days  # 日志文件最大保存时间(天)
+  compress: true   # 压缩日志文件
+  caller: true    # 显示调用者信息
+  stack_trace: true   # 显示堆栈信息
 
 # 安全配置
 security:

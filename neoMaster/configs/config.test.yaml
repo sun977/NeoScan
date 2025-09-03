@@ -51,8 +51,8 @@ jwt:
 # 日志配置
 log:
   level: "warn"
-  format: "text"
-  output: "stdout"
+  format: "json"
+  output: "file"
   file_path: "logs/test.log"
   max_size: 10
   max_backups: 2

@@ -3,8 +3,10 @@ package auth
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"neomaster/internal/model"
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -65,6 +67,14 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// 使用Gin的ShouldBindJSON方法解析并绑定请求体到req结构体中
 		// 如果解析失败，返回400 Bad Request错误
+		// 记录错误日志
+		logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
+			"operation": "login",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp": time.Now(),
+		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest, // 400
 			Status:  "error",
@@ -76,6 +86,14 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 
 	// 验证请求参数
 	if err := h.validateLoginRequest(&req); err != nil {
+		// 记录参数验证失败日志
+		logger.LogError(err, "", 0, req.Username, "user_login", "POST", map[string]interface{}{
+			"operation": "login",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp": time.Now(),
+		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
@@ -90,6 +108,15 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	if err != nil {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
+		// 记录登录失败的错误日志
+		logger.LogError(err, "", 0, req.Username, "user_login", "POST", map[string]interface{}{
+			"operation": "login",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"status_code": statusCode,
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp": time.Now(),
+		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
 			Status:  "error",
@@ -98,6 +125,15 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		})
 		return
 	}
+
+	// 记录登录成功的业务日志
+	logger.LogBusinessOperation("user_login", uint(resp.User.ID), req.Username, "", "", "success", "用户登录成功", map[string]interface{}{
+		"operation": "user_login",
+		"client_ip": c.ClientIP(),
+		"user_agent": c.GetHeader("User-Agent"),
+		"request_id": c.GetHeader("X-Request-ID"),
+		"timestamp": time.Now(),
+	})
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{

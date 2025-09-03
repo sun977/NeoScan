@@ -3,11 +3,14 @@ package master
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"neomaster/internal/model"
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -228,11 +231,23 @@ func (m *MiddlewareManager) LoggingMiddleware(next http.Handler) http.Handler {
 		// 处理请求
 		next.ServeHTTP(rec, r)
 
-		// 记录日志（这里可以集成具体的日志库）
+		// 记录访问日志
 		duration := time.Since(start)
-		// TODO: 集成日志库记录请求信息
-		_ = duration // 避免未使用变量警告
-		_ = rec.statusCode
+		
+		// 使用日志格式化器记录HTTP请求
+		logger.LogBusinessOperation("http_request", 0, "", "", "", "info", "HTTP请求", map[string]interface{}{
+			"operation": "http_request",
+			"method":       r.Method,
+			"url":          r.URL.String(),
+			"status_code":  rec.statusCode,
+			"duration":     duration.Milliseconds(),
+			"client_ip":    r.RemoteAddr,
+			"user_agent":   r.UserAgent(),
+			"referer":      r.Referer(),
+			"request_size": r.ContentLength,
+			"response_size": int64(rec.size),
+			"timestamp":    start,
+		})
 	})
 }
 
@@ -308,11 +323,18 @@ func (m *MiddlewareManager) writeErrorResponse(w http.ResponseWriter, statusCode
 type responseRecorder struct {
 	http.ResponseWriter
 	statusCode int
+	size       int
 }
 
 func (rec *responseRecorder) WriteHeader(code int) {
 	rec.statusCode = code
 	rec.ResponseWriter.WriteHeader(code)
+}
+
+func (rec *responseRecorder) Write(data []byte) (int, error) {
+	n, err := rec.ResponseWriter.Write(data)
+	rec.size += n
+	return n, err
 }
 
 // 中间件链构建器
@@ -625,11 +647,61 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 		// 处理请求
 		c.Next()
 
-		// 记录日志（这里可以集成具体的日志库）
+		// 记录访问日志
 		duration := time.Since(start)
-		// TODO: 集成日志库记录请求信息
-		_ = duration // 避免未使用变量警告
-		_ = c.Writer.Status()
+		statusCode := c.Writer.Status()
+		
+		// 获取用户信息（如果已认证）
+		userID := ""
+		username := ""
+		if uid, exists := c.Get("user_id"); exists {
+			if uidUint, ok := uid.(uint); ok {
+				userID = fmt.Sprintf("%d", uidUint)
+			}
+		}
+		if uname, exists := c.Get("username"); exists {
+			if unameStr, ok := uname.(string); ok {
+				username = unameStr
+			}
+		}
+		
+		// 使用日志格式化器记录API请求
+		userIDUint := uint(0)
+		if userID != "" {
+			if id, err := strconv.ParseUint(userID, 10, 32); err == nil {
+				userIDUint = uint(id)
+			}
+		}
+		logger.LogBusinessOperation("http_request", userIDUint, username, "", "", "info", "API请求", map[string]interface{}{
+			"operation": "http_request",
+			"method":       c.Request.Method,
+			"url":          c.Request.URL.String(),
+			"status_code":  statusCode,
+			"duration":     duration.Milliseconds(),
+			"client_ip":    c.ClientIP(),
+			"user_agent":   c.Request.UserAgent(),
+			"referer":      c.Request.Referer(),
+			"request_size": c.Request.ContentLength,
+			"response_size": int64(c.Writer.Size()),
+			"timestamp":    start,
+		})
+		
+		// 如果是错误状态码，记录错误日志
+		if statusCode >= 400 {
+			errorMsg := ""
+			if errors := c.Errors; len(errors) > 0 {
+				errorMsg = errors.String()
+			}
+			
+			logger.LogError(fmt.Errorf("HTTP %d: %s", statusCode, errorMsg), "", userIDUint, username, "http_request", c.Request.Method, map[string]interface{}{
+				"operation": "http_request",
+				"method":      c.Request.Method,
+				"url":         c.Request.URL.String(),
+				"status_code": statusCode,
+				"client_ip":   c.ClientIP(),
+				"timestamp": time.Now(),
+			})
+		}
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
+	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
 )
@@ -50,36 +51,77 @@ func (r *UserRepository) SetPasswordManager(passwordManager *auth.PasswordManage
 func (r *UserRepository) CreateUser(ctx context.Context, req *model.CreateUserRequest) (*model.User, error) {
 	// 参数验证
 	if req == nil {
+		logger.LogError(errors.New("request is nil"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"error": "request is nil",
+			"timestamp": time.Now(),
+		})
 		return nil, errors.New("创建用户请求不能为空")
 	}
 
 	if req.Username == "" {
+		logger.LogError(errors.New("username is empty"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"email": req.Email,
+			"timestamp": time.Now(),
+		})
 		return nil, errors.New("用户名不能为空")
 	}
 
 	if req.Email == "" {
+		logger.LogError(errors.New("email is empty"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"username": req.Username,
+			"timestamp": time.Now(),
+		})
 		return nil, errors.New("邮箱不能为空")
 	}
 
 	if req.Password == "" {
+		logger.LogError(errors.New("password is empty"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"username": req.Username,
+			"email": req.Email,
+			"timestamp": time.Now(),
+		})
 		return nil, errors.New("密码不能为空")
 	}
 
 	// 检查用户名是否已存在
 	existingUser, err := r.GetUserByUsername(ctx, req.Username)
 	if err == nil && existingUser != nil {
+		logger.LogError(errors.New("username already exists"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"username": req.Username,
+			"email": req.Email,
+			"existing_user_id": existingUser.ID,
+			"timestamp": time.Now(),
+		})
 		return nil, errors.New("用户名已存在")
 	}
 
 	// 检查邮箱是否已存在
 	existingUser, err = r.GetUserByEmail(ctx, req.Email)
 	if err == nil && existingUser != nil {
+		logger.LogError(errors.New("email already exists"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"username": req.Username,
+			"email": req.Email,
+			"existing_user_id": existingUser.ID,
+			"timestamp": time.Now(),
+		})
 		return nil, errors.New("邮箱已存在")
 	}
 
 	// 哈希密码（业务逻辑处理）
 	hashedPassword, err := r.passwordManager.HashPassword(req.Password)
 	if err != nil {
+		logger.LogError(err, "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "hash_password",
+			"username": req.Username,
+			"email": req.Email,
+			"timestamp": time.Now(),
+		})
 		return nil, fmt.Errorf("密码哈希失败: %w", err)
 	}
 
@@ -97,8 +139,22 @@ func (r *UserRepository) CreateUser(ctx context.Context, req *model.CreateUserRe
 	// 存储到数据库
 	err = r.db.WithContext(ctx).Create(user).Error
 	if err != nil {
+		logger.LogError(err, "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user_db",
+			"username": req.Username,
+			"email": req.Email,
+			"timestamp": time.Now(),
+		})
 		return nil, fmt.Errorf("创建用户失败: %w", err)
 	}
+
+	// 记录成功创建用户的业务日志
+	logger.LogBusinessOperation("create_user", user.ID, user.Username, "", "", "success", "User created successfully", map[string]interface{}{
+		"email": user.Email,
+		"status": user.Status,
+		"password_version": user.PasswordV,
+		"timestamp": time.Now(),
+	})
 
 	return user, nil
 }
@@ -118,8 +174,16 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uint) (*model.User,
 	err := r.db.WithContext(ctx).First(&user, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			logger.LogError(fmt.Errorf("user not found"), "", id, "", "user_get", "GET", map[string]interface{}{
+				"operation": "get_user_by_id",
+				"timestamp": time.Now(),
+			})
 			return nil, fmt.Errorf("用户不存在")
 		}
+		logger.LogError(err, "", id, "", "user_get", "GET", map[string]interface{}{
+			"operation": "get_user_by_id",
+			"timestamp": time.Now(),
+		})
 		return nil, err
 	}
 	return &user, nil
@@ -131,8 +195,18 @@ func (r *UserRepository) GetUserByUsername(ctx context.Context, username string)
 	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_get", "GET", map[string]interface{}{
+				"operation": "get_user_by_username",
+				"username": username,
+				"timestamp": time.Now(),
+			})
 			return nil, fmt.Errorf("用户不存在")
 		}
+		logger.LogError(err, "", 0, "", "user_get", "GET", map[string]interface{}{
+			"operation": "get_user_by_username",
+			"username": username,
+			"timestamp": time.Now(),
+		})
 		return nil, err
 	}
 	return &user, nil
@@ -144,8 +218,18 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_get", "GET", map[string]interface{}{
+				"operation": "get_user_by_email",
+				"email": email,
+				"timestamp": time.Now(),
+			})
 			return nil, fmt.Errorf("用户不存在")
 		}
+		logger.LogError(err, "", 0, "", "user_get", "GET", map[string]interface{}{
+			"operation": "get_user_by_email",
+			"email": email,
+			"timestamp": time.Now(),
+		})
 		return nil, err
 	}
 	return &user, nil
@@ -154,7 +238,25 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 // UpdateUser 更新用户信息
 func (r *UserRepository) UpdateUser(ctx context.Context, user *model.User) error {
 	user.UpdatedAt = time.Now()
-	return r.db.WithContext(ctx).Save(user).Error
+	err := r.db.WithContext(ctx).Save(user).Error
+	if err != nil {
+		logger.LogError(err, "", uint(user.ID), "", "user_update", "PUT", map[string]interface{}{
+			"operation": "update_user",
+			"username": user.Username,
+			"email": user.Email,
+			"timestamp": time.Now(),
+		})
+		return err
+	}
+
+	// 记录成功更新用户的业务日志
+	logger.LogBusinessOperation("update_user", uint(user.ID), user.Username, "", "", "success", "用户更新成功", map[string]interface{}{
+		"email": user.Email,
+		"status": user.Status,
+		"timestamp": time.Now(),
+	})
+
+	return nil
 }
 
 // UpdatePasswordWithVersion 更新用户密码并递增密码版本号
@@ -192,11 +294,26 @@ func (r *UserRepository) IncrementPasswordVersion(ctx context.Context, userID ui
 func (r *UserRepository) DeleteUser(ctx context.Context, userID uint) error {
 	result := r.db.WithContext(ctx).Delete(&model.User{}, userID)
 	if result.Error != nil {
+		logger.LogError(result.Error, "", uint(userID), "", "user_delete", "DELETE", map[string]interface{}{
+			"operation": "delete_user",
+			"timestamp": time.Now(),
+		})
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
+		logger.LogError(fmt.Errorf("user not found"), "", uint(userID), "", "user_delete", "DELETE", map[string]interface{}{
+			"operation": "delete_user",
+			"timestamp": time.Now(),
+		})
 		return gorm.ErrRecordNotFound
 	}
+
+	// 记录成功删除用户的业务日志
+	logger.LogBusinessOperation("delete_user", uint(userID), "", "", "", "success", "用户删除成功", map[string]interface{}{
+		"rows_affected": result.RowsAffected,
+		"timestamp": time.Now(),
+	})
+
 	return nil
 }
 
@@ -420,40 +537,75 @@ func (r *UserRepository) ListUsersWithBusinessLogic(ctx context.Context, offset,
 // 处理密码修改的完整流程，包括原密码验证、新密码哈希、版本更新等
 func (r *UserRepository) ChangePassword(ctx context.Context, userID uint, oldPassword, newPassword string) error {
 	if userID == 0 {
+		logger.LogError(errors.New("user ID is zero"), "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"timestamp": time.Now(),
+		})
 		return errors.New("用户ID不能为0")
 	}
 
 	if oldPassword == "" {
+		logger.LogError(errors.New("old password is empty"), "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"timestamp": time.Now(),
+		})
 		return errors.New("原密码不能为空")
 	}
 
 	if newPassword == "" {
+		logger.LogError(errors.New("new password is empty"), "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"timestamp": time.Now(),
+		})
 		return errors.New("新密码不能为空")
 	}
 
 	// 获取用户信息
 	user, err := r.GetUserByID(ctx, userID)
 	if err != nil {
+		logger.LogError(err, "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"timestamp": time.Now(),
+		})
 		return fmt.Errorf("获取用户失败: %w", err)
 	}
 
 	if user == nil {
+		logger.LogError(errors.New("user is nil"), "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"timestamp": time.Now(),
+		})
 		return errors.New("用户不存在")
 	}
 
 	// 验证原密码
 	valid, err := r.passwordManager.VerifyPassword(oldPassword, user.Password)
 	if err != nil {
+		logger.LogError(err, "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"username": user.Username,
+			"timestamp": time.Now(),
+		})
 		return fmt.Errorf("密码验证失败: %w", err)
 	}
 
 	if !valid {
+		logger.LogError(errors.New("old password is incorrect"), "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"username": user.Username,
+			"timestamp": time.Now(),
+		})
 		return errors.New("原密码错误")
 	}
 
 	// 哈希新密码
 	hashedPassword, err := r.passwordManager.HashPassword(newPassword)
 	if err != nil {
+		logger.LogError(err, "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"username": user.Username,
+			"timestamp": time.Now(),
+		})
 		return fmt.Errorf("新密码哈希失败: %w", err)
 	}
 
@@ -465,8 +617,20 @@ func (r *UserRepository) ChangePassword(ctx context.Context, userID uint, oldPas
 	// 调用数据层更新
 	err = r.UpdateUser(ctx, user)
 	if err != nil {
+		logger.LogError(err, "", uint(userID), "", "password_change", "PUT", map[string]interface{}{
+			"operation": "change_password",
+			"username": user.Username,
+			"timestamp": time.Now(),
+		})
 		return fmt.Errorf("更新密码失败: %w", err)
 	}
+
+	// 记录成功修改密码的业务日志
+	logger.LogBusinessOperation("change_password", uint(userID), user.Username, "", "", "success", "密码修改成功", map[string]interface{}{
+		"old_password_version": user.PasswordV - 1,
+		"new_password_version": user.PasswordV,
+		"timestamp": time.Now(),
+	})
 
 	return nil
 }

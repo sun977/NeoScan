@@ -3,8 +3,10 @@ package auth
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"neomaster/internal/model"
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -41,6 +43,15 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 	// 从请求头中获取访问令牌
 	accessToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
+		// 记录令牌提取失败错误日志
+		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
+			"operation": "logout",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"authorization_header": c.GetHeader("Authorization") != "",
+			"timestamp": time.Now(),
+		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
@@ -55,6 +66,16 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 	if err != nil {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
+		// 记录登出失败错误日志
+		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
+			"operation": "logout",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"status_code": statusCode,
+			"request_id": c.GetHeader("X-Request-ID"),
+			"has_token": accessToken != "",
+			"timestamp": time.Now(),
+		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
 			Status:  "error",
@@ -63,6 +84,15 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 		})
 		return
 	}
+
+	// 记录登出成功业务日志
+	logger.LogBusinessOperation("user_logout", 0, "", "", "", "success", "用户登出成功", map[string]interface{}{
+		"operation": "logout",
+		"client_ip": c.ClientIP(),
+		"user_agent": c.GetHeader("User-Agent"),
+		"request_id": c.GetHeader("X-Request-ID"),
+		"timestamp": time.Now(),
+	})
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{
@@ -78,6 +108,15 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	// 从请求头中获取访问令牌
 	accessToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
+		// 记录令牌提取失败错误日志
+		logger.LogError(err, "", 0, "", "user_logout_all", "POST", map[string]interface{}{
+			"operation": "logout_all",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"authorization_header": c.GetHeader("Authorization") != "",
+			"timestamp": time.Now(),
+		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
@@ -90,6 +129,15 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	// 验证令牌并获取用户ID
 	claims, err := h.sessionService.ValidateSession(c.Request.Context(), accessToken)
 	if err != nil {
+		// 记录令牌验证失败错误日志
+		logger.LogError(err, "", 0, "", "user_logout_all", "POST", map[string]interface{}{
+			"operation": "logout_all",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"has_token": accessToken != "",
+			"timestamp": time.Now(),
+		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
@@ -103,6 +151,15 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	err = h.sessionService.Logout(c.Request.Context(), accessToken)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
+		// 记录全部登出失败错误日志
+		logger.LogError(err, "", uint(claims.ID), "", "user_logout_all", "POST", map[string]interface{}{
+			"operation": "logout_all",
+			"client_ip": c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"status_code": statusCode,
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp": time.Now(),
+		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
 			Status:  "error",
@@ -111,6 +168,15 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 		})
 		return
 	}
+
+	// 记录全部登出成功业务日志
+	logger.LogBusinessOperation("user_logout_all", uint(claims.ID), "", "", "", "success", "用户全部登出成功", map[string]interface{}{
+		"operation": "logout_all",
+		"client_ip": c.ClientIP(),
+		"user_agent": c.GetHeader("User-Agent"),
+		"request_id": c.GetHeader("X-Request-ID"),
+		"timestamp": time.Now(),
+	})
 
 	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{

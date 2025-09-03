@@ -10,6 +10,7 @@ import (
 
 	"neomaster/internal/model"            // 导入数据模型定义
 	"neomaster/internal/pkg/auth"         // 导入JWT工具包，提供底层JWT操作
+	"neomaster/internal/pkg/logger"       // 导入日志管理器
 	"neomaster/internal/repository/mysql" // 导入MySQL数据访问层
 
 	"github.com/golang-jwt/jwt/v5" // 导入JWT库，用于令牌解析和验证
@@ -48,6 +49,10 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *model.User) (*aut
 	// 参数验证：确保用户对象不为空
 	// 这是防御性编程的体现，避免空指针异常
 	if user == nil {
+		logger.LogError(errors.New("user cannot be nil"), "", 0, "", "token_generate", "POST", map[string]interface{}{
+			"operation": "generate_tokens",
+			"timestamp": time.Now(),
+		})
 		return nil, errors.New("user cannot be nil")
 	}
 
@@ -56,6 +61,11 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *model.User) (*aut
 	userWithPerms, err := s.userRepo.GetUserWithRolesAndPermissions(ctx, user.ID)
 	if err != nil {
 		// 使用fmt.Errorf包装错误，保留原始错误信息，便于调试
+		logger.LogError(err, "", uint(user.ID), "", "token_generate", "POST", map[string]interface{}{
+			"operation": "generate_tokens",
+			"username": user.Username,
+			"timestamp": time.Now(),
+		})
 		return nil, fmt.Errorf("failed to get user permissions: %w", err)
 	}
 
@@ -90,8 +100,23 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *model.User) (*aut
 	)
 	if err != nil {
 		// 令牌生成失败，包装错误信息返回
+		logger.LogError(err, "", uint(userWithPerms.ID), "", "token_generate", "POST", map[string]interface{}{
+			"operation": "generate_tokens",
+			"username": userWithPerms.Username,
+			"roles": roles,
+			"timestamp": time.Now(),
+		})
 		return nil, fmt.Errorf("failed to generate token pair: %w", err)
 	}
+
+	// 记录成功生成令牌的业务日志
+	logger.LogBusinessOperation("generate_tokens", uint(userWithPerms.ID), userWithPerms.Username, "", "", "success", "令牌生成成功", map[string]interface{}{
+		"roles": roles,
+		"permissions_count": len(permissions),
+		"token_prefix": tokenPair.AccessToken[:10] + "...", // 只记录token前缀
+		"expires_in": tokenPair.ExpiresIn,
+		"timestamp": time.Now(),
+	})
 
 	// 成功生成令牌对，返回给调用者
 	return tokenPair, nil
@@ -256,6 +281,11 @@ func (s *JWTService) RevokeToken(ctx context.Context, tokenString string) error 
 	claims, err := s.ValidateAccessToken(tokenString)
 	if err != nil {
 		// 令牌无效，无需撤销
+		logger.LogError(err, "", 0, "", "token_revoke", "POST", map[string]interface{}{
+			"operation": "revoke_token",
+			"token_prefix": tokenString[:10] + "...",
+			"timestamp": time.Now(),
+		})
 		return err
 	}
 
@@ -267,6 +297,12 @@ func (s *JWTService) RevokeToken(ctx context.Context, tokenString string) error 
 	// 1. 将claims.ID存储到Redis集合中
 	// 2. 设置过期时间为claims.ExpiresAt
 	// 3. 在ValidateAccessToken中增加黑名单检查
+
+	// 记录令牌撤销的业务日志
+	logger.LogBusinessOperation("revoke_token", uint(claims.UserID), claims.Username, "", "", "success", "令牌撤销成功", map[string]interface{}{
+		"token_prefix": tokenString[:10] + "...",
+		"timestamp": time.Now(),
+	})
 
 	// 暂时返回nil，表示撤销成功
 	// 实际项目中需要实现具体的黑名单逻辑

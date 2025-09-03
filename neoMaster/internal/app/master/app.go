@@ -3,9 +3,11 @@ package master
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/database"
+	"neomaster/internal/pkg/logger"
 
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
@@ -27,20 +29,65 @@ func NewApp() (*App, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// 初始化日志管理器
+	_, err = logger.InitLogger(&cfg.Log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize logger: %w", err)
+	}
+
+	// 记录应用启动日志
+	logger.LogBusinessOperation("app_start", 0, "", "", "", "info", "NeoMaster application starting", map[string]interface{}{
+		"version": "1.0.0",
+		"env":     "development",
+		"timestamp": time.Now(),
+	})
+
 	// 初始化数据库连接
 	db, err := database.NewMySQLConnection(&cfg.Database.MySQL)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to MySQL: %v", err)
+		// 记录数据库连接失败日志
+		logger.LogError(err, "", 0, "", "db_connect", "CONNECT", map[string]interface{}{
+			"operation": "mysql_connect",
+			"host": cfg.Database.MySQL.Host,
+			"port": cfg.Database.MySQL.Port,
+			"database": cfg.Database.MySQL.Database,
+			"timestamp": time.Now(),
+		})
 		// 在开发阶段，如果数据库连接失败，我们继续运行但使用nil
 		db = nil
+	} else {
+		// 记录数据库连接成功日志
+		logger.LogBusinessOperation("db_connect", 0, "", "", "", "success", "MySQL database connected successfully", map[string]interface{}{
+			"operation": "mysql_connect",
+			"host": cfg.Database.MySQL.Host,
+			"database": cfg.Database.MySQL.Database,
+			"timestamp": time.Now(),
+		})
 	}
 
 	// 初始化Redis连接
 	redisClient, err := database.NewRedisConnection(&cfg.Database.Redis)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to Redis: %v", err)
+		// 记录Redis连接失败日志
+		logger.LogError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
+			"operation": "redis_connect",
+			"host": cfg.Database.Redis.Host,
+			"port": cfg.Database.Redis.Port,
+			"database": cfg.Database.Redis.Database,
+			"timestamp": time.Now(),
+		})
 		// 在开发阶段，如果Redis连接失败，我们继续运行但使用nil
 		redisClient = nil
+	} else {
+		// 记录Redis连接成功日志
+		logger.LogBusinessOperation("redis_connect", 0, "", "", "", "success", "Redis connected successfully", map[string]interface{}{
+			"operation": "redis_connect",
+			"host": cfg.Database.Redis.Host,
+			"database": cfg.Database.Redis.Database,
+			"timestamp": time.Now(),
+		})
 	}
 
 	// 初始化路由器

@@ -31,7 +31,7 @@ func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, ses
 	if err != nil {
 		logger.LogError(err, "", uint(userID), "", "session_store", "POST", map[string]interface{}{
 			"operation": "marshal_session",
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to marshal session data: %w", err)
 	}
@@ -43,11 +43,11 @@ func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, ses
 	err = r.client.Set(ctx, sessionKey, data, expiration).Err()
 	if err != nil {
 		logger.LogError(err, "", uint(userID), "", "session_store", "POST", map[string]interface{}{
-			"operation": "store_session",
-			"username": sessionData.Username,
+			"operation":   "store_session",
+			"username":    sessionData.Username,
 			"session_key": sessionKey,
-			"expiration": expiration.String(),
-			"timestamp": time.Now(),
+			"expiration":  expiration.String(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to store session: %w", err)
 	}
@@ -55,8 +55,8 @@ func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, ses
 	// 记录成功存储会话的业务日志
 	logger.LogBusinessOperation("store_session", uint(userID), sessionData.Username, "", "", "success", "Session stored successfully", map[string]interface{}{
 		"session_key": sessionKey,
-		"expiration": expiration.String(),
-		"timestamp": time.Now(),
+		"expiration":  expiration.String(),
+		"timestamp":   logger.NowFormatted(),
 	})
 
 	return nil
@@ -72,16 +72,16 @@ func (r *SessionRepository) GetSession(ctx context.Context, userID uint64) (*mod
 	if err != nil {
 		if err == redis.Nil {
 			logger.LogError(fmt.Errorf("session not found"), "", uint(userID), "", "session_get", "GET", map[string]interface{}{
-				"operation": "get_session",
+				"operation":   "get_session",
 				"session_key": sessionKey,
-				"timestamp": time.Now(),
+				"timestamp":   logger.NowFormatted(),
 			})
 			return nil, fmt.Errorf("session not found")
 		}
 		logger.LogError(err, "", uint(userID), "", "session_get", "GET", map[string]interface{}{
-			"operation": "get_session",
+			"operation":   "get_session",
 			"session_key": sessionKey,
-			"timestamp": time.Now(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
@@ -91,9 +91,9 @@ func (r *SessionRepository) GetSession(ctx context.Context, userID uint64) (*mod
 	err = json.Unmarshal([]byte(data), &sessionData)
 	if err != nil {
 		logger.LogError(err, "", uint(userID), "", "session_get", "GET", map[string]interface{}{
-			"operation": "unmarshal_session",
+			"operation":   "unmarshal_session",
 			"session_key": sessionKey,
-			"timestamp": time.Now(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to unmarshal session data: %w", err)
 	}
@@ -110,9 +110,9 @@ func (r *SessionRepository) DeleteSession(ctx context.Context, userID uint64) er
 	err := r.client.Del(ctx, sessionKey).Err()
 	if err != nil {
 		logger.LogError(err, "", uint(userID), "", "session_delete", "DELETE", map[string]interface{}{
-			"operation": "delete_session",
+			"operation":   "delete_session",
 			"session_key": sessionKey,
-			"timestamp": time.Now(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to delete session: %w", err)
 	}
@@ -120,7 +120,7 @@ func (r *SessionRepository) DeleteSession(ctx context.Context, userID uint64) er
 	// 记录成功删除会话的业务日志
 	logger.LogBusinessOperation("delete_session", uint(userID), "", "", "", "success", "Session deleted successfully", map[string]interface{}{
 		"session_key": sessionKey,
-		"timestamp": time.Now(),
+		"timestamp":   logger.NowFormatted(),
 	})
 
 	return nil
@@ -194,22 +194,22 @@ func (r *SessionRepository) RevokeToken(ctx context.Context, tokenID string, exp
 	err := r.client.Set(ctx, revokedKey, revokedAt, expiration).Err()
 	if err != nil {
 		logger.LogError(err, "", 0, "", "token_revoke", "POST", map[string]interface{}{
-			"operation": "revoke_token",
-			"token_id": tokenID[:10] + "...", // 只记录token前缀
+			"operation":   "revoke_token",
+			"token_id":    tokenID[:10] + "...", // 只记录token前缀
 			"revoked_key": revokedKey,
-			"expiration": expiration.String(),
-			"timestamp": time.Now(),
+			"expiration":  expiration.String(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to revoke token: %w", err)
 	}
 
 	// 记录成功撤销令牌的业务日志
 	logger.LogBusinessOperation("revoke_token", 0, "", "", "", "success", "Token revoked successfully", map[string]interface{}{
-		"token_id": tokenID[:10] + "...", // 只记录token前缀
+		"token_id":    tokenID[:10] + "...", // 只记录token前缀
 		"revoked_key": revokedKey,
-		"revoked_at": revokedAt,
-		"expiration": expiration.String(),
-		"timestamp": time.Now(),
+		"revoked_at":  revokedAt,
+		"expiration":  expiration.String(),
+		"timestamp":   logger.NowFormatted(),
 	})
 
 	return nil
@@ -224,10 +224,10 @@ func (r *SessionRepository) IsTokenRevoked(ctx context.Context, tokenID string) 
 	exists, err := r.client.Exists(ctx, revokedKey).Result()
 	if err != nil {
 		logger.LogError(err, "", 0, "", "token_check", "GET", map[string]interface{}{
-			"operation": "check_token_revocation",
-			"token_id": tokenID[:10] + "...", // 只记录token前缀
+			"operation":   "check_token_revocation",
+			"token_id":    tokenID[:10] + "...", // 只记录token前缀
 			"revoked_key": revokedKey,
-			"timestamp": time.Now(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return false, fmt.Errorf("failed to check token revocation: %w", err)
 	}
@@ -328,8 +328,8 @@ func (r *SessionRepository) StoreRefreshToken(ctx context.Context, userID uint64
 	if err != nil {
 		logger.LogError(err, "", uint(userID), "", "refresh_token_store", "POST", map[string]interface{}{
 			"operation": "marshal_refresh_token",
-			"token_id": tokenID[:10] + "...", // 只记录token前缀
-			"timestamp": time.Now(),
+			"token_id":  tokenID[:10] + "...", // 只记录token前缀
+			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to marshal refresh token data: %w", err)
 	}
@@ -337,21 +337,21 @@ func (r *SessionRepository) StoreRefreshToken(ctx context.Context, userID uint64
 	err = r.client.Set(ctx, refreshKey, data, expiration).Err()
 	if err != nil {
 		logger.LogError(err, "", uint(userID), "", "refresh_token_store", "POST", map[string]interface{}{
-			"operation": "store_refresh_token",
-			"token_id": tokenID[:10] + "...", // 只记录token前缀
+			"operation":   "store_refresh_token",
+			"token_id":    tokenID[:10] + "...", // 只记录token前缀
 			"refresh_key": refreshKey,
-			"expiration": expiration.String(),
-			"timestamp": time.Now(),
+			"expiration":  expiration.String(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to store refresh token: %w", err)
 	}
 
 	// 记录成功存储刷新令牌的业务日志
 	logger.LogBusinessOperation("store_refresh_token", uint(userID), "", "", "", "success", "Refresh token stored successfully", map[string]interface{}{
-		"token_id": tokenID[:10] + "...", // 只记录token前缀
+		"token_id":    tokenID[:10] + "...", // 只记录token前缀
 		"refresh_key": refreshKey,
-		"expiration": expiration.String(),
-		"timestamp": time.Now(),
+		"expiration":  expiration.String(),
+		"timestamp":   logger.NowFormatted(),
 	})
 
 	return nil
@@ -366,10 +366,10 @@ func (r *SessionRepository) ValidateRefreshToken(ctx context.Context, userID uin
 	exists, err := r.client.Exists(ctx, refreshKey).Result()
 	if err != nil {
 		logger.LogError(err, "", uint(userID), "", "refresh_token_validate", "GET", map[string]interface{}{
-			"operation": "validate_refresh_token",
-			"token_id": tokenID[:10] + "...", // 只记录token前缀
+			"operation":   "validate_refresh_token",
+			"token_id":    tokenID[:10] + "...", // 只记录token前缀
 			"refresh_key": refreshKey,
-			"timestamp": time.Now(),
+			"timestamp":   logger.NowFormatted(),
 		})
 		return false, fmt.Errorf("failed to validate refresh token: %w", err)
 	}
@@ -377,10 +377,10 @@ func (r *SessionRepository) ValidateRefreshToken(ctx context.Context, userID uin
 	isValid := exists > 0
 	if !isValid {
 		logger.LogError(fmt.Errorf("refresh token not found or expired"), "", uint(userID), "", "refresh_token_validate", "GET", map[string]interface{}{
-			"operation": "validate_refresh_token",
-			"token_id": tokenID[:10] + "...", // 只记录token前缀
+			"operation":   "validate_refresh_token",
+			"token_id":    tokenID[:10] + "...", // 只记录token前缀
 			"refresh_key": refreshKey,
-			"timestamp": time.Now(),
+			"timestamp":   logger.NowFormatted(),
 		})
 	}
 

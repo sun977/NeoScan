@@ -3,7 +3,6 @@ package auth
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
@@ -59,11 +58,11 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	if contentType == "" {
 		// 记录Content-Type缺失错误日志
 		logger.LogError(errors.New("missing Content-Type header"), "", 0, "", "user_register", "POST", map[string]interface{}{
-			"operation": "register",
-			"client_ip": c.ClientIP(),
+			"operation":  "register",
+			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
 			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp": time.Now(),
+			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
@@ -79,12 +78,12 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// 记录请求体解析失败错误日志
 		logger.LogError(err, "", 0, "", "user_register", "POST", map[string]interface{}{
-			"operation": "register",
-			"client_ip": c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"operation":    "register",
+			"client_ip":    c.ClientIP(),
+			"user_agent":   c.GetHeader("User-Agent"),
+			"request_id":   c.GetHeader("X-Request-ID"),
 			"content_type": contentType,
-			"timestamp": time.Now(),
+			"timestamp":    logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
@@ -99,12 +98,12 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	if err := h.validateRegisterRequest(&req); err != nil {
 		// 记录参数验证失败错误日志
 		logger.LogError(err, "", 0, req.Username, "user_register", "POST", map[string]interface{}{
-			"operation": "register",
-			"email": req.Email,
-			"client_ip": c.ClientIP(),
+			"operation":  "register",
+			"email":      req.Email,
+			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
 			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp": time.Now(),
+			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
@@ -121,13 +120,13 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录注册失败错误日志
 		logger.LogError(err, "", 0, req.Username, "user_register", "POST", map[string]interface{}{
-			"operation": "register",
-			"email": req.Email,
-			"client_ip": c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
+			"operation":   "register",
+			"email":       req.Email,
+			"client_ip":   c.ClientIP(),
+			"user_agent":  c.GetHeader("User-Agent"),
 			"status_code": statusCode,
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp": time.Now(),
+			"request_id":  c.GetHeader("X-Request-ID"),
+			"timestamp":   logger.NowFormatted(),
 		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
@@ -140,12 +139,12 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 
 	// 记录注册成功业务日志
 	logger.LogBusinessOperation("user_register", uint(response.User.ID), req.Username, "", "", "success", "用户注册成功", map[string]interface{}{
-		"operation": "register",
-		"email": req.Email,
-		"client_ip": c.ClientIP(),
+		"operation":  "register",
+		"email":      req.Email,
+		"client_ip":  c.ClientIP(),
 		"user_agent": c.GetHeader("User-Agent"),
 		"request_id": c.GetHeader("X-Request-ID"),
-		"timestamp": time.Now(),
+		"timestamp":  logger.NowFormatted(),
 	})
 
 	// 返回成功响应

@@ -132,7 +132,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	}
 
 	// 更新最后登录时间
-	if err := s.userRepo.UpdateLastLogin(ctx, user.ID); err != nil {
+	err = s.userRepo.UpdateLastLogin(ctx, user.ID)
+	if err != nil {
 		// 记录错误但不影响登录流程
 		fmt.Printf("Warning: failed to update last login time: %v\n", err)
 	}
@@ -164,10 +165,11 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 
 	// 记录成功登录的业务日志
 	logger.LogBusinessOperation("user_login", uint(user.ID), user.Username, "", "", "success", "用户登录成功", map[string]interface{}{
-		"email":      user.Email,
-		"roles":      roles,
-		"session_id": tokenPair.AccessToken[:10] + "...", // 只记录token前缀
-		"timestamp":  logger.NowFormatted(),
+		"email":       user.Email,
+		"roles":       roles,
+		"permissions": permissions,                        // 添加权限信息到日志中
+		"session_id":  tokenPair.AccessToken[:10] + "...", // 只记录token前缀
+		"timestamp":   logger.NowFormatted(),
 	})
 
 	return &model.LoginResponse{

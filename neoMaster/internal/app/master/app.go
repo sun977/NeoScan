@@ -35,7 +35,7 @@ func NewApp() (*App, error) {
 	}
 
 	// 记录应用启动日志
-	logger.LogBusinessOperation("app_start", 0, "", "", "", "info", "NeoMaster application starting", map[string]interface{}{
+	logger.LogBusinessOperation("app_start", 0, "", "", "", "success", "NeoMaster application starting", map[string]interface{}{
 		"version": "1.0.0",
 		"env":     "development",
 		"timestamp": logger.NowFormatted(),

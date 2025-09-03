@@ -59,7 +59,7 @@ log:
   max_backups: 5  # 日志文件最大备份数
   max_age: 30  # days  # 日志文件最大保存时间(天)
   compress: true   # 压缩日志文件
-  caller: true    # 显示调用者信息[默认false,设置为true时,会增加字段file(显示调用日志函数的源代码文件的完整路径)和function(显示调用日志函数的完整函数名（包含包路径)]
+  caller: true    # 显示调用者信息[默认false,设置为true时,会增加字段file(显示调用日志函数的源代码文件的完整路径)和function(显示调用日志函数的完整函数名（包含包路径),但是打印的都是logger发起的]
   stack_trace: true   # 显示堆栈信息
 
 # 安全配置

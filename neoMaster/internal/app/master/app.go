@@ -3,7 +3,6 @@ package master
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/database"
@@ -39,7 +38,7 @@ func NewApp() (*App, error) {
 	logger.LogBusinessOperation("app_start", 0, "", "", "", "info", "NeoMaster application starting", map[string]interface{}{
 		"version": "1.0.0",
 		"env":     "development",
-		"timestamp": time.Now(),
+		"timestamp": logger.NowFormatted(),
 	})
 
 	// 初始化数据库连接
@@ -52,7 +51,7 @@ func NewApp() (*App, error) {
 			"host": cfg.Database.MySQL.Host,
 			"port": cfg.Database.MySQL.Port,
 			"database": cfg.Database.MySQL.Database,
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		// 在开发阶段，如果数据库连接失败，我们继续运行但使用nil
 		db = nil
@@ -62,7 +61,7 @@ func NewApp() (*App, error) {
 			"operation": "mysql_connect",
 			"host": cfg.Database.MySQL.Host,
 			"database": cfg.Database.MySQL.Database,
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 	}
 
@@ -76,7 +75,7 @@ func NewApp() (*App, error) {
 			"host": cfg.Database.Redis.Host,
 			"port": cfg.Database.Redis.Port,
 			"database": cfg.Database.Redis.Database,
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 		// 在开发阶段，如果Redis连接失败，我们继续运行但使用nil
 		redisClient = nil
@@ -86,7 +85,7 @@ func NewApp() (*App, error) {
 			"operation": "redis_connect",
 			"host": cfg.Database.Redis.Host,
 			"database": cfg.Database.Redis.Database,
-			"timestamp": time.Now(),
+			"timestamp": logger.NowFormatted(),
 		})
 	}
 

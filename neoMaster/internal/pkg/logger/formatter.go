@@ -10,6 +10,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// FormatTimestamp 格式化时间戳为统一的毫秒精度格式
+// 返回格式："2006-01-02 15:04:05.000"
+func FormatTimestamp(t time.Time) string {
+	// 除了日志管理器之外的其他模块使用的时间戳格式
+	return t.Format("2006-01-02 15:04:05.000")
+}
+
+// NowFormatted 返回当前时间的格式化字符串
+// 返回格式："2006-01-02 15:04:05.000"
+func NowFormatted() string {
+	return FormatTimestamp(time.Now())
+}
+
 // LogType 日志类型枚举
 type LogType string
 
@@ -105,9 +118,8 @@ func LogAccessRequest(c *gin.Context, startTime time.Time, requestID string, use
 	// 计算响应时间
 	responseTime := time.Since(startTime).Milliseconds()
 
-	// 构建访问日志条目
+	// 构建访问日志条目（移除未使用的Timestamp字段）
 	entry := AccessLogEntry{
-		Timestamp:    startTime,
 		Method:       c.Request.Method,
 		Path:         c.Request.URL.Path,
 		Query:        c.Request.URL.RawQuery,
@@ -121,10 +133,9 @@ func LogAccessRequest(c *gin.Context, startTime time.Time, requestID string, use
 		ResponseSize: int64(c.Writer.Size()),
 	}
 
-	// 记录日志
+	// 记录日志（移除重复的timestamp字段，使用logrus自带的时间戳）
 	LoggerInstance.logger.WithFields(logrus.Fields{
 		"type":          AccessLog,
-		"timestamp":     entry.Timestamp,
 		"method":        entry.Method,
 		"path":          entry.Path,
 		"query":         entry.Query,
@@ -146,9 +157,8 @@ func LogBusinessOperation(operation string, userID uint, username, clientIP, req
 		return
 	}
 
-	// 构建业务日志条目
+	// 构建业务日志条目（移除未使用的Timestamp字段）
 	entry := BusinessLogEntry{
-		Timestamp: time.Now(),
 		Operation: operation,
 		UserID:    userID,
 		Username:  username,
@@ -158,10 +168,9 @@ func LogBusinessOperation(operation string, userID uint, username, clientIP, req
 		RequestID: requestID,
 	}
 
-	// 构建日志字段
+	// 构建日志字段（移除重复的timestamp字段，使用logrus自带的时间戳）
 	fields := logrus.Fields{
 		"type":       BusinessLog,
-		"timestamp":  entry.Timestamp,
 		"operation":  entry.Operation,
 		"user_id":    entry.UserID,
 		"username":   entry.Username,
@@ -195,9 +204,8 @@ func LogError(err error, requestID string, userID uint, clientIP, path, method s
 		return
 	}
 
-	// 构建错误日志条目
+	// 构建错误日志条目（移除未使用的Timestamp字段）
 	entry := ErrorLogEntry{
-		Timestamp: time.Now(),
 		Level:     "error",
 		Error:     err.Error(),
 		RequestID: requestID,
@@ -207,10 +215,9 @@ func LogError(err error, requestID string, userID uint, clientIP, path, method s
 		Method:    method,
 	}
 
-	// 构建日志字段
+	// 构建日志字段（移除重复的timestamp字段，使用logrus自带的时间戳）
 	fields := logrus.Fields{
 		"type":       ErrorLog,
-		"timestamp":  entry.Timestamp,
 		"level":      entry.Level,
 		"error":      entry.Error,
 		"request_id": entry.RequestID,
@@ -236,19 +243,17 @@ func LogSystemEvent(component, event, message string, level logrus.Level, extraF
 		return
 	}
 
-	// 构建系统日志条目
+	// 构建系统日志条目（移除未使用的Timestamp字段）
 	entry := SystemLogEntry{
-		Timestamp: time.Now(),
 		Component: component,
 		Event:     event,
 		Message:   message,
 		Level:     level.String(),
 	}
 
-	// 构建日志字段
+	// 构建日志字段（移除重复的timestamp字段，使用logrus自带的时间戳）
 	fields := logrus.Fields{
 		"type":      SystemLog,
-		"timestamp": entry.Timestamp,
 		"component": entry.Component,
 		"event":     entry.Event,
 		"message":   entry.Message,
@@ -284,9 +289,8 @@ func LogAuditOperation(userID uint, username, action, resource, result, clientIP
 		return
 	}
 
-	// 构建审计日志条目
+	// 构建审计日志条目（移除未使用的Timestamp字段）
 	entry := AuditLogEntry{
-		Timestamp: time.Now(),
 		UserID:    userID,
 		Username:  username,
 		Action:    action,
@@ -297,10 +301,9 @@ func LogAuditOperation(userID uint, username, action, resource, result, clientIP
 		RequestID: requestID,
 	}
 
-	// 构建日志字段
+	// 构建日志字段（移除重复的timestamp字段，使用logrus自带的时间戳）
 	fields := logrus.Fields{
 		"type":       AuditLog,
-		"timestamp":  entry.Timestamp,
 		"user_id":    entry.UserID,
 		"username":   entry.Username,
 		"action":     entry.Action,
@@ -327,9 +330,8 @@ func LogHTTPRequest(r *http.Request, statusCode int, responseTime time.Duration,
 		return
 	}
 
-	// 构建访问日志条目
+	// 构建访问日志条目（移除未使用的Timestamp字段）
 	entry := AccessLogEntry{
-		Timestamp:    time.Now(),
 		Method:       r.Method,
 		Path:         r.URL.Path,
 		Query:        r.URL.RawQuery,
@@ -342,10 +344,9 @@ func LogHTTPRequest(r *http.Request, statusCode int, responseTime time.Duration,
 		RequestSize:  r.ContentLength,
 	}
 
-	// 记录日志
+	// 记录日志（移除重复的timestamp字段，使用logrus自带的时间戳）
 	LoggerInstance.logger.WithFields(logrus.Fields{
 		"type":          AccessLog,
-		"timestamp":     entry.Timestamp,
 		"method":        entry.Method,
 		"path":          entry.Path,
 		"query":         entry.Query,

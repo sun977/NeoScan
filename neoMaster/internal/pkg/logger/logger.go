@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"neomaster/internal/config"
 
@@ -70,11 +69,14 @@ func InitLogger(cfg *config.LogConfig) (*LoggerManager, error) {
 
 // setLogFormatter 设置日志格式化器
 func setLogFormatter(logger *logrus.Logger, cfg *config.LogConfig) error {
+	// 定义合理精度的时间戳格式（精确到毫秒，不显示时区，使用空格分隔日期和时间|给管理器使用的时间戳格式）
+	timestampFormat := "2006-01-02 15:04:05.000"
+
 	switch strings.ToLower(cfg.Format) {
 	case "json":
 		// JSON格式化器，适合生产环境和日志分析
 		logger.SetFormatter(&logrus.JSONFormatter{
-			TimestampFormat: time.RFC3339,
+			TimestampFormat: timestampFormat, // 使用毫秒精度时间戳
 			FieldMap: logrus.FieldMap{
 				logrus.FieldKeyTime:  "timestamp",
 				logrus.FieldKeyLevel: "level",
@@ -86,7 +88,7 @@ func setLogFormatter(logger *logrus.Logger, cfg *config.LogConfig) error {
 	case "text":
 		// 文本格式化器，适合开发环境和控制台输出
 		logger.SetFormatter(&logrus.TextFormatter{
-			TimestampFormat: time.RFC3339,
+			TimestampFormat: timestampFormat, // 使用毫秒精度时间戳
 			FullTimestamp:   true,
 			ForceColors:     true,
 		})

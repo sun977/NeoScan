@@ -6,6 +6,7 @@ import (
 
 	authHandler "neomaster/internal/handler/auth"
 	authPkg "neomaster/internal/pkg/auth"
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	authService "neomaster/internal/service/auth"
@@ -338,7 +339,7 @@ func (r *Router) revokeAllUserSessions(c *gin.Context) {
 func (r *Router) healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "healthy",
-		"timestamp": c.GetHeader("Date"),
+		"timestamp": logger.NowFormatted(),
 	})
 }
 
@@ -346,13 +347,13 @@ func (r *Router) readinessCheck(c *gin.Context) {
 	// TODO: 检查依赖服务（数据库、Redis等）是否就绪
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "ready",
-		"timestamp": c.GetHeader("Date"),
+		"timestamp": logger.NowFormatted(),
 	})
 }
 
 func (r *Router) livenessCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "alive",
-		"timestamp": c.GetHeader("Date"),
+		"timestamp": logger.NowFormatted(),
 	})
 }

@@ -199,7 +199,7 @@ func testSessionManagement(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, user.Username, sessionUser.Username, "会话用户名应该匹配")
 
 	// 测试获取当前用户信息
-	userInfo, err := ts.SessionService.GetCurrentUser(ctx, loginResp.AccessToken)
+	userInfo, err := ts.UserService.GetCurrentUser(ctx, loginResp.AccessToken)
 	AssertNoError(t, err, "获取用户信息不应该出错")
 	AssertEqual(t, user.ID, userInfo.ID, "用户ID应该匹配")
 	AssertEqual(t, user.Username, userInfo.Username, "用户名应该匹配")

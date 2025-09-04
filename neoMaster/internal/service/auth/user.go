@@ -106,16 +106,30 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest) 
 		return nil, model.ErrUserAlreadyExists
 	}
 
-	// 创建用户请求
-	createUserReq := &model.CreateUserRequest{
-		Username: req.Username,
-		Email:    req.Email,
-		Password: req.Password,
-		Nickname: req.Nickname,
+	// 哈希密码
+	hashedPassword, err := s.passwordManager.HashPassword(req.Password)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "user_register", "POST", map[string]interface{}{
+			"operation": "hash_password",
+			"username":  req.Username,
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("密码哈希失败: %w", err)
+	}
+
+	// 创建用户对象
+	user := &model.User{
+		Username:  req.Username,
+		Email:     req.Email,
+		Nickname:  req.Nickname,
+		Password:  hashedPassword, // 使用哈希后的密码
+		Status:    model.UserStatusEnabled,
+		PasswordV: 1, // 设置密码版本
 	}
 
 	// 创建用户
-	user, err := s.userRepo.CreateUser(ctx, createUserReq)
+	err = s.userRepo.CreateUser(ctx, user)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "user_register", "POST", map[string]interface{}{
 			"operation": "register",
@@ -157,6 +171,118 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest) 
 	}
 
 	return response, nil
+}
+
+// CreateUser 创建用户（包含业务逻辑）
+// 处理用户创建的完整流程，包括参数验证、重复检查、密码哈希等
+func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserRequest) (*model.User, error) {
+	// 参数验证
+	if req == nil {
+		logger.LogError(errors.New("request is nil"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"error":     "request is nil",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("创建用户请求不能为空")
+	}
+
+	if req.Username == "" {
+		logger.LogError(errors.New("username is empty"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户名不能为空")
+	}
+
+	if req.Email == "" {
+		logger.LogError(errors.New("email is empty"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"username":  req.Username,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("邮箱不能为空")
+	}
+
+	if req.Password == "" {
+		logger.LogError(errors.New("password is empty"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user",
+			"username":  req.Username,
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("密码不能为空")
+	}
+
+	// 检查用户名是否已存在
+	existingUser, err := s.userRepo.GetUserByUsername(ctx, req.Username)
+	if err == nil && existingUser != nil {
+		logger.LogError(errors.New("username already exists"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation":        "create_user",
+			"username":         req.Username,
+			"email":            req.Email,
+			"existing_user_id": existingUser.ID,
+			"timestamp":        logger.NowFormatted(),
+		})
+		return nil, errors.New("用户名已存在")
+	}
+
+	// 检查邮箱是否已存在
+	existingUser, err = s.userRepo.GetUserByEmail(ctx, req.Email)
+	if err == nil && existingUser != nil {
+		logger.LogError(errors.New("email already exists"), "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation":        "create_user",
+			"username":         req.Username,
+			"email":            req.Email,
+			"existing_user_id": existingUser.ID,
+			"timestamp":        logger.NowFormatted(),
+		})
+		return nil, errors.New("邮箱已存在")
+	}
+
+	// 哈希密码（业务逻辑处理）
+	hashedPassword, err := s.passwordManager.HashPassword(req.Password)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "hash_password",
+			"username":  req.Username,
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("密码哈希失败: %w", err)
+	}
+
+	// 创建用户模型
+	user := &model.User{
+		Username:  req.Username,
+		Email:     req.Email,
+		Nickname:  req.Nickname,
+		Password:  hashedPassword, // 使用哈希后的密码
+		Status:    model.UserStatusEnabled,
+		PasswordV: 1, // 设置密码版本
+	}
+
+	// 存储到数据库
+	err = s.userRepo.CreateUser(ctx, user)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "user_create", "POST", map[string]interface{}{
+			"operation": "create_user_db",
+			"username":  req.Username,
+			"email":     req.Email,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("创建用户失败: %w", err)
+	}
+
+	// 记录成功创建用户的业务日志
+	logger.LogBusinessOperation("create_user", user.ID, user.Username, "", "", "success", "User created successfully", map[string]interface{}{
+		"email":            user.Email,
+		"status":           user.Status,
+		"password_version": user.PasswordV,
+		"timestamp":        logger.NowFormatted(),
+	})
+
+	return user, nil
 }
 
 // GetCurrentUser 获取当前用户信息
@@ -281,4 +407,146 @@ func (s *UserService) GetCurrentUser(ctx context.Context, accessToken string) (*
 	})
 
 	return userInfo, nil
+}
+
+// UpdateUser 更新用户信息（包含业务逻辑）
+// 处理用户更新的完整流程，包括参数验证、重复检查、密码哈希等
+func (s *UserService) UpdateUser(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+	// 参数验证
+	if userID == 0 {
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	if req == nil {
+		return nil, errors.New("更新用户请求不能为空")
+	}
+
+	// 获取现有用户
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	// 更新字段
+	if req.Email != "" && req.Email != user.Email {
+		// 检查新邮箱是否已存在
+		var existingUser *model.User
+		existingUser, err = s.userRepo.GetUserByEmail(ctx, req.Email)
+		if err == nil && existingUser != nil && existingUser.ID != userID {
+			return nil, errors.New("邮箱已存在")
+		}
+		user.Email = req.Email
+	}
+
+	if req.Status != nil {
+		user.Status = *req.Status
+	}
+
+	// 如果需要更新密码
+	if req.Password != "" {
+		var hashedPassword string
+		hashedPassword, err = s.passwordManager.HashPassword(req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("密码哈希失败: %w", err)
+		}
+		user.Password = hashedPassword
+		user.PasswordV++ // 增加密码版本
+	}
+
+	// 更新到数据库
+	err = s.userRepo.UpdateUser(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("更新用户失败: %w", err)
+	}
+
+	return user, nil
+}
+
+// DeleteUser 删除用户（包含业务逻辑）
+// 处理用户删除的完整流程，包括参数验证、存在性检查等
+func (s *UserService) DeleteUser(ctx context.Context, userID uint) error {
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+
+	// 检查用户是否存在
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return errors.New("用户不存在")
+	}
+
+	// 调用数据层删除用户
+	return s.userRepo.DeleteUser(ctx, userID)
+}
+
+// GetUserByID 根据用户ID获取用户（包含业务逻辑验证）
+func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*model.User, error) {
+	if userID == 0 {
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	return user, nil
+}
+
+// GetUserByUsername 根据用户名获取用户（包含业务逻辑验证）
+func (s *UserService) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
+	if username == "" {
+		return nil, errors.New("用户名不能为空")
+	}
+
+	user, err := s.userRepo.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	return user, nil
+}
+
+// GetUserByEmail 根据邮箱获取用户（包含业务逻辑验证）
+func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	if email == "" {
+		return nil, errors.New("邮箱不能为空")
+	}
+
+	user, err := s.userRepo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	return user, nil
+}
+
+// ListUsers 获取用户列表（包含业务逻辑验证）
+func (s *UserService) ListUsers(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
+	if offset < 0 {
+		offset = 0
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 20 // 默认每页20条
+	}
+
+	return s.userRepo.ListUsers(ctx, offset, limit)
 }

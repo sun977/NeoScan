@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -94,7 +95,7 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	var userRepo *mysql.UserRepository
 	passwordManager := auth.NewPasswordManager(nil)
 	if db != nil {
-		userRepo = mysql.NewUserRepository(db, passwordManager)
+		userRepo = mysql.NewUserRepository(db)
 	} else {
 		// 数据库连接失败时，userRepo保持为nil
 		userRepo = nil
@@ -428,5 +429,17 @@ func AssertFalse(t *testing.T, value bool, message string) {
 func AssertNotNil(t *testing.T, value interface{}, message string) {
 	if value == nil {
 		t.Fatalf("%s: 期望不为空但为空", message)
+	}
+}
+
+// AssertNil 断言值为空
+func AssertNil(t *testing.T, value interface{}, message string) {
+	// 检查接口值是否为 nil
+	if value != nil {
+		// 使用反射检查是否为 nil 指针
+		if reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil() {
+			return // 这是一个 nil 指针，测试通过
+		}
+		t.Fatalf("%s: 期望为空但不为空，实际值: %v (类型: %T)", message, value, value)
 	}
 }

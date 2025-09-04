@@ -83,21 +83,34 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	// 尝试通过用户名查找
 	user, err = s.userRepo.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		// 如果通过用户名没找到，尝试通过邮箱查找
+		// 数据库查询出错
+		logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
+			"operation": "login",
+			"username":  req.Username,
+			"error":     "database_error_username",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("invalid username or password")
+	}
+
+	// 如果通过用户名没找到，尝试通过邮箱查找
+	if user == nil {
 		user, err = s.userRepo.GetUserByEmail(ctx, req.Username)
 		if err != nil {
-			// 用户不存在，返回统一的错误信息以保护隐私
-			logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_login", "POST", map[string]interface{}{
+			// 数据库查询出错
+			logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
 				"operation": "login",
 				"username":  req.Username,
+				"error":     "database_error_email",
 				"timestamp": logger.NowFormatted(),
 			})
 			return nil, errors.New("invalid username or password")
 		}
 	}
 
+	// 如果用户不存在（两种方式都没找到）
 	if user == nil {
-		logger.LogError(errors.New("user query result is nil"), "", 0, "", "user_login", "POST", map[string]interface{}{
+		logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
 			"username":  req.Username,
 			"timestamp": logger.NowFormatted(),

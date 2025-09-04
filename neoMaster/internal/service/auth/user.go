@@ -14,7 +14,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"gorm.io/gorm"
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
@@ -567,4 +569,97 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*model.R
 	}
 
 	return s.userRepo.GetUserRoles(ctx, userID)
+}
+
+// UpdatePasswordWithVersion 更新用户密码并递增密码版本号
+// 这是一个原子操作，确保密码更新和版本号递增同时完成，用于使旧token失效
+func (s *UserService) UpdatePasswordWithVersion(ctx context.Context, userID uint, newPassword string) error {
+	// 参数验证
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+
+	if newPassword == "" {
+		return errors.New("新密码不能为空")
+	}
+
+	// 检查用户是否存在
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return errors.New("用户不存在")
+	}
+
+	// 哈希新密码
+	hashedPassword, err := s.passwordManager.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("密码哈希失败: %w", err)
+	}
+
+	// 直接进行数据库更新操作（原子操作）
+	// 同时更新密码哈希和递增密码版本号，确保旧token失效
+	err = s.userRepo.UpdateUserFields(ctx, userID, map[string]interface{}{
+		"password_hash": hashedPassword,
+		"password_v":    gorm.Expr("password_v + ?", 1),
+		"updated_at":    time.Now(),
+	})
+
+	if err != nil {
+		return fmt.Errorf("更新密码和版本号失败: %w", err)
+	}
+
+	return nil
+}
+
+// UpdatePasswordWithVersionHashed 使用已哈希的密码更新用户密码并递增密码版本号
+// 这是一个原子操作，确保密码更新和版本号递增同时完成，用于使旧token失效
+// 注意：此方法接收已哈希的密码，主要供内部服务调用
+func (s *UserService) UpdatePasswordWithVersionHashed(ctx context.Context, userID uint, passwordHash string) error {
+	// 参数验证
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+
+	if passwordHash == "" {
+		return errors.New("密码哈希不能为空")
+	}
+
+	// 检查用户是否存在
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return errors.New("用户不存在")
+	}
+
+	// 直接进行数据库更新操作（原子操作）
+	// 同时更新密码哈希和递增密码版本号，确保旧token失效
+	err = s.userRepo.UpdateUserFields(ctx, userID, map[string]interface{}{
+		"password_hash": passwordHash,
+		"password_v":    gorm.Expr("password_v + ?", 1),
+		"updated_at":    time.Now(),
+	})
+
+	if err != nil {
+		return fmt.Errorf("更新密码和版本号失败: %w", err)
+	}
+
+	return nil
+}
+
+// GetUserPasswordVersion 获取用户密码版本号
+// 用于密码版本控制，确保修改密码后旧token失效
+func (s *UserService) GetUserPasswordVersion(ctx context.Context, userID uint) (int64, error) {
+	// 参数验证
+	if userID == 0 {
+		return 0, errors.New("用户ID不能为0")
+	}
+
+	// 调用数据访问层获取密码版本号
+	return s.userRepo.GetUserPasswordVersion(ctx, userID)
 }

@@ -140,14 +140,14 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *model.User) error
 	return nil
 }
 
-// UpdatePasswordWithVersion 更新用户密码并递增密码版本号
-func (r *UserRepository) UpdatePasswordWithVersion(ctx context.Context, userID uint, passwordHash string) error {
-	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"password":   passwordHash,
-		"password_v": gorm.Expr("password_v + 1"),
-		"updated_at": time.Now(),
-	}).Error
+// UpdateUserFields 使用 map 更新用户特定字段
+// 主要用于原子更新操作，如密码和版本号同时更新
+func (r *UserRepository) UpdateUserFields(ctx context.Context, userID uint, fields map[string]interface{}) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).
+		Where("id = ?", userID).
+		Updates(fields).Error
 }
+
 
 // UpdateLastLogin 更新用户最后登录时间
 func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID uint) error {

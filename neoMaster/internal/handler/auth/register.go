@@ -13,13 +13,13 @@ import (
 
 // RegisterHandler 注册接口处理器
 type RegisterHandler struct {
-	sessionService *auth.SessionService
+	userService *auth.UserService
 }
 
 // NewRegisterHandler 创建注册处理器实例
-func NewRegisterHandler(sessionService *auth.SessionService) *RegisterHandler {
+func NewRegisterHandler(userService *auth.UserService) *RegisterHandler {
 	return &RegisterHandler{
-		sessionService: sessionService,
+		userService: userService,
 	}
 }
 
@@ -115,7 +115,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	}
 
 	// 调用服务层进行注册
-	response, err := h.sessionService.Register(c.Request.Context(), &req)
+	response, err := h.userService.Register(c.Request.Context(), &req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录注册失败错误日志

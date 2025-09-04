@@ -15,13 +15,13 @@ import (
 
 // UserHandler 用户管理处理器
 type UserHandler struct {
-	sessionService *auth.SessionService // 会话服务，用于获取用户信息
+	userService *auth.UserService // 用户服务，用于获取用户信息
 }
 
 // NewUserHandler 创建用户管理处理器
-func NewUserHandler(sessionService *auth.SessionService) *UserHandler {
+func NewUserHandler(userService *auth.UserService) *UserHandler {
 	return &UserHandler{
-		sessionService: sessionService,
+		userService: userService,
 	}
 }
 
@@ -104,7 +104,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 	}
 
 	// 获取当前用户信息
-	userInfo, err := h.sessionService.GetCurrentUser(c.Request.Context(), accessToken)
+	userInfo, err := h.userService.GetCurrentUser(c.Request.Context(), accessToken)
 	if err != nil {
 		// 记录获取用户信息失败错误日志
 		logger.LogError(err, "", 0, "", "get_user", "GET", map[string]interface{}{

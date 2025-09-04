@@ -5,6 +5,7 @@ import (
 	"time"
 
 	authHandler "neomaster/internal/handler/auth"
+	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/repository/mysql"
@@ -24,6 +25,7 @@ type Router struct {
 	logoutHandler     *authHandler.LogoutHandler
 	refreshHandler    *authHandler.RefreshHandler
 	registerHandler   *authHandler.RegisterHandler
+	userHandler       *systemHandler.UserHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -44,8 +46,10 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	// 初始化服务
 	jwtService := authService.NewJWTService(jwtManager, userRepo)
 	rbacService := authService.NewRBACService(userRepo)
-	_ = authService.NewPasswordService(userRepo, sessionRepo, passwordManager, 24*time.Hour) // 暂时不使用
-	sessionService := authService.NewSessionService(userRepo, passwordManager, jwtService, rbacService)
+	sessionService := authService.NewSessionService(userRepo, passwordManager, jwtService, rbacService, sessionRepo)
+
+	// 初始化UserService
+	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
 
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
 	middlewareManager := NewMiddlewareManager(sessionService, rbacService, jwtService)
@@ -54,7 +58,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	loginHandler := authHandler.NewLoginHandler(sessionService)
 	logoutHandler := authHandler.NewLogoutHandler(sessionService)
 	refreshHandler := authHandler.NewRefreshHandler(sessionService)
-	registerHandler := authHandler.NewRegisterHandler(sessionService)
+	registerHandler := authHandler.NewRegisterHandler(userService)
+	userHandler := systemHandler.NewUserHandler(userService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -67,6 +72,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		logoutHandler:     logoutHandler,
 		refreshHandler:    refreshHandler,
 		registerHandler:   registerHandler,
+		userHandler:       userHandler,
 	}
 }
 
@@ -134,7 +140,7 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	user.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 获取当前用户信息
-		user.GET("/profile", r.getUserProfile)
+		user.GET("/profile", r.userHandler.GetUser)
 		// 修改用户密码
 		user.POST("/change-password", r.changePassword)
 		// 获取用户权限

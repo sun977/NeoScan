@@ -67,11 +67,11 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 	})
 
 	// 创建处理器
-	userHandler := system.NewUserHandler(ts.SessionService)
+	userHandler := system.NewUserHandler(ts.UserService)
 	loginHandler := auth.NewLoginHandler(ts.SessionService)
 	logoutHandler := auth.NewLogoutHandler(ts.SessionService)
 	refreshHandler := auth.NewRefreshHandler(ts.SessionService)
-	registerHandler := auth.NewRegisterHandler(ts.SessionService)
+	registerHandler := auth.NewRegisterHandler(ts.UserService)
 
 	// 检查中间件管理器是否可用
 	if ts.MiddlewareManager == nil {

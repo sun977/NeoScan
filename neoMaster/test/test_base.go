@@ -40,6 +40,7 @@ type TestSuite struct {
 	RBACService       *authService.RBACService     // RBAC服务
 	passwordManager   *auth.PasswordManager        // 密码管理器
 	SessionService    *authService.SessionService  // 会话服务（别名）
+	UserService       *authService.UserService     // 用户服务
 	MiddlewareManager *master.MiddlewareManager    // 中间件管理器
 }
 
@@ -112,6 +113,7 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	// 创建服务实例 - 只有在userRepo不为nil时才创建
 	var jwtService *authService.JWTService
 	var authSvc *authService.SessionService
+	var userService *authService.UserService
 	if userRepo != nil {
 		jwtService = authService.NewJWTService(jwtManager, userRepo)
 		authSvc = authService.NewSessionService(
@@ -119,6 +121,13 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 			passwordManager,
 			jwtService,
 			rbacService,
+			sessionRepo,
+		)
+		userService = authService.NewUserService(
+			userRepo,
+			sessionRepo,
+			passwordManager,
+			testConfig.JWT,
 		)
 	}
 
@@ -138,6 +147,7 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 		RBACService:       rbacService,
 		passwordManager:   auth.NewPasswordManager(nil), // 初始化密码管理器
 		SessionService:    authSvc,                      // 会话服务使用认证服务
+		UserService:       userService,                  // 用户服务
 		MiddlewareManager: middlewareManager,
 	}
 }

@@ -6,18 +6,20 @@ import (
 	"fmt"
 
 	"neomaster/internal/model"
-	"neomaster/internal/repository/mysql"
 )
 
 // RBACService 基于角色的访问控制服务
 type RBACService struct {
-	userRepo *mysql.UserRepository
+	userService *UserService // 用户服务，提供用户相关的业务逻辑操作
 }
 
 // NewRBACService 创建RBAC服务实例
-func NewRBACService(userRepo *mysql.UserRepository) *RBACService {
+// 参数:
+//   - userService: 用户服务实例，提供用户相关的业务逻辑功能
+// 返回: RBACService指针，包含所有RBAC相关的业务方法
+func NewRBACService(userService *UserService) *RBACService {
 	return &RBACService{
-		userRepo: userRepo,
+		userService: userService, // 注入用户服务依赖
 	}
 }
 
@@ -32,7 +34,7 @@ func (s *RBACService) CheckPermission(ctx context.Context, userID uint, resource
 	}
 
 	// 获取用户权限
-	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
+	permissions, err := s.userService.GetUserPermissions(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user permissions: %w", err)
 	}
@@ -58,7 +60,7 @@ func (s *RBACService) CheckRole(ctx context.Context, userID uint, roleName strin
 	}
 
 	// 获取用户角色
-	roles, err := s.userRepo.GetUserRoles(ctx, userID)
+	roles, err := s.userService.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user roles: %w", err)
 	}
@@ -84,7 +86,7 @@ func (s *RBACService) CheckAnyRole(ctx context.Context, userID uint, roleNames [
 	}
 
 	// 获取用户角色
-	userRoles, err := s.userRepo.GetUserRoles(ctx, userID)
+	userRoles, err := s.userService.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user roles: %w", err)
 	}
@@ -116,7 +118,7 @@ func (s *RBACService) CheckAllRoles(ctx context.Context, userID uint, roleNames 
 	}
 
 	// 获取用户角色
-	userRoles, err := s.userRepo.GetUserRoles(ctx, userID)
+	userRoles, err := s.userService.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user roles: %w", err)
 	}
@@ -143,7 +145,7 @@ func (s *RBACService) GetUserPermissions(ctx context.Context, userID uint) ([]*m
 		return nil, errors.New("invalid user ID")
 	}
 
-	return s.userRepo.GetUserPermissions(ctx, userID)
+	return s.userService.GetUserPermissions(ctx, userID)
 }
 
 // GetUserRoles 获取用户的所有角色
@@ -152,7 +154,7 @@ func (s *RBACService) GetUserRoles(ctx context.Context, userID uint) ([]*model.R
 		return nil, errors.New("invalid user ID")
 	}
 
-	return s.userRepo.GetUserRoles(ctx, userID)
+	return s.userService.GetUserRoles(ctx, userID)
 }
 
 // AssignRoleToUser 为用户分配角色
@@ -161,7 +163,7 @@ func (s *RBACService) AssignRoleToUser(ctx context.Context, userID, roleID uint)
 		return errors.New("invalid user ID or role ID")
 	}
 
-	return s.userRepo.AssignRoleToUser(ctx, userID, roleID)
+	return s.userService.AssignRoleToUser(ctx, userID, roleID)
 }
 
 // RemoveRoleFromUser 移除用户角色
@@ -170,7 +172,7 @@ func (s *RBACService) RemoveRoleFromUser(ctx context.Context, userID, roleID uin
 		return errors.New("invalid user ID or role ID")
 	}
 
-	return s.userRepo.RemoveRoleFromUser(ctx, userID, roleID)
+	return s.userService.RemoveRoleFromUser(ctx, userID, roleID)
 }
 
 // IsUserActive 检查用户是否处于活跃状态
@@ -179,7 +181,7 @@ func (s *RBACService) IsUserActive(ctx context.Context, userID uint) (bool, erro
 		return false, errors.New("invalid user ID")
 	}
 
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	user, err := s.userService.GetUserByID(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user: %w", err)
 	}

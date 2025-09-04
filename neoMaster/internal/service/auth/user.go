@@ -16,12 +16,13 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/gorm"
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/repository/mysql"
 	"neomaster/internal/repository/redis"
+
+	"gorm.io/gorm"
 )
 
 // UserService 用户服务
@@ -153,17 +154,17 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest) 
 
 	// 构造用户信息
 	userInfo := &model.UserInfo{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		Nickname:  user.Nickname,
-		Avatar:    user.Avatar,
-		Phone:     user.Phone,
-		Status:    model.UserStatus(user.Status),
-		CreatedAt: user.CreatedAt,
-		Roles:     []string{}, // 新注册用户暂无角色
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		Nickname:    user.Nickname,
+		Avatar:      user.Avatar,
+		Phone:       user.Phone,
+		Status:      model.UserStatus(user.Status),
+		CreatedAt:   user.CreatedAt,
+		Roles:       []string{}, // 新注册用户暂无角色
 		Permissions: []string{}, // 新注册用户暂无权限
-		Remark:    user.Remark,
+		Remark:      user.Remark,
 	}
 
 	// 构造响应
@@ -662,4 +663,52 @@ func (s *UserService) GetUserPasswordVersion(ctx context.Context, userID uint) (
 
 	// 调用数据访问层获取密码版本号
 	return s.userRepo.GetUserPasswordVersion(ctx, userID)
+}
+
+// GetUserWithRolesAndPermissions 获取用户及其角色和权限
+func (s *UserService) GetUserWithRolesAndPermissions(ctx context.Context, userID uint) (*model.User, error) {
+	if userID == 0 {
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	return s.userRepo.GetUserWithRolesAndPermissions(ctx, userID)
+}
+
+// AssignRoleToUser 为用户分配角色（包含业务逻辑验证）
+func (s *UserService) AssignRoleToUser(ctx context.Context, userID, roleID uint) error {
+	// 参数验证
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+	if roleID == 0 {
+		return errors.New("角色ID不能为0")
+	}
+
+	// 调用数据访问层分配角色
+	return s.userRepo.AssignRoleToUser(ctx, userID, roleID)
+}
+
+// RemoveRoleFromUser 移除用户角色（包含业务逻辑验证）
+func (s *UserService) RemoveRoleFromUser(ctx context.Context, userID, roleID uint) error {
+	// 参数验证
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+	if roleID == 0 {
+		return errors.New("角色ID不能为0")
+	}
+
+	// 调用数据访问层移除角色
+	return s.userRepo.RemoveRoleFromUser(ctx, userID, roleID)
+}
+
+// UpdateLastLogin 更新用户最后登录时间（包含业务逻辑验证）
+func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint) error {
+	// 参数验证
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+
+	// 调用数据访问层更新最后登录时间
+	return s.userRepo.UpdateLastLogin(ctx, userID)
 }

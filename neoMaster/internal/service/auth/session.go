@@ -20,13 +20,12 @@ import (
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
-	"neomaster/internal/repository/mysql"
 	"neomaster/internal/repository/redis"
 )
 
 // SessionService 会话管理服务
 type SessionService struct {
-	userRepo        *mysql.UserRepository
+	userService     *UserService
 	passwordManager *auth.PasswordManager
 	jwtService      *JWTService
 	rbacService     *RBACService
@@ -35,14 +34,14 @@ type SessionService struct {
 
 // NewSessionService 创建会话服务实例
 func NewSessionService(
-	userRepo *mysql.UserRepository,
+	userService *UserService,
 	passwordManager *auth.PasswordManager,
 	jwtService *JWTService,
 	rbacService *RBACService,
 	sessionRepo *redis.SessionRepository,
 ) *SessionService {
 	return &SessionService{
-		userRepo:        userRepo,
+		userService:     userService,
 		passwordManager: passwordManager,
 		jwtService:      jwtService,
 		rbacService:     rbacService,
@@ -81,7 +80,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	var err error
 
 	// 尝试通过用户名查找
-	user, err = s.userRepo.GetUserByUsername(ctx, req.Username)
+	user, err = s.userService.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		// 数据库查询出错
 		logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
@@ -95,7 +94,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 
 	// 如果通过用户名没找到，尝试通过邮箱查找
 	if user == nil {
-		user, err = s.userRepo.GetUserByEmail(ctx, req.Username)
+		user, err = s.userService.GetUserByEmail(ctx, req.Username)
 		if err != nil {
 			// 数据库查询出错
 			logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
@@ -160,14 +159,14 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	}
 
 	// 更新最后登录时间
-	err = s.userRepo.UpdateLastLogin(ctx, user.ID)
+	err = s.userService.UpdateLastLogin(ctx, user.ID)
 	if err != nil {
 		// 记录错误但不影响登录流程
 		fmt.Printf("Warning: failed to update last login time: %v\n", err)
 	}
 
 	// 获取用户角色和权限信息
-	userWithPerms, err := s.userRepo.GetUserWithRolesAndPermissions(ctx, user.ID)
+	userWithPerms, err := s.userService.GetUserWithRolesAndPermissions(ctx, user.ID)
 	if err != nil {
 		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",

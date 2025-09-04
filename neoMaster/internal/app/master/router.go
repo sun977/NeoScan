@@ -39,17 +39,17 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		SaltLength:  32,
 		KeyLength:   32,
 	}
-	passwordManager := authPkg.NewPasswordManager(passwordConfig)
 	userRepo := mysql.NewUserRepository(db) // 纯数据访问层
+	passwordManager := authPkg.NewPasswordManager(passwordConfig)
 	sessionRepo := redisRepo.NewSessionRepository(redisClient)
 
 	// 初始化UserService
 	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
 
 	// 初始化服务
-	jwtService := authService.NewJWTService(jwtManager, userService, userRepo)
-	rbacService := authService.NewRBACService(userRepo)
-	sessionService := authService.NewSessionService(userRepo, passwordManager, jwtService, rbacService, sessionRepo)
+	jwtService := authService.NewJWTService(jwtManager, userService)
+	rbacService := authService.NewRBACService(userService)
+	sessionService := authService.NewSessionService(userService, passwordManager, jwtService, rbacService, sessionRepo)
 
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
 	middlewareManager := NewMiddlewareManager(sessionService, rbacService, jwtService)
@@ -217,10 +217,6 @@ func (r *Router) GetEngine() *gin.Engine {
 // 处理器方法（这些方法需要在后续实现）
 
 // 用户相关处理器
-func (r *Router) getUserProfile(c *gin.Context) {
-	// TODO: 实现获取用户资料
-	c.JSON(http.StatusOK, gin.H{"message": "get user profile - not implemented yet"})
-}
 
 func (r *Router) changePassword(c *gin.Context) {
 	// TODO: 实现修改密码

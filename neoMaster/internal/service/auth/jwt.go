@@ -8,10 +8,9 @@ import (
 	"fmt"     // 用于格式化字符串和错误信息
 	"time"    // 用于处理时间相关操作，如令牌过期时间计算
 
-	"neomaster/internal/model"            // 导入数据模型定义
-	"neomaster/internal/pkg/auth"         // 导入JWT工具包，提供底层JWT操作
-	"neomaster/internal/pkg/logger"       // 导入日志管理器
-	"neomaster/internal/repository/mysql" // 导入MySQL数据访问层
+	"neomaster/internal/model"      // 导入数据模型定义
+	"neomaster/internal/pkg/auth"   // 导入JWT工具包，提供底层JWT操作
+	"neomaster/internal/pkg/logger" // 导入日志管理器
 
 	"github.com/golang-jwt/jwt/v5" // 导入JWT库，用于令牌解析和验证
 )
@@ -20,9 +19,8 @@ import (
 // 这是服务层的核心结构，封装了JWT相关的所有业务逻辑
 // 采用依赖注入的方式，将JWT管理器和用户服务作为依赖项
 type JWTService struct {
-	jwtManager  *auth.JWTManager      // JWT管理器，负责令牌的底层操作（生成、验证、解析）
-	userService *UserService         // 用户服务，负责用户相关的业务逻辑
-	userRepo    *mysql.UserRepository // 用户数据仓库，负责用户相关的数据库操作（用于密码版本验证等底层操作）
+	jwtManager  *auth.JWTManager // JWT管理器，负责令牌的底层操作（生成、验证、解析）
+	userService *UserService     // 用户服务，负责用户相关的业务逻辑
 }
 
 // NewJWTService 创建JWT服务实例
@@ -30,14 +28,12 @@ type JWTService struct {
 // 参数:
 //   - jwtManager: JWT管理器实例，提供令牌操作的底层功能
 //   - userService: 用户服务实例，提供用户业务逻辑功能
-//   - userRepo: 用户仓库实例，提供用户数据访问功能（用于密码版本验证等底层操作）
 //
 // 返回: JWTService指针，包含所有JWT相关的业务方法
-func NewJWTService(jwtManager *auth.JWTManager, userService *UserService, userRepo *mysql.UserRepository) *JWTService {
+func NewJWTService(jwtManager *auth.JWTManager, userService *UserService) *JWTService {
 	return &JWTService{
 		jwtManager:  jwtManager,  // 注入JWT管理器依赖
 		userService: userService, // 注入用户服务依赖
-		userRepo:    userRepo,    // 注入用户仓库依赖
 	}
 }
 
@@ -61,7 +57,7 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *model.User) (*aut
 
 	// 获取用户完整信息，包括角色和权限
 	// 这里需要查询数据库获取用户的角色权限信息，用于构建JWT声明
-	userWithPerms, err := s.userRepo.GetUserWithRolesAndPermissions(ctx, user.ID)
+	userWithPerms, err := s.userService.GetUserWithRolesAndPermissions(ctx, user.ID)
 	if err != nil {
 		// 使用fmt.Errorf包装错误，保留原始错误信息，便于调试
 		logger.LogError(err, "", uint(user.ID), "", "token_generate", "POST", map[string]interface{}{
@@ -495,7 +491,7 @@ func (s *JWTService) ValidatePasswordVersion(ctx context.Context, tokenString st
 
 	// 从数据库获取用户当前的密码版本号
 	// 优先从缓存获取以提高性能，缓存未命中时查询数据库
-	currentPasswordV, err := s.userRepo.GetUserPasswordVersion(ctx, uint(claims.UserID))
+	currentPasswordV, err := s.userService.GetUserPasswordVersion(ctx, uint(claims.UserID))
 	if err != nil {
 		return false, fmt.Errorf("failed to get user password version: %w", err)
 	}

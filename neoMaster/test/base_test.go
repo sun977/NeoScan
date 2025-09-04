@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -50,8 +51,12 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	// 设置测试环境变量
 	os.Setenv("GO_ENV", "test")
 
-	// 加载配置文件 - 使用默认的config.yaml文件
-	cfg, err := config.LoadConfig("../configs", "development")
+	// 加载配置文件 - 使用绝对路径
+	configPath := filepath.Join("..", "configs")
+	if _, err := os.Stat("configs"); err == nil {
+		configPath = "configs"
+	}
+	cfg, err := config.LoadConfig(configPath, "development")
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)
 	}

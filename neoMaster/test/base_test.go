@@ -116,19 +116,19 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	var authSvc *authService.SessionService
 	var userService *authService.UserService
 	if userRepo != nil {
-		jwtService = authService.NewJWTService(jwtManager, userRepo)
+		userService = authService.NewUserService(
+			userRepo,
+			sessionRepo,
+			passwordManager,
+			jwtManager,
+		)
+		jwtService = authService.NewJWTService(jwtManager, userService, userRepo)
 		authSvc = authService.NewSessionService(
 			userRepo,
 			passwordManager,
 			jwtService,
 			rbacService,
 			sessionRepo,
-		)
-		userService = authService.NewUserService(
-			userRepo,
-			sessionRepo,
-			passwordManager,
-			testConfig.JWT,
 		)
 	}
 

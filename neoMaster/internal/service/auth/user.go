@@ -550,3 +550,21 @@ func (s *UserService) ListUsers(ctx context.Context, offset, limit int) ([]*mode
 
 	return s.userRepo.ListUsers(ctx, offset, limit)
 }
+
+// GetUserPermissions 获取用户权限（包含业务逻辑验证）
+func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*model.Permission, error) {
+	if userID == 0 {
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	return s.userRepo.GetUserPermissions(ctx, userID)
+}
+
+// GetUserRoles 获取用户角色（包含业务逻辑验证）
+func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*model.Role, error) {
+	if userID == 0 {
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	return s.userRepo.GetUserRoles(ctx, userID)
+}

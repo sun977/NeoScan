@@ -18,23 +18,26 @@ import (
 
 // JWTService JWT认证服务结构体
 // 这是服务层的核心结构，封装了JWT相关的所有业务逻辑
-// 采用依赖注入的方式，将JWT管理器和用户仓库作为依赖项
+// 采用依赖注入的方式，将JWT管理器和用户服务作为依赖项
 type JWTService struct {
-	jwtManager *auth.JWTManager      // JWT管理器，负责令牌的底层操作（生成、验证、解析）
-	userRepo   *mysql.UserRepository // 用户数据仓库，负责用户相关的数据库操作
+	jwtManager  *auth.JWTManager      // JWT管理器，负责令牌的底层操作（生成、验证、解析）
+	userService *UserService         // 用户服务，负责用户相关的业务逻辑
+	userRepo    *mysql.UserRepository // 用户数据仓库，负责用户相关的数据库操作（用于密码版本验证等底层操作）
 }
 
 // NewJWTService 创建JWT服务实例
 // 这是一个构造函数，使用依赖注入模式创建JWTService实例
 // 参数:
 //   - jwtManager: JWT管理器实例，提供令牌操作的底层功能
-//   - userRepo: 用户仓库实例，提供用户数据访问功能
+//   - userService: 用户服务实例，提供用户业务逻辑功能
+//   - userRepo: 用户仓库实例，提供用户数据访问功能（用于密码版本验证等底层操作）
 //
 // 返回: JWTService指针，包含所有JWT相关的业务方法
-func NewJWTService(jwtManager *auth.JWTManager, userRepo *mysql.UserRepository) *JWTService {
+func NewJWTService(jwtManager *auth.JWTManager, userService *UserService, userRepo *mysql.UserRepository) *JWTService {
 	return &JWTService{
-		jwtManager: jwtManager, // 注入JWT管理器依赖
-		userRepo:   userRepo,   // 注入用户仓库依赖
+		jwtManager:  jwtManager,  // 注入JWT管理器依赖
+		userService: userService, // 注入用户服务依赖
+		userRepo:    userRepo,    // 注入用户仓库依赖
 	}
 }
 
@@ -186,7 +189,7 @@ func (s *JWTService) RefreshTokens(ctx context.Context, refreshToken string) (*a
 
 	// 第三步：根据用户名获取最新的用户信息
 	// 这里需要查询数据库确保用户仍然存在且状态正常
-	user, err := s.userRepo.GetUserByUsername(ctx, username)
+	user, err := s.userService.GetUserByUsername(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -225,7 +228,7 @@ func (s *JWTService) GetUserFromToken(ctx context.Context, tokenString string) (
 
 	// 第二步：根据令牌中的用户ID查询数据库获取用户信息
 	// 这确保获取的是最新的用户数据，而不是令牌中可能过时的信息
-	user, err := s.userRepo.GetUserByID(ctx, claims.UserID)
+	user, err := s.userService.GetUserByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -383,7 +386,7 @@ func (s *JWTService) GetTokenRemainingTime(tokenString string) (time.Duration, e
 func (s *JWTService) ValidateUserPermission(ctx context.Context, userID uint, resource, action string) (bool, error) {
 	// 从数据库获取用户的所有权限
 	// 这里会通过用户角色关联查询获取权限列表
-	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
+	permissions, err := s.userService.GetUserPermissions(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user permissions: %w", err)
 	}
@@ -413,7 +416,7 @@ func (s *JWTService) ValidateUserPermission(ctx context.Context, userID uint, re
 // 返回: 是否具有该角色的布尔值和错误信息
 func (s *JWTService) ValidateUserRole(ctx context.Context, userID uint, roleName string) (bool, error) {
 	// 从数据库获取用户的所有角色
-	roles, err := s.userRepo.GetUserRoles(ctx, userID)
+	roles, err := s.userService.GetUserRoles(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get user roles: %w", err)
 	}

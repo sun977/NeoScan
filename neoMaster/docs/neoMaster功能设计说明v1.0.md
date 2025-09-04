@@ -33,6 +33,13 @@ NeoScan Master 节点是整个分布式扫描系统的控制中心，负责：
 └─────────────────────────────────────────────────────────────┘
 ```
 
+Controller/Handler → Service → Repository → Database
+     ↓                ↓           ↓
+  路由处理        业务逻辑    数据访问
+  参数解析        参数验证    SQL操作
+  响应格式化      业务规则    事务管理
+
+
 ### 2.2 通信协议
 
 - **HTTP/HTTPS**：Web 界面和 RESTful API

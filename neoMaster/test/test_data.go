@@ -196,19 +196,19 @@ func NewMockUserRepository(data *TestData) *MockUserRepository {
 }
 
 // CreateUser 创建用户
-func (m *MockUserRepository) CreateUser(ctx context.Context, user *model.User) (*model.User, error) {
+func (m *MockUserRepository) CreateUser(ctx context.Context, user *model.User) error {
 	if m.data.GetUserByUsername(user.Username) != nil {
-		return nil, fmt.Errorf("用户名已存在")
+		return fmt.Errorf("用户名已存在")
 	}
 	if m.data.GetUserByEmail(user.Email) != nil {
-		return nil, fmt.Errorf("邮箱已存在")
+		return fmt.Errorf("邮箱已存在")
 	}
 
 	user.ID = uint(len(m.data.Users) + 1)
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 	m.data.Users = append(m.data.Users, user)
-	return user, nil
+	return nil
 }
 
 // GetUserByID 根据ID获取用户

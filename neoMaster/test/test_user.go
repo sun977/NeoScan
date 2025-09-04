@@ -51,21 +51,24 @@ func testCreateUser(t *testing.T, ts *TestSuite) {
 	email := "test@example.com"
 	password := "password123"
 
-	// 创建用户请求
-	req := &model.CreateUserRequest{
-		Username: username,
-		Email:    email,
-		Password: password,
-	}
-
 	// 创建密码管理器实例
 	passwordManager := auth.NewPasswordManager(nil)
 	
-	// 为UserRepository注入密码管理器
-	ts.UserRepo.SetPasswordManager(passwordManager)
+	// 哈希密码
+	hashedPassword, err := passwordManager.HashPassword(password)
+	AssertNoError(t, err, "密码哈希应该成功")
 
-	// 通过UserRepository的业务逻辑方法创建用户
-	user, err := ts.UserRepo.CreateUser(ctx, req)
+	// 创建用户对象
+	user := &model.User{
+		Username:  username,
+		Email:     email,
+		Password:  hashedPassword,
+		Status:    model.UserStatusEnabled,
+		PasswordV: 1,
+	}
+
+	// 通过UserRepository的数据访问方法创建用户
+	err = ts.UserRepo.CreateUser(ctx, user)
 	AssertNoError(t, err, "创建用户应该成功")
 	AssertNotEqual(t, uint(0), user.ID, "用户ID应该被设置")
 	AssertEqual(t, username, user.Username, "用户名应该匹配")
@@ -96,20 +99,25 @@ func testUserPasswordValidation(t *testing.T, ts *TestSuite) {
 	
 	ctx := context.Background()
 
-	// 使用UserRepository创建用户（合并后的架构设计）
+	// 使用UserRepository创建用户（纯数据访问层）
 	passwordManager := auth.NewPasswordManager(nil)
-	ts.UserRepo.SetPasswordManager(passwordManager)
 	plainPassword := "testpass123"
 	
-	// 通过UserRepository创建用户请求
-	req := &model.CreateUserRequest{
-		Username: "passwordtest",
-		Email:    "password@test.com",
-		Password: plainPassword, // 传入明文密码，让UserRepository处理哈希
+	// 哈希密码
+	hashedPassword, err := passwordManager.HashPassword(plainPassword)
+	AssertNoError(t, err, "密码哈希应该成功")
+	
+	// 创建用户对象
+	user := &model.User{
+		Username:  "passwordtest",
+		Email:     "password@test.com",
+		Password:  hashedPassword,
+		Status:    model.UserStatusEnabled,
+		PasswordV: 1,
 	}
 	
-	// UserRepository会在内部处理密码哈希
-	user, err := ts.UserRepo.CreateUser(ctx, req)
+	// 通过UserRepository的数据访问方法创建用户
+	err = ts.UserRepo.CreateUser(ctx, user)
 	AssertNoError(t, err, "创建用户不应该出错")
 
 	// 测试正确密码验证
@@ -129,7 +137,7 @@ func testUserPasswordValidation(t *testing.T, ts *TestSuite) {
 
 	// 更新密码
 	newPassword := "newpassword456"
-	hashedPassword, err := passwordManager.HashPassword(newPassword)
+	hashedPassword, err = passwordManager.HashPassword(newPassword)
 	AssertNoError(t, err, "密码哈希不应该出错")
 
 	user.Password = hashedPassword
@@ -370,15 +378,18 @@ func testGetUserRepository(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "通过邮箱获取用户不应该出错")
 	AssertEqual(t, user.ID, fetchedByEmail.ID, "用户ID应该匹配")
 
-	// 获取不存在的用户
-	_, err = ts.UserRepo.GetUserByID(ctx, 99999)
-	AssertError(t, err, "获取不存在的用户应该出错")
+	// 获取不存在的用户 - 数据访问层应该返回 nil 而不是错误
+	notFoundUser, err := ts.UserRepo.GetUserByID(ctx, 99999)
+	AssertNoError(t, err, "获取不存在的用户不应该出错")
+	AssertNil(t, notFoundUser, "不存在的用户应该返回 nil")
 
-	_, err = ts.UserRepo.GetUserByUsername(ctx, "nonexistent")
-	AssertError(t, err, "获取不存在的用户名应该出错")
+	notFoundByUsername, err := ts.UserRepo.GetUserByUsername(ctx, "nonexistent")
+	AssertNoError(t, err, "获取不存在的用户名不应该出错")
+	AssertNil(t, notFoundByUsername, "不存在的用户名应该返回 nil")
 
-	_, err = ts.UserRepo.GetUserByEmail(ctx, "nonexistent@test.com")
-	AssertError(t, err, "获取不存在的邮箱应该出错")
+	notFoundByEmail, err := ts.UserRepo.GetUserByEmail(ctx, "nonexistent@test.com")
+	AssertNoError(t, err, "获取不存在的邮箱不应该出错")
+	AssertNil(t, notFoundByEmail, "不存在的邮箱应该返回 nil")
 }
 
 // testUpdateUserRepository 测试更新用户仓库操作
@@ -426,13 +437,14 @@ func testDeleteUserRepository(t *testing.T, ts *TestSuite) {
 	err := ts.UserRepo.DeleteUser(ctx, user.ID)
 	AssertNoError(t, err, "删除用户不应该出错")
 
-	// 验证用户已被删除
-	_, err = ts.UserRepo.GetUserByID(ctx, user.ID)
-	AssertError(t, err, "获取已删除用户应该出错")
+	// 验证用户已被删除 - 数据访问层应该返回 nil 而不是错误
+	deletedUser, err := ts.UserRepo.GetUserByID(ctx, user.ID)
+	AssertNoError(t, err, "获取已删除用户不应该出错")
+	AssertNil(t, deletedUser, "已删除用户应该返回 nil")
 
-	// 删除不存在的用户
+	// 删除不存在的用户 - 数据访问层不应该出错
 	err = ts.UserRepo.DeleteUser(ctx, 99999)
-	AssertError(t, err, "删除不存在用户应该出错")
+	AssertNoError(t, err, "删除不存在用户不应该出错")
 }
 
 // testUserQueryRepository 测试用户查询仓库操作

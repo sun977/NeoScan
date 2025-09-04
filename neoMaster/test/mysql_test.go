@@ -3,6 +3,8 @@ package test
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"neomaster/internal/config"
@@ -13,7 +15,11 @@ func TestMySQLConnection(t *testing.T) {
 	fmt.Println("开始测试MySQL连接...")
 
 	// 加载配置 - 使用正确的配置路径
-	cfg, err := config.LoadConfig("../configs", "development")
+	configPath := filepath.Join("..", "configs")
+	if _, err := os.Stat("configs"); err == nil {
+		configPath = "configs"
+	}
+	cfg, err := config.LoadConfig(configPath, "development")
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)
 	}

@@ -82,25 +82,25 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 	// 尝试通过用户名查找
 	user, err = s.userService.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		// 数据库查询出错
-		logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username":  req.Username,
-			"error":     "database_error_username",
-			"timestamp": logger.NowFormatted(),
-		})
-		return nil, errors.New("invalid username or password")
-	}
-
-	// 如果通过用户名没找到，尝试通过邮箱查找
-	if user == nil {
-		user, err = s.userService.GetUserByEmail(ctx, req.Username)
-		if err != nil {
-			// 数据库查询出错
+		// 如果是用户不存在的错误，尝试通过邮箱查找
+		if err.Error() == "用户不存在" {
+			user, err = s.userService.GetUserByEmail(ctx, req.Username)
+			if err != nil {
+				// 邮箱查找也失败，记录日志并返回错误
+				logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
+					"operation": "login",
+					"username":  req.Username,
+					"error":     "user_not_found",
+					"timestamp": logger.NowFormatted(),
+				})
+				return nil, errors.New("invalid username or password")
+			}
+		} else {
+			// 其他数据库错误
 			logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
 				"operation": "login",
 				"username":  req.Username,
-				"error":     "database_error_email",
+				"error":     "database_error",
 				"timestamp": logger.NowFormatted(),
 			})
 			return nil, errors.New("invalid username or password")

@@ -35,11 +35,11 @@ func TestAuthService(t *testing.T) {
 		})
 
 		t.Run("用户状态管理", func(t *testing.T) {
-			testAuthServiceUserStatusManagement(t, ts)
+			testSessionServiceUserStatusManagement(t, ts)
 		})
 
 		t.Run("角色权限验证", func(t *testing.T) {
-			testAuthServiceRolePermissionValidation(t, ts)
+			testSessionServiceRolePermissionValidation(t, ts)
 		})
 	})
 }
@@ -53,7 +53,7 @@ func testUserRegistration(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	// 由于AuthService没有Register方法，使用CreateTestUser来模拟注册
+	// 由于SessionService没有Register方法，使用CreateTestUser来模拟注册
 	user := ts.CreateTestUser(t, registerReq.Username, registerReq.Email, registerReq.Password)
 	AssertNotEqual(t, uint(0), user.ID, "用户ID不应该为0")
 	AssertEqual(t, registerReq.Username, user.Username, "用户名应该匹配")
@@ -94,7 +94,7 @@ func testUserLogin(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(ctx, loginReq)
+	loginResp, err := ts.SessionService.Login(ctx, loginReq)
 	AssertNoError(t, err, "正确用户名密码登录不应该出错")
 	AssertNotEqual(t, "", loginResp.AccessToken, "访问令牌不应该为空")
 	AssertNotEqual(t, "", loginResp.RefreshToken, "刷新令牌不应该为空")
@@ -107,7 +107,7 @@ func testUserLogin(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	emailLoginResp, err := ts.AuthService.Login(ctx, emailLoginReq)
+	emailLoginResp, err := ts.SessionService.Login(ctx, emailLoginReq)
 	AssertNoError(t, err, "邮箱登录不应该出错")
 	AssertEqual(t, user.ID, emailLoginResp.User.ID, "邮箱登录用户信息应该匹配")
 
@@ -117,7 +117,7 @@ func testUserLogin(t *testing.T, ts *TestSuite) {
 		Password: "wrongpassword",
 	}
 
-	_, err = ts.AuthService.Login(ctx, wrongPasswordReq)
+	_, err = ts.SessionService.Login(ctx, wrongPasswordReq)
 	AssertError(t, err, "错误密码登录应该出错")
 
 	// 测试不存在的用户
@@ -126,13 +126,18 @@ func testUserLogin(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	_, err = ts.AuthService.Login(ctx, nonExistentReq)
+	_, err = ts.SessionService.Login(ctx, nonExistentReq)
 	AssertError(t, err, "不存在用户登录应该出错")
 
 	// 测试被禁用用户登录
 	disabledUser := ts.CreateTestUser(t, "disableduser", "disabled@test.com", "password123")
-	disabledUser.Status = model.UserStatusDisabled
-	err = ts.UserRepo.UpdateUser(ctx, disabledUser)
+	
+	// 使用 UserService 更新用户状态
+	disabledStatus := model.UserStatusDisabled
+	updateReq := &model.UpdateUserRequest{
+		Status: &disabledStatus,
+	}
+	_, err = ts.UserService.UpdateUser(ctx, disabledUser.ID, updateReq)
 	AssertNoError(t, err, "更新用户状态不应该出错")
 
 	disabledLoginReq := &model.LoginRequest{
@@ -140,7 +145,7 @@ func testUserLogin(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	_, err = ts.AuthService.Login(ctx, disabledLoginReq)
+	_, err = ts.SessionService.Login(ctx, disabledLoginReq)
 	AssertError(t, err, "被禁用用户登录应该出错")
 }
 
@@ -155,7 +160,7 @@ func testUserLogout(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(ctx, loginReq)
+	loginResp, err := ts.SessionService.Login(ctx, loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 验证令牌有效
@@ -163,7 +168,7 @@ func testUserLogout(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "登录后令牌应该有效")
 
 	// 测试登出
-	err = ts.AuthService.Logout(ctx, loginResp.AccessToken)
+	err = ts.SessionService.Logout(ctx, loginResp.AccessToken)
 	AssertNoError(t, err, "登出不应该出错")
 
 	// 注意：由于当前实现可能没有实现令牌黑名单，
@@ -171,7 +176,7 @@ func testUserLogout(t *testing.T, ts *TestSuite) {
 	// 在完整实现中，登出后的令牌应该无效
 
 	// 测试用无效令牌登出
-	err = ts.AuthService.Logout(ctx, "invalid.token")
+	err = ts.SessionService.Logout(ctx, "invalid.token")
 	AssertError(t, err, "无效令牌登出应该出错")
 }
 
@@ -188,7 +193,7 @@ func testSessionManagement(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(ctx, loginReq)
+	loginResp, err := ts.SessionService.Login(ctx, loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试会话验证
@@ -274,7 +279,7 @@ func testPasswordValidation(t *testing.T, ts *TestSuite) {
 }
 
 // testUserStatusManagement 测试用户状态管理
-func testAuthServiceUserStatusManagement(t *testing.T, ts *TestSuite) {
+func testSessionServiceUserStatusManagement(t *testing.T, ts *TestSuite) {
 	ctx := context.Background()
 
 	// 创建测试用户
@@ -287,7 +292,7 @@ func testAuthServiceUserStatusManagement(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	_, err := ts.AuthService.Login(ctx, loginReq)
+	_, err := ts.SessionService.Login(ctx, loginReq)
 	AssertNoError(t, err, "激活用户应该可以登录")
 
 	// 禁用用户
@@ -297,7 +302,7 @@ func testAuthServiceUserStatusManagement(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, model.UserStatusDisabled, user.Status, "用户状态应该是禁用")
 
 	// 测试非激活用户不能登录
-	_, err = ts.AuthService.Login(ctx, loginReq)
+	_, err = ts.SessionService.Login(ctx, loginReq)
 	AssertError(t, err, "非激活用户不应该能登录")
 
 	// 重新激活用户
@@ -306,12 +311,12 @@ func testAuthServiceUserStatusManagement(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "重新激活用户不应该出错")
 
 	// 测试重新激活后可以登录
-	_, err = ts.AuthService.Login(ctx, loginReq)
+	_, err = ts.SessionService.Login(ctx, loginReq)
 	AssertNoError(t, err, "重新激活用户应该可以登录")
 }
 
 // testRolePermissionValidation 测试角色权限验证
-func testAuthServiceRolePermissionValidation(t *testing.T, ts *TestSuite) {
+func testSessionServiceRolePermissionValidation(t *testing.T, ts *TestSuite) {
 	ctx := context.Background()
 
 	// 创建测试用户和角色
@@ -332,7 +337,7 @@ func testAuthServiceRolePermissionValidation(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(ctx, loginReq)
+	loginResp, err := ts.SessionService.Login(ctx, loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 验证令牌中包含角色信息

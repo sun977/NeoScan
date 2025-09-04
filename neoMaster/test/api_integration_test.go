@@ -255,7 +255,7 @@ func testUserLogoutAPI(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试正常登出
@@ -302,7 +302,7 @@ func testTokenRefreshAPI(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试正常刷新
@@ -369,7 +369,7 @@ func testUserInfoAPI(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试获取用户信息
@@ -420,7 +420,7 @@ func testPermissionValidationAPI(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	normalLoginResp, err := ts.AuthService.Login(context.Background(), normalLoginReq)
+	normalLoginResp, err := ts.SessionService.Login(context.Background(), normalLoginReq)
 	AssertNoError(t, err, "普通用户登录不应该出错")
 
 	// 创建管理员用户
@@ -433,7 +433,7 @@ func testPermissionValidationAPI(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	adminLoginResp, err := ts.AuthService.Login(context.Background(), adminLoginReq)
+	adminLoginResp, err := ts.SessionService.Login(context.Background(), adminLoginReq)
 	AssertNoError(t, err, "管理员用户登录不应该出错")
 
 	// 测试普通用户访问管理员接口（应该被拒绝）

@@ -34,14 +34,13 @@ type TestConfig struct {
 // TestSuite 测试套件，包含所有测试需要的依赖
 type TestSuite struct {
 	*TestConfig
-	UserRepo          *mysql.UserRepository        // 用户仓库（包含业务逻辑）
+	UserRepo          *mysql.UserRepository        // 用户仓库
 	SessionRepo       *redisRepo.SessionRepository // 会话仓库
+	UserService       *authService.UserService     // 用户服务
 	JWTService        *authService.JWTService      // JWT服务
-	AuthService       *authService.SessionService  // 认证服务
+	SessionService    *authService.SessionService  // 会话服务
 	RBACService       *authService.RBACService     // RBAC服务
 	passwordManager   *auth.PasswordManager        // 密码管理器
-	SessionService    *authService.SessionService  // 会话服务（别名）
-	UserService       *authService.UserService     // 用户服务
 	MiddlewareManager *master.MiddlewareManager    // 中间件管理器
 }
 
@@ -105,26 +104,24 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 
 	// 密码管理器已在上面创建
 
-	// 创建RBAC服务 - 只有在userRepo不为nil时才创建
-	var rbacService *authService.RBACService
-	if userRepo != nil {
-		rbacService = authService.NewRBACService(userRepo)
-	}
-
 	// 创建服务实例 - 只有在userRepo不为nil时才创建
+	var userService *authService.UserService
 	var jwtService *authService.JWTService
 	var authSvc *authService.SessionService
-	var userService *authService.UserService
+	var rbacService *authService.RBACService
 	if userRepo != nil {
+		// 首先创建用户服务
 		userService = authService.NewUserService(
 			userRepo,
 			sessionRepo,
 			passwordManager,
 			jwtManager,
 		)
-		jwtService = authService.NewJWTService(jwtManager, userService, userRepo)
+		// 然后创建依赖用户服务的其他服务
+		rbacService = authService.NewRBACService(userService)
+		jwtService = authService.NewJWTService(jwtManager, userService)
 		authSvc = authService.NewSessionService(
-			userRepo,
+			userService,
 			passwordManager,
 			jwtService,
 			rbacService,
@@ -143,12 +140,11 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 		TestConfig:        testConfig,
 		UserRepo:          userRepo,
 		SessionRepo:       sessionRepo,
+		UserService:       userService,
 		JWTService:        jwtService,
-		AuthService:       authSvc,
+		SessionService:    authSvc,
 		RBACService:       rbacService,
-		passwordManager:   auth.NewPasswordManager(nil), // 初始化密码管理器
-		SessionService:    authSvc,                      // 会话服务使用认证服务
-		UserService:       userService,                  // 用户服务
+		passwordManager:   passwordManager,
 		MiddlewareManager: middlewareManager,
 	}
 }

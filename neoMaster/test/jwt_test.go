@@ -344,7 +344,7 @@ func TestJWTManager(t *testing.T) {
 		})
 
 		t.Run("令牌头提取", func(t *testing.T) {
-			testTokenHeaderExtraction(t, ts)
+			testTokenHeaderExtraction(t)
 		})
 	})
 }
@@ -420,7 +420,7 @@ func testJWTManagerTokenPair(t *testing.T, ts *TestSuite) {
 }
 
 // testTokenHeaderExtraction 测试令牌头提取功能
-func testTokenHeaderExtraction(t *testing.T, ts *TestSuite) {
+func testTokenHeaderExtraction(t *testing.T) {
 	// 测试正确的Bearer令牌
 	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.token"
 	authHeader := "Bearer " + token

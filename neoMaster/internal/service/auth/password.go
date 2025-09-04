@@ -8,14 +8,13 @@ import (
 
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
-	"neomaster/internal/repository/mysql"
 	"neomaster/internal/repository/redis"
 )
 
 // PasswordService 密码服务
 // 负责密码相关的业务逻辑，包括密码修改、重置、验证等
 type PasswordService struct {
-	userRepo        *mysql.UserRepository    // 用户数据仓库
+	userService     *UserService             // 用户业务服务
 	redisRepo       *redis.SessionRepository // Redis缓存仓库
 	passwordManager *auth.PasswordManager    // 密码管理器
 	cacheExpiry     time.Duration
@@ -23,13 +22,13 @@ type PasswordService struct {
 
 // NewPasswordService 创建密码管理服务实例
 func NewPasswordService(
-	userRepo *mysql.UserRepository,
+	userService *UserService,
 	redisRepo *redis.SessionRepository,
 	passwordManager *auth.PasswordManager,
 	cacheExpiry time.Duration,
 ) *PasswordService {
 	return &PasswordService{
-		userRepo:        userRepo,
+		userService:     userService,
 		redisRepo:       redisRepo,
 		passwordManager: passwordManager,
 		cacheExpiry:     cacheExpiry,
@@ -75,7 +74,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	// 获取用户信息
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	user, err := s.userService.GetUserByID(ctx, userID)
 	if err != nil {
 		logger.LogError(err, "", userID, "", "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
@@ -121,7 +120,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	// 更新密码和版本号（原子操作，确保旧token失效）
-	err = s.userRepo.UpdatePasswordWithVersion(ctx, userID, newPasswordHash)
+	err = s.userService.UpdatePasswordWithVersionHashed(ctx, userID, newPasswordHash)
 	if err != nil {
 		logger.LogError(err, "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
@@ -131,7 +130,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	// 获取新的密码版本
-	newPasswordV, err := s.userRepo.GetUserPasswordVersion(ctx, userID)
+	newPasswordV, err := s.userService.GetUserPasswordVersion(ctx, userID)
 	if err != nil {
 		logger.LogError(err, "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
@@ -175,7 +174,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 // ResetPassword 重置用户密码（管理员操作）
 func (s *PasswordService) ResetPassword(ctx context.Context, userID uint, newPassword string) error {
 	// 获取用户信息
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	user, err := s.userService.GetUserByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -191,13 +190,13 @@ func (s *PasswordService) ResetPassword(ctx context.Context, userID uint, newPas
 	}
 
 	// 更新密码和版本号（原子操作）
-	err = s.userRepo.UpdatePasswordWithVersion(ctx, userID, newPasswordHash)
+	err = s.userService.UpdatePasswordWithVersionHashed(ctx, userID, newPasswordHash)
 	if err != nil {
 		return fmt.Errorf("failed to reset password: %w", err)
 	}
 
 	// 获取更新后的密码版本号
-	newPasswordV, err := s.userRepo.GetUserPasswordVersion(ctx, userID)
+	newPasswordV, err := s.userService.GetUserPasswordVersion(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get new password version: %w", err)
 	}
@@ -222,7 +221,7 @@ func (s *PasswordService) ResetPassword(ctx context.Context, userID uint, newPas
 // SyncPasswordVersionToCache 同步密码版本到缓存
 func (s *PasswordService) SyncPasswordVersionToCache(ctx context.Context, userID uint) error {
 	// 从数据库获取密码版本
-	passwordV, err := s.userRepo.GetUserPasswordVersion(ctx, userID)
+	passwordV, err := s.userService.GetUserPasswordVersion(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to get password version from database: %w", err)
 	}

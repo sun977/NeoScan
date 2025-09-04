@@ -43,13 +43,13 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	userRepo := mysql.NewUserRepository(db) // 纯数据访问层
 	sessionRepo := redisRepo.NewSessionRepository(redisClient)
 
-	// 初始化服务
-	jwtService := authService.NewJWTService(jwtManager, userRepo)
-	rbacService := authService.NewRBACService(userRepo)
-	sessionService := authService.NewSessionService(userRepo, passwordManager, jwtService, rbacService, sessionRepo)
-
 	// 初始化UserService
 	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
+
+	// 初始化服务
+	jwtService := authService.NewJWTService(jwtManager, userService, userRepo)
+	rbacService := authService.NewRBACService(userRepo)
+	sessionService := authService.NewSessionService(userRepo, passwordManager, jwtService, rbacService, sessionRepo)
 
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
 	middlewareManager := NewMiddlewareManager(sessionService, rbacService, jwtService)

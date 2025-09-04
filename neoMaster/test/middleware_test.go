@@ -153,7 +153,7 @@ func testAuthMiddlewareBasic(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试公开端点（无需认证）
@@ -194,7 +194,7 @@ func testTokenExtractionAndValidation(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试正确的Bearer令牌格式
@@ -239,7 +239,7 @@ func testUserContextSetting(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试用户信息是否正确设置到上下文
@@ -271,7 +271,7 @@ func testAuthMiddlewareErrorHandling(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.AuthService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试过期令牌（这里模拟，实际需要等待令牌过期或使用短过期时间的令牌）
@@ -320,7 +320,7 @@ func testMiddlewareRolePermissionValidation(t *testing.T, ts *TestSuite) {
 		Username: "normaluser",
 		Password: "password123",
 	}
-	normalLoginResp, err := ts.AuthService.Login(context.Background(), normalLoginReq)
+	normalLoginResp, err := ts.SessionService.Login(context.Background(), normalLoginReq)
 	AssertNoError(t, err, "普通用户登录不应该出错")
 
 	// 创建管理员用户
@@ -332,7 +332,7 @@ func testMiddlewareRolePermissionValidation(t *testing.T, ts *TestSuite) {
 		Username: "adminuser",
 		Password: "password123",
 	}
-	adminLoginResp, err := ts.AuthService.Login(context.Background(), adminLoginReq)
+	adminLoginResp, err := ts.SessionService.Login(context.Background(), adminLoginReq)
 	AssertNoError(t, err, "管理员用户登录不应该出错")
 
 	// 测试普通用户访问管理员端点（应该被拒绝）
@@ -363,7 +363,7 @@ func testMultipleRoleValidation(t *testing.T, ts *TestSuite) {
 
 	// 创建不同角色的用户
 	_ = ts.CreateTestUser(t, "normaluser2", "normal2@test.com", "password123")
-	normalLoginResp, err := ts.AuthService.Login(context.Background(), &model.LoginRequest{
+	normalLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "normaluser2",
 		Password: "password123",
 	})
@@ -373,7 +373,7 @@ func testMultipleRoleValidation(t *testing.T, ts *TestSuite) {
 	adminUser := ts.CreateTestUser(t, "adminuser2", "admin2@test.com", "password123")
 	adminRole := ts.CreateTestRole(t, "admin", "管理员角色")
 	ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
-	adminLoginResp, err := ts.AuthService.Login(context.Background(), &model.LoginRequest{
+	adminLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "adminuser2",
 		Password: "password123",
 	})
@@ -383,7 +383,7 @@ func testMultipleRoleValidation(t *testing.T, ts *TestSuite) {
 	moderatorUser := ts.CreateTestUser(t, "moderatoruser", "moderator@test.com", "password123")
 	moderatorRole := ts.CreateTestRole(t, "moderator", "版主角色")
 	ts.AssignRoleToUser(t, moderatorUser.ID, moderatorRole.ID)
-	moderatorLoginResp, err := ts.AuthService.Login(context.Background(), &model.LoginRequest{
+	moderatorLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "moderatoruser",
 		Password: "password123",
 	})
@@ -419,7 +419,7 @@ func testPermissionValidation(t *testing.T, ts *TestSuite) {
 
 	// 创建测试用户
 	_ = ts.CreateTestUser(t, "permuser", "perm@test.com", "password123")
-	loginResp, err := ts.AuthService.Login(context.Background(), &model.LoginRequest{
+	loginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "permuser",
 		Password: "password123",
 	})
@@ -456,7 +456,7 @@ func testPermissionMiddlewareErrorHandling(t *testing.T, ts *TestSuite) {
 
 	// 创建用户但不分配所需角色
 	_ = ts.CreateTestUser(t, "noroleuser", "norole@test.com", "password123")
-	loginResp, err := ts.AuthService.Login(context.Background(), &model.LoginRequest{
+	loginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "noroleuser",
 		Password: "password123",
 	})
@@ -502,7 +502,7 @@ func testMiddlewareExecutionOrder(t *testing.T, ts *TestSuite) {
 	adminRole := ts.CreateTestRole(t, "admin", "管理员角色")
 	ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
 
-	adminLoginResp, err := ts.AuthService.Login(context.Background(), &model.LoginRequest{
+	adminLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "chainadmin",
 		Password: "password123",
 	})
@@ -533,7 +533,7 @@ func testMiddlewareExecutionOrder(t *testing.T, ts *TestSuite) {
 
 	// 创建普通用户测试权限中间件
 	_ = ts.CreateTestUser(t, "chainnormal", "chainnormal@test.com", "password123")
-	normalLoginResp, err := ts.AuthService.Login(context.Background(), &model.LoginRequest{
+	normalLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "chainnormal",
 		Password: "password123",
 	})

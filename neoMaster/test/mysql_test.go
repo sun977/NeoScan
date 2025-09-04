@@ -12,8 +12,8 @@ import (
 func TestMySQLConnection(t *testing.T) {
 	fmt.Println("开始测试MySQL连接...")
 
-	// 加载配置
-	cfg, err := config.LoadConfig("", "development")
+	// 加载配置 - 使用正确的配置路径
+	cfg, err := config.LoadConfig("../configs", "development")
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)
 	}

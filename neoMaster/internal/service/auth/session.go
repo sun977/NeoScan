@@ -359,3 +359,13 @@ func (s *SessionService) IsTokenExpiringSoon(accessToken string, threshold time.
 func (s *SessionService) GetTokenRemainingTime(accessToken string) (time.Duration, error) {
 	return s.jwtService.GetTokenRemainingTime(accessToken)
 }
+
+// StorePasswordVersion 存储用户密码版本到缓存
+func (s *SessionService) StorePasswordVersion(ctx context.Context, userID uint, passwordVersion int64, expiration time.Duration) error {
+	return s.sessionRepo.StorePasswordVersion(ctx, uint64(userID), passwordVersion, expiration)
+}
+
+// DeleteAllUserSessions 删除用户的所有会话
+func (s *SessionService) DeleteAllUserSessions(ctx context.Context, userID uint) error {
+	return s.sessionRepo.DeleteAllUserSessions(ctx, uint64(userID))
+}

@@ -8,28 +8,27 @@ import (
 
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
-	"neomaster/internal/repository/redis"
 )
 
 // PasswordService 密码服务
 // 负责密码相关的业务逻辑，包括密码修改、重置、验证等
 type PasswordService struct {
-	userService     *UserService             // 用户业务服务
-	redisRepo       *redis.SessionRepository // Redis缓存仓库
-	passwordManager *auth.PasswordManager    // 密码管理器
+	userService     *UserService          // 用户业务服务
+	sessionService  *SessionService       // 会话服务
+	passwordManager *auth.PasswordManager // 密码管理器
 	cacheExpiry     time.Duration
 }
 
 // NewPasswordService 创建密码管理服务实例
 func NewPasswordService(
 	userService *UserService,
-	redisRepo *redis.SessionRepository,
+	sessionService *SessionService,
 	passwordManager *auth.PasswordManager,
 	cacheExpiry time.Duration,
 ) *PasswordService {
 	return &PasswordService{
 		userService:     userService,
-		redisRepo:       redisRepo,
+		sessionService:  sessionService,
 		passwordManager: passwordManager,
 		cacheExpiry:     cacheExpiry,
 	}
@@ -140,7 +139,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	// 更新缓存中的密码版本
-	err = s.redisRepo.StorePasswordVersion(ctx, uint64(userID), newPasswordV, s.cacheExpiry)
+	err = s.sessionService.StorePasswordVersion(ctx, userID, newPasswordV, s.cacheExpiry)
 	if err != nil {
 		// 缓存更新失败不应该影响密码修改，只记录错误
 		logger.LogError(err, "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
@@ -151,7 +150,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	// 删除用户所有会话（强制重新登录）
-	err = s.redisRepo.DeleteAllUserSessions(ctx, uint64(userID))
+	err = s.sessionService.DeleteAllUserSessions(ctx, userID)
 	if err != nil {
 		// 会话删除失败不应该影响密码修改，只记录错误
 		logger.LogError(err, "", userID, user.Username, "password_change", "PUT", map[string]interface{}{
@@ -202,14 +201,14 @@ func (s *PasswordService) ResetPassword(ctx context.Context, userID uint, newPas
 	}
 
 	// 更新缓存中的密码版本
-	err = s.redisRepo.StorePasswordVersion(ctx, uint64(userID), newPasswordV, s.cacheExpiry)
+	err = s.sessionService.StorePasswordVersion(ctx, userID, newPasswordV, s.cacheExpiry)
 	if err != nil {
 		// 缓存更新失败不应该影响密码重置，只记录错误
 		fmt.Printf("Warning: failed to update password version cache: %v\n", err)
 	}
 
 	// 删除用户所有会话（强制重新登录）
-	err = s.redisRepo.DeleteAllUserSessions(ctx, uint64(userID))
+	err = s.sessionService.DeleteAllUserSessions(ctx, userID)
 	if err != nil {
 		// 会话删除失败不应该影响密码重置，只记录错误
 		fmt.Printf("Warning: failed to delete user sessions: %v\n", err)
@@ -227,7 +226,7 @@ func (s *PasswordService) SyncPasswordVersionToCache(ctx context.Context, userID
 	}
 
 	// 存储到缓存
-	err = s.redisRepo.StorePasswordVersion(ctx, uint64(userID), passwordV, s.cacheExpiry)
+	err = s.sessionService.StorePasswordVersion(ctx, userID, passwordV, s.cacheExpiry)
 	if err != nil {
 		return fmt.Errorf("failed to store password version to cache: %w", err)
 	}

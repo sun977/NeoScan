@@ -137,7 +137,7 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 
 // setupAuthRoutes 设置认证路由
 func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
-	// 认证相关路由（需要JWT认证）
+	// 认证相关路由（需要JWT认证和用户激活状态检查）
 	auth := v1.Group("/auth")
 	auth.Use(r.middlewareManager.GinJWTAuthMiddleware())
 	auth.Use(r.middlewareManager.GinUserActiveMiddleware())
@@ -229,18 +229,6 @@ func (r *Router) GetEngine() *gin.Engine {
 }
 
 // 处理器方法（这些方法需要在后续实现）
-
-// 用户相关处理器
-
-func (r *Router) getUserPermissions(c *gin.Context) {
-	// TODO: 实现获取用户权限
-	c.JSON(http.StatusOK, gin.H{"message": "get user permissions - not implemented yet"})
-}
-
-func (r *Router) getUserRoles(c *gin.Context) {
-	// TODO: 实现获取用户角色
-	c.JSON(http.StatusOK, gin.H{"message": "get user roles - not implemented yet"})
-}
 
 // 管理员用户管理处理器
 func (r *Router) listUsers(c *gin.Context) {

@@ -555,21 +555,185 @@ func (s *UserService) ListUsers(ctx context.Context, offset, limit int) ([]*mode
 }
 
 // GetUserPermissions 获取用户权限
+// 通过用户角色关联查询获取用户的所有权限，自动去重
+// 注意：此函数应该只在已通过JWT中间件验证的上下文中调用
+// 参数:
+//   - ctx: 请求上下文，用于超时控制和链路追踪
+//   - userID: 用户唯一标识ID，必须大于0
+//
+// 返回:
+//   - []*model.Permission: 用户权限列表，已去重
+//   - error: 错误信息，包含参数验证、用户存在性检查和数据库操作错误
 func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*model.Permission, error) {
+	// 参数验证：用户ID必须有效
 	if userID == 0 {
+		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, "", "get_user_permissions", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
 		return nil, errors.New("用户ID不能为0")
 	}
 
-	return s.userRepo.GetUserPermissions(ctx, userID)
+	// 检查上下文是否已取消
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// 首先验证用户是否存在
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "get_user_permissions", "SERVICE", map[string]interface{}{
+			"operation": "check_user_existence",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户信息失败: %w", err)
+	}
+
+	// 用户不存在
+	if user == nil {
+		logger.LogError(errors.New("user not found"), "", userID, "", "get_user_permissions", "SERVICE", map[string]interface{}{
+			"operation": "user_not_found",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户不存在")
+	}
+
+	// 检查用户状态是否有效（只有启用状态的用户才能获取权限）
+	if user.Status != model.UserStatusEnabled {
+		logger.LogError(errors.New("user status invalid"), "", userID, user.Username, "get_user_permissions", "SERVICE", map[string]interface{}{
+			"operation":   "check_user_status",
+			"user_id":     userID,
+			"username":    user.Username,
+			"user_status": user.Status,
+			"timestamp":   logger.NowFormatted(),
+		})
+		return nil, errors.New("用户状态无效，无法获取权限")
+	}
+
+	// 获取用户权限
+	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, user.Username, "get_user_permissions", "SERVICE", map[string]interface{}{
+			"operation": "get_permissions_from_repo",
+			"user_id":   userID,
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户权限失败: %w", err)
+	}
+
+	// 记录成功获取权限的业务日志
+	permissionNames := make([]string, len(permissions))
+	for i, perm := range permissions {
+		permissionNames[i] = perm.GetFullName()
+	}
+
+	logger.LogBusinessOperation("get_user_permissions", userID, user.Username, "", "", "success",
+		fmt.Sprintf("成功获取用户权限，共%d个权限", len(permissions)), map[string]interface{}{
+			"user_id":          userID,
+			"username":         user.Username,
+			"permission_count": len(permissions),
+			"permissions":      permissionNames,
+			"timestamp":        logger.NowFormatted(),
+		})
+
+	return permissions, nil
 }
 
 // GetUserRoles 获取用户角色
+// 通过用户角色关联查询获取用户的所有角色信息
+// 注意：此函数应该只在已通过JWT中间件验证的上下文中调用
+// 参数:
+//   - ctx: 请求上下文，用于超时控制和链路追踪
+//   - userID: 用户唯一标识ID，必须大于0
+//
+// 返回:
+//   - []*model.Role: 用户角色列表，包含角色的完整信息
+//   - error: 错误信息，包含参数验证、用户存在性检查和数据库操作错误
 func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*model.Role, error) {
+	// 参数验证：用户ID必须有效
 	if userID == 0 {
+		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, "", "get_user_roles", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
 		return nil, errors.New("用户ID不能为0")
 	}
 
-	return s.userRepo.GetUserRoles(ctx, userID)
+	// 检查上下文是否已取消
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// 首先验证用户是否存在
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "get_user_roles", "SERVICE", map[string]interface{}{
+			"operation": "check_user_existence",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户信息失败: %w", err)
+	}
+
+	// 用户不存在
+	if user == nil {
+		logger.LogError(errors.New("user not found"), "", userID, "", "get_user_roles", "SERVICE", map[string]interface{}{
+			"operation": "user_not_found",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户不存在")
+	}
+
+	// 检查用户状态是否有效（只有启用状态的用户才能获取角色）
+	if user.Status != model.UserStatusEnabled {
+		logger.LogError(errors.New("user status invalid"), "", userID, user.Username, "get_user_roles", "SERVICE", map[string]interface{}{
+			"operation":   "check_user_status",
+			"user_id":     userID,
+			"username":    user.Username,
+			"user_status": user.Status,
+			"timestamp":   logger.NowFormatted(),
+		})
+		return nil, errors.New("用户状态无效，无法获取角色")
+	}
+
+	// 获取用户角色
+	roles, err := s.userRepo.GetUserRoles(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, user.Username, "get_user_roles", "SERVICE", map[string]interface{}{
+			"operation": "get_roles_from_repo",
+			"user_id":   userID,
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户角色失败: %w", err)
+	}
+
+	// 记录成功获取角色的业务日志
+	roleNames := make([]string, len(roles))
+	for i, role := range roles {
+		roleNames[i] = role.Name
+	}
+
+	logger.LogBusinessOperation("get_user_roles", userID, user.Username, "", "", "success",
+		fmt.Sprintf("成功获取用户角色，共%d个角色", len(roles)), map[string]interface{}{
+			"user_id":    userID,
+			"username":   user.Username,
+			"role_count": len(roles),
+			"roles":      roleNames,
+			"timestamp":  logger.NowFormatted(),
+		})
+
+	return roles, nil
 }
 
 // UpdatePasswordWithVersion 更新用户密码并递增密码版本号
@@ -603,9 +767,9 @@ func (s *UserService) UpdatePasswordWithVersion(ctx context.Context, userID uint
 	// 直接进行数据库更新操作（原子操作）
 	// 同时更新密码哈希和递增密码版本号，确保旧token失效
 	err = s.userRepo.UpdateUserFields(ctx, userID, map[string]interface{}{
-		"password": hashedPassword,
-		"password_v":    gorm.Expr("password_v + ?", 1),
-		"updated_at":    time.Now(),
+		"password":   hashedPassword,
+		"password_v": gorm.Expr("password_v + ?", 1),
+		"updated_at": time.Now(),
 	})
 
 	if err != nil {
@@ -641,9 +805,9 @@ func (s *UserService) UpdatePasswordWithVersionHashed(ctx context.Context, userI
 	// 直接进行数据库更新操作（原子操作）
 	// 同时更新密码哈希和递增密码版本号，确保旧token失效
 	err = s.userRepo.UpdateUserFields(ctx, userID, map[string]interface{}{
-		"password": passwordHash,
-		"password_v":    gorm.Expr("password_v + ?", 1),
-		"updated_at":    time.Now(),
+		"password":   passwordHash,
+		"password_v": gorm.Expr("password_v + ?", 1),
+		"updated_at": time.Now(),
 	})
 
 	if err != nil {

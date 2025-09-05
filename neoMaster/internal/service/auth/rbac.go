@@ -16,6 +16,7 @@ type RBACService struct {
 // NewRBACService 创建RBAC服务实例
 // 参数:
 //   - userService: 用户服务实例，提供用户相关的业务逻辑功能
+//
 // 返回: RBACService指针，包含所有RBAC相关的业务方法
 func NewRBACService(userService *UserService) *RBACService {
 	return &RBACService{
@@ -157,7 +158,7 @@ func (s *RBACService) GetUserRoles(ctx context.Context, userID uint) ([]*model.R
 	return s.userService.GetUserRoles(ctx, userID)
 }
 
-// AssignRoleToUser 为用户分配角色
+// AssignRoleToUser 为用户分配角色(通过调用用户服务的分配角色方法实现)
 func (s *RBACService) AssignRoleToUser(ctx context.Context, userID, roleID uint) error {
 	if userID == 0 || roleID == 0 {
 		return errors.New("invalid user ID or role ID")
@@ -166,7 +167,7 @@ func (s *RBACService) AssignRoleToUser(ctx context.Context, userID, roleID uint)
 	return s.userService.AssignRoleToUser(ctx, userID, roleID)
 }
 
-// RemoveRoleFromUser 移除用户角色
+// RemoveRoleFromUser 移除用户角色(通过调用用户服务的移除角色方法实现)
 func (s *RBACService) RemoveRoleFromUser(ctx context.Context, userID, roleID uint) error {
 	if userID == 0 || roleID == 0 {
 		return errors.New("invalid user ID or role ID")

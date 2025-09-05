@@ -8,6 +8,9 @@
  * 	3.获取单个用户
  * 	4.更新用户
  * 	5.删除用户等
+ * @note：有两类函数
+ * 	1.用户自己查看自己的信息和操作 --- 从token中获取用户自己的用户ID
+ * 	2.管理员查看所有用户的信息和操作 --- 从上下文中获取用户ID（中间件已验证并存储），管理员自己的ID记录操作日志
  */
 package system
 
@@ -57,35 +60,14 @@ func (h *UserHandler) extractTokenFromContext(c *gin.Context) (string, error) {
 	return accessToken, nil
 }
 
-// CreateUser 创建用户
-// 管理员接口，需要JWT令牌验证
+// CreateUser 创建用户（管理员专用） 【已完成】
 // 创建新用户，包含完整的参数验证和权限检查
 func (h *UserHandler) CreateUser(c *gin.Context) {
-	// 从请求头提取访问令牌
-	accessToken, err := h.extractTokenFromContext(c)
-	if err != nil {
-		// 记录令牌提取失败错误日志
-		logger.LogError(err, "", 0, "", "create_user", "POST", map[string]interface{}{
-			"operation":  "create_user",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
-		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Code:    http.StatusUnauthorized,
-			Status:  "error",
-			Message: "failed to extract token",
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 获取当前用户ID以验证身份
-	userID, err := h.userService.GetUserIDFromToken(c.Request.Context(), accessToken)
-	if err != nil {
+	// 从上下文获取用户ID（中间件已验证并存储）
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
 		// 记录获取用户ID失败错误日志
-		logger.LogError(err, "", 0, "", "create_user", "POST", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "create_user", "POST", map[string]interface{}{
 			"operation":  "create_user",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
@@ -95,13 +77,29 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
-			Message: "failed to get user info",
-			Error:   err.Error(),
+			Message: "user context not found",
 		})
 		return
 	}
 
-	// 管理员权限已在中间件GinAdminRoleMiddleware中验证，此处无需重复检查
+	// 类型转换用户ID
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		// 记录用户ID类型转换失败错误日志
+		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "create_user", "POST", map[string]interface{}{
+			"operation":  "create_user",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "invalid user context",
+		})
+		return
+	}
 
 	// 解析请求体
 	var req model.CreateUserRequest
@@ -182,13 +180,13 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	})
 }
 
-// GetUserByID 获取当前用户信息
+// GetUserByID 获取当前用户信息（管理员专用）
 func (h *UserHandler) GetUserByID(c *gin.Context) {
-	// 从请求头提取访问令牌
-	accessToken, err := h.extractTokenFromContext(c)
-	if err != nil {
-		// 记录令牌提取失败错误日志
-		logger.LogError(err, "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
+	// 从上下文获取用户ID（中间件已验证并存储）
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		// 记录获取用户ID失败错误日志
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
 			"operation":  "get_user_by_id",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
@@ -198,29 +196,26 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
-			Message: "failed to extract token",
-			Error:   err.Error(),
+			Message: "user context not found",
 		})
 		return
 	}
 
-	// 从JWT令牌中直接获取用户ID
-	userID, err := h.userService.GetUserIDFromToken(c.Request.Context(), accessToken)
-	if err != nil {
-		// 记录获取用户ID失败错误日志
-		logger.LogError(err, "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
+	// 类型转换用户ID
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		// 记录用户ID类型转换失败错误日志
+		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
 			"operation":  "get_user_by_id",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
 			"request_id": c.GetHeader("X-Request-ID"),
-			"has_token":  accessToken != "",
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Code:    http.StatusUnauthorized,
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
 			Status:  "error",
-			Message: "failed to get user ID from token",
-			Error:   err.Error(),
+			Message: "invalid user context",
 		})
 		return
 	}
@@ -282,15 +277,14 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	})
 }
 
-// GetUserList 获取用户列表
-// 管理员接口，需要JWT令牌验证
+// GetUserList 获取用户列表（用户管理员专用）【待实现，有问题】
 // 支持分页查询，返回用户基本信息列表
 func (h *UserHandler) GetUserList(c *gin.Context) {
-	// 从请求头提取访问令牌
-	accessToken, err := h.extractTokenFromContext(c)
-	if err != nil {
-		// 记录令牌提取失败错误日志
-		logger.LogError(err, "", 0, "", "get_user_list", "GET", map[string]interface{}{
+	// 从上下文获取用户ID（中间件已验证并存储）
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		// 记录获取用户ID失败错误日志
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user_list", "GET", map[string]interface{}{
 			"operation":  "get_user_list",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
@@ -300,28 +294,26 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
-			Message: "failed to extract token",
-			Error:   err.Error(),
+			Message: "user context not found",
 		})
 		return
 	}
 
-	// 获取当前用户ID以验证身份
-	userID, err := h.userService.GetUserIDFromToken(c.Request.Context(), accessToken)
-	if err != nil {
-		// 记录获取用户ID失败错误日志
-		logger.LogError(err, "", 0, "", "get_user_list", "GET", map[string]interface{}{
+	// 类型转换用户ID
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		// 记录用户ID类型转换失败错误日志
+		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "get_user_list", "GET", map[string]interface{}{
 			"operation":  "get_user_list",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Code:    http.StatusUnauthorized,
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
 			Status:  "error",
-			Message: "failed to get user info",
-			Error:   err.Error(),
+			Message: "invalid user context",
 		})
 		return
 	}
@@ -423,8 +415,8 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	})
 }
 
-// GetUserInfo 获取单个用户信息（当前用户信息）
-// 从accesstoken获取用户ID并获取用户全量信息(包含权限和角色信息)
+// GetUserInfo 获取单个用户信息（当前用户信息） （用户专用）【已完成】
+// 从accesstoken获取用户ID并获取用户的全量信息(包含权限和角色信息)
 func (h *UserHandler) GetUserInfo(c *gin.Context) {
 	// 从请求头提取访问令牌
 	accessToken, err := h.extractTokenFromContext(c)
@@ -485,7 +477,7 @@ func (h *UserHandler) GetUserInfo(c *gin.Context) {
 	})
 }
 
-// GetUserPermission 获取用户权限
+// GetUserPermission 获取用户权限（用户专用）【已完成】
 func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	// 从请求头提取访问令牌
 	accessToken, err := h.extractTokenFromContext(c)
@@ -573,7 +565,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	})
 }
 
-// GetUserRoles 获取用户角色
+// GetUserRoles 获取用户角色（用户专用）【已完成】
 func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	// 从请求头提取访问令牌
 	accessToken, err := h.extractTokenFromContext(c)
@@ -681,9 +673,10 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	})
 }
 
-// ChangePassword 修改用户密码
+// ChangePassword 修改用户密码 (用户专用) 【已完成】
 func (h *UserHandler) ChangePassword(c *gin.Context) {
-	// 从JWT令牌中获取用户ID
+	// 从中间件上下文获取用户ID
+	// 本身是自己修改自己的密码，所以令牌和中间件封装的上下文中用户ID一致，所以可以这样写，节省了解析令牌时间（中间件已经解析过令牌）
 	userID, exists := c.Get("user_id")
 	if !exists {
 		logger.LogError(errors.New("user ID not found in context"), "", 0, "", "change_password", "PUT", map[string]interface{}{

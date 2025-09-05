@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"neomaster/internal/model"
@@ -13,15 +14,20 @@ import (
 )
 
 // 简单用户数据生成器
-// 使用方法: go run scripts/simple_user_generator.go <用户名> <邮箱> <密码>
+// 使用方法: 
+//   源码运行: go run scripts/simple_user_generator.go <用户名> <邮箱> <密码> <密码版本>
+//   二进制运行: scripts/simple_user_generator.exe <用户名> <邮箱> <密码> <密码版本>
 func main() {
 	// 检查命令行参数
-	if len(os.Args) != 4 {
-		fmt.Println("使用方法: go run scripts/simple_user_generator.go <用户名> <邮箱> <密码>")
+	if len(os.Args) != 5 {
+		fmt.Println("使用方法:")
+		fmt.Println("  源码运行: go run scripts/simple_user_generator.go <用户名> <邮箱> <密码> <密码版本>")
+		fmt.Println("  二进制运行: scripts/simple_user_generator.exe <用户名> <邮箱> <密码> <密码版本>")
 		fmt.Println("")
 		fmt.Println("示例:")
-		fmt.Println("  go run scripts/simple_user_generator.go admin admin@example.com AdminPass123!")
-		fmt.Println("  go run scripts/simple_user_generator.go testuser test@example.com TestPass123!")
+		fmt.Println("  go run scripts/simple_user_generator.go admin admin@example.com AdminPass123! 1")
+		fmt.Println("  scripts/simple_user_generator.exe admin admin@example.com AdminPass123! 1")
+		fmt.Println("  scripts/simple_user_generator.exe testuser test@example.com TestPass123! 2")
 		return
 	}
 
@@ -29,6 +35,18 @@ func main() {
 	username := os.Args[1]
 	email := os.Args[2]
 	password := os.Args[3]
+	passwordVersionStr := os.Args[4]
+
+	// 解析密码版本号
+	passwordVersion, err := strconv.ParseInt(passwordVersionStr, 10, 64)
+	if err != nil {
+		log.Fatalf("密码版本号解析失败: %v", err)
+	}
+
+	// 验证密码版本号范围
+	if passwordVersion < 1 {
+		log.Fatalf("密码版本号必须大于等于1，当前值: %d", passwordVersion)
+	}
 
 	// 验证输入参数
 	if err := validateInput(username, email, password); err != nil {
@@ -36,7 +54,7 @@ func main() {
 	}
 
 	// 生成用户数据
-	userData, err := generateUserData(username, email, password)
+	userData, err := generateUserData(username, email, password, passwordVersion)
 	if err != nil {
 		log.Fatalf("生成用户数据失败: %v", err)
 	}
@@ -73,7 +91,7 @@ func validateInput(username, email, password string) error {
 }
 
 // generateUserData 生成用户数据
-func generateUserData(username, email, password string) (string, error) {
+func generateUserData(username, email, password string, passwordVersion int64) (string, error) {
 	// 哈希密码
 	hashedPassword, err := auth.HashPasswordWithDefaultConfig(password)
 	if err != nil {
@@ -87,7 +105,7 @@ func generateUserData(username, email, password string) (string, error) {
 		Username:    username,                // 用户名
 		Email:       email,                   // 邮箱
 		Password:    hashedPassword,          // 哈希后的密码
-		PasswordV:   1,                       // 密码版本号
+		PasswordV:   passwordVersion,         // 密码版本号（用户指定）
 		Nickname:    "",                      // 昵称（空）
 		Avatar:      "",                      // 头像（空）
 		Phone:       "",                      // 电话（空）

@@ -50,14 +50,14 @@ func main() {
 	}
 
 	// 验证输入参数
-	if err := validateInput(username, email, password); err != nil {
-		log.Fatalf("输入验证失败: %v", err)
+	if validateErr := validateInput(username, email, password); validateErr != nil {
+		log.Fatalf("输入验证失败: %v", validateErr)
 	}
 
 	// 生成用户数据
-	userData, err := generateUserData(username, email, password, passwordVersion)
-	if err != nil {
-		log.Fatalf("生成用户数据失败: %v", err)
+	userData, generateErr := generateUserData(username, email, password, passwordVersion)
+	if generateErr != nil {
+		log.Fatalf("生成用户数据失败: %v", generateErr)
 	}
 
 	// 输出JSON结果

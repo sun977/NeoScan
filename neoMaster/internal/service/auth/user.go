@@ -1,7 +1,7 @@
 /*
  * @author: sun977
  * @date: 2025.09.04
- * @description: 用户服务
+ * @description: 用户服务业务逻辑
  * @func:
  * 1.创建
  * 2.更新
@@ -176,7 +176,7 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest) 
 	return response, nil
 }
 
-// CreateUser 创建用户（包含业务逻辑）
+// CreateUser 创建用户
 // 处理用户创建的完整流程，包括参数验证、重复检查、密码哈希等
 func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserRequest) (*model.User, error) {
 	// 参数验证
@@ -412,7 +412,7 @@ func (s *UserService) GetCurrentUser(ctx context.Context, accessToken string) (*
 	return userInfo, nil
 }
 
-// UpdateUser 更新用户信息（包含业务逻辑）
+// UpdateUser 更新用户信息
 // 处理用户更新的完整流程，包括参数验证、重复检查、密码哈希等
 func (s *UserService) UpdateUser(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
 	// 参数验证
@@ -469,7 +469,7 @@ func (s *UserService) UpdateUser(ctx context.Context, userID uint, req *model.Up
 	return user, nil
 }
 
-// DeleteUser 删除用户（包含业务逻辑）
+// DeleteUser 删除用户
 // 处理用户删除的完整流程，包括参数验证、存在性检查等
 func (s *UserService) DeleteUser(ctx context.Context, userID uint) error {
 	if userID == 0 {
@@ -490,7 +490,7 @@ func (s *UserService) DeleteUser(ctx context.Context, userID uint) error {
 	return s.userRepo.DeleteUser(ctx, userID)
 }
 
-// GetUserByID 根据用户ID获取用户（包含业务逻辑验证）
+// GetUserByID 根据用户ID获取用户
 func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*model.User, error) {
 	if userID == 0 {
 		return nil, errors.New("用户ID不能为0")
@@ -507,7 +507,7 @@ func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*model.User
 	return user, nil
 }
 
-// GetUserByUsername 根据用户名获取用户（包含业务逻辑验证）
+// GetUserByUsername 根据用户名获取用户
 func (s *UserService) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
 	if username == "" {
 		return nil, errors.New("用户名不能为空")
@@ -524,7 +524,7 @@ func (s *UserService) GetUserByUsername(ctx context.Context, username string) (*
 	return user, nil
 }
 
-// GetUserByEmail 根据邮箱获取用户（包含业务逻辑验证）
+// GetUserByEmail 根据邮箱获取用户
 func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
 	if email == "" {
 		return nil, errors.New("邮箱不能为空")
@@ -541,7 +541,7 @@ func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*model.
 	return user, nil
 }
 
-// ListUsers 获取用户列表（包含业务逻辑验证）
+// ListUsers 获取用户列表
 func (s *UserService) ListUsers(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
 	if offset < 0 {
 		offset = 0
@@ -554,7 +554,7 @@ func (s *UserService) ListUsers(ctx context.Context, offset, limit int) ([]*mode
 	return s.userRepo.ListUsers(ctx, offset, limit)
 }
 
-// GetUserPermissions 获取用户权限（包含业务逻辑验证）
+// GetUserPermissions 获取用户权限
 func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*model.Permission, error) {
 	if userID == 0 {
 		return nil, errors.New("用户ID不能为0")
@@ -563,7 +563,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*m
 	return s.userRepo.GetUserPermissions(ctx, userID)
 }
 
-// GetUserRoles 获取用户角色（包含业务逻辑验证）
+// GetUserRoles 获取用户角色
 func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*model.Role, error) {
 	if userID == 0 {
 		return nil, errors.New("用户ID不能为0")
@@ -674,7 +674,7 @@ func (s *UserService) GetUserWithRolesAndPermissions(ctx context.Context, userID
 	return s.userRepo.GetUserWithRolesAndPermissions(ctx, userID)
 }
 
-// AssignRoleToUser 为用户分配角色（包含业务逻辑验证）
+// AssignRoleToUser 为用户分配角色
 func (s *UserService) AssignRoleToUser(ctx context.Context, userID, roleID uint) error {
 	// 参数验证
 	if userID == 0 {
@@ -688,7 +688,7 @@ func (s *UserService) AssignRoleToUser(ctx context.Context, userID, roleID uint)
 	return s.userRepo.AssignRoleToUser(ctx, userID, roleID)
 }
 
-// RemoveRoleFromUser 移除用户角色（包含业务逻辑验证）
+// RemoveRoleFromUser 移除用户角色
 func (s *UserService) RemoveRoleFromUser(ctx context.Context, userID, roleID uint) error {
 	// 参数验证
 	if userID == 0 {
@@ -702,7 +702,7 @@ func (s *UserService) RemoveRoleFromUser(ctx context.Context, userID, roleID uin
 	return s.userRepo.RemoveRoleFromUser(ctx, userID, roleID)
 }
 
-// UpdateLastLogin 更新用户最后登录时间（包含业务逻辑验证）
+// UpdateLastLogin 更新用户最后登录时间
 func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint) error {
 	// 参数验证
 	if userID == 0 {

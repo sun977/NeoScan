@@ -32,8 +32,6 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	}
 }
 
-
-
 // CreateUser 创建用户（纯数据访问）
 // 直接将用户数据插入数据库，不包含业务逻辑验证
 func (r *UserRepository) CreateUser(ctx context.Context, user *model.User) error {
@@ -147,7 +145,6 @@ func (r *UserRepository) UpdateUserFields(ctx context.Context, userID uint, fiel
 		Where("id = ?", userID).
 		Updates(fields).Error
 }
-
 
 // UpdateLastLogin 更新用户最后登录时间
 func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID uint) error {

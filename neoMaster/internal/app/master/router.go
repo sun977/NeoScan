@@ -61,15 +61,18 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	// 注意：这里需要重新创建SessionService以避免循环依赖
 	sessionService = authService.NewSessionService(userService, passwordManager, jwtService, rbacService, sessionRepo)
 
+	// 初始化PasswordService（密码管理服务）
+	passwordService := authService.NewPasswordService(userService, sessionService, passwordManager, time.Hour*24)
+
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
 	middlewareManager := NewMiddlewareManager(sessionService, rbacService, jwtService)
 
-	// 初始化处理器
+	// 初始化处理器(控制器是服务集合,先初始化服务,然后服务装填成控制器)
 	loginHandler := authHandler.NewLoginHandler(sessionService)
 	logoutHandler := authHandler.NewLogoutHandler(sessionService)
 	refreshHandler := authHandler.NewRefreshHandler(sessionService)
 	registerHandler := authHandler.NewRegisterHandler(userService)
-	userHandler := systemHandler.NewUserHandler(userService)
+	userHandler := systemHandler.NewUserHandler(userService, passwordService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -95,6 +98,7 @@ func (r *Router) SetupRoutes() {
 	r.engine.Use(r.middlewareManager.GinRateLimitMiddleware())
 
 	// API版本路由组
+	// /api/v1
 	api := r.engine.Group("/api")
 	v1 := api.Group("/v1")
 
@@ -152,11 +156,11 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 		// 获取当前用户信息
 		user.GET("/profile", r.userHandler.GetUser)
 		// 修改用户密码
-		user.POST("/change-password", r.changePassword)
+		user.POST("/change-password", r.userHandler.ChangePassword)
 		// 获取用户权限
-		user.GET("/permissions", r.getUserPermissions)
+		user.GET("/permissions", r.userHandler.GetUserPermission)
 		// 获取用户角色
-		user.GET("/roles", r.getUserRoles)
+		user.GET("/roles", r.userHandler.GetUserRoles)
 	}
 }
 
@@ -227,11 +231,6 @@ func (r *Router) GetEngine() *gin.Engine {
 // 处理器方法（这些方法需要在后续实现）
 
 // 用户相关处理器
-
-func (r *Router) changePassword(c *gin.Context) {
-	// TODO: 实现修改密码
-	c.JSON(http.StatusOK, gin.H{"message": "change password - not implemented yet"})
-}
 
 func (r *Router) getUserPermissions(c *gin.Context) {
 	// TODO: 实现获取用户权限

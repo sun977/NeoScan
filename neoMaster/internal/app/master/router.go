@@ -175,7 +175,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 用户管理
 	userMgmt := admin.Group("/users")
 	{
-		userMgmt.GET("/list", r.listUsers)
+		userMgmt.GET("/list", r.userHandler.GetUserList)
 		userMgmt.POST("/create", r.createUser)
 		userMgmt.GET("/:id", r.getUserByID)
 		userMgmt.PUT("/:id", r.updateUser)
@@ -231,10 +231,6 @@ func (r *Router) GetEngine() *gin.Engine {
 // 处理器方法（这些方法需要在后续实现）
 
 // 管理员用户管理处理器
-func (r *Router) listUsers(c *gin.Context) {
-	// TODO: 实现用户列表
-	c.JSON(http.StatusOK, gin.H{"message": "list users - not implemented yet"})
-}
 
 func (r *Router) createUser(c *gin.Context) {
 	// TODO: 实现创建用户

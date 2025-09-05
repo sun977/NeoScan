@@ -1,3 +1,10 @@
+/*
+ * @author: sun977
+ * @date: 2025.09.05
+ * @description: 主程序入口
+ * @func: 初始化应用、配置路由、启动服务器、等待中断信号
+ */
+
 package main
 
 import (

@@ -57,7 +57,7 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 	})
 }
 
-// GetUser 获取单个用户信息（当前用户信息）【完成】
+// GetUser 获取单个用户信息（当前用户信息）
 func (h *UserHandler) GetUser(c *gin.Context) {
 	// 从请求头获取Authorization令牌
 	authHeader := c.GetHeader("Authorization")
@@ -156,21 +156,255 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 
 // GetUserPermission 获取用户权限
 func (h *UserHandler) GetUserPermission(c *gin.Context) {
-	// TODO: 实现获取用户权限逻辑
-	c.JSON(http.StatusNotImplemented, model.APIResponse{
-		Code:    http.StatusNotImplemented,
-		Status:  "error",
-		Message: "not implemented",
+	// 从请求头获取Authorization令牌
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		// 记录缺少授权头错误日志
+		logger.LogError(errors.New("authorization header required"), "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+			"operation":  "get_user_permissions",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "authorization header required",
+		})
+		return
+	}
+
+	// 提取Bearer令牌
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		// 记录授权头格式错误日志
+		logger.LogError(errors.New("invalid authorization header format"), "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+			"operation":          "get_user_permissions",
+			"client_ip":          c.ClientIP(),
+			"user_agent":         c.GetHeader("User-Agent"),
+			"request_id":         c.GetHeader("X-Request-ID"),
+			"auth_header_prefix": authHeader[:min(len(authHeader), 10)],
+			"timestamp":          logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "invalid authorization header format",
+		})
+		return
+	}
+
+	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
+	if accessToken == "" {
+		// 记录访问令牌为空错误日志
+		logger.LogError(errors.New("access token required"), "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+			"operation":  "get_user_permissions",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "access token required",
+		})
+		return
+	}
+
+	// 获取当前用户信息以获取用户ID
+	userInfo, err := h.userService.GetCurrentUser(c.Request.Context(), accessToken)
+	if err != nil {
+		// 记录获取用户信息失败错误日志
+		logger.LogError(err, "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+			"operation":  "get_user_permissions",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"has_token":  accessToken != "",
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "failed to get user info",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 获取用户权限
+	permissions, err := h.userService.GetUserPermissions(c.Request.Context(), uint(userInfo.ID))
+	if err != nil {
+		// 记录获取用户权限失败错误日志
+		logger.LogError(err, "", uint(userInfo.ID), userInfo.Username, "get_user_permissions", "GET", map[string]interface{}{
+			"operation":  "get_user_permissions",
+			"user_id":    userInfo.ID,
+			"username":   userInfo.Username,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "failed to get user permissions",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 记录获取用户权限成功业务日志
+	logger.LogBusinessOperation("get_user_permissions", uint(userInfo.ID), userInfo.Username, "", "", "success", "获取用户权限成功", map[string]interface{}{
+		"operation":        "get_user_permissions",
+		"user_id":          userInfo.ID,
+		"username":         userInfo.Username,
+		"permission_count": len(permissions),
+		"client_ip":        c.ClientIP(),
+		"user_agent":       c.GetHeader("User-Agent"),
+		"request_id":       c.GetHeader("X-Request-ID"),
+		"timestamp":        logger.NowFormatted(),
+	})
+
+	// 构造响应数据，符合API文档规范
+	responseData := map[string]interface{}{
+		"permissions": permissions,
+	}
+
+	// 返回用户权限信息
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "user permissions retrieved successfully",
+		Data:    responseData,
 	})
 }
 
 // GetUserRoles 获取用户角色
 func (h *UserHandler) GetUserRoles(c *gin.Context) {
-	// TODO: 实现获取用户角色逻辑
-	c.JSON(http.StatusNotImplemented, model.APIResponse{
-		Code:    http.StatusNotImplemented,
-		Status:  "error",
-		Message: "not implemented",
+	// 从请求头获取Authorization令牌
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		// 记录缺少授权头错误日志
+		logger.LogError(errors.New("authorization header required"), "", 0, "", "get_user_roles", "GET", map[string]interface{}{
+			"operation":  "get_user_roles",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "authorization header required",
+		})
+		return
+	}
+
+	// 提取Bearer令牌
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		// 记录授权头格式错误日志
+		logger.LogError(errors.New("invalid authorization header format"), "", 0, "", "get_user_roles", "GET", map[string]interface{}{
+			"operation":          "get_user_roles",
+			"client_ip":          c.ClientIP(),
+			"user_agent":         c.GetHeader("User-Agent"),
+			"request_id":         c.GetHeader("X-Request-ID"),
+			"auth_header_prefix": authHeader[:min(len(authHeader), 10)],
+			"timestamp":          logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "invalid authorization header format",
+		})
+		return
+	}
+
+	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
+	if accessToken == "" {
+		// 记录访问令牌为空错误日志
+		logger.LogError(errors.New("access token required"), "", 0, "", "get_user_roles", "GET", map[string]interface{}{
+			"operation":  "get_user_roles",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "access token required",
+		})
+		return
+	}
+
+	// 获取当前用户信息以获取用户ID
+	userInfo, err := h.userService.GetCurrentUser(c.Request.Context(), accessToken)
+	if err != nil {
+		// 记录获取用户信息失败错误日志
+		logger.LogError(err, "", 0, "", "get_user_roles", "GET", map[string]interface{}{
+			"operation":  "get_user_roles",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"has_token":  accessToken != "",
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "failed to get user info",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 获取用户角色
+	roles, err := h.userService.GetUserRoles(c.Request.Context(), uint(userInfo.ID))
+	if err != nil {
+		// 记录获取用户角色失败错误日志
+		logger.LogError(err, "", uint(userInfo.ID), userInfo.Username, "get_user_roles", "GET", map[string]interface{}{
+			"operation":  "get_user_roles",
+			"user_id":    userInfo.ID,
+			"username":   userInfo.Username,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "failed to get user roles",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 记录获取用户角色成功业务日志
+	logger.LogBusinessOperation("get_user_roles", uint(userInfo.ID), userInfo.Username, "", "", "success", "获取用户角色成功", map[string]interface{}{
+		"operation":   "get_user_roles",
+		"user_id":     userInfo.ID,
+		"username":    userInfo.Username,
+		"role_count":  len(roles),
+		"client_ip":   c.ClientIP(),
+		"user_agent":  c.GetHeader("User-Agent"),
+		"request_id":  c.GetHeader("X-Request-ID"),
+		"timestamp":   logger.NowFormatted(),
+	})
+
+	// 构造响应数据，符合API文档规范
+	responseData := map[string]interface{}{
+		"roles": roles,
+	}
+
+	// 返回用户角色信息
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "user roles retrieved successfully",
+		Data:    responseData,
 	})
 }
 

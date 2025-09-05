@@ -541,17 +541,88 @@ func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*model.
 	return user, nil
 }
 
-// ListUsers 获取用户列表
-func (s *UserService) ListUsers(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
+// GetUserList 获取用户列表
+// 提供分页查询功能，包含完整的参数验证和错误处理
+// 参数:
+//   - ctx: 上下文，用于超时控制和取消操作
+//   - offset: 偏移量，必须 >= 0
+//   - limit: 每页数量，范围 [1, 100]，默认20
+// 返回:
+//   - []*model.User: 用户列表
+//   - int64: 总记录数
+//   - error: 错误信息
+func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
+	// 保存原始参数值用于日志记录
+	originalOffset := offset
+	originalLimit := limit
+
+	// 参数验证：偏移量不能为负数
 	if offset < 0 {
-		offset = 0
+		logger.LogError(fmt.Errorf("invalid offset parameter: %d", offset), "", 0, "", "get_user_list", "SERVICE", map[string]interface{}{
+			"operation": "get_user_list",
+			"offset":    offset,
+			"limit":     limit,
+			"timestamp": logger.NowFormatted(),
+		})
+		offset = 0 // 自动修正为0
 	}
 
-	if limit <= 0 || limit > 100 {
+	// 参数验证：限制每页数量的合理范围
+	if limit <= 0 {
 		limit = 20 // 默认每页20条
+	} else if limit > 100 {
+		limit = 100 // 最大每页100条，防止查询过大数据集
 	}
 
-	return s.userRepo.ListUsers(ctx, offset, limit)
+	// 记录参数修正日志（如果发生了修正）
+	if originalLimit != limit || originalOffset != offset {
+		logger.LogBusinessOperation("get_user_list", 0, "system", "", "", "parameter_corrected", "分页参数已自动修正", map[string]interface{}{
+			"operation":       "get_user_list",
+			"original_offset": originalOffset,
+			"original_limit":  originalLimit,
+			"corrected_offset": offset,
+			"corrected_limit":  limit,
+			"timestamp":       logger.NowFormatted(),
+		})
+	}
+
+	// 上下文检查：确保请求未被取消
+	select {
+	case <-ctx.Done():
+		return nil, 0, fmt.Errorf("request cancelled: %w", ctx.Err())
+	default:
+		// 继续执行
+	}
+
+	// 调用repository层获取数据
+	users, total, err := s.userRepo.GetUserList(ctx, offset, limit)
+	if err != nil {
+		// 记录数据库查询错误
+		logger.LogError(err, "", 0, "", "get_user_list", "SERVICE", map[string]interface{}{
+			"operation": "get_user_list",
+			"offset":    offset,
+			"limit":     limit,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, 0, fmt.Errorf("failed to get user list from repository: %w", err)
+	}
+
+	// 数据完整性检查
+	if users == nil {
+		users = make([]*model.User, 0) // 确保返回空切片而不是nil
+	}
+
+	// 记录成功操作日志
+	logger.LogBusinessOperation("get_user_list", 0, "system", "", "", "success", "获取用户列表成功", map[string]interface{}{
+		"operation":   "get_user_list",
+		"offset":      offset,
+		"limit":       limit,
+		"total":       total,
+		"result_count": len(users),
+		"timestamp":   logger.NowFormatted(),
+	})
+
+	return users, total, nil
 }
 
 // GetUserPermissions 获取用户权限

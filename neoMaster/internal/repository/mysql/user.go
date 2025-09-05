@@ -260,8 +260,8 @@ func (r *UserRepository) RemoveRoleFromUser(ctx context.Context, userID, roleID 
 	return r.db.WithContext(ctx).Model(&user).Association("Roles").Delete(&role)
 }
 
-// ListUsers 获取用户列表
-func (r *UserRepository) ListUsers(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
+// GetUserList 获取用户列表
+func (r *UserRepository) GetUserList(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
 	var users []*model.User
 	var total int64
 

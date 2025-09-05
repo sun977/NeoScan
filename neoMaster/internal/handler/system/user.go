@@ -14,6 +14,7 @@ package system
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -47,13 +48,184 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	})
 }
 
-// GetUsers 获取用户列表
-func (h *UserHandler) GetUsers(c *gin.Context) {
-	// TODO: 实现获取用户列表逻辑
-	c.JSON(http.StatusNotImplemented, model.APIResponse{
-		Code:    http.StatusNotImplemented,
-		Status:  "error",
-		Message: "not implemented",
+// GetUserList 获取用户列表
+// 管理员接口，需要JWT令牌验证
+// 支持分页查询，返回用户基本信息列表
+func (h *UserHandler) GetUserList(c *gin.Context) {
+	// 从请求头获取Authorization令牌
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		// 记录缺少授权头错误日志
+		logger.LogError(errors.New("authorization header required"), "", 0, "", "get_user_list", "GET", map[string]interface{}{
+			"operation":  "get_user_list",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "authorization header required",
+		})
+		return
+	}
+
+	// 提取Bearer令牌
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		// 记录授权头格式错误日志
+		logger.LogError(errors.New("invalid authorization header format"), "", 0, "", "get_user_list", "GET", map[string]interface{}{
+			"operation":          "get_user_list",
+			"client_ip":          c.ClientIP(),
+			"user_agent":         c.GetHeader("User-Agent"),
+			"request_id":         c.GetHeader("X-Request-ID"),
+			"auth_header_prefix": authHeader[:min(len(authHeader), 10)],
+			"timestamp":          logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "invalid authorization header format",
+		})
+		return
+	}
+
+	// 提取访问令牌
+	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
+	if accessToken == "" {
+		// 记录访问令牌为空错误日志
+		logger.LogError(errors.New("access token required"), "", 0, "", "get_user_list", "GET", map[string]interface{}{
+			"operation":  "get_user_list",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "access token required",
+		})
+		return
+	}
+
+	// 获取当前用户信息以验证令牌有效性
+	userInfo, err := h.userService.GetCurrentUser(c.Request.Context(), accessToken)
+	if err != nil {
+		// 记录获取用户信息失败错误日志
+		logger.LogError(err, "", 0, "", "get_user_list", "GET", map[string]interface{}{
+			"operation":  "get_user_list",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"has_token":  accessToken != "",
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "failed to get user info",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 解析分页参数
+	page := 1
+	limit := 10
+
+	// 从查询参数获取页码，默认为1
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, parseErr := strconv.Atoi(pageStr); parseErr == nil && p > 0 {
+			page = p
+		}
+	}
+
+	// 从查询参数获取每页数量，默认为10
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, parseErr := strconv.Atoi(limitStr); parseErr == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	// 计算偏移量
+	offset := (page - 1) * limit
+
+	// 调用service层获取用户列表
+	users, total, err := h.userService.GetUserList(c.Request.Context(), offset, limit)
+	if err != nil {
+		// 记录获取用户列表失败错误日志
+		logger.LogError(err, "", uint(userInfo.ID), userInfo.Username, "get_user_list", "GET", map[string]interface{}{
+			"operation":  "get_user_list",
+			"user_id":    userInfo.ID,
+			"username":   userInfo.Username,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"page":       page,
+			"limit":      limit,
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "failed to get user list",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 转换用户数据为响应格式
+	userInfos := make([]model.UserInfo, 0, len(users))
+	for _, user := range users {
+		userInfos = append(userInfos, model.UserInfo{
+			ID:          user.ID,
+			Username:    user.Username,
+			Email:       user.Email,
+			Nickname:    user.Nickname,
+			Phone:       user.Phone,
+			Status:      user.Status,
+			CreatedAt:   user.CreatedAt,
+			LastLoginAt: user.LastLoginAt,
+		})
+	}
+
+	// 计算总页数
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+
+	// 记录获取用户列表成功业务日志
+	logger.LogBusinessOperation("get_user_list", uint(userInfo.ID), userInfo.Username, "", "", "success", "获取用户列表成功", map[string]interface{}{
+		"operation":   "get_user_list",
+		"user_id":     userInfo.ID,
+		"username":    userInfo.Username,
+		"client_ip":   c.ClientIP(),
+		"user_agent":  c.GetHeader("User-Agent"),
+		"request_id":  c.GetHeader("X-Request-ID"),
+		"page":        page,
+		"limit":       limit,
+		"total":       total,
+		"total_pages": totalPages,
+		"user_count":  len(userInfos),
+		"timestamp":   logger.NowFormatted(),
+	})
+
+	// 构造响应数据，符合API文档v2.0规范
+	responseData := map[string]interface{}{
+		"items": userInfos,
+		"pagination": map[string]interface{}{
+			"page":  page,
+			"limit": limit,
+			"total": total,
+			"pages": totalPages,
+		},
+	}
+
+	// 返回用户列表信息
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "user list retrieved successfully",
+		Data:    responseData,
 	})
 }
 
@@ -384,14 +556,14 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 
 	// 记录获取用户角色成功业务日志
 	logger.LogBusinessOperation("get_user_roles", uint(userInfo.ID), userInfo.Username, "", "", "success", "获取用户角色成功", map[string]interface{}{
-		"operation":   "get_user_roles",
-		"user_id":     userInfo.ID,
-		"username":    userInfo.Username,
-		"role_count":  len(roles),
-		"client_ip":   c.ClientIP(),
-		"user_agent":  c.GetHeader("User-Agent"),
-		"request_id":  c.GetHeader("X-Request-ID"),
-		"timestamp":   logger.NowFormatted(),
+		"operation":  "get_user_roles",
+		"user_id":    userInfo.ID,
+		"username":   userInfo.Username,
+		"role_count": len(roles),
+		"client_ip":  c.ClientIP(),
+		"user_agent": c.GetHeader("User-Agent"),
+		"request_id": c.GetHeader("X-Request-ID"),
+		"timestamp":  logger.NowFormatted(),
 	})
 
 	// 构造响应数据，符合API文档规范

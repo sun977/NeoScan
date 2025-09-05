@@ -11,10 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"neomaster/internal/handler/auth"
+	authHandler "neomaster/internal/handler/auth"
 	"neomaster/internal/handler/system"
 	"neomaster/internal/model"
+	authService "neomaster/internal/service/auth"
+
+	"github.com/gin-gonic/gin"
 )
 
 // TestAPIIntegration 测试API集成功能
@@ -67,11 +69,18 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 	})
 
 	// 创建处理器
-	userHandler := system.NewUserHandler(ts.UserService)
-	loginHandler := auth.NewLoginHandler(ts.SessionService)
-	logoutHandler := auth.NewLogoutHandler(ts.SessionService)
-	refreshHandler := auth.NewRefreshHandler(ts.SessionService)
-	registerHandler := auth.NewRegisterHandler(ts.UserService)
+	// 创建PasswordService
+		passwordService := authService.NewPasswordService(
+			ts.UserService,
+			ts.SessionService,
+			ts.passwordManager,
+			24*time.Hour,
+		)
+		userHandler := system.NewUserHandler(ts.UserService, passwordService)
+	loginHandler := authHandler.NewLoginHandler(ts.SessionService)
+	logoutHandler := authHandler.NewLogoutHandler(ts.SessionService)
+	refreshHandler := authHandler.NewRefreshHandler(ts.SessionService)
+	registerHandler := authHandler.NewRegisterHandler(ts.UserService)
 
 	// 检查中间件管理器是否可用
 	if ts.MiddlewareManager == nil {

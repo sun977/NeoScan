@@ -603,7 +603,7 @@ func (s *UserService) UpdatePasswordWithVersion(ctx context.Context, userID uint
 	// 直接进行数据库更新操作（原子操作）
 	// 同时更新密码哈希和递增密码版本号，确保旧token失效
 	err = s.userRepo.UpdateUserFields(ctx, userID, map[string]interface{}{
-		"password_hash": hashedPassword,
+		"password": hashedPassword,
 		"password_v":    gorm.Expr("password_v + ?", 1),
 		"updated_at":    time.Now(),
 	})
@@ -641,7 +641,7 @@ func (s *UserService) UpdatePasswordWithVersionHashed(ctx context.Context, userI
 	// 直接进行数据库更新操作（原子操作）
 	// 同时更新密码哈希和递增密码版本号，确保旧token失效
 	err = s.userRepo.UpdateUserFields(ctx, userID, map[string]interface{}{
-		"password_hash": passwordHash,
+		"password": passwordHash,
 		"password_v":    gorm.Expr("password_v + ?", 1),
 		"updated_at":    time.Now(),
 	})

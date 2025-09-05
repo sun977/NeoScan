@@ -50,7 +50,9 @@ func NewSessionService(
 }
 
 // Login 用户登录
-func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error) {
+// clientIP: 客户端IP地址，从HTTP请求中获取
+// userAgent: 用户代理信息，从HTTP请求头中获取
+func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, clientIP, userAgent string) (*model.LoginResponse, error) {
 	if req == nil {
 		logger.LogError(errors.New("login request cannot be nil"), "", 0, "", "user_login", "POST", map[string]interface{}{
 			"operation": "login",
@@ -199,8 +201,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest) (*m
 		Permissions: permissions,
 		LoginTime:   time.Now(),
 		LastActive:  time.Now(),
-		ClientIP:    "", // TODO: 从请求上下文获取客户端IP
-		UserAgent:   "", // TODO: 从请求上下文获取用户代理
+		ClientIP:    clientIP,   // 从请求上下文获取的客户端IP
+		UserAgent:   userAgent,  // 从请求上下文获取的用户代理
 	}
 
 	// 设置会话过期时间（与访问令牌过期时间一致）

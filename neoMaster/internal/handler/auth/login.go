@@ -147,82 +147,82 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 }
 
 // GetLoginForm 获取登录表单处理器
-func (h *LoginHandler) GetLoginForm(c *gin.Context) {
-	loginForm := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>NeoScan - 用户登录</title>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; margin: 50px; }
-        .login-form { max-width: 400px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; }
-        button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 3px; cursor: pointer; }
-        button:hover { background-color: #0056b3; }
-        .error { color: red; margin-top: 10px; }
-        .success { color: green; margin-top: 10px; }
-    </style>
-</head>
-<body>
-    <div class="login-form">
-        <h2>NeoScan 用户登录</h2>
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="username">用户名/邮箱:</label>
-                <input type="text" id="username" name="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">密码:</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit">登录</button>
-        </form>
-        <div id="message"></div>
-    </div>
+// func (h *LoginHandler) GetLoginForm(c *gin.Context) {
+// 	loginForm := `
+// <!DOCTYPE html>
+// <html>
+// <head>
+//     <title>NeoScan - 用户登录</title>
+//     <meta charset="utf-8">
+//     <style>
+//         body { font-family: Arial, sans-serif; margin: 50px; }
+//         .login-form { max-width: 400px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+//         .form-group { margin-bottom: 15px; }
+//         label { display: block; margin-bottom: 5px; }
+//         input[type="text"], input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; }
+//         button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 3px; cursor: pointer; }
+//         button:hover { background-color: #0056b3; }
+//         .error { color: red; margin-top: 10px; }
+//         .success { color: green; margin-top: 10px; }
+//     </style>
+// </head>
+// <body>
+//     <div class="login-form">
+//         <h2>NeoScan 用户登录</h2>
+//         <form id="loginForm">
+//             <div class="form-group">
+//                 <label for="username">用户名/邮箱:</label>
+//                 <input type="text" id="username" name="username" required>
+//             </div>
+//             <div class="form-group">
+//                 <label for="password">密码:</label>
+//                 <input type="password" id="password" name="password" required>
+//             </div>
+//             <button type="submit">登录</button>
+//         </form>
+//         <div id="message"></div>
+//     </div>
 
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const messageDiv = document.getElementById('message');
-            
-            try {
-                const response = await fetch('/api/v1/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    messageDiv.innerHTML = '<div class="success">登录成功！正在跳转...</div>';
-                    // 存储令牌
-                    localStorage.setItem('access_token', result.data.access_token);
-                    localStorage.setItem('refresh_token', result.data.refresh_token);
-                    // 跳转到主页或仪表板
-                    setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1000);
-                } else {
-                    messageDiv.innerHTML = '<div class="error">登录失败: ' + result.message + '</div>';
-                }
-            } catch (error) {
-                messageDiv.innerHTML = '<div class="error">网络错误: ' + error.message + '</div>';
-            }
-        });
-    </script>
-</body>
-</html>
-`
+//     <script>
+//         document.getElementById('loginForm').addEventListener('submit', async function(e) {
+//             e.preventDefault();
 
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, loginForm)
-}
+//             const username = document.getElementById('username').value;
+//             const password = document.getElementById('password').value;
+//             const messageDiv = document.getElementById('message');
+
+//             try {
+//                 const response = await fetch('/api/v1/auth/login', {
+//                     method: 'POST',
+//                     headers: {
+//                         'Content-Type': 'application/json',
+//                     },
+//                     body: JSON.stringify({ username, password })
+//                 });
+
+//                 const result = await response.json();
+
+//                 if (result.success) {
+//                     messageDiv.innerHTML = '<div class="success">登录成功！正在跳转...</div>';
+//                     // 存储令牌
+//                     localStorage.setItem('access_token', result.data.access_token);
+//                     localStorage.setItem('refresh_token', result.data.refresh_token);
+//                     // 跳转到主页或仪表板
+//                     setTimeout(() => {
+//                         window.location.href = '/dashboard';
+//                     }, 1000);
+//                 } else {
+//                     messageDiv.innerHTML = '<div class="error">登录失败: ' + result.message + '</div>';
+//                 }
+//             } catch (error) {
+//                 messageDiv.innerHTML = '<div class="error">网络错误: ' + error.message + '</div>';
+//             }
+//         });
+//     </script>
+// </body>
+// </html>
+// `
+
+// 	c.Header("Content-Type", "text/html; charset=utf-8")
+// 	c.String(http.StatusOK, loginForm)
+// }

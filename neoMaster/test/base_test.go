@@ -124,7 +124,21 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 		)
 		// 然后创建依赖用户服务的其他服务
 		rbacService = authService.NewRBACService(userService)
-		jwtService = authService.NewJWTService(jwtManager, userService)
+		
+		// 创建临时的JWTService用于初始化SessionService
+		tempJWTService := authService.NewJWTService(jwtManager, userService, nil)
+		authSvc = authService.NewSessionService(
+			userService,
+			passwordManager,
+			tempJWTService,
+			rbacService,
+			sessionRepo,
+		)
+		
+		// 重新创建JWTService，注入SessionService作为TokenBlacklistService
+		jwtService = authService.NewJWTService(jwtManager, userService, authSvc)
+		
+		// 重新创建SessionService以使用正确的JWTService
 		authSvc = authService.NewSessionService(
 			userService,
 			passwordManager,

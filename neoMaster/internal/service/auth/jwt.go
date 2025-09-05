@@ -15,12 +15,27 @@ import (
 	"github.com/golang-jwt/jwt/v5" // 导入JWT库，用于令牌解析和验证
 )
 
+// TokenBlacklistService 令牌黑名单服务接口
+// 这个接口定义了令牌黑名单操作的标准方法
+// 通过接口解耦JWTService和SessionService之间的循环依赖
+type TokenBlacklistService interface {
+	// RevokeToken 撤销令牌（将令牌添加到黑名单）
+	// tokenJTI: JWT的唯一标识符
+	// expiration: 黑名单过期时间，通常设置为令牌的剩余有效时间
+	RevokeToken(ctx context.Context, tokenJTI string, expiration time.Duration) error
+
+	// IsTokenRevoked 检查令牌是否已被撤销（是否在黑名单中）
+	// tokenJTI: JWT的唯一标识符
+	IsTokenRevoked(ctx context.Context, tokenJTI string) (bool, error)
+}
+
 // JWTService JWT认证服务结构体
 // 这是服务层的核心结构，封装了JWT相关的所有业务逻辑
-// 采用依赖注入的方式，将JWT管理器和用户服务作为依赖项
+// 采用依赖注入的方式，将JWT管理器、用户服务和令牌黑名单服务作为依赖项
 type JWTService struct {
-	jwtManager  *auth.JWTManager // JWT管理器，负责令牌的底层操作（生成、验证、解析）
-	userService *UserService     // 用户服务，负责用户相关的业务逻辑
+	jwtManager       *auth.JWTManager      // JWT管理器，负责令牌的底层操作（生成、验证、解析）
+	userService      *UserService          // 用户服务，负责用户相关的业务逻辑
+	blacklistService TokenBlacklistService // 令牌黑名单服务，负责令牌撤销和黑名单检查
 }
 
 // NewJWTService 创建JWT服务实例
@@ -28,12 +43,14 @@ type JWTService struct {
 // 参数:
 //   - jwtManager: JWT管理器实例，提供令牌操作的底层功能
 //   - userService: 用户服务实例，提供用户业务逻辑功能
+//   - blacklistService: 令牌黑名单服务实例，提供令牌撤销和黑名单检查功能
 //
 // 返回: JWTService指针，包含所有JWT相关的业务方法
-func NewJWTService(jwtManager *auth.JWTManager, userService *UserService) *JWTService {
+func NewJWTService(jwtManager *auth.JWTManager, userService *UserService, blacklistService TokenBlacklistService) *JWTService {
 	return &JWTService{
-		jwtManager:  jwtManager,  // 注入JWT管理器依赖
-		userService: userService, // 注入用户服务依赖
+		jwtManager:       jwtManager,       // 注入JWT管理器依赖
+		userService:      userService,      // 注入用户服务依赖
+		blacklistService: blacklistService, // 注入令牌黑名单服务依赖
 	}
 }
 
@@ -123,17 +140,44 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *model.User) (*aut
 
 // ValidateAccessToken 验证访问令牌
 // 这个方法用于验证客户端提供的访问令牌是否有效
+// 包括签名验证、过期时间检查和黑名单检查
 // 参数:
 //   - tokenString: 待验证的JWT令牌字符串
 //
 // 返回: JWT声明信息和错误信息
 func (s *JWTService) ValidateAccessToken(tokenString string) (*auth.JWTClaims, error) {
-	// 调用JWT管理器验证令牌的签名、过期时间等
+	// 第一步：调用JWT管理器验证令牌的签名、过期时间等
 	// 这里会检查令牌格式、签名有效性、是否过期等
 	claims, err := s.jwtManager.ValidateAccessToken(tokenString)
 	if err != nil {
 		// 验证失败，包装错误信息，提供更明确的错误描述
 		return nil, fmt.Errorf("invalid access token: %w", err)
+	}
+
+	// 第二步：检查令牌是否在黑名单中（已被撤销）
+	// 使用令牌的JTI（JWT ID）进行黑名单检查
+	if claims.ID != "" {
+		isRevoked, err := s.blacklistService.IsTokenRevoked(context.Background(), claims.ID)
+		if err != nil {
+			// 黑名单检查失败，记录错误日志但不阻止验证（降级处理）
+			// 这样可以避免Redis故障导致所有令牌验证失败
+			logger.LogError(err, "", uint(claims.UserID), "", "token_blacklist_check", "GET", map[string]interface{}{
+				"operation":    "validate_access_token",
+				"token_prefix": tokenString[:10] + "...",
+				"jti":          claims.ID,
+				"timestamp":    logger.NowFormatted(),
+			})
+			// 继续验证流程，不因黑名单检查失败而拒绝令牌
+		} else if isRevoked {
+			// 令牌已被撤销，拒绝访问
+			logger.LogError(errors.New("token has been revoked"), "", uint(claims.UserID), "", "token_revoked", "GET", map[string]interface{}{
+				"operation":    "validate_access_token",
+				"token_prefix": tokenString[:10] + "...",
+				"jti":          claims.ID,
+				"timestamp":    logger.NowFormatted(),
+			})
+			return nil, errors.New("token has been revoked")
+		}
 	}
 
 	// 验证成功，返回解析出的JWT声明信息
@@ -276,36 +320,63 @@ func (s *JWTService) CheckTokenExpiry(tokenString string, threshold time.Duratio
 //
 // 返回: 错误信息
 func (s *JWTService) RevokeToken(ctx context.Context, tokenString string) error {
-	// 首先验证令牌的有效性
-	claims, err := s.ValidateAccessToken(tokenString)
+	// 直接解析令牌获取声明信息，不进行完整验证
+	// 这样可以撤销已过期但尚未从黑名单中移除的令牌
+	claims, err := s.jwtManager.ValidateAccessToken(tokenString)
 	if err != nil {
-		// 令牌无效，无需撤销
-		logger.LogError(err, "", 0, "", "token_revoke", "POST", map[string]interface{}{
+		// 令牌解析失败，记录错误但不阻止撤销流程
+		logger.LogError(err, "", 0, "", "token_revoke_parse", "POST", map[string]interface{}{
 			"operation":    "revoke_token",
 			"token_prefix": tokenString[:10] + "...",
 			"timestamp":    logger.NowFormatted(),
 		})
-		return err
+		return fmt.Errorf("failed to parse token for revocation: %w", err)
 	}
 
-	// TODO: 实现令牌黑名单机制
-	// 可以将令牌的JTI（JWT ID）或整个令牌存储到Redis中
-	// 设置过期时间为令牌的剩余有效时间
-	// 在验证令牌时需要检查黑名单
-	// 例如：
-	// 1. 将claims.ID存储到Redis集合中
-	// 2. 设置过期时间为claims.ExpiresAt
-	// 3. 在ValidateAccessToken中增加黑名单检查
+	// 检查令牌是否有JTI（JWT ID）
+	if claims.ID == "" {
+		logger.LogError(errors.New("token has no JTI"), "", uint(claims.UserID), "", "token_revoke_no_jti", "POST", map[string]interface{}{
+			"operation":    "revoke_token",
+			"token_prefix": tokenString[:10] + "...",
+			"timestamp":    logger.NowFormatted(),
+		})
+		return errors.New("token has no JTI, cannot revoke")
+	}
+
+	// 计算令牌的剩余有效时间，用作黑名单过期时间
+	var expiration time.Duration
+	if claims.ExpiresAt != nil {
+		remaining := time.Until(claims.ExpiresAt.Time)
+		if remaining > 0 {
+			expiration = remaining
+		} else {
+			// 令牌已过期，设置一个较短的黑名单时间（1小时）
+			expiration = time.Hour
+		}
+	} else {
+		// 令牌没有过期时间，设置默认黑名单时间（24小时）
+		expiration = 24 * time.Hour
+	}
+
+	// 调用黑名单服务撤销令牌
+	err = s.blacklistService.RevokeToken(ctx, claims.ID, expiration)
+	if err != nil {
+		logger.LogError(err, "", uint(claims.UserID), "", "token_revoke_blacklist", "POST", map[string]interface{}{
+			"operation":    "revoke_token",
+			"token_prefix": tokenString[:10] + "...",
+			"jti":          claims.ID,
+			"timestamp":    logger.NowFormatted(),
+		})
+		return fmt.Errorf("failed to add token to blacklist: %w", err)
+	}
 
 	// 记录令牌撤销的业务日志
 	logger.LogBusinessOperation("revoke_token", uint(claims.UserID), claims.Username, "", "", "success", "令牌撤销成功", map[string]interface{}{
 		"token_prefix": tokenString[:10] + "...",
+		"jti":          claims.ID,
 		"timestamp":    logger.NowFormatted(),
 	})
 
-	// 暂时返回nil，表示撤销成功
-	// 实际项目中需要实现具体的黑名单逻辑
-	_ = claims
 	return nil
 }
 

@@ -46,10 +46,20 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	// 初始化UserService
 	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
 
-	// 初始化服务
-	jwtService := authService.NewJWTService(jwtManager, userService)
+	// 初始化RBAC服务（不依赖其他服务）
 	rbacService := authService.NewRBACService(userService)
-	sessionService := authService.NewSessionService(userService, passwordManager, jwtService, rbacService, sessionRepo)
+
+	// 初始化SessionService（作为TokenBlacklistService的实现）
+	// 注意：这里先创建一个临时的JWTService，后面会重新创建
+	tempJWTService := authService.NewJWTService(jwtManager, userService, nil)
+	sessionService := authService.NewSessionService(userService, passwordManager, tempJWTService, rbacService, sessionRepo)
+
+	// 重新创建JWTService，注入SessionService作为TokenBlacklistService
+	jwtService := authService.NewJWTService(jwtManager, userService, sessionService)
+
+	// 更新SessionService中的JWTService引用
+	// 注意：这里需要重新创建SessionService以避免循环依赖
+	sessionService = authService.NewSessionService(userService, passwordManager, jwtService, rbacService, sessionRepo)
 
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
 	middlewareManager := NewMiddlewareManager(sessionService, rbacService, jwtService)
@@ -111,12 +121,12 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 		// 用户登录
 		auth.POST("/login", r.loginHandler.Login)
 		// 获取登录表单页面（可选）
-		auth.GET("/login", r.loginHandler.GetLoginForm)
-		// 刷新令牌
+		// auth.GET("/login", r.loginHandler.GetLoginForm)
+		// 刷新令牌(从body中传递传递refresh_token)
 		auth.POST("/refresh", r.refreshHandler.RefreshToken)
-		// 从请求头刷新令牌
+		// 从请求头刷新令牌(从请求头Authorization传递refresh token)
 		auth.POST("/refresh-header", r.refreshHandler.RefreshTokenFromHeader)
-		// 检查令牌过期时间
+		// 检查令牌过期时间(从请求头中获取access token)
 		auth.POST("/check-expiry", r.refreshHandler.CheckTokenExpiry)
 	}
 }

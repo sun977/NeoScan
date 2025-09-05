@@ -201,8 +201,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 		Permissions: permissions,
 		LoginTime:   time.Now(),
 		LastActive:  time.Now(),
-		ClientIP:    clientIP,   // 从请求上下文获取的客户端IP
-		UserAgent:   userAgent,  // 从请求上下文获取的用户代理
+		ClientIP:    clientIP,  // 从请求上下文获取的客户端IP
+		UserAgent:   userAgent, // 从请求上下文获取的用户代理
 	}
 
 	// 设置会话过期时间（与访问令牌过期时间一致）
@@ -370,4 +370,70 @@ func (s *SessionService) StorePasswordVersion(ctx context.Context, userID uint, 
 // DeleteAllUserSessions 删除用户的所有会话
 func (s *SessionService) DeleteAllUserSessions(ctx context.Context, userID uint) error {
 	return s.sessionRepo.DeleteAllUserSessions(ctx, uint64(userID))
+}
+
+// RevokeToken 撤销令牌（添加到黑名单）
+// 实现TokenBlacklistService接口
+// 参数:
+//   - ctx: 请求上下文
+//   - jti: JWT ID（令牌唯一标识符）
+//   - expiration: 黑名单过期时间
+//
+// 返回: 错误信息
+func (s *SessionService) RevokeToken(ctx context.Context, jti string, expiration time.Duration) error {
+	if jti == "" {
+		logger.LogError(errors.New("token JTI cannot be empty"), "", 0, "", "revoke_token", "POST", map[string]interface{}{
+			"operation": "revoke_token",
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("token JTI cannot be empty")
+	}
+
+	// 调用SessionRepository的RevokeToken方法
+	// 这里遵循了层级调用关系：Service → Repository
+	err := s.sessionRepo.RevokeToken(ctx, jti, expiration)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "revoke_token", "POST", map[string]interface{}{
+			"operation": "revoke_token",
+			"jti":       jti,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	// 记录令牌撤销的业务日志
+	logger.LogBusinessOperation("revoke_token", 0, "", "", "", "success", "令牌撤销成功", map[string]interface{}{
+		"jti":       jti,
+		"timestamp": logger.NowFormatted(),
+	})
+
+	return nil
+}
+
+// IsTokenRevoked 检查令牌是否已被撤销
+// 实现TokenBlacklistService接口
+// 参数:
+//   - ctx: 请求上下文
+//   - jti: JWT ID（令牌唯一标识符）
+//
+// 返回: 是否已撤销, 错误信息
+func (s *SessionService) IsTokenRevoked(ctx context.Context, jti string) (bool, error) {
+	if jti == "" {
+		return false, errors.New("token JTI cannot be empty")
+	}
+
+	// 调用SessionRepository的IsTokenRevoked方法
+	// 这里遵循了层级调用关系：Service → Repository
+	isRevoked, err := s.sessionRepo.IsTokenRevoked(ctx, jti)
+	if err != nil {
+		// 记录错误日志，但不记录业务日志（这是一个查询操作）
+		logger.LogError(err, "", 0, "", "check_token_revoked", "GET", map[string]interface{}{
+			"operation": "check_token_revoked",
+			"jti":       jti,
+			"timestamp": logger.NowFormatted(),
+		})
+		return false, fmt.Errorf("failed to check token revocation status: %w", err)
+	}
+
+	return isRevoked, nil
 }

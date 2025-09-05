@@ -288,9 +288,53 @@ func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserReque
 	return user, nil
 }
 
-// GetCurrentUser 获取当前用户信息
+// GetUserIDFromToken 从JWT令牌中获取用户ID
+// 通过解析JWT访问令牌获取用户ID，用于身份验证
+func (s *UserService) GetUserIDFromToken(ctx context.Context, accessToken string) (uint, error) {
+	// 检查上下文是否已取消
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	default:
+	}
+
+	// 参数验证：访问令牌不能为空
+	if accessToken == "" {
+		logger.LogError(errors.New("access token is empty"), "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"timestamp": logger.NowFormatted(),
+		})
+		return 0, errors.New("访问令牌不能为空")
+	}
+
+	// 解析并验证JWT令牌
+	claims, err := s.jwtManager.ValidateAccessToken(accessToken)
+	if err != nil {
+		// 记录JWT验证失败日志
+		logger.LogError(err, "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
+			"operation": "jwt_validation",
+			"timestamp": logger.NowFormatted(),
+		})
+		return 0, fmt.Errorf("无效的访问令牌: %w", err)
+	}
+
+	// 提取用户ID
+	userID := claims.UserID
+	if userID == 0 {
+		// 记录用户ID为空的错误
+		logger.LogError(errors.New("user ID is zero in token claims"), "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
+			"operation": "claims_validation",
+			"timestamp": logger.NowFormatted(),
+		})
+		return 0, errors.New("令牌中用户ID无效")
+	}
+
+	return userID, nil
+}
+
+// GetCurrentUserInfo 获取当前用户信息（从访问令牌获取用户ID）
 // 通过访问令牌获取当前登录用户的详细信息
-func (s *UserService) GetCurrentUser(ctx context.Context, accessToken string) (*model.UserInfo, error) {
+func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string) (*model.UserInfo, error) {
 	// 验证访问令牌
 	if accessToken == "" {
 		logger.LogError(errors.New("access token is empty"), "", 0, "", "get_current_user", "GET", map[string]interface{}{
@@ -491,18 +535,56 @@ func (s *UserService) DeleteUser(ctx context.Context, userID uint) error {
 }
 
 // GetUserByID 根据用户ID获取用户
+// 完整的业务逻辑包括：参数验证、上下文检查、数据获取、状态验证、日志记录
 func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*model.User, error) {
+	// 参数验证：用户ID必须有效
 	if userID == 0 {
+		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, "", "get_user_by_id", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
 		return nil, errors.New("用户ID不能为0")
 	}
 
+	// 检查上下文是否已取消
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// 从数据库获取用户信息
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		return nil, err
+		// 记录数据库查询失败日志
+		logger.LogError(err, "", userID, "", "get_user_by_id", "SERVICE", map[string]interface{}{
+			"operation": "database_query",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户信息失败: %w", err)
 	}
+
+	// 检查用户是否存在
 	if user == nil {
+		// 记录用户不存在日志
+		logger.LogError(errors.New("user not found"), "", userID, "", "get_user_by_id", "SERVICE", map[string]interface{}{
+			"operation": "user_not_found",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
 		return nil, errors.New("用户不存在")
 	}
+
+	// 记录成功获取用户信息的业务日志
+	logger.LogBusinessOperation("get_user_by_id", userID, user.Username, "", "", "success", "用户信息获取成功", map[string]interface{}{
+		"operation":   "get_user_success",
+		"user_id":     userID,
+		"username":    user.Username,
+		"user_status": user.Status,
+		"timestamp":   logger.NowFormatted(),
+	})
 
 	return user, nil
 }
@@ -547,6 +629,7 @@ func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*model.
 //   - ctx: 上下文，用于超时控制和取消操作
 //   - offset: 偏移量，必须 >= 0
 //   - limit: 每页数量，范围 [1, 100]，默认20
+//
 // 返回:
 //   - []*model.User: 用户列表
 //   - int64: 总记录数
@@ -577,12 +660,12 @@ func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*mo
 	// 记录参数修正日志（如果发生了修正）
 	if originalLimit != limit || originalOffset != offset {
 		logger.LogBusinessOperation("get_user_list", 0, "system", "", "", "parameter_corrected", "分页参数已自动修正", map[string]interface{}{
-			"operation":       "get_user_list",
-			"original_offset": originalOffset,
-			"original_limit":  originalLimit,
+			"operation":        "get_user_list",
+			"original_offset":  originalOffset,
+			"original_limit":   originalLimit,
 			"corrected_offset": offset,
 			"corrected_limit":  limit,
-			"timestamp":       logger.NowFormatted(),
+			"timestamp":        logger.NowFormatted(),
 		})
 	}
 
@@ -614,12 +697,12 @@ func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*mo
 
 	// 记录成功操作日志
 	logger.LogBusinessOperation("get_user_list", 0, "system", "", "", "success", "获取用户列表成功", map[string]interface{}{
-		"operation":   "get_user_list",
-		"offset":      offset,
-		"limit":       limit,
-		"total":       total,
+		"operation":    "get_user_list",
+		"offset":       offset,
+		"limit":        limit,
+		"total":        total,
 		"result_count": len(users),
-		"timestamp":   logger.NowFormatted(),
+		"timestamp":    logger.NowFormatted(),
 	})
 
 	return users, total, nil

@@ -121,7 +121,7 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 	auth := v1.Group("/auth")
 	{
 		// 用户注册
-		auth.POST("/register", r.registerHandler.Register)
+		auth.POST("/register", r.registerHandler.Register) // 没有权限校验的接口
 		// 用户登录
 		auth.POST("/login", r.loginHandler.Login)
 		// 获取登录表单页面（可选）
@@ -154,7 +154,7 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	user.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 获取当前用户信息
-		user.GET("/profile", r.userHandler.GetUser)
+		user.GET("/profile", r.userHandler.GetUserInfo)
 		// 修改用户密码
 		user.POST("/change-password", r.userHandler.ChangePassword)
 		// 获取用户权限
@@ -170,14 +170,15 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	admin := v1.Group("/admin")
 	admin.Use(r.middlewareManager.GinJWTAuthMiddleware())
 	admin.Use(r.middlewareManager.GinUserActiveMiddleware())
-	admin.Use(r.middlewareManager.GinAdminRoleMiddleware())
+	admin.Use(r.middlewareManager.GinAdminRoleMiddleware()) // 这里已经添加了管理员权限检查
 
 	// 用户管理
 	userMgmt := admin.Group("/users")
 	{
 		userMgmt.GET("/list", r.userHandler.GetUserList)
-		userMgmt.POST("/create", r.createUser)
+		userMgmt.POST("/create", r.userHandler.CreateUser)
 		userMgmt.GET("/:id", r.getUserByID)
+		userMgmt.GET("/:id/info", r.userHandler.GetUserInfo) // 获取用户全量信息
 		userMgmt.PUT("/:id", r.updateUser)
 		userMgmt.DELETE("/:id", r.deleteUser)
 		userMgmt.POST("/:id/activate", r.activateUser)
@@ -231,11 +232,6 @@ func (r *Router) GetEngine() *gin.Engine {
 // 处理器方法（这些方法需要在后续实现）
 
 // 管理员用户管理处理器
-
-func (r *Router) createUser(c *gin.Context) {
-	// TODO: 实现创建用户
-	c.JSON(http.StatusOK, gin.H{"message": "create user - not implemented yet"})
-}
 
 func (r *Router) getUserByID(c *gin.Context) {
 	// TODO: 实现根据ID获取用户

@@ -456,6 +456,107 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	return userInfo, nil
 }
 
+// GetUserInfoByID 根据用户ID获取用户完整信息（包含角色和权限）
+// 直接通过用户ID获取用户详细信息，跳过会话验证
+// 用于已通过中间件验证的场景
+func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*model.UserInfo, error) {
+	// 参数验证：用户ID必须有效
+	if userID == 0 {
+		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, "", "get_user_info_by_id", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户ID不能为0")
+	}
+
+	// 检查上下文是否已取消
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// 获取用户信息
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "get_user_info_by_id", "SERVICE", map[string]interface{}{
+			"operation": "get_user_info_by_id",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户信息失败: %w", err)
+	}
+
+	if user == nil {
+		logger.LogError(errors.New("user not found"), "", userID, "", "get_user_info_by_id", "SERVICE", map[string]interface{}{
+			"operation": "get_user_info_by_id",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户不存在")
+	}
+
+	// 获取用户角色和权限
+	roles, err := s.userRepo.GetUserRoles(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "get_user_info_by_id", "SERVICE", map[string]interface{}{
+			"operation": "get_user_info_by_id",
+			"user_id":   userID,
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户角色失败: %w", err)
+	}
+
+	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "get_user_info_by_id", "SERVICE", map[string]interface{}{
+			"operation": "get_user_info_by_id",
+			"user_id":   userID,
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户权限失败: %w", err)
+	}
+
+	// 转换角色和权限为字符串数组
+	roleNames := make([]string, len(roles))
+	for i, role := range roles {
+		roleNames[i] = role.Name
+	}
+
+	permissionNames := make([]string, len(permissions))
+	for i, permission := range permissions {
+		permissionNames[i] = permission.Name
+	}
+
+	// 构造用户信息响应
+	userInfo := &model.UserInfo{
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		Nickname:    user.Nickname,
+		Avatar:      user.Avatar,
+		Phone:       user.Phone,
+		Status:      model.UserStatus(user.Status),
+		LastLoginAt: user.LastLoginAt,
+		CreatedAt:   user.CreatedAt,
+		Roles:       roleNames,
+		Permissions: permissionNames,
+		Remark:      user.Remark,
+	}
+
+	// 记录成功获取用户信息的业务日志
+	logger.LogBusinessOperation("get_user_info_by_id", userID, user.Username, "", "", "success", "根据用户ID获取用户信息成功", map[string]interface{}{
+		"user_id":   userID,
+		"username":  user.Username,
+		"timestamp": logger.NowFormatted(),
+	})
+
+	return userInfo, nil
+}
+
 // UpdateUser 更新用户信息
 // 处理用户更新的完整流程，包括参数验证、重复检查、密码哈希等
 func (s *UserService) UpdateUser(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {

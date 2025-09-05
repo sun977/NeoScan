@@ -153,7 +153,7 @@ func testAuthMiddlewareBasic(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试公开端点（无需认证）
@@ -194,7 +194,7 @@ func testTokenExtractionAndValidation(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试正确的Bearer令牌格式
@@ -239,7 +239,7 @@ func testUserContextSetting(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试用户信息是否正确设置到上下文
@@ -271,7 +271,7 @@ func testAuthMiddlewareErrorHandling(t *testing.T, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	loginResp, err := ts.SessionService.Login(context.Background(), loginReq)
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试过期令牌（这里模拟，实际需要等待令牌过期或使用短过期时间的令牌）
@@ -320,7 +320,7 @@ func testMiddlewareRolePermissionValidation(t *testing.T, ts *TestSuite) {
 		Username: "normaluser",
 		Password: "password123",
 	}
-	normalLoginResp, err := ts.SessionService.Login(context.Background(), normalLoginReq)
+	normalLoginResp, err := ts.SessionService.Login(context.Background(), normalLoginReq, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "普通用户登录不应该出错")
 
 	// 创建管理员用户
@@ -332,7 +332,7 @@ func testMiddlewareRolePermissionValidation(t *testing.T, ts *TestSuite) {
 		Username: "adminuser",
 		Password: "password123",
 	}
-	adminLoginResp, err := ts.SessionService.Login(context.Background(), adminLoginReq)
+	adminLoginResp, err := ts.SessionService.Login(context.Background(), adminLoginReq, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "管理员用户登录不应该出错")
 
 	// 测试普通用户访问管理员端点（应该被拒绝）
@@ -366,7 +366,7 @@ func testMultipleRoleValidation(t *testing.T, ts *TestSuite) {
 	normalLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "normaluser2",
 		Password: "password123",
-	})
+	}, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "普通用户登录不应该出错")
 
 	// 创建管理员用户
@@ -376,7 +376,7 @@ func testMultipleRoleValidation(t *testing.T, ts *TestSuite) {
 	adminLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "adminuser2",
 		Password: "password123",
-	})
+	}, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "管理员用户登录不应该出错")
 
 	// 创建版主用户
@@ -386,7 +386,7 @@ func testMultipleRoleValidation(t *testing.T, ts *TestSuite) {
 	moderatorLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "moderatoruser",
 		Password: "password123",
-	})
+	}, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "版主用户登录不应该出错")
 
 	// 测试需要admin或moderator角色的端点
@@ -422,7 +422,7 @@ func testPermissionValidation(t *testing.T, ts *TestSuite) {
 	loginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "permuser",
 		Password: "password123",
-	})
+	}, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "用户登录不应该出错")
 
 	// 测试需要特定权限的端点
@@ -459,7 +459,7 @@ func testPermissionMiddlewareErrorHandling(t *testing.T, ts *TestSuite) {
 	loginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "noroleuser",
 		Password: "password123",
-	})
+	}, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "用户登录不应该出错")
 
 	// 测试无所需角色访问
@@ -505,7 +505,7 @@ func testMiddlewareExecutionOrder(t *testing.T, ts *TestSuite) {
 	adminLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "chainadmin",
 		Password: "password123",
-	})
+	}, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "管理员登录不应该出错")
 
 	// 设置需要认证和权限的路由
@@ -536,7 +536,7 @@ func testMiddlewareExecutionOrder(t *testing.T, ts *TestSuite) {
 	normalLoginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{
 		Username: "chainnormal",
 		Password: "password123",
-	})
+	}, "127.0.0.1", "test-user-agent")
 	AssertNoError(t, err, "普通用户登录不应该出错")
 
 	// 测试有效令牌但无权限（应该在权限中间件被拦截）

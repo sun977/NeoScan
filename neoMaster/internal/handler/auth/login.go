@@ -103,7 +103,10 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	}
 
 	// 执行登录
-	resp, err := h.sessionService.Login(c.Request.Context(), &req)
+	// 从请求上下文获取客户端IP和用户代理信息
+	clientIP := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	resp, err := h.sessionService.Login(c.Request.Context(), &req, clientIP, userAgent)
 	if err != nil {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)

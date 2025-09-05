@@ -31,7 +31,7 @@ func TestAuthService(t *testing.T) {
 		})
 
 		t.Run("密码验证", func(t *testing.T) {
-			testPasswordValidation(t, ts)
+			testPasswordValidation(t)
 		})
 
 		t.Run("用户状态管理", func(t *testing.T) {
@@ -236,7 +236,7 @@ func testSessionManagement(t *testing.T, ts *TestSuite) {
 }
 
 // testPasswordValidation 测试密码验证功能
-func testPasswordValidation(t *testing.T, ts *TestSuite) {
+func testPasswordValidation(t *testing.T) {
 	// 测试密码强度验证
 	testCases := []struct {
 		password string

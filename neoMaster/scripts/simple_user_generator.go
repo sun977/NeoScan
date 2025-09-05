@@ -14,9 +14,10 @@ import (
 )
 
 // 简单用户数据生成器
-// 使用方法: 
-//   源码运行: go run scripts/simple_user_generator.go <用户名> <邮箱> <密码> <密码版本>
-//   二进制运行: scripts/simple_user_generator.exe <用户名> <邮箱> <密码> <密码版本>
+// 使用方法:
+//
+//	源码运行: go run scripts/simple_user_generator.go <用户名> <邮箱> <密码> <密码版本>
+//	二进制运行: scripts/simple_user_generator.exe <用户名> <邮箱> <密码> <密码版本>
 func main() {
 	// 检查命令行参数
 	if len(os.Args) != 5 {

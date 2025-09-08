@@ -415,7 +415,7 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	})
 }
 
-// GetUserInfoByID 获取单个用户信息（当前用户信息）
+// GetUserInfoByID 获取单个用户信息【完成】
 func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
@@ -549,42 +549,40 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 
 // GetUserPermission 获取用户权限
 func (h *UserHandler) GetUserPermission(c *gin.Context) {
-	// 从请求头提取访问令牌
-	accessToken, err := h.extractTokenFromContext(c)
-	if err != nil {
-		// 记录令牌提取失败错误日志
-		logger.LogError(err, "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+	// 从上下文获取用户ID（中间件已验证并存储）
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		// 记录用户ID不存在错误日志
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Code:    http.StatusUnauthorized,
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
 			Status:  "error",
-			Message: "failed to extract token",
-			Error:   err.Error(),
+			Message: "user_id not found in context",
 		})
 		return
 	}
 
-	// 获取当前用户ID以获取用户权限
-	userID, err := h.userService.GetUserIDFromToken(c.Request.Context(), accessToken)
-	if err != nil {
-		// 记录获取用户ID失败错误日志
-		logger.LogError(err, "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+	// 类型断言获取用户ID
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		// 记录用户ID类型转换失败错误日志
+		logger.LogError(errors.New("user_id type assertion failed"), "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Code:    http.StatusUnauthorized,
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
 			Status:  "error",
-			Message: "failed to get user info",
-			Error:   err.Error(),
+			Message: "invalid user_id type",
 		})
 		return
 	}

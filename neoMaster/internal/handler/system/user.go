@@ -43,7 +43,7 @@ func NewUserHandler(userService *auth.UserService, passwordService *auth.Passwor
 }
 
 // extractTokenFromContext 从gin.Context中提取访问令牌
-// 使用jwt包的ExtractTokenFromHeader函数，统一令牌提取逻辑
+// 使用jwt包的ExtractTokenFromHeader函数，统一令牌提取逻辑【不需要了,直接获取绕过了令牌中间件,使用gin.Context上下文获取解析后的user_id】
 func (h *UserHandler) extractTokenFromContext(c *gin.Context) (string, error) {
 	// 从请求头获取Authorization令牌
 	authHeader := c.GetHeader("Authorization")
@@ -180,7 +180,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	})
 }
 
-// GetUserByID 获取当前用户信息（管理员专用）
+// GetUserByID 获取用户信息
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
@@ -220,7 +220,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 		return
 	}
 
-	// 调用服务层获取用户详细信息
+	// 调用服务层获取用户信息
 	user, err := h.userService.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		// 记录获取用户详细信息失败错误日志
@@ -415,9 +415,79 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	})
 }
 
-// GetUserInfo 获取单个用户信息（当前用户信息） （用户专用）
+// GetUserInfoByID 获取单个用户信息（当前用户信息）
+func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
+	// 从上下文获取用户ID（中间件已验证并存储）
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		// 记录用户ID不存在错误日志
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user", "GET", map[string]interface{}{
+			"operation":  "get_user",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "user_id not found in context",
+		})
+		return
+	}
+
+	// 类型断言获取用户ID
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		// 记录用户ID类型转换失败错误日志
+		logger.LogError(errors.New("user_id type assertion failed"), "", 0, "", "get_user", "GET", map[string]interface{}{
+			"operation":  "get_user",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "invalid user_id type",
+		})
+		return
+	}
+
+	// 调用服务层获取用户信息
+	userInfo, err := h.userService.GetUserInfoByID(c.Request.Context(), userID)
+	if err != nil {
+		// 根据错误类型返回不同的HTTP状态码
+		if strings.Contains(err.Error(), "用户不存在") {
+			c.JSON(http.StatusNotFound, model.APIResponse{
+				Code:    http.StatusNotFound,
+				Status:  "error",
+				Message: "用户不存在",
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, model.APIResponse{
+				Code:    http.StatusInternalServerError,
+				Status:  "error",
+				Message: "获取用户信息失败",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	// 返回成功响应
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "获取用户信息成功",
+		Data:    userInfo,
+	})
+}
+
+// GetUserInfo 获取单个用户信息（当前用户信息）
 // 从accesstoken获取用户ID并获取用户的全量信息(包含权限和角色信息)
-func (h *UserHandler) GetUserInfo(c *gin.Context) {
+func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 	// 从请求头提取访问令牌
 	accessToken, err := h.extractTokenFromContext(c)
 	if err != nil {
@@ -477,7 +547,7 @@ func (h *UserHandler) GetUserInfo(c *gin.Context) {
 	})
 }
 
-// GetUserPermission 获取用户权限（用户专用）【已完成】
+// GetUserPermission 获取用户权限
 func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	// 从请求头提取访问令牌
 	accessToken, err := h.extractTokenFromContext(c)
@@ -565,7 +635,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	})
 }
 
-// GetUserRoles 获取用户角色（用户专用）【已完成】
+// GetUserRoles 获取用户角色
 func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	// 从请求头提取访问令牌
 	accessToken, err := h.extractTokenFromContext(c)
@@ -673,7 +743,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	})
 }
 
-// ChangePassword 修改用户密码 (用户专用) 【已完成】
+// ChangePassword 修改用户密码  【已完成】
 func (h *UserHandler) ChangePassword(c *gin.Context) {
 	// 从中间件上下文获取用户ID
 	// 本身是自己修改自己的密码，所以令牌和中间件封装的上下文中用户ID一致，所以可以这样写，节省了解析令牌时间（中间件已经解析过令牌）

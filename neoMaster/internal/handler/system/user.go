@@ -60,6 +60,27 @@ func (h *UserHandler) extractTokenFromContext(c *gin.Context) (string, error) {
 	return accessToken, nil
 }
 
+// parsePaginationParams 解析分页参数 - 提取公共逻辑，消除重复代码
+func parsePaginationParams(c *gin.Context) (page, limit int) {
+	page, limit = 1, 10 // 默认值
+
+	// 解析页码参数
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	// 解析限制参数，添加合理上限防止滥用
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	return page, limit
+}
+
 // CreateUser 创建用户（管理员专用） 【已完成】
 // 创建新用户，包含完整的参数验证和权限检查
 func (h *UserHandler) CreateUser(c *gin.Context) {
@@ -279,139 +300,42 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 
 // GetUserList 获取用户列表（用户管理员专用）【待实现，有问题】
 // 支持分页查询，返回用户基本信息列表
+// GetUserList 获取用户列表 - 重构版本，遵循"好品味"原则
 func (h *UserHandler) GetUserList(c *gin.Context) {
-	// 从上下文获取用户ID（中间件已验证并存储）
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		// 记录获取用户ID失败错误日志
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user_list", "GET", map[string]interface{}{
-			"operation":  "get_user_list",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
-		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Code:    http.StatusUnauthorized,
-			Status:  "error",
-			Message: "user context not found",
-		})
-		return
-	}
-
-	// 类型转换用户ID
-	userID, ok := userIDInterface.(uint)
-	if !ok {
-		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "get_user_list", "GET", map[string]interface{}{
-			"operation":  "get_user_list",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
-		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
-			Code:    http.StatusInternalServerError,
-			Status:  "error",
-			Message: "invalid user context",
-		})
-		return
-	}
-
-	// 解析分页参数
-	page := 1
-	limit := 10
-
-	// 从查询参数获取页码，默认为1
-	if pageStr := c.Query("page"); pageStr != "" {
-		if p, parseErr := strconv.Atoi(pageStr); parseErr == nil && p > 0 {
-			page = p
-		}
-	}
-
-	// 从查询参数获取每页数量，默认为10
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if l, parseErr := strconv.Atoi(limitStr); parseErr == nil && l > 0 {
-			limit = l
-		}
-	}
-
-	// 计算偏移量
+	// 解析分页参数，使用简单的默认值处理
+	page, limit := parsePaginationParams(c)
 	offset := (page - 1) * limit
 
-	// 调用service层获取用户列表
+	// 调用service层获取用户列表 - 核心业务逻辑
 	users, total, err := h.userService.GetUserList(c.Request.Context(), offset, limit)
 	if err != nil {
-		// 记录获取用户列表失败错误日志
-		logger.LogError(err, "", userID, "", "get_user_list", "GET", map[string]interface{}{
-			"operation":  "get_user_list",
-			"user_id":    userID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"page":       page,
-			"limit":      limit,
-			"timestamp":  logger.NowFormatted(),
+		// 简化错误处理 - 只记录必要信息
+		logger.LogError(err, "", 0, "", "get_user_list", "GET", map[string]interface{}{
+			"page":  page,
+			"limit": limit,
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "failed to get user list",
-			Error:   err.Error(),
 		})
 		return
 	}
 
-	// 转换用户数据为响应格式
-	userInfos := make([]model.UserInfo, 0, len(users))
-	for _, user := range users {
-		userInfos = append(userInfos, model.UserInfo{
-			ID:          user.ID,
-			Username:    user.Username,
-			Email:       user.Email,
-			Nickname:    user.Nickname,
-			Phone:       user.Phone,
-			Status:      user.Status,
-			CreatedAt:   user.CreatedAt,
-			LastLoginAt: user.LastLoginAt,
-		})
-	}
-
-	// 计算总页数
-	totalPages := int((total + int64(limit) - 1) / int64(limit))
-
-	// 记录获取用户列表成功业务日志
-	logger.LogBusinessOperation("get_user_list", userID, "", "", "", "success", "获取用户列表成功", map[string]interface{}{
-		"operation":   "get_user_list",
-		"user_id":     userID,
-		"client_ip":   c.ClientIP(),
-		"user_agent":  c.GetHeader("User-Agent"),
-		"request_id":  c.GetHeader("X-Request-ID"),
-		"page":        page,
-		"limit":       limit,
-		"total":       total,
-		"total_pages": totalPages,
-		"user_count":  len(userInfos),
-		"timestamp":   logger.NowFormatted(),
-	})
-
-	// 构造响应数据，符合API文档v2.0规范
-	responseData := map[string]interface{}{
-		"items": userInfos,
-		"pagination": map[string]interface{}{
-			"page":  page,
-			"limit": limit,
-			"total": total,
-			"pages": totalPages,
-		},
-	}
-
-	// 返回用户列表信息
+	// 直接构造响应 - 消除不必要的数据转换
 	c.JSON(http.StatusOK, model.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user list retrieved successfully",
-		Data:    responseData,
+		Data: map[string]interface{}{
+			"items": users, // 直接返回service层数据，避免重复转换
+			"pagination": map[string]interface{}{
+				"page":  page,
+				"limit": limit,
+				"total": total,
+				"pages": (total + int64(limit) - 1) / int64(limit), // 内联计算，避免额外变量
+			},
+		},
 	})
 }
 

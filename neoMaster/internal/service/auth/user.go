@@ -615,24 +615,159 @@ func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *mode
 }
 
 // DeleteUser 删除用户
-// 处理用户删除的完整流程，包括参数验证、存在性检查等
+// 完整的业务逻辑包括：参数验证、业务规则检查、级联删除、事务处理、审计日志
 func (s *UserService) DeleteUser(ctx context.Context, userID uint) error {
-	if userID == 0 {
-		return errors.New("用户ID不能为0")
+	// 第一层：参数验证层
+	if err := s.validateDeleteUserParams(userID); err != nil {
+		return err
 	}
 
+	// 第二层：业务规则验证层
+	user, err := s.validateUserForDeletion(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// 第三层：事务处理层
+	return s.executeUserDeletion(ctx, user)
+}
+
+// validateDeleteUserParams 验证删除用户的参数
+func (s *UserService) validateDeleteUserParams(userID uint) error {
+	if userID == 0 {
+		logger.LogError(errors.New("invalid user ID for deletion"), "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"error":     "user_id_zero",
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("用户ID不能为0")
+	}
+	return nil
+}
+
+// validateUserForDeletion 验证用户是否可以删除
+func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) (*model.User, error) {
 	// 检查用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("获取用户失败: %w", err)
+		logger.LogError(err, "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "user_existence_check",
+			"user_id":   userID,
+			"error":     "database_query_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取用户失败: %w", err)
 	}
 
 	if user == nil {
-		return errors.New("用户不存在")
+		logger.LogError(errors.New("user not found for deletion"), "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "user_existence_check",
+			"user_id":   userID,
+			"error":     "user_not_found",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户不存在")
 	}
 
-	// 调用数据层删除用户
-	return s.userRepo.DeleteUser(ctx, userID)
+	// 检查用户状态 - 已删除的用户不能再次删除
+	if user.DeletedAt != nil {
+		logger.LogError(errors.New("user already deleted"), "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "user_status_check",
+			"user_id":   userID,
+			"error":     "user_already_deleted",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户已被删除")
+	}
+
+	// 业务规则：检查是否为系统管理员（ID为1的用户不能删除）
+	if userID == 1 {
+		logger.LogError(errors.New("cannot delete system admin"), "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "business_rule_check",
+			"user_id":   userID,
+			"error":     "system_admin_deletion_forbidden",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("不能删除系统管理员账户")
+	}
+
+	return user, nil
+}
+
+// executeUserDeletion 执行用户删除操作（包含事务处理）
+func (s *UserService) executeUserDeletion(ctx context.Context, user *model.User) error {
+	// 开始事务
+	tx := s.userRepo.BeginTx(ctx)
+	if tx == nil {
+		logger.LogError(errors.New("failed to begin transaction"), "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "transaction_begin",
+			"user_id":   user.ID,
+			"error":     "transaction_begin_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("开始事务失败")
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			logger.LogError(fmt.Errorf("panic during user deletion: %v", r), "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+				"operation": "panic_recovery",
+				"user_id":   user.ID,
+				"error":     "panic_occurred",
+				"panic":     r,
+				"timestamp": logger.NowFormatted(),
+			})
+		}
+	}()
+
+	// 1. 删除用户角色关联
+	if err := s.userRepo.DeleteUserRolesByUserID(ctx, tx, user.ID); err != nil {
+		tx.Rollback()
+		logger.LogError(err, "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "cascade_delete_user_roles",
+			"user_id":   user.ID,
+			"error":     "delete_user_roles_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("删除用户角色关联失败: %w", err)
+	}
+
+	// 2. 软删除用户
+	if err := s.userRepo.DeleteUserWithTx(ctx, tx, user.ID); err != nil {
+		tx.Rollback()
+		logger.LogError(err, "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "soft_delete_user",
+			"user_id":   user.ID,
+			"error":     "delete_user_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("删除用户失败: %w", err)
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		logger.LogError(err, "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+			"operation": "transaction_commit",
+			"user_id":   user.ID,
+			"error":     "transaction_commit_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("提交事务失败: %w", err)
+	}
+
+	// 记录成功删除日志
+	logger.LogBusinessOperation("delete_user", user.ID, user.Username, "", "", "success", "用户删除成功", map[string]interface{}{
+		"operation":  "user_deletion_success",
+		"user_id":    user.ID,
+		"username":   user.Username,
+		"email":      user.Email,
+		"deleted_at": logger.NowFormatted(),
+		"timestamp":  logger.NowFormatted(),
+	})
+
+	return nil
 }
 
 // GetUserByID 根据用户ID获取用户

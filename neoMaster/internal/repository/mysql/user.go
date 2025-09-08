@@ -279,3 +279,36 @@ func (r *UserRepository) UserExists(ctx context.Context, username, email string)
 	err := r.db.WithContext(ctx).Model(&model.User{}).Where("username = ? OR email = ?", username, email).Count(&count).Error
 	return count > 0, err
 }
+
+// BeginTx 开始事务
+func (r *UserRepository) BeginTx(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx).Begin()
+}
+
+// DeleteUserRolesByUserID 删除用户的所有角色关联（事务版本）
+func (r *UserRepository) DeleteUserRolesByUserID(ctx context.Context, tx *gorm.DB, userID uint) error {
+	result := tx.WithContext(ctx).Where("user_id = ?", userID).Delete(&model.UserRole{})
+	if result.Error != nil {
+		logger.LogError(result.Error, "", userID, "", "delete_user_roles", "DELETE", map[string]interface{}{
+			"operation": "delete_user_roles_by_user_id",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return result.Error
+	}
+	return nil
+}
+
+// DeleteUserWithTx 使用事务软删除用户
+func (r *UserRepository) DeleteUserWithTx(ctx context.Context, tx *gorm.DB, userID uint) error {
+	result := tx.WithContext(ctx).Delete(&model.User{}, userID)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", userID, "", "delete_user_with_tx", "DELETE", map[string]interface{}{
+			"operation": "delete_user_with_transaction",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return result.Error
+	}
+	return nil
+}

@@ -762,12 +762,82 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 }
 
 // DeleteUser 删除用户
+// @Summary 删除用户
+// @Description 根据用户ID删除用户，包含级联删除用户角色关联
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Success 200 {object} model.APIResponse "删除成功"
+// @Failure 400 {object} model.APIResponse "参数错误"
+// @Failure 404 {object} model.APIResponse "用户不存在"
+// @Failure 403 {object} model.APIResponse "权限不足或业务规则限制"
+// @Failure 500 {object} model.APIResponse "服务器内部错误"
+// @Router /api/v1/users/{id} [delete]
 func (h *UserHandler) DeleteUser(c *gin.Context) {
-	// TODO: 实现删除用户逻辑
-	c.JSON(http.StatusNotImplemented, model.APIResponse{
-		Code:    http.StatusNotImplemented,
-		Status:  "error",
-		Message: "not implemented",
+	// 第一层：参数解析和验证 从URL路径参数获取用户ID
+	userIDStr := c.Param("id")
+	if userIDStr == "" {
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "用户ID不能为空",
+		})
+		return
+	}
+
+	// 转换用户ID为uint类型
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "用户ID格式无效",
+		})
+		return
+	}
+
+	// 第二层：调用Service层执行删除逻辑
+	ctx := c.Request.Context()
+	err = h.userService.DeleteUser(ctx, uint(userID))
+	if err != nil {
+		// 根据错误类型返回不同的HTTP状态码
+		switch {
+		case strings.Contains(err.Error(), "用户ID不能为0"):
+			c.JSON(http.StatusBadRequest, model.APIResponse{
+				Code:    http.StatusBadRequest,
+				Status:  "error",
+				Message: err.Error(),
+			})
+		case strings.Contains(err.Error(), "用户不存在"):
+			c.JSON(http.StatusNotFound, model.APIResponse{
+				Code:    http.StatusNotFound,
+				Status:  "error",
+				Message: err.Error(),
+			})
+		case strings.Contains(err.Error(), "用户已被删除") || strings.Contains(err.Error(), "不能删除系统管理员账户"):
+			c.JSON(http.StatusForbidden, model.APIResponse{
+				Code:    http.StatusForbidden,
+				Status:  "error",
+				Message: err.Error(),
+			})
+		default:
+			// 数据库错误或其他系统错误
+			c.JSON(http.StatusInternalServerError, model.APIResponse{
+				Code:    http.StatusInternalServerError,
+				Status:  "error",
+				Message: "删除用户失败，请稍后重试",
+			})
+		}
+		return
+	}
+
+	// 第三层：返回成功响应
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "用户删除成功",
+		Data:    nil,
 	})
 }
 

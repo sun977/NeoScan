@@ -8,9 +8,9 @@
  * 	3.获取单个用户
  * 	4.更新用户
  * 	5.删除用户等
- * @note：有两类函数
- * 	1.用户自己查看自己的信息和操作 --- 从token中获取用户自己的用户ID
- * 	2.管理员查看所有用户的信息和操作 --- 从上下文中获取用户ID（中间件已验证并存储），管理员自己的ID记录操作日志
+ * @note：中间件 r.middlewareManager.GinJWTAuthMiddleware() 已经解析了token，并获取了用户信息
+ * 解析出来的用户信息保存在 gin.Context 上下文中，可以通过 c.Get("user") 获取
+ * 获取的字段有：user_id，username，roles，permissions，claims
  */
 package system
 
@@ -415,7 +415,7 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	})
 }
 
-// GetUserInfo 获取单个用户信息（当前用户信息） （用户专用）【已完成】
+// GetUserInfo 获取单个用户信息（当前用户信息） （用户专用）
 // 从accesstoken获取用户ID并获取用户的全量信息(包含权限和角色信息)
 func (h *UserHandler) GetUserInfo(c *gin.Context) {
 	// 从请求头提取访问令牌

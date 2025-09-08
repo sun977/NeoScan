@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"neomaster/internal/model"
@@ -557,61 +558,303 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*model.
 	return userInfo, nil
 }
 
-// UpdateUser 更新用户信息
-// 处理用户更新的完整流程，包括参数验证、重复检查、密码哈希等
+// UpdateUserByID 更新用户信息
+// 处理用户更新的完整流程，包括参数验证、重复检查、密码哈希、事务处理等
+// @param ctx 上下文
+// @param userID 用户ID
+// @param req 更新用户请求
+// @return 更新后的用户信息和错误
 func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
-	// 参数验证
+	// 第一层：参数验证层
+	if err := s.validateUpdateUserParams(userID, req); err != nil {
+		return nil, err
+	}
+
+	// 第二层：业务规则验证层
+	user, err := s.validateUserForUpdate(ctx, userID, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// 第三层：事务处理层
+	return s.executeUserUpdate(ctx, user, req)
+}
+
+// validateUpdateUserParams 验证更新用户的参数
+func (s *UserService) validateUpdateUserParams(userID uint, req *model.UpdateUserRequest) error {
 	if userID == 0 {
-		return nil, errors.New("用户ID不能为0")
+		logger.LogError(errors.New("invalid user ID for update"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"error":     "user_id_zero",
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("用户ID不能为0")
 	}
 
 	if req == nil {
-		return nil, errors.New("更新用户请求不能为空")
+		logger.LogError(errors.New("update request is nil"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"error":     "request_nil",
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("更新用户请求不能为空")
 	}
 
-	// 获取现有用户
+	// 验证邮箱格式
+	if req.Email != "" {
+		if !s.isValidEmail(req.Email) {
+			logger.LogError(errors.New("invalid email format"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "parameter_validation",
+				"user_id":   userID,
+				"email":     req.Email,
+				"error":     "invalid_email_format",
+				"timestamp": logger.NowFormatted(),
+			})
+			return errors.New("邮箱格式无效")
+		}
+	}
+
+	// 验证密码强度
+	if req.Password != "" {
+		if err := auth.ValidatePasswordStrength(req.Password); err != nil {
+			logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "parameter_validation",
+				"user_id":   userID,
+				"error":     "password_strength_validation_failed",
+				"timestamp": logger.NowFormatted(),
+			})
+			return fmt.Errorf("密码强度验证失败: %w", err)
+		}
+	}
+
+	// 验证状态值
+	if req.Status != nil {
+		if *req.Status < 0 || *req.Status > 2 {
+			logger.LogError(errors.New("invalid status value"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "parameter_validation",
+				"user_id":   userID,
+				"status":    *req.Status,
+				"error":     "invalid_status_value",
+				"timestamp": logger.NowFormatted(),
+			})
+			return errors.New("用户状态值无效，必须为0(禁用)、1(启用)或2(锁定)")
+		}
+	}
+
+	return nil
+}
+
+// validateUserForUpdate 验证用户是否可以更新
+func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+	// 检查用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
+		logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "user_existence_check",
+			"user_id":   userID,
+			"error":     "database_query_failed",
+			"timestamp": logger.NowFormatted(),
+		})
 		return nil, fmt.Errorf("获取用户失败: %w", err)
 	}
 
 	if user == nil {
+		logger.LogError(errors.New("user not found for update"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "user_existence_check",
+			"user_id":   userID,
+			"error":     "user_not_found",
+			"timestamp": logger.NowFormatted(),
+		})
 		return nil, errors.New("用户不存在")
 	}
 
-	// 更新字段
+	// 检查用户状态 - 已删除的用户不能更新
+	if user.DeletedAt != nil {
+		logger.LogError(errors.New("user already deleted"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "user_status_check",
+			"user_id":   userID,
+			"error":     "user_already_deleted",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("用户已被删除，无法更新")
+	}
+
+	// 业务规则：系统管理员账户的特殊限制
+	if userID == 1 {
+		// 系统管理员不能被禁用或锁定
+		if req.Status != nil && *req.Status != 1 {
+			logger.LogError(errors.New("cannot disable system admin"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "business_rule_check",
+				"user_id":   userID,
+				"status":    *req.Status,
+				"error":     "system_admin_status_change_forbidden",
+				"timestamp": logger.NowFormatted(),
+			})
+			return nil, errors.New("不能禁用或锁定系统管理员账户")
+		}
+	}
+
+	// 检查邮箱唯一性
 	if req.Email != "" && req.Email != user.Email {
-		// 检查新邮箱是否已存在
-		var existingUser *model.User
-		existingUser, err = s.userRepo.GetUserByEmail(ctx, req.Email)
-		if err == nil && existingUser != nil && existingUser.ID != userID {
+		existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+		if err != nil {
+			logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "email_uniqueness_check",
+				"user_id":   userID,
+				"email":     req.Email,
+				"error":     "database_query_failed",
+				"timestamp": logger.NowFormatted(),
+			})
+			return nil, fmt.Errorf("检查邮箱唯一性失败: %w", err)
+		}
+
+		if existingUser != nil && existingUser.ID != userID {
+			logger.LogError(errors.New("email already exists"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "email_uniqueness_check",
+				"user_id":   userID,
+				"email":     req.Email,
+				"existing_user_id": existingUser.ID,
+				"error":     "email_already_exists",
+				"timestamp": logger.NowFormatted(),
+			})
 			return nil, errors.New("邮箱已存在")
 		}
+	}
+
+	return user, nil
+}
+
+// executeUserUpdate 执行用户更新操作（包含事务处理）
+func (s *UserService) executeUserUpdate(ctx context.Context, user *model.User, req *model.UpdateUserRequest) (*model.User, error) {
+	// 开始事务
+	tx := s.userRepo.BeginTx(ctx)
+	if tx == nil {
+		logger.LogError(errors.New("failed to begin transaction"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "transaction_begin",
+			"user_id":   user.ID,
+			"error":     "transaction_begin_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("开始事务失败")
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			logger.LogError(fmt.Errorf("panic during user update: %v", r), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "panic_recovery",
+				"user_id":   user.ID,
+				"error":     "panic_occurred",
+				"panic":     r,
+				"timestamp": logger.NowFormatted(),
+			})
+		}
+	}()
+
+	// 记录更新前的状态
+	oldEmail := user.Email
+	oldStatus := user.Status
+	passwordChanged := false
+
+	// 应用更新
+	if req.Email != "" && req.Email != user.Email {
 		user.Email = req.Email
 	}
 
-	if req.Status != nil {
+	if req.Status != nil && *req.Status != user.Status {
 		user.Status = *req.Status
 	}
 
 	// 如果需要更新密码
 	if req.Password != "" {
-		var hashedPassword string
-		hashedPassword, err = s.passwordManager.HashPassword(req.Password)
+		hashedPassword, err := s.passwordManager.HashPassword(req.Password)
 		if err != nil {
+			tx.Rollback()
+			logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "password_hash",
+				"user_id":   user.ID,
+				"error":     "password_hash_failed",
+				"timestamp": logger.NowFormatted(),
+			})
 			return nil, fmt.Errorf("密码哈希失败: %w", err)
 		}
 		user.Password = hashedPassword
 		user.PasswordV++ // 增加密码版本
+		passwordChanged = true
 	}
 
 	// 更新到数据库
-	err = s.userRepo.UpdateUser(ctx, user)
-	if err != nil {
+	if err := s.userRepo.UpdateUserWithTx(ctx, tx, user); err != nil {
+		tx.Rollback()
+		logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "database_update",
+			"user_id":   user.ID,
+			"error":     "update_user_failed",
+			"timestamp": logger.NowFormatted(),
+		})
 		return nil, fmt.Errorf("更新用户失败: %w", err)
 	}
 
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+			"operation": "transaction_commit",
+			"user_id":   user.ID,
+			"error":     "transaction_commit_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("提交事务失败: %w", err)
+	}
+
+	// 记录成功更新日志
+	changes := make(map[string]interface{})
+	if req.Email != "" && req.Email != oldEmail {
+		changes["email_changed"] = map[string]string{"from": oldEmail, "to": req.Email}
+	}
+	if req.Status != nil && *req.Status != oldStatus {
+		changes["status_changed"] = map[string]int{"from": int(oldStatus), "to": int(*req.Status)}
+	}
+	if passwordChanged {
+		changes["password_changed"] = true
+		changes["password_version"] = user.PasswordV
+	}
+
+	logger.LogBusinessOperation("update_user", user.ID, user.Username, "", "", "success", "用户更新成功", map[string]interface{}{
+		"operation":  "user_update_success",
+		"user_id":    user.ID,
+		"username":   user.Username,
+		"email":      user.Email,
+		"status":     user.Status,
+		"changes":    changes,
+		"updated_at": logger.NowFormatted(),
+		"timestamp":  logger.NowFormatted(),
+	})
+
 	return user, nil
+}
+
+// isValidEmail 验证邮箱格式
+func (s *UserService) isValidEmail(email string) bool {
+	// 简单的邮箱格式验证
+	if len(email) < 5 || len(email) > 254 {
+		return false
+	}
+	// 检查是否包含@符号
+	if !strings.Contains(email, "@") {
+		return false
+	}
+	// 检查@符号的位置
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 || len(parts[0]) == 0 || len(parts[1]) == 0 {
+		return false
+	}
+	// 检查域名部分是否包含点
+	if !strings.Contains(parts[1], ".") {
+		return false
+	}
+	return true
 }
 
 // DeleteUser 删除用户

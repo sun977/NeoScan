@@ -643,13 +643,121 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	})
 }
 
-// UpdateUser 更新用户
-func (h *UserHandler) UpdateUser(c *gin.Context) {
-	// TODO: 实现更新用户逻辑
-	c.JSON(http.StatusNotImplemented, model.APIResponse{
-		Code:    http.StatusNotImplemented,
-		Status:  "error",
-		Message: "not implemented",
+// UpdateUserByID 更新用户信息 - 遵循Handler->Service层级调用原则
+func (h *UserHandler) UpdateUserByID(c *gin.Context) {
+	// 从URL路径参数获取用户ID
+	userIDStr := c.Param("id")
+	if userIDStr == "" {
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "user id is required",
+		})
+		return
+	}
+
+	// 转换用户ID为uint类型
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		// 记录用户ID格式错误日志
+		logger.LogError(err, "", 0, "", "update_user_by_id", "PUT", map[string]interface{}{
+			"user_id_str": userIDStr,
+			"error":       "invalid_user_id_format",
+		})
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "invalid user id format",
+		})
+		return
+	}
+
+	// 解析请求体中的更新数据
+	var req model.UpdateUserRequest
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		// 记录请求参数解析失败日志
+		logger.LogError(bindErr, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+			"user_id": userID,
+			"error":   "request_parse_failed",
+		})
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "invalid request format",
+		})
+		return
+	}
+
+	// 调用service层更新用户信息 - 核心业务逻辑
+	updatedUser, err := h.userService.UpdateUserByID(c.Request.Context(), uint(userID), &req)
+	if err != nil {
+		// 根据错误类型返回不同的HTTP状态码
+		if err.Error() == "用户不存在" {
+			// 用户不存在，返回404
+			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+				"user_id": userID,
+				"error":   "user_not_found",
+			})
+			c.JSON(http.StatusNotFound, model.APIResponse{
+				Code:    http.StatusNotFound,
+				Status:  "error",
+				Message: "user not found",
+			})
+			return
+		}
+		if err.Error() == "邮箱已存在" {
+			// 邮箱冲突，返回409
+			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+				"user_id": userID,
+				"error":   "email_conflict",
+			})
+			c.JSON(http.StatusConflict, model.APIResponse{
+				Code:    http.StatusConflict,
+				Status:  "error",
+				Message: "email already exists",
+			})
+			return
+		}
+		// 其他错误，返回500
+		logger.LogError(err, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+			"user_id": userID,
+			"error":   "update_failed",
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "failed to update user",
+		})
+		return
+	}
+
+	// 构造响应数据，隐藏敏感信息
+	userInfo := model.UserInfo{
+		ID:          updatedUser.ID,
+		Username:    updatedUser.Username,
+		Email:       updatedUser.Email,
+		Nickname:    updatedUser.Nickname,
+		Avatar:      updatedUser.Avatar,
+		Phone:       updatedUser.Phone,
+		Status:      updatedUser.Status,
+		LastLoginAt: updatedUser.LastLoginAt,
+		CreatedAt:   updatedUser.CreatedAt,
+		Remark:      updatedUser.Remark,
+	}
+
+	// 记录更新成功日志
+	logger.LogBusinessOperation("update_user_by_id", uint(userID), "", "", "", "success", "用户信息更新成功", map[string]interface{}{
+		"user_id":  userID,
+		"username": updatedUser.Username,
+		"email":    updatedUser.Email,
+	})
+
+	// 返回更新成功响应
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "user updated successfully",
+		Data:    userInfo,
 	})
 }
 

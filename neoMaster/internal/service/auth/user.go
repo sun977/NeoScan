@@ -559,7 +559,7 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*model.
 
 // UpdateUser 更新用户信息
 // 处理用户更新的完整流程，包括参数验证、重复检查、密码哈希等
-func (s *UserService) UpdateUser(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
 	// 参数验证
 	if userID == 0 {
 		return nil, errors.New("用户ID不能为0")

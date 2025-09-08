@@ -175,10 +175,10 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 用户管理
 	userMgmt := admin.Group("/users")
 	{
-		userMgmt.GET("/list", r.userHandler.GetUserList)   //  handler\system\user.go  有bug待解决
-		userMgmt.POST("/create", r.userHandler.CreateUser) // handler\system\user.go
-		userMgmt.GET("/:id", r.getUserByID)
-		userMgmt.GET("/:id/info", r.getUserInfo) // 需要写管理员专用接口：获取用户全量信息
+		userMgmt.GET("/list", r.userHandler.GetUserList)         //  handler\system\user.go
+		userMgmt.POST("/create", r.userHandler.CreateUser)       // handler\system\user.go
+		userMgmt.GET("/:id", r.userHandler.GetUserByID)          // handler\system\user.go
+		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID) // 需要写管理员专用接口：获取用户全量信息
 		userMgmt.PUT("/:id", r.updateUser)
 		userMgmt.DELETE("/:id", r.deleteUser)
 		userMgmt.POST("/:id/activate", r.activateUser)
@@ -232,16 +232,6 @@ func (r *Router) GetEngine() *gin.Engine {
 // 处理器方法（这些方法需要在后续实现）
 
 // 管理员用户管理处理器
-
-func (r *Router) getUserInfo(c *gin.Context) {
-	// TODO: 实现根据ID获取用户
-	c.JSON(http.StatusOK, gin.H{"message": "get user info - not implemented yet"})
-}
-
-func (r *Router) getUserByID(c *gin.Context) {
-	// TODO: 实现根据ID获取用户
-	c.JSON(http.StatusOK, gin.H{"message": "get user by id - not implemented yet"})
-}
 
 func (r *Router) updateUser(c *gin.Context) {
 	// TODO: 实现更新用户

@@ -298,7 +298,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	})
 }
 
-// GetUserList 获取用户列表（用户管理员专用）【待实现，有问题】
+// GetUserList 获取用户列表（用户管理员专用）
 // 支持分页查询，返回用户基本信息列表
 // GetUserList 获取用户列表 - 重构版本，遵循"好品味"原则
 func (h *UserHandler) GetUserList(c *gin.Context) {

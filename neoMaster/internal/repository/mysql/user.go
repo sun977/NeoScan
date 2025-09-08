@@ -312,3 +312,25 @@ func (r *UserRepository) DeleteUserWithTx(ctx context.Context, tx *gorm.DB, user
 	}
 	return nil
 }
+
+// UpdateUserWithTx 使用事务更新用户信息
+// @param ctx 上下文
+// @param tx 事务对象
+// @param user 用户对象
+// @return 错误信息
+func (r *UserRepository) UpdateUserWithTx(ctx context.Context, tx *gorm.DB, user *model.User) error {
+	user.UpdatedAt = time.Now()
+	err := tx.WithContext(ctx).Save(user).Error
+	if err != nil {
+		// 记录更新失败日志
+		logger.LogError(err, "", uint(user.ID), "", "user_update_with_tx", "PUT", map[string]interface{}{
+			"operation": "update_user_with_transaction",
+			"username":  user.Username,
+			"email":     user.Email,
+			"user_id":   user.ID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return err
+	}
+	return nil
+}

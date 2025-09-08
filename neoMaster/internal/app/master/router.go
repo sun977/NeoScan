@@ -121,17 +121,17 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 	auth := v1.Group("/auth")
 	{
 		// 用户注册
-		auth.POST("/register", r.registerHandler.Register) // 没有权限校验的接口
+		auth.POST("/register", r.registerHandler.Register) // handler\auth\register.go 没有权限校验的接口
 		// 用户登录
-		auth.POST("/login", r.loginHandler.Login)
+		auth.POST("/login", r.loginHandler.Login) // handler\auth\login.go
 		// 获取登录表单页面（可选）
 		// auth.GET("/login", r.loginHandler.GetLoginForm)
 		// 刷新令牌(从body中传递传递refresh_token)
-		auth.POST("/refresh", r.refreshHandler.RefreshToken)
+		auth.POST("/refresh", r.refreshHandler.RefreshToken) // handler\auth\refresh.go
 		// 从请求头刷新令牌(从请求头Authorization传递refresh token)
-		auth.POST("/refresh-header", r.refreshHandler.RefreshTokenFromHeader)
+		auth.POST("/refresh-header", r.refreshHandler.RefreshTokenFromHeader) // handler\auth\refresh.go
 		// 检查令牌过期时间(从请求头中获取access token)
-		auth.POST("/check-expiry", r.refreshHandler.CheckTokenExpiry)
+		auth.POST("/check-expiry", r.refreshHandler.CheckTokenExpiry) // handler\auth\refresh.go
 	}
 }
 
@@ -143,9 +143,9 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	auth.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 用户登出
-		auth.POST("/logout", r.logoutHandler.Logout)
+		auth.POST("/logout", r.logoutHandler.Logout) // handler\auth\logout.go
 		// 用户全部登出
-		auth.POST("/logout-all", r.logoutHandler.LogoutAll)
+		auth.POST("/logout-all", r.logoutHandler.LogoutAll) // handler\auth\logout.go
 	}
 
 	// 用户相关路由（需要JWT认证和用户激活状态检查）
@@ -154,13 +154,13 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	user.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 获取当前用户信息
-		user.GET("/profile", r.userHandler.GetUserInfo)
+		user.GET("/profile", r.userHandler.GetUserInfo) // handler\system\user.go
 		// 修改用户密码
-		user.POST("/change-password", r.userHandler.ChangePassword)
+		user.POST("/change-password", r.userHandler.ChangePassword) // handler\system\user.go
 		// 获取用户权限
-		user.GET("/permissions", r.userHandler.GetUserPermission)
+		user.GET("/permissions", r.userHandler.GetUserPermission) // handler\system\user.go
 		// 获取用户角色
-		user.GET("/roles", r.userHandler.GetUserRoles)
+		user.GET("/roles", r.userHandler.GetUserRoles) // handler\system\user.go
 	}
 }
 
@@ -175,8 +175,8 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 用户管理
 	userMgmt := admin.Group("/users")
 	{
-		userMgmt.GET("/list", r.userHandler.GetUserList) // 有bug待解决
-		userMgmt.POST("/create", r.userHandler.CreateUser)
+		userMgmt.GET("/list", r.userHandler.GetUserList)   //  handler\system\user.go  有bug待解决
+		userMgmt.POST("/create", r.userHandler.CreateUser) // handler\system\user.go
 		userMgmt.GET("/:id", r.getUserByID)
 		userMgmt.GET("/:id/info", r.getUserInfo) // 需要写管理员专用接口：获取用户全量信息
 		userMgmt.PUT("/:id", r.updateUser)

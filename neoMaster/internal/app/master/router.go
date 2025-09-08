@@ -180,7 +180,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 		userMgmt.GET("/:id", r.userHandler.GetUserByID)          // handler\system\user.go
 		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID) // handler\system\user.go 获取用户全量信息
 		userMgmt.POST("/:id", r.userHandler.UpdateUserByID)      // handler\system\user.go
-		userMgmt.DELETE("/:id", r.deleteUser)
+		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)        // handler\system\user.go
 		userMgmt.POST("/:id/activate", r.activateUser)
 		userMgmt.POST("/:id/deactivate", r.deactivateUser)
 	}
@@ -232,11 +232,6 @@ func (r *Router) GetEngine() *gin.Engine {
 // 处理器方法（这些方法需要在后续实现）
 
 // 管理员用户管理处理器
-
-func (r *Router) deleteUser(c *gin.Context) {
-	// TODO: 实现删除用户
-	c.JSON(http.StatusOK, gin.H{"message": "delete user - not implemented yet"})
-}
 
 func (r *Router) activateUser(c *gin.Context) {
 	// TODO: 实现激活用户

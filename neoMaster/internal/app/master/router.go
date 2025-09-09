@@ -175,14 +175,14 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 用户管理
 	userMgmt := admin.Group("/users")
 	{
-		userMgmt.GET("/list", r.userHandler.GetUserList)           // handler\system\user.go
-		userMgmt.POST("/create", r.userHandler.CreateUser)         // handler\system\user.go
-		userMgmt.GET("/:id", r.userHandler.GetUserByID)            // handler\system\user.go
-		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID)   // handler\system\user.go 获取用户全量信息
-		userMgmt.POST("/:id", r.userHandler.UpdateUserByID)        // handler\system\user.go
-		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)          // handler\system\user.go
-		userMgmt.POST("/:id/activate", r.userHandler.ActivateUser) // handler\system\user.go
-		userMgmt.POST("/:id/deactivate", r.deactivateUser)
+		userMgmt.GET("/list", r.userHandler.GetUserList)               // handler\system\user.go
+		userMgmt.POST("/create", r.userHandler.CreateUser)             // handler\system\user.go
+		userMgmt.GET("/:id", r.userHandler.GetUserByID)                // handler\system\user.go
+		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID)       // handler\system\user.go 获取用户全量信息
+		userMgmt.POST("/:id", r.userHandler.UpdateUserByID)            // handler\system\user.go
+		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)              // handler\system\user.go
+		userMgmt.POST("/:id/activate", r.userHandler.ActivateUser)     // handler\system\user.go
+		userMgmt.POST("/:id/deactivate", r.userHandler.DeactivateUser) // handler\system\user.go
 	}
 
 	// 角色管理
@@ -232,11 +232,6 @@ func (r *Router) GetEngine() *gin.Engine {
 // 处理器方法（这些方法需要在后续实现）
 
 // 管理员用户管理处理器
-
-func (r *Router) deactivateUser(c *gin.Context) {
-	// TODO: 实现停用用户
-	c.JSON(http.StatusOK, gin.H{"message": "deactivate user - not implemented yet"})
-}
 
 // 角色管理处理器
 func (r *Router) listRoles(c *gin.Context) {

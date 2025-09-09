@@ -147,11 +147,11 @@ func (r *UserRepository) UpdateUserFields(ctx context.Context, userID uint, fiel
 }
 
 // UpdateLastLogin 更新用户最后登录时间
-func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID uint, clientIP string) error {
+func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID uint, userIP string) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
 		"last_login_at": now,
-		"last_login_ip": clientIP,
+		"last_login_ip": userIP,
 		"updated_at":    now,
 	}).Error
 }

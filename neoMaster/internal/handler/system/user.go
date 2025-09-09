@@ -1066,10 +1066,107 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 
 // DeactivateUser 禁用用户
 func (h *UserHandler) DeactivateUser(c *gin.Context) {
-	// TODO 实现禁用用户逻辑
+	// 从URL路径中获取用户ID
+	userIDStr := c.Param("id")
+	if userIDStr == "" {
+		logger.LogError(errors.New("missing user ID"), "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
+			"operation": "deactivate_user",
+			"error":     "missing_user_id",
+			"timestamp": logger.NowFormatted(),
+		})
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "用户ID不能为空",
+		})
+		return
+	}
+
+	// 转换用户ID为uint类型
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
+			"operation": "deactivate_user",
+			"error":     "invalid_user_id_format",
+			"user_id":   userIDStr,
+			"timestamp": logger.NowFormatted(),
+		})
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "用户ID格式无效",
+		})
+		return
+	}
+
+	// 从上下文获取当前操作用户ID（用于审计日志）
+	currentUserID, exists := c.Get("user_id")
+	if !exists {
+		logger.LogError(errors.New("unauthorized access"), "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
+			"operation":      "deactivate_user",
+			"error":          "unauthorized",
+			"target_user_id": userID,
+			"timestamp":      logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "error",
+			Message: "未授权访问",
+		})
+		return
+	}
+
+	// 调用Service层执行禁用用户业务逻辑
+	err = h.userService.DeactivateUser(c.Request.Context(), uint(userID))
+	if err != nil {
+		// Service层已经记录了详细的错误日志，这里只记录Handler层的处理结果
+		logger.LogError(err, "", uint(currentUserID.(float64)), "", "deactivate_user", "HANDLER", map[string]interface{}{
+			"operation":      "deactivate_user",
+			"error":          "service_call_failed",
+			"target_user_id": userID,
+			"operator_id":    currentUserID,
+			"timestamp":      logger.NowFormatted(),
+		})
+
+		// 根据错误类型返回不同的HTTP状态码
+		if strings.Contains(err.Error(), "不存在") {
+			c.JSON(http.StatusNotFound, model.APIResponse{
+				Code:    http.StatusNotFound,
+				Status:  "error",
+				Message: err.Error(),
+			})
+		} else if strings.Contains(err.Error(), "不能为0") || strings.Contains(err.Error(), "格式") {
+			c.JSON(http.StatusBadRequest, model.APIResponse{
+				Code:    http.StatusBadRequest,
+				Status:  "error",
+				Message: err.Error(),
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, model.APIResponse{
+				Code:    http.StatusInternalServerError,
+				Status:  "error",
+				Message: "禁用用户失败",
+			})
+		}
+		return
+	}
+
+	// 记录成功的Handler操作日志
+	logger.LogBusinessOperation("deactivate_user", uint(currentUserID.(float64)), "", "", "", "success", "Handler层禁用用户成功", map[string]interface{}{
+		"operation":      "deactivate_user",
+		"target_user_id": userID,
+		"operator_id":    currentUserID,
+		"timestamp":      logger.NowFormatted(),
+	})
+
+	// 返回成功响应
 	c.JSON(http.StatusOK, model.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "用户已禁用",
+		Message: "用户禁用成功",
+		Data: map[string]interface{}{
+			"user_id": userID,
+			"status":  "deactivated",
+		},
 	})
 }

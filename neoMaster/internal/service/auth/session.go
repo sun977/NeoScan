@@ -160,8 +160,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	// 更新最后登录时间
-	err = s.userService.UpdateLastLogin(ctx, user.ID)
+	// 更新最后登录时间与IP
+	err = s.userService.UpdateLastLogin(ctx, user.ID, clientIP)
 	if err != nil {
 		// 记录错误但不影响登录流程
 		fmt.Printf("Warning: failed to update last login time: %v\n", err)

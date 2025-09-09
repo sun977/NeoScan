@@ -1499,15 +1499,15 @@ func (s *UserService) RemoveRoleFromUser(ctx context.Context, userID, roleID uin
 	return s.userRepo.RemoveRoleFromUser(ctx, userID, roleID)
 }
 
-// UpdateLastLogin 更新用户最后登录时间
-func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint) error {
+// UpdateLastLogin 更新用户最后登录时间（包含客户端IP）
+func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint, clientIP string) error {
 	// 参数验证
 	if userID == 0 {
 		return errors.New("用户ID不能为0")
 	}
 
-	// 调用数据访问层更新最后登录时间
-	return s.userRepo.UpdateLastLogin(ctx, userID)
+	// 调用数据访问层更新最后登录时间与IP
+	return s.userRepo.UpdateLastLogin(ctx, userID, clientIP)
 }
 
 // UpdateUserStatus 更新用户状态 - 通用状态管理函数

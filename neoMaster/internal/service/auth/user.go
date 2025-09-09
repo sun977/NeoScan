@@ -1514,7 +1514,7 @@ func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint) error {
 // 将指定用户的状态设置为启用或禁用状态，消除重复代码，体现"好品味"原则
 // @param ctx 上下文
 // @param userID 用户ID
-// @param status 目标状态 (1: 启用, 0: 禁用)
+// @param status 目标状态 (1: 启用, 0: 禁用) 【禁止禁用userID=1的管理员】
 // @return 错误信息
 func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status model.UserStatus) error {
 	// 参数验证层 - 消除特殊情况

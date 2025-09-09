@@ -175,7 +175,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 用户管理
 	userMgmt := admin.Group("/users")
 	{
-		userMgmt.GET("/list", r.userHandler.GetUserList)         //  handler\system\user.go
+		userMgmt.GET("/list", r.userHandler.GetUserList)         // handler\system\user.go
 		userMgmt.POST("/create", r.userHandler.CreateUser)       // handler\system\user.go
 		userMgmt.GET("/:id", r.userHandler.GetUserByID)          // handler\system\user.go
 		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID) // handler\system\user.go 获取用户全量信息

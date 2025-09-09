@@ -1,2 +1,6 @@
 /.DS_Store
 /.trae
+modules.xml
+vcs.xml
+NeoScan.iml
+.idea/.gitignore

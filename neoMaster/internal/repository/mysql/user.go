@@ -335,38 +335,38 @@ func (r *UserRepository) UpdateUserWithTx(ctx context.Context, tx *gorm.DB, user
 	return nil
 }
 
-// ActivateUser 激活用户（将用户状态设置为启用）
+// ActivateUser 激活用户（将用户状态设置为启用）【弃用，改成使用UpdateUserFields修改用户状态】
 // @param ctx 上下文
 // @param userID 用户ID
 // @return 错误信息
-func (r *UserRepository) ActivateUser(ctx context.Context, userID uint) error {
-	now := time.Now()
-	result := r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"status":     model.UserStatusEnabled,
-		"updated_at": now,
-	})
+// func (r *UserRepository) ActivateUser(ctx context.Context, userID uint) error {
+// 	now := time.Now()
+// 	result := r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+// 		"status":     model.UserStatusEnabled,
+// 		"updated_at": now,
+// 	})
 
-	if result.Error != nil {
-		// 记录激活失败日志
-		logger.LogError(result.Error, "", userID, "", "user_activate", "PUT", map[string]interface{}{
-			"operation": "activate_user",
-			"user_id":   userID,
-			"timestamp": logger.NowFormatted(),
-		})
-		return result.Error
-	}
+// 	if result.Error != nil {
+// 		// 记录激活失败日志
+// 		logger.LogError(result.Error, "", userID, "", "user_activate", "PUT", map[string]interface{}{
+// 			"operation": "activate_user",
+// 			"user_id":   userID,
+// 			"timestamp": logger.NowFormatted(),
+// 		})
+// 		return result.Error
+// 	}
 
-	// 检查是否有记录被更新
-	if result.RowsAffected == 0 {
-		// 记录用户不存在日志
-		logger.LogError(fmt.Errorf("user not found"), "", userID, "", "user_activate", "PUT", map[string]interface{}{
-			"operation": "activate_user",
-			"user_id":   userID,
-			"error":     "user_not_found",
-			"timestamp": logger.NowFormatted(),
-		})
-		return fmt.Errorf("用户不存在")
-	}
+// 	// 检查是否有记录被更新
+// 	if result.RowsAffected == 0 {
+// 		// 记录用户不存在日志
+// 		logger.LogError(fmt.Errorf("user not found"), "", userID, "", "user_activate", "PUT", map[string]interface{}{
+// 			"operation": "activate_user",
+// 			"user_id":   userID,
+// 			"error":     "user_not_found",
+// 			"timestamp": logger.NowFormatted(),
+// 		})
+// 		return fmt.Errorf("用户不存在")
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

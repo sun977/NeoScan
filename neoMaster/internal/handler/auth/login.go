@@ -6,6 +6,7 @@ import (
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -61,6 +62,17 @@ func (h *LoginHandler) getErrorStatusCode(err error) int {
 
 // Login 登录处理器
 func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，提供了处理 HTTP 请求的上下文
+	// 规范化客户端IP与User-Agent（在全流程统一使用）
+	clientIPRaw := c.GetHeader("X-Forwarded-For")
+	if clientIPRaw == "" {
+		clientIPRaw = c.GetHeader("X-Real-IP")
+	}
+	if clientIPRaw == "" {
+		clientIPRaw = c.ClientIP()
+	}
+	clientIP := utils.NormalizeIP(clientIPRaw)
+	userAgent := c.GetHeader("User-Agent")
+
 	// 解析请求体
 	var req model.LoginRequest // 创建一个LoginRequest结构体变量
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -69,8 +81,8 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		// 记录错误日志
 		logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
 		})
@@ -88,8 +100,8 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		// 记录参数验证失败日志
 		logger.LogError(err, "", 0, req.Username, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
 		})
@@ -103,9 +115,6 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	}
 
 	// 执行登录
-	// 从请求上下文获取客户端IP和用户代理信息
-	clientIP := c.ClientIP()
-	userAgent := c.GetHeader("User-Agent")
 	resp, err := h.sessionService.Login(c.Request.Context(), &req, clientIP, userAgent)
 	if err != nil {
 		// 根据错误类型返回不同的状态码
@@ -113,8 +122,8 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		// 记录登录失败的错误日志
 		logger.LogError(err, "", 0, req.Username, "user_login", "POST", map[string]interface{}{
 			"operation":   "login",
-			"client_ip":   c.ClientIP(),
-			"user_agent":  c.GetHeader("User-Agent"),
+			"client_ip":   clientIP,
+			"user_agent":  userAgent,
 			"status_code": statusCode,
 			"request_id":  c.GetHeader("X-Request-ID"),
 			"timestamp":   logger.NowFormatted(),
@@ -131,8 +140,8 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	// 记录登录成功的业务日志
 	logger.LogBusinessOperation("user_login", uint(resp.User.ID), req.Username, "", "", "success", "用户登录成功", map[string]interface{}{
 		"operation":  "user_login",
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
 		"request_id": c.GetHeader("X-Request-ID"),
 		"timestamp":  logger.NowFormatted(),
 	})

@@ -20,6 +20,7 @@ import (
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/repository/redis"
 )
 
@@ -160,8 +161,9 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	// 更新最后登录时间与IP
-	err = s.userService.UpdateLastLogin(ctx, user.ID, clientIP)
+	// 标准化IP，并更新最后登录时间与IP
+	normalizedIP := utils.NormalizeIP(clientIP)
+	err = s.userService.UpdateLastLogin(ctx, user.ID, normalizedIP)
 	if err != nil {
 		// 记录错误但不影响登录流程
 		fmt.Printf("Warning: failed to update last login time: %v\n", err)
@@ -201,8 +203,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 		Permissions: permissions,
 		LoginTime:   time.Now(),
 		LastActive:  time.Now(),
-		ClientIP:    clientIP,  // 从请求上下文获取的客户端IP
-		UserAgent:   userAgent, // 从请求上下文获取的用户代理
+		ClientIP:    normalizedIP, // 经过标准化的客户端IP
+		UserAgent:   userAgent,    // 从请求上下文获取的用户代理
 	}
 
 	// 设置会话过期时间（与访问令牌过期时间一致）

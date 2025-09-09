@@ -1510,16 +1510,17 @@ func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint) error {
 	return s.userRepo.UpdateLastLogin(ctx, userID)
 }
 
-// ActivateUser 激活用户
-// 将指定用户的状态设置为启用状态，遵循"好品味"原则：简单直接的业务逻辑
+// UpdateUserStatus 更新用户状态 - 通用状态管理函数
+// 将指定用户的状态设置为启用或禁用状态，消除重复代码，体现"好品味"原则
 // @param ctx 上下文
 // @param userID 用户ID
+// @param status 目标状态 (1: 启用, 0: 禁用)
 // @return 错误信息
-func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
-	// 参数验证 - 消除特殊情况
+func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status model.UserStatus) error {
+	// 参数验证层 - 消除特殊情况
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID"), "", 0, "", "activate_user", "SERVICE", map[string]interface{}{
-			"operation": "activate_user",
+		logger.LogError(errors.New("invalid user ID"), "", 0, "", "update_user_status", "SERVICE", map[string]interface{}{
+			"operation": "update_user_status",
 			"error":     "invalid_user_id",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1527,11 +1528,23 @@ func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
 		return errors.New("用户ID不能为0")
 	}
 
-	// 检查用户是否存在 - 避免盲目操作
+	// 验证状态值有效性 - 严格的参数检查
+	if status != model.UserStatusEnabled && status != model.UserStatusDisabled {
+		logger.LogError(errors.New("invalid status value"), "", 0, "", "update_user_status", "SERVICE", map[string]interface{}{
+			"operation": "update_user_status",
+			"error":     "invalid_status_value",
+			"user_id":   userID,
+			"status":    status,
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("用户状态值无效,必须为0(禁用)或1(启用)")
+	}
+
+	// 业务规则验证层 - 检查用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "activate_user", "SERVICE", map[string]interface{}{
-			"operation": "activate_user",
+		logger.LogError(err, "", userID, "", "update_user_status", "SERVICE", map[string]interface{}{
+			"operation": "update_user_status",
 			"error":     "get_user_failed",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1540,8 +1553,8 @@ func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found"), "", userID, "", "activate_user", "SERVICE", map[string]interface{}{
-			"operation": "activate_user",
+		logger.LogError(errors.New("user not found"), "", userID, "", "update_user_status", "SERVICE", map[string]interface{}{
+			"operation": "update_user_status",
 			"error":     "user_not_found",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1549,47 +1562,99 @@ func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
 		return errors.New("用户不存在")
 	}
 
-	// 检查用户当前状态 - 避免无意义操作
-	if user.Status == model.UserStatusEnabled {
-		// 用户已经是激活状态，直接返回成功（幂等性）
-		logger.LogBusinessOperation("activate_user", userID, user.Username, "", "", "success", "用户已处于激活状态", map[string]interface{}{
-			"operation":      "activate_user",
-			"user_id":        userID,
-			"username":       user.Username,
-			"current_status": "already_enabled",
-			"timestamp":      logger.NowFormatted(),
-		})
+	// 幂等性检查 - 避免无意义操作
+	if user.Status == status {
+		statusText := "禁用"
+		if status == model.UserStatusEnabled {
+			statusText = "启用"
+		}
+
+		logger.LogBusinessOperation("update_user_status", userID, user.Username, "", "", "success",
+			fmt.Sprintf("用户已处于%s状态", statusText), map[string]interface{}{
+				"operation":      "update_user_status",
+				"user_id":        userID,
+				"username":       user.Username,
+				"current_status": status,
+				"target_status":  status,
+				"timestamp":      logger.NowFormatted(),
+			})
 		return nil
 	}
 
-	// 执行激活操作 - 核心业务逻辑
-	err = s.userRepo.ActivateUser(ctx, userID)
+	// 业务规则：系统管理员保护机制
+	if userID == 1 && status == model.UserStatusDisabled {
+		logger.LogError(errors.New("cannot disable system admin"), "", 0, "", "update_user_status", "SERVICE", map[string]interface{}{
+			"operation": "business_rule_check",
+			"user_id":   userID,
+			"status":    status,
+			"error":     "system_admin_status_change_forbidden",
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("不能禁用系统管理员账户")
+	}
+
+	// 数据操作层 - 执行状态更新
+	// 使用 UpdateUserFields 进行原子更新操作
+	updateFields := map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+
+	err = s.userRepo.UpdateUserFields(ctx, userID, updateFields)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "activate_user", "SERVICE", map[string]interface{}{
-			"operation": "activate_user",
-			"error":     "activate_failed",
+		statusText := "禁用"
+		if status == model.UserStatusEnabled {
+			statusText = "启用"
+		}
+
+		logger.LogError(err, "", userID, "", "update_user_status", "SERVICE", map[string]interface{}{
+			"operation": "update_user_status",
+			"error":     fmt.Sprintf("%s_failed", statusText),
 			"user_id":   userID,
 			"username":  user.Username,
 			"timestamp": logger.NowFormatted(),
 		})
-		return fmt.Errorf("激活用户失败: %w", err)
+		return fmt.Errorf("%s用户失败: %w", statusText, err)
 	}
 
-	// 记录成功激活的业务日志
-	logger.LogBusinessOperation("activate_user", userID, user.Username, "", "", "success", "用户激活成功", map[string]interface{}{
-		"operation":       "activate_user",
-		"user_id":         userID,
-		"username":        user.Username,
-		"previous_status": "disabled",
-		"new_status":      "enabled",
-		"timestamp":       logger.NowFormatted(),
-	})
+	// 审计日志层 - 记录成功操作
+	statusText := "禁用"
+	statusTextOpposite := "启用"
+	if status == model.UserStatusEnabled {
+		statusText = "启用"
+		statusTextOpposite = "禁用"
+	}
+
+	logger.LogBusinessOperation("update_user_status", userID, user.Username, "", "", "success",
+		fmt.Sprintf("用户%s成功", statusText), map[string]interface{}{
+			"operation":       "update_user_status",
+			"user_id":         userID,
+			"username":        user.Username,
+			"previous_status": statusTextOpposite,
+			"new_status":      statusText,
+			"target_status":   int(status),
+			"timestamp":       logger.NowFormatted(),
+		})
 
 	return nil
 }
 
-// DeactivateUser 禁用用户
+// ActivateUser 激活用户 - 语义化包装函数，保持向后兼容
+// 将指定用户的状态设置为启用状态
+// @param ctx 上下文
+// @param userID 用户ID
+// @return 错误信息
+func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
+	// 调用通用状态更新函数，体现"好品味"原则：消除特殊情况
+	return s.UpdateUserStatus(ctx, userID, model.UserStatusEnabled)
+}
+
+// DeactivateUser 禁用用户 - 语义化包装函数
+// 将指定用户的状态设置为禁用状态
+// @param ctx 上下文
+// @param userID 用户ID
+// @return 错误信息
 func (s *UserService) DeactivateUser(ctx context.Context, userID uint) error {
-	// TODO 实现禁用用户逻辑
-	return nil
+	// 调用通用状态更新函数，体现"好品味"原则：消除特殊情况
+	return s.UpdateUserStatus(ctx, userID, model.UserStatusDisabled)
 }

@@ -712,12 +712,12 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 
 		if existingUser != nil && existingUser.ID != userID {
 			logger.LogError(errors.New("email already exists"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
-				"operation": "email_uniqueness_check",
-				"user_id":   userID,
-				"email":     req.Email,
+				"operation":        "email_uniqueness_check",
+				"user_id":          userID,
+				"email":            req.Email,
 				"existing_user_id": existingUser.ID,
-				"error":     "email_already_exists",
-				"timestamp": logger.NowFormatted(),
+				"error":            "email_already_exists",
+				"timestamp":        logger.NowFormatted(),
 			})
 			return nil, errors.New("邮箱已存在")
 		}
@@ -1508,4 +1508,88 @@ func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint) error {
 
 	// 调用数据访问层更新最后登录时间
 	return s.userRepo.UpdateLastLogin(ctx, userID)
+}
+
+// ActivateUser 激活用户
+// 将指定用户的状态设置为启用状态，遵循"好品味"原则：简单直接的业务逻辑
+// @param ctx 上下文
+// @param userID 用户ID
+// @return 错误信息
+func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
+	// 参数验证 - 消除特殊情况
+	if userID == 0 {
+		logger.LogError(errors.New("invalid user ID"), "", 0, "", "activate_user", "SERVICE", map[string]interface{}{
+			"operation": "activate_user",
+			"error":     "invalid_user_id",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("用户ID不能为0")
+	}
+
+	// 检查用户是否存在 - 避免盲目操作
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "activate_user", "SERVICE", map[string]interface{}{
+			"operation": "activate_user",
+			"error":     "get_user_failed",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("获取用户信息失败: %w", err)
+	}
+
+	if user == nil {
+		logger.LogError(errors.New("user not found"), "", userID, "", "activate_user", "SERVICE", map[string]interface{}{
+			"operation": "activate_user",
+			"error":     "user_not_found",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("用户不存在")
+	}
+
+	// 检查用户当前状态 - 避免无意义操作
+	if user.Status == model.UserStatusEnabled {
+		// 用户已经是激活状态，直接返回成功（幂等性）
+		logger.LogBusinessOperation("activate_user", userID, user.Username, "", "", "success", "用户已处于激活状态", map[string]interface{}{
+			"operation":      "activate_user",
+			"user_id":        userID,
+			"username":       user.Username,
+			"current_status": "already_enabled",
+			"timestamp":      logger.NowFormatted(),
+		})
+		return nil
+	}
+
+	// 执行激活操作 - 核心业务逻辑
+	err = s.userRepo.ActivateUser(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "activate_user", "SERVICE", map[string]interface{}{
+			"operation": "activate_user",
+			"error":     "activate_failed",
+			"user_id":   userID,
+			"username":  user.Username,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("激活用户失败: %w", err)
+	}
+
+	// 记录成功激活的业务日志
+	logger.LogBusinessOperation("activate_user", userID, user.Username, "", "", "success", "用户激活成功", map[string]interface{}{
+		"operation":       "activate_user",
+		"user_id":         userID,
+		"username":        user.Username,
+		"previous_status": "disabled",
+		"new_status":      "enabled",
+		"timestamp":       logger.NowFormatted(),
+	})
+
+	return nil
+}
+
+// DeactivateUser 禁用用户
+func (s *UserService) DeactivateUser(ctx context.Context, userID uint) error {
+	// TODO 实现禁用用户逻辑
+	return nil
 }

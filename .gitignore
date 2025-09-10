@@ -3,4 +3,4 @@
 modules.xml
 vcs.xml
 NeoScan.iml
-.idea/.gitignore
+.idea/*

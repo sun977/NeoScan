@@ -660,7 +660,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
 		// 记录用户ID格式错误日志
-		logger.LogError(err, "", 0, "", "update_user_by_id", "PUT", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "update_user_by_id", "POST", map[string]interface{}{
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
@@ -694,7 +694,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 		// 根据错误类型返回不同的HTTP状态码
 		if err.Error() == "用户不存在" {
 			// 用户不存在，返回404
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "user_not_found",
 			})
@@ -707,7 +707,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 		}
 		if err.Error() == "邮箱已存在" {
 			// 邮箱冲突，返回409
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "email_conflict",
 			})
@@ -719,7 +719,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			return
 		}
 		// 其他错误，返回500
-		logger.LogError(err, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 			"user_id": userID,
 			"error":   "update_failed",
 		})

@@ -288,7 +288,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 		return
 	}
 
-	// 解析角色ID参数
+	// 从URL参数中解析角色ID参数
 	roleIDStr := c.Param("id")
 	roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
 	if err != nil {
@@ -356,7 +356,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "update_role", "PUT", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"client_ip":  c.ClientIP(),
 			"user_agent": c.GetHeader("User-Agent"),
@@ -373,7 +373,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "update_role", "PUT", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userIDInterface,
 			"client_ip":  c.ClientIP(),
@@ -393,7 +393,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	roleIDStr := c.Param("id")
 	roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "update_role", "PUT", map[string]interface{}{
+		logger.LogError(err, "", userID, "", "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userID,
 			"role_id":    roleIDStr,
@@ -413,7 +413,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	// 解析请求体
 	var req model.UpdateRoleRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		logger.LogError(bindErr, "", userID, "", "update_role", "PUT", map[string]interface{}{
+		logger.LogError(bindErr, "", userID, "", "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userID,
 			"role_id":    roleID,
@@ -433,7 +433,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	// 调用服务层更新角色
 	role, err := h.roleService.UpdateRoleByID(c.Request.Context(), uint(roleID), &req)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "update_role", "PUT", map[string]interface{}{
+		logger.LogError(err, "", userID, "", "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userID,
 			"role_id":    roleID,

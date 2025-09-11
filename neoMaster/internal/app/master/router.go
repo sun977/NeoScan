@@ -198,7 +198,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 		roleMgmt.GET("/list", r.roleHandler.GetRoleList)               // handler\system\role.go
 		roleMgmt.POST("/create", r.roleHandler.CreateRole)             // handler\system\role.go
 		roleMgmt.GET("/:id", r.roleHandler.GetRoleByID)                // handler\system\role.go
-		roleMgmt.PUT("/:id", r.roleHandler.UpdateRole)                 // handler\system\role.go
+		roleMgmt.POST("/:id", r.roleHandler.UpdateRole)                // handler\system\role.go
 		roleMgmt.DELETE("/:id", r.roleHandler.DeleteRole)              // handler\system\role.go
 		roleMgmt.POST("/:id/activate", r.roleHandler.ActivateRole)     // handler\system\role.go
 		roleMgmt.POST("/:id/deactivate", r.roleHandler.DeactivateRole) // handler\system\role.go

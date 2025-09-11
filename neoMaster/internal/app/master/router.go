@@ -248,28 +248,6 @@ func (r *Router) GetEngine() *gin.Engine {
 	return r.engine
 }
 
-// 处理器方法（这些方法需要在后续实现）
-
-// 管理员用户管理处理器
-
-// 权限管理处理器移至 system.PermissionHandler
-
-// 会话管理处理器
-func (r *Router) listActiveSessions(c *gin.Context) {
-	// TODO: 实现活跃会话列表
-	c.JSON(http.StatusOK, gin.H{"message": "list active sessions - not implemented yet"})
-}
-
-func (r *Router) revokeSession(c *gin.Context) {
-	// TODO: 实现撤销会话
-	c.JSON(http.StatusOK, gin.H{"message": "revoke session - not implemented yet"})
-}
-
-func (r *Router) revokeAllUserSessions(c *gin.Context) {
-	// TODO: 实现撤销用户所有会话
-	c.JSON(http.StatusOK, gin.H{"message": "revoke all user sessions - not implemented yet"})
-}
-
 // 健康检查处理器
 func (r *Router) healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{

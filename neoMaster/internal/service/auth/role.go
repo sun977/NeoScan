@@ -373,6 +373,15 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ 
 
 	// 业务规则：系统角色保护机制（可以根据需要添加）
 	// 例如：某些系统内置角色不能被修改
+	if roleID == 1 {
+		logger.LogError(errors.New("system role cannot be updated"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+			"operation": "business_rule_check",
+			"role_id":   roleID,
+			"error":     "system_role_update_forbidden",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("系统角色不能被更新")
+	}
 
 	return role, nil
 }
@@ -563,6 +572,15 @@ func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) 
 
 	// 业务规则：系统角色保护机制（可以根据需要添加）
 	// 例如：某些系统内置角色不能被删除
+	if roleID == 1 {
+		logger.LogError(errors.New("system role cannot be deleted"), "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+			"operation": "business_rule_check",
+			"role_id":   roleID,
+			"error":     "system_role_delete_forbidden",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("系统角色不能被删除")
+	}
 
 	return role, nil
 }

@@ -81,8 +81,8 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 
 	// 解析请求体
 	var req model.CreateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, "", userID, "", "create_role", "POST", map[string]interface{}{
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		logger.LogError(bindErr, "", userID, "", "create_role", "POST", map[string]interface{}{
 			"operation":  "create_role",
 			"user_id":    userID,
 			"client_ip":  c.ClientIP(),
@@ -93,7 +93,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "请求参数无效: " + err.Error(),
+			Message: "请求参数无效: " + bindErr.Error(),
 		})
 		return
 	}
@@ -412,8 +412,8 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 
 	// 解析请求体
 	var req model.UpdateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, "", userID, "", "update_role", "PUT", map[string]interface{}{
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		logger.LogError(bindErr, "", userID, "", "update_role", "PUT", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userID,
 			"role_id":    roleID,
@@ -425,7 +425,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "请求参数无效: " + err.Error(),
+			Message: "请求参数无效: " + bindErr.Error(),
 		})
 		return
 	}

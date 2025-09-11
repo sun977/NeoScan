@@ -46,6 +46,9 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	// 初始化UserService
 	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
 
+	// 初始化角色服务
+	// 待完善
+
 	// 初始化RBAC服务（不依赖其他服务）
 	rbacService := authService.NewRBACService(userService)
 

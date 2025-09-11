@@ -28,6 +28,7 @@ type Router struct {
 	userHandler       *systemHandler.UserHandler
 	roleHandler       *systemHandler.RoleHandler
 	permissionHandler *systemHandler.PermissionHandler
+	sessionHandler    *systemHandler.SessionHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -85,6 +86,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	userHandler := systemHandler.NewUserHandler(userService, passwordService)
 	roleHandler := systemHandler.NewRoleHandler(roleService)
 	permissionHandler := systemHandler.NewPermissionHandler(permissionService)
+	sessionHandler := systemHandler.NewSessionHandler(sessionService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -100,6 +102,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		userHandler:       userHandler,
 		roleHandler:       roleHandler,
 		permissionHandler: permissionHandler,
+		sessionHandler:    sessionHandler,
 	}
 }
 
@@ -214,19 +217,19 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 权限管理
 	permMgmt := admin.Group("/permissions")
 	{
-		permMgmt.GET("/list", r.permissionHandler.GetPermissionList)
-		permMgmt.POST("/create", r.permissionHandler.CreatePermission)
-		permMgmt.GET("/:id", r.permissionHandler.GetPermissionByID)
-		permMgmt.POST("/:id", r.permissionHandler.UpdatePermission)
-		permMgmt.DELETE("/:id", r.permissionHandler.DeletePermission)
+		permMgmt.GET("/list", r.permissionHandler.GetPermissionList)   // handler\system\permission.go
+		permMgmt.POST("/create", r.permissionHandler.CreatePermission) // handler\system\permission.go
+		permMgmt.GET("/:id", r.permissionHandler.GetPermissionByID)    // handler\system\permission.go
+		permMgmt.POST("/:id", r.permissionHandler.UpdatePermission)    // handler\system\permission.go
+		permMgmt.DELETE("/:id", r.permissionHandler.DeletePermission)  // handler\system\permission.go
 	}
 
 	// 会话管理
 	sessionMgmt := admin.Group("/sessions")
 	{
-		sessionMgmt.GET("/list", r.listActiveSessions)
-		sessionMgmt.POST("/:sessionId/revoke", r.revokeSession)
-		sessionMgmt.POST("/user/:userId/revoke-all", r.revokeAllUserSessions)
+		sessionMgmt.GET("/list", r.sessionHandler.ListActiveSessions)                        // handler\system\session.go
+		sessionMgmt.POST("/:userId/revoke", r.sessionHandler.RevokeSession)                  // handler\system\session.go
+		sessionMgmt.POST("/user/:userId/revoke-all", r.sessionHandler.RevokeAllUserSessions) // handler\system\session.go
 	}
 }
 

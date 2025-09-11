@@ -27,6 +27,7 @@ type Router struct {
 	registerHandler   *authHandler.RegisterHandler
 	userHandler       *systemHandler.UserHandler
 	roleHandler       *systemHandler.RoleHandler
+	permissionHandler *systemHandler.PermissionHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -50,6 +51,10 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	// 初始化角色服务RoleService
 	roleRepo := mysql.NewRoleRepository(db)
 	roleService := authService.NewRoleService(roleRepo)
+
+	// 初始化权限服务PermissionService
+	permissionRepo := mysql.NewPermissionRepository(db)
+	permissionService := authService.NewPermissionService(permissionRepo)
 
 	// 初始化RBAC服务（不依赖其他服务）
 	rbacService := authService.NewRBACService(userService)
@@ -79,6 +84,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	registerHandler := authHandler.NewRegisterHandler(userService)
 	userHandler := systemHandler.NewUserHandler(userService, passwordService)
 	roleHandler := systemHandler.NewRoleHandler(roleService)
+	permissionHandler := systemHandler.NewPermissionHandler(permissionService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -93,6 +99,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		registerHandler:   registerHandler,
 		userHandler:       userHandler,
 		roleHandler:       roleHandler,
+		permissionHandler: permissionHandler,
 	}
 }
 
@@ -207,11 +214,11 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 权限管理
 	permMgmt := admin.Group("/permissions")
 	{
-		permMgmt.GET("/list", r.listPermissions)
-		permMgmt.POST("/create", r.createPermission)
-		permMgmt.GET("/:id", r.getPermissionByID)
-		permMgmt.PUT("/:id", r.updatePermission)
-		permMgmt.DELETE("/:id", r.deletePermission)
+		permMgmt.GET("/list", r.permissionHandler.GetPermissionList)
+		permMgmt.POST("/create", r.permissionHandler.CreatePermission)
+		permMgmt.GET("/:id", r.permissionHandler.GetPermissionByID)
+		permMgmt.POST("/:id", r.permissionHandler.UpdatePermission)
+		permMgmt.DELETE("/:id", r.permissionHandler.DeletePermission)
 	}
 
 	// 会话管理
@@ -242,31 +249,7 @@ func (r *Router) GetEngine() *gin.Engine {
 
 // 管理员用户管理处理器
 
-// 权限管理处理器
-func (r *Router) listPermissions(c *gin.Context) {
-	// TODO: 实现权限列表
-	c.JSON(http.StatusOK, gin.H{"message": "list permissions - not implemented yet"})
-}
-
-func (r *Router) createPermission(c *gin.Context) {
-	// TODO: 实现创建权限
-	c.JSON(http.StatusOK, gin.H{"message": "create permission - not implemented yet"})
-}
-
-func (r *Router) getPermissionByID(c *gin.Context) {
-	// TODO: 实现根据ID获取权限
-	c.JSON(http.StatusOK, gin.H{"message": "get permission by id - not implemented yet"})
-}
-
-func (r *Router) updatePermission(c *gin.Context) {
-	// TODO: 实现更新权限
-	c.JSON(http.StatusOK, gin.H{"message": "update permission - not implemented yet"})
-}
-
-func (r *Router) deletePermission(c *gin.Context) {
-	// TODO: 实现删除权限
-	c.JSON(http.StatusOK, gin.H{"message": "delete permission - not implemented yet"})
-}
+// 权限管理处理器移至 system.PermissionHandler
 
 // 会话管理处理器
 func (r *Router) listActiveSessions(c *gin.Context) {

@@ -242,32 +242,6 @@ func (r *Router) GetEngine() *gin.Engine {
 
 // 管理员用户管理处理器
 
-// 角色管理处理器
-func (r *Router) listRoles(c *gin.Context) {
-	// TODO: 实现角色列表
-	c.JSON(http.StatusOK, gin.H{"message": "list roles - not implemented yet"})
-}
-
-func (r *Router) createRole(c *gin.Context) {
-	// TODO: 实现创建角色
-	c.JSON(http.StatusOK, gin.H{"message": "create role - not implemented yet"})
-}
-
-func (r *Router) getRoleByID(c *gin.Context) {
-	// TODO: 实现根据ID获取角色
-	c.JSON(http.StatusOK, gin.H{"message": "get role by id - not implemented yet"})
-}
-
-func (r *Router) updateRole(c *gin.Context) {
-	// TODO: 实现更新角色
-	c.JSON(http.StatusOK, gin.H{"message": "update role - not implemented yet"})
-}
-
-func (r *Router) deleteRole(c *gin.Context) {
-	// TODO: 实现删除角色
-	c.JSON(http.StatusOK, gin.H{"message": "delete role - not implemented yet"})
-}
-
 // 权限管理处理器
 func (r *Router) listPermissions(c *gin.Context) {
 	// TODO: 实现权限列表

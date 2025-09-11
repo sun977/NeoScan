@@ -337,7 +337,7 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 }
 
 // validateRoleForUpdate 验证角色是否可以更新
-func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) (*model.Role, error) {
+func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ *model.UpdateRoleRequest) (*model.Role, error) {
 	// 检查角色是否存在
 	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
 	if err != nil {

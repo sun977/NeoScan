@@ -26,6 +26,7 @@ type Router struct {
 	refreshHandler    *authHandler.RefreshHandler
 	registerHandler   *authHandler.RegisterHandler
 	userHandler       *systemHandler.UserHandler
+	roleHandler       *systemHandler.RoleHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -47,7 +48,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
 
 	// 初始化角色服务
-	// 待完善
+	roleRepo := mysql.NewRoleRepository(db)
+	roleService := authService.NewRoleService(roleRepo)
 
 	// 初始化RBAC服务（不依赖其他服务）
 	rbacService := authService.NewRBACService(userService)
@@ -76,6 +78,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	refreshHandler := authHandler.NewRefreshHandler(sessionService)
 	registerHandler := authHandler.NewRegisterHandler(userService)
 	userHandler := systemHandler.NewUserHandler(userService, passwordService)
+	roleHandler := systemHandler.NewRoleHandler(roleService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -89,6 +92,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		refreshHandler:    refreshHandler,
 		registerHandler:   registerHandler,
 		userHandler:       userHandler,
+		roleHandler:       roleHandler,
 	}
 }
 
@@ -191,11 +195,13 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 角色管理
 	roleMgmt := admin.Group("/roles")
 	{
-		roleMgmt.GET("/list", r.listRoles)
-		roleMgmt.POST("/create", r.createRole)
-		roleMgmt.GET("/:id", r.getRoleByID)
-		roleMgmt.PUT("/:id", r.updateRole)
-		roleMgmt.DELETE("/:id", r.deleteRole)
+		roleMgmt.GET("/list", r.roleHandler.GetRoleList)               // handler\system\role.go
+		roleMgmt.POST("/create", r.roleHandler.CreateRole)             // handler\system\role.go
+		roleMgmt.GET("/:id", r.roleHandler.GetRoleByID)                // handler\system\role.go
+		roleMgmt.PUT("/:id", r.roleHandler.UpdateRole)                 // handler\system\role.go
+		roleMgmt.DELETE("/:id", r.roleHandler.DeleteRole)              // handler\system\role.go
+		roleMgmt.POST("/:id/activate", r.roleHandler.ActivateRole)     // handler\system\role.go
+		roleMgmt.POST("/:id/deactivate", r.roleHandler.DeactivateRole) // handler\system\role.go
 	}
 
 	// 权限管理

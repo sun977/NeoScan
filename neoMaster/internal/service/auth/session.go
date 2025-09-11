@@ -439,3 +439,41 @@ func (s *SessionService) IsTokenRevoked(ctx context.Context, jti string) (bool, 
 
 	return isRevoked, nil
 }
+
+// 主要用于handler层sessionHandler的实现
+// GetUserSessions 获取指定用户的所有会话
+func (s *SessionService) GetUserSessions(ctx context.Context, userID uint) ([]*model.SessionData, error) {
+	if userID == 0 {
+		return nil, errors.New("userID cannot be zero")
+	}
+	sessions, err := s.sessionRepo.GetUserSessions(ctx, uint64(userID))
+	if err != nil {
+		logger.LogError(err, "", userID, "", "get_user_sessions", "GET", map[string]interface{}{
+			"operation": "get_user_sessions",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("failed to get user sessions: %w", err)
+	}
+	return sessions, nil
+}
+
+// DeleteUserSession 撤销指定用户当前会话
+func (s *SessionService) DeleteUserSession(ctx context.Context, userID uint) error {
+	if userID == 0 {
+		return errors.New("userID cannot be zero")
+	}
+	if err := s.sessionRepo.DeleteSession(ctx, uint64(userID)); err != nil {
+		logger.LogError(err, "", userID, "", "delete_user_session", "POST", map[string]interface{}{
+			"operation": "delete_user_session",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("failed to delete user session: %w", err)
+	}
+	logger.LogBusinessOperation("delete_user_session", userID, "", "", "", "success", "用户会话撤销成功", map[string]interface{}{
+		"user_id":   userID,
+		"timestamp": logger.NowFormatted(),
+	})
+	return nil
+}

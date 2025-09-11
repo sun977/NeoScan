@@ -40,14 +40,14 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		SaltLength:  32,
 		KeyLength:   32,
 	}
-	userRepo := mysql.NewUserRepository(db) // 纯数据访问层
 	passwordManager := authPkg.NewPasswordManager(passwordConfig)
 	sessionRepo := redisRepo.NewSessionRepository(redisClient)
 
-	// 初始化UserService
+	// 初始化用户服务UserService
+	userRepo := mysql.NewUserRepository(db) // 纯数据访问层
 	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
 
-	// 初始化角色服务
+	// 初始化角色服务RoleService
 	roleRepo := mysql.NewRoleRepository(db)
 	roleService := authService.NewRoleService(roleRepo)
 

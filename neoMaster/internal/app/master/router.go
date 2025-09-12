@@ -192,15 +192,15 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 用户管理
 	userMgmt := admin.Group("/users")
 	{
-		userMgmt.GET("/list", r.userHandler.GetUserList)               // handler\system\user.go
-		userMgmt.POST("/create", r.userHandler.CreateUser)             // handler\system\user.go
-		userMgmt.GET("/:id", r.userHandler.GetUserByID)                // handler\system\user.go
-		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID)       // handler\system\user.go 获取用户全量信息
-		userMgmt.POST("/:id", r.userHandler.UpdateUserByID)            // handler\system\user.go
-		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)              // handler\system\user.go
-		userMgmt.POST("/:id/activate", r.userHandler.ActivateUser)     // handler\system\user.go
-		userMgmt.POST("/:id/deactivate", r.userHandler.DeactivateUser) // handler\system\user.go
-		// userMgmt.POST("/:id/reset-password", r.userHandler.ResetUserPassword)
+		userMgmt.GET("/list", r.userHandler.GetUserList)                      // handler\system\user.go
+		userMgmt.POST("/create", r.userHandler.CreateUser)                    // handler\system\user.go
+		userMgmt.GET("/:id", r.userHandler.GetUserByID)                       // handler\system\user.go
+		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID)              // handler\system\user.go 获取用户全量信息
+		userMgmt.POST("/:id", r.userHandler.UpdateUserByID)                   // handler\system\user.go
+		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)                     // handler\system\user.go
+		userMgmt.POST("/:id/activate", r.userHandler.ActivateUser)            // handler\system\user.go
+		userMgmt.POST("/:id/deactivate", r.userHandler.DeactivateUser)        // handler\system\user.go
+		userMgmt.POST("/:id/reset-password", r.userHandler.ResetUserPassword) // handler\system\user.go
 	}
 
 	// 角色管理

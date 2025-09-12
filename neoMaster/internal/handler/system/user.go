@@ -1170,3 +1170,85 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 		},
 	})
 }
+
+// ResetUserPassword 重置用户密码
+func (h *UserHandler) ResetUserPassword(c *gin.Context) {
+	// 从上下文获取管理员用户ID（中间件已验证并存储）
+	adminIDInterface, exists := c.Get("user_id")
+	if !exists {
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "reset_user_password", "POST", map[string]interface{}{
+			"operation":  "reset_user_password",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		return
+	}
+
+	adminID, ok := adminIDInterface.(uint)
+	if !ok {
+		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "reset_user_password", "POST", map[string]interface{}{
+			"operation":  "reset_user_password",
+			"user_id":    adminIDInterface,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		return
+	}
+
+	// 从URL路径中获取目标用户ID
+	userIDStr := c.Param("id")
+	if userIDStr == "" {
+		logger.LogError(errors.New("missing user ID"), "", adminID, "", "reset_user_password", "POST", map[string]interface{}{
+			"operation": "reset_user_password",
+			"error":     "missing_user_id",
+			"timestamp": logger.NowFormatted(),
+		})
+		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "缺少用户ID"})
+		return
+	}
+
+	userID64, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		logger.LogError(err, "", adminID, "", "reset_user_password", "POST", map[string]interface{}{
+			"operation":  "reset_user_password",
+			"target_id":  userIDStr,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
+		return
+	}
+
+	// 调用服务层重置密码（服务层固定为 123456）
+	if rerr := h.userService.ResetUserPassword(c.Request.Context(), uint(userID64), ""); rerr != nil {
+		logger.LogError(rerr, "", adminID, "", "reset_user_password", "POST", map[string]interface{}{
+			"operation":  "reset_user_password",
+			"target_id":  userID64,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "重置密码失败: " + rerr.Error()})
+		return
+	}
+
+	// 记录成功业务日志
+	logger.LogBusinessOperation("reset_user_password", adminID, "", "", "", "success", "重置用户密码成功", map[string]interface{}{
+		"target_id":  userID64,
+		"client_ip":  c.ClientIP(),
+		"user_agent": c.GetHeader("User-Agent"),
+		"request_id": c.GetHeader("X-Request-ID"),
+		"timestamp":  logger.NowFormatted(),
+	})
+
+	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "重置密码成功"})
+}

@@ -82,13 +82,7 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 	refreshHandler := authHandler.NewRefreshHandler(ts.SessionService)
 	registerHandler := authHandler.NewRegisterHandler(ts.UserService)
 
-	// 检查中间件管理器是否可用
-	if ts.MiddlewareManager == nil {
-		// 返回基本路由用于测试
-		return router
-	}
-
-	// 公开路由
+	// 公开路由（始终注册）
 	public := router.Group("/api/v1")
 	{
 		auth := public.Group("/auth")
@@ -97,6 +91,12 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 			auth.POST("/login", loginHandler.Login)
 			auth.POST("/refresh", refreshHandler.RefreshToken)
 		}
+	}
+
+	// 检查中间件管理器是否可用
+	if ts.MiddlewareManager == nil {
+		// 无中间件时，跳过需要中间件的受保护/管理员路由
+		return router
 	}
 
 	// 需要认证的路由

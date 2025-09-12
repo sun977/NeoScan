@@ -23,6 +23,12 @@ func TestChangePasswordHandler(t *testing.T) {
 	ts := SetupTestEnvironment(t)
 	defer ts.TeardownTestEnvironment(t)
 
+	// 如果关键服务不可用（通常是数据库未连接导致），跳过测试
+	if ts.UserService == nil || ts.SessionService == nil || ts.UserRepo == nil {
+		t.Skip("跳过密码修改处理器测试：依赖服务不可用（可能未连接测试数据库）")
+		return
+	}
+
 	// 创建测试用户请求
 	createUserReq := &model.CreateUserRequest{
 		Username: "testuser_changepassword",
@@ -36,13 +42,13 @@ func TestChangePasswordHandler(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotZero(t, testUser.ID)
 
-// 创建PasswordService
-		passwordService := auth.NewPasswordService(
-			ts.UserService,
-			ts.SessionService,
-			ts.passwordManager,
-			24*time.Hour,
-		)
+	// 创建PasswordService
+	passwordService := auth.NewPasswordService(
+		ts.UserService,
+		ts.SessionService,
+		ts.passwordManager,
+		24*time.Hour,
+	)
 	// 创建处理器
 	userHandler := system.NewUserHandler(ts.UserService, passwordService)
 

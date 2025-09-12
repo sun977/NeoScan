@@ -55,6 +55,12 @@ go test ./neoMaster/test -run ^TestName$ -v
 - change_password_handler_test.go（Handler）
   - 修改密码接口的入参、鉴权与业务路径
 
+- session_handler_test.go（Handler）
+  - 会话管理接口的入参、鉴权与业务路径
+  - 管理员列出用户活跃会话
+  - 管理员撤销指定用户会话
+  - 管理员撤销指定用户所有会话
+
 - data_test.go（数据一致性）
   - 关键实体读写一致性与边界条件验证
 
@@ -101,5 +107,3 @@ go test ./neoMaster/test -run ^TestName$ -v
 ---
 
 如需为新接口补充测试，请参考现有文件的组织方式与断言风格，保持日志与错误信息的一致性。
-
-

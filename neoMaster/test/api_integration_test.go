@@ -110,8 +110,8 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 		
 		userGroup := authRoutes.Group("/user")
 		{
-			userGroup.GET("/profile", userHandler.GetUser)
-			userGroup.PUT("/profile", userHandler.UpdateUser)
+			userGroup.GET("/profile", userHandler.GetUserByID) // 修复方法名
+			userGroup.PUT("/profile", userHandler.UpdateUserByID) // 修复方法名
 			// TODO: 实现密码修改方法
 			// userGroup.POST("/change-password", userHandler.ChangePassword)
 		}
@@ -122,11 +122,11 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 	admin.Use(ts.MiddlewareManager.GinJWTAuthMiddleware())
 	admin.Use(ts.MiddlewareManager.GinAdminRoleMiddleware())
 	{
-		admin.GET("/users", userHandler.GetUsers)
-		admin.POST("/users", userHandler.CreateUser)
-		admin.GET("/users/:id", userHandler.GetUser)
-		admin.PUT("/users/:id", userHandler.UpdateUser)
-		admin.DELETE("/users/:id", userHandler.DeleteUser)
+		admin.GET("/users", userHandler.GetUserList) // 修复方法名
+		admin.POST("/users", userHandler.CreateUser) // 修复方法名
+		admin.GET("/users/:id", userHandler.GetUserByID) // 修复方法名
+		admin.PUT("/users/:id", userHandler.UpdateUserByID) // 修复方法名
+		admin.DELETE("/users/:id", userHandler.DeleteUser) // 修复方法名
 	}
 
 	return router

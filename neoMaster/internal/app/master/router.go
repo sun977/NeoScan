@@ -200,6 +200,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)              // handler\system\user.go
 		userMgmt.POST("/:id/activate", r.userHandler.ActivateUser)     // handler\system\user.go
 		userMgmt.POST("/:id/deactivate", r.userHandler.DeactivateUser) // handler\system\user.go
+		// userMgmt.POST("/:id/reset-password", r.userHandler.ResetUserPassword)
 	}
 
 	// 角色管理

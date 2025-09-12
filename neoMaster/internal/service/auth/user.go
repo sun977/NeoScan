@@ -1658,3 +1658,89 @@ func (s *UserService) DeactivateUser(ctx context.Context, userID uint) error {
 	// 调用通用状态更新函数，体现"好品味"原则：消除特殊情况
 	return s.UpdateUserStatus(ctx, userID, model.UserStatusDisabled)
 }
+
+// 重置用户密码(管理员操作)
+func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPassword string) error {
+	// 参数验证
+	if userID == 0 {
+		logger.LogError(errors.New("invalid user ID for password reset"), "", 0, "", "reset_user_password", "SERVICE", map[string]interface{}{
+			"operation": "parameter_validation",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("用户ID不能为0")
+	}
+
+	// 固定为安全的简单默认密码（满足最小要求）
+	const defaultPassword = "123456"
+
+	// 获取用户以进行存在性和日志校验
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, "", "reset_user_password", "SERVICE", map[string]interface{}{
+			"operation": "get_user_for_reset",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("获取用户失败: %w", err)
+	}
+	if user == nil {
+		logger.LogError(errors.New("user not found for password reset"), "", userID, "", "reset_user_password", "SERVICE", map[string]interface{}{
+			"operation": "user_existence_check",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("用户不存在")
+	}
+
+	// 生成新密码哈希
+	passwordHash, err := s.passwordManager.HashPassword(defaultPassword)
+	if err != nil {
+		logger.LogError(err, "", userID, user.Username, "reset_user_password", "SERVICE", map[string]interface{}{
+			"operation": "hash_password",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("新密码哈希失败: %w", err)
+	}
+
+	// 使用原子方法更新密码并递增版本号
+	if err = s.UpdatePasswordWithVersionHashed(ctx, userID, passwordHash); err != nil {
+		logger.LogError(err, "", userID, user.Username, "reset_user_password", "SERVICE", map[string]interface{}{
+			"operation": "update_password_with_version",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("重置密码失败: %w", err)
+	}
+
+	// 获取新的密码版本（用于日志或后续同步）
+	newPasswordV, err := s.GetUserPasswordVersion(ctx, userID)
+	if err != nil {
+		logger.LogError(err, "", userID, user.Username, "reset_user_password", "SERVICE", map[string]interface{}{
+			"operation": "get_new_password_version",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+		// 不影响主流程
+	}
+
+	// 删除用户所有会话（尽力而为，不影响主流程）
+	if derr := s.redisRepo.DeleteAllUserSessions(ctx, uint64(userID)); derr != nil {
+		logger.LogError(derr, "", userID, user.Username, "reset_user_password", "SERVICE", map[string]interface{}{
+			"operation": "delete_user_sessions",
+			"user_id":   userID,
+			"timestamp": logger.NowFormatted(),
+		})
+	}
+
+	// 记录成功操作
+	logger.LogBusinessOperation("reset_user_password", userID, user.Username, "", "", "success", "用户密码重置成功", map[string]interface{}{
+		"user_id":              userID,
+		"username":             user.Username,
+		"new_password_version": newPasswordV,
+		"timestamp":            logger.NowFormatted(),
+	})
+
+	return nil
+}

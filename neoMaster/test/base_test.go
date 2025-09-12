@@ -51,12 +51,15 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	// 设置测试环境变量
 	os.Setenv("GO_ENV", "test")
 
+	// 确保不使用环境变量重写配置，强制使用 configs/config.test.yaml
+	unsetConfigEnvOverrides()
+
 	// 加载配置文件 - 使用绝对路径
 	configPath := filepath.Join("..", "configs")
 	if _, err := os.Stat("configs"); err == nil {
 		configPath = "configs"
 	}
-	cfg, err := config.LoadConfig(configPath, "development")
+	cfg, err := config.LoadConfig(configPath, "test")
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)
 	}
@@ -124,7 +127,7 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 		)
 		// 然后创建依赖用户服务的其他服务
 		rbacService = authService.NewRBACService(userService)
-		
+
 		// 创建临时的JWTService用于初始化SessionService
 		tempJWTService := authService.NewJWTService(jwtManager, userService, nil)
 		authSvc = authService.NewSessionService(
@@ -134,10 +137,10 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 			rbacService,
 			sessionRepo,
 		)
-		
+
 		// 重新创建JWTService，注入SessionService作为TokenBlacklistService
 		jwtService = authService.NewJWTService(jwtManager, userService, authSvc)
-		
+
 		// 重新创建SessionService以使用正确的JWTService
 		authSvc = authService.NewSessionService(
 			userService,
@@ -166,6 +169,32 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 		passwordManager:   passwordManager,
 		MiddlewareManager: middlewareManager,
 	}
+}
+
+// unsetConfigEnvOverrides 清理可能影响配置加载的 NEOSCAN_* 环境变量
+func unsetConfigEnvOverrides() {
+	_ = os.Unsetenv("NEOSCAN_ENV")
+	_ = os.Unsetenv("NEOSCAN_CONFIG_PATH")
+	// MySQL
+	_ = os.Unsetenv("NEOSCAN_MYSQL_HOST")
+	_ = os.Unsetenv("NEOSCAN_MYSQL_PORT")
+	_ = os.Unsetenv("NEOSCAN_MYSQL_USERNAME")
+	_ = os.Unsetenv("NEOSCAN_MYSQL_PASSWORD")
+	_ = os.Unsetenv("NEOSCAN_MYSQL_DATABASE")
+	// Redis
+	_ = os.Unsetenv("NEOSCAN_REDIS_HOST")
+	_ = os.Unsetenv("NEOSCAN_REDIS_PORT")
+	_ = os.Unsetenv("NEOSCAN_REDIS_PASSWORD")
+	_ = os.Unsetenv("NEOSCAN_REDIS_DATABASE")
+	// JWT
+	_ = os.Unsetenv("NEOSCAN_JWT_SECRET")
+	// CORS/CSRF
+	_ = os.Unsetenv("NEOSCAN_CORS_ALLOW_ORIGINS")
+	_ = os.Unsetenv("NEOSCAN_CSRF_SECRET")
+	// Server
+	_ = os.Unsetenv("NEOSCAN_SERVER_HOST")
+	_ = os.Unsetenv("NEOSCAN_SERVER_PORT")
+	_ = os.Unsetenv("NEOSCAN_SERVER_MODE")
 }
 
 // SetupTestDatabase 设置测试数据库

@@ -59,7 +59,7 @@ func TestAPIIntegration(t *testing.T) {
 func setupTestRouter(ts *TestSuite) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
-	
+
 	// 配置处理方法不允许的情况
 	router.HandleMethodNotAllowed = true
 	router.NoMethod(func(c *gin.Context) {
@@ -70,13 +70,13 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 
 	// 创建处理器
 	// 创建PasswordService
-		passwordService := authService.NewPasswordService(
-			ts.UserService,
-			ts.SessionService,
-			ts.passwordManager,
-			24*time.Hour,
-		)
-		userHandler := system.NewUserHandler(ts.UserService, passwordService)
+	passwordService := authService.NewPasswordService(
+		ts.UserService,
+		ts.SessionService,
+		ts.passwordManager,
+		24*time.Hour,
+	)
+	userHandler := system.NewUserHandler(ts.UserService, passwordService)
 	loginHandler := authHandler.NewLoginHandler(ts.SessionService)
 	logoutHandler := authHandler.NewLogoutHandler(ts.SessionService)
 	refreshHandler := authHandler.NewRefreshHandler(ts.SessionService)
@@ -102,32 +102,51 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 	// 需要认证的路由
 	authRoutes := router.Group("/api/v1")
 	authRoutes.Use(ts.MiddlewareManager.GinJWTAuthMiddleware())
+	authRoutes.Use(ts.MiddlewareManager.GinUserActiveMiddleware())
 	{
 		authGroup := authRoutes.Group("/auth")
 		{
+			// current
 			authGroup.POST("/logout", logoutHandler.Logout)
+			authGroup.POST("/logout-all", logoutHandler.LogoutAll)
 		}
-		
+
 		userGroup := authRoutes.Group("/user")
 		{
-			userGroup.GET("/profile", userHandler.GetUserByID) // 修复方法名
-			userGroup.PUT("/profile", userHandler.UpdateUserByID) // 修复方法名
-			// TODO: 实现密码修改方法
-			// userGroup.POST("/change-password", userHandler.ChangePassword)
+			// new routes per router.go
+			userGroup.GET("/profile", userHandler.GetUserInfoByID)
+			userGroup.POST("/change-password", userHandler.ChangePassword)
+			userGroup.GET("/permissions", userHandler.GetUserPermission)
+			userGroup.GET("/roles", userHandler.GetUserRoles)
+			// keep legacy endpoints used by older tests
+			userGroup.PUT("/profile", userHandler.UpdateUserByID)
 		}
 	}
 
 	// 管理员路由组
 	admin := router.Group("/api/v1/admin")
 	admin.Use(ts.MiddlewareManager.GinJWTAuthMiddleware())
+	admin.Use(ts.MiddlewareManager.GinUserActiveMiddleware())
 	admin.Use(ts.MiddlewareManager.GinAdminRoleMiddleware())
 	{
-		admin.GET("/users", userHandler.GetUserList) // 修复方法名
-		admin.POST("/users", userHandler.CreateUser) // 修复方法名
-		admin.GET("/users/:id", userHandler.GetUserByID) // 修复方法名
-		admin.PUT("/users/:id", userHandler.UpdateUserByID) // 修复方法名
-		admin.DELETE("/users/:id", userHandler.DeleteUser) // 修复方法名
+		// align with router.go and keep legacy routes
+		admin.GET("/users/list", userHandler.GetUserList)
+		admin.POST("/users/create", userHandler.CreateUser)
+		admin.GET("/users/:id", userHandler.GetUserByID)
+		admin.GET("/users/:id/info", userHandler.GetUserInfoByID)
+		admin.POST("/users/:id", userHandler.UpdateUserByID)
+		admin.DELETE("/users/:id", userHandler.DeleteUser)
+		admin.POST("/users/:id/activate", userHandler.ActivateUser)
+		admin.POST("/users/:id/deactivate", userHandler.DeactivateUser)
+		admin.POST("/users/:id/reset-password", userHandler.ResetUserPassword)
+
+		// legacy endpoints kept for older assertions
+		admin.GET("/users", userHandler.GetUserList)
+		admin.POST("/users", userHandler.CreateUser)
+		admin.PUT("/users/:id", userHandler.UpdateUserByID)
 	}
+
+	// TODO: wire role and permission admin endpoints when needed in tests
 
 	return router
 }
@@ -401,11 +420,11 @@ func testUserInfoAPI(t *testing.T, ts *TestSuite) {
 	// 检查返回的用户信息
 	userDataBytes, err := json.Marshal(response.Data)
 	AssertNoError(t, err, "序列化用户数据不应该出错")
-	
+
 	var userData map[string]interface{}
 	err = json.Unmarshal(userDataBytes, &userData)
 	AssertNoError(t, err, "反序列化用户数据不应该出错")
-	
+
 	// 验证用户数据字段
 	AssertEqual(t, float64(testUser.ID), userData["id"], "用户ID应该匹配")
 	AssertEqual(t, testUser.Username, userData["username"], "用户名应该匹配")

@@ -371,51 +371,90 @@ func testTokenRefreshAPI(t *testing.T, ts *TestSuite) {
 func testUserInfoAPI(t *testing.T, ts *TestSuite) {
 	router := setupTestRouter(ts)
 
-	// 创建测试用户并登录
-	user := ts.CreateTestUser(t, "infoapiuser", "infoapi@test.com", "password123")
+	// 创建测试用户
+	testUser := ts.CreateTestUser(t, "infoapiuser", "infoapi@test.com", "password123")
+
+	// 登录获取令牌
 	loginReq := &model.LoginRequest{
 		Username: "infoapiuser",
 		Password: "password123",
 	}
 
-	loginResp, err := ts.SessionService.Login(context.Background(), loginReq, "127.0.0.1", "test-user-agent")
+	loginResp, err := ts.SessionService.Login(context.Background(), loginReq, "192.0.2.1", "test-user-agent")
 	AssertNoError(t, err, "登录不应该出错")
 
 	// 测试获取用户信息
 	req := httptest.NewRequest("GET", "/api/v1/user/profile", nil)
 	req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
 	w := httptest.NewRecorder()
-
 	router.ServeHTTP(w, req)
 
-	AssertEqual(t, http.StatusOK, w.Code, "获取用户信息应该返回200状态码")
+	// 应该返回成功响应
+	AssertEqual(t, http.StatusOK, w.Code, "获取用户信息应该成功")
 
-	var response map[string]interface{}
+	// 解析响应
+	var response model.APIResponse
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 	AssertNoError(t, err, "解析响应不应该出错")
+	AssertEqual(t, "success", response.Status, "响应状态应该是success")
 
-	AssertEqual(t, "success", response["status"], "响应状态应该是success")
-	userData := response["data"].(map[string]interface{})
-	AssertEqual(t, float64(user.ID), userData["id"], "用户ID应该匹配")
-	AssertEqual(t, user.Username, userData["username"], "用户名应该匹配")
-	AssertEqual(t, user.Email, userData["email"], "邮箱应该匹配")
+	// 检查返回的用户信息
+	userDataBytes, err := json.Marshal(response.Data)
+	AssertNoError(t, err, "序列化用户数据不应该出错")
+	
+	var userData map[string]interface{}
+	err = json.Unmarshal(userDataBytes, &userData)
+	AssertNoError(t, err, "反序列化用户数据不应该出错")
+	
+	// 验证用户数据字段
+	AssertEqual(t, float64(testUser.ID), userData["id"], "用户ID应该匹配")
+	AssertEqual(t, testUser.Username, userData["username"], "用户名应该匹配")
+	AssertEqual(t, testUser.Email, userData["email"], "邮箱应该匹配")
 
-	// 测试无令牌访问
-	req2 := httptest.NewRequest("GET", "/api/v1/user/profile", nil)
+	// 测试权限验证API
+	// 创建测试用户
+	// testUser := ts.CreateTestUser(t, "permuser", "perm@test.com", "password123")
+
+	// 登录获取令牌
+	loginReq2 := &model.LoginRequest{
+		Username: "normaluser",
+		Password: "password123",
+	}
+
+	loginResp2, err := ts.SessionService.Login(context.Background(), loginReq2, "192.0.2.1", "test-user-agent")
+	AssertNoError(t, err, "登录不应该出错")
+
+	// 测试权限验证
+	req2 := httptest.NewRequest("GET", "/api/v1/user/permissions", nil)
+	req2.Header.Set("Authorization", "Bearer "+loginResp2.AccessToken)
 	w2 := httptest.NewRecorder()
-
 	router.ServeHTTP(w2, req2)
 
-	AssertEqual(t, http.StatusUnauthorized, w2.Code, "无令牌访问应该返回401状态码")
+	// 应该返回成功响应
+	AssertEqual(t, http.StatusOK, w2.Code, "权限验证应该成功")
 
-	// 测试无效令牌访问
+	// 解析响应
+	var response2 model.APIResponse
+	err = json.Unmarshal(w2.Body.Bytes(), &response2)
+	AssertNoError(t, err, "解析响应不应该出错")
+	AssertEqual(t, "success", response2.Status, "响应状态应该是success")
+
+	// 测试无令牌访问
 	req3 := httptest.NewRequest("GET", "/api/v1/user/profile", nil)
-	req3.Header.Set("Authorization", "Bearer invalid.token")
 	w3 := httptest.NewRecorder()
 
 	router.ServeHTTP(w3, req3)
 
-	AssertEqual(t, http.StatusUnauthorized, w3.Code, "无效令牌访问应该返回401状态码")
+	AssertEqual(t, http.StatusUnauthorized, w3.Code, "无令牌访问应该返回401状态码")
+
+	// 测试无效令牌访问
+	req4 := httptest.NewRequest("GET", "/api/v1/user/profile", nil)
+	req4.Header.Set("Authorization", "Bearer invalid.token")
+	w4 := httptest.NewRecorder()
+
+	router.ServeHTTP(w4, req4)
+
+	AssertEqual(t, http.StatusUnauthorized, w4.Code, "无效令牌访问应该返回401状态码")
 }
 
 // testPermissionValidationAPI 测试权限验证API
@@ -446,41 +485,49 @@ func testPermissionValidationAPI(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "管理员用户登录不应该出错")
 
 	// 测试普通用户访问管理员接口（应该被拒绝）
-	req1 := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
-	req1.Header.Set("Authorization", "Bearer "+normalLoginResp.AccessToken)
-	w1 := httptest.NewRecorder()
+	t.Run("普通用户访问管理员接口", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
+		req.Header.Set("Authorization", "Bearer "+normalLoginResp.AccessToken)
+		w := httptest.NewRecorder()
 
-	router.ServeHTTP(w1, req1)
+		router.ServeHTTP(w, req)
 
-	AssertEqual(t, http.StatusForbidden, w1.Code, "普通用户访问管理员接口应该返回403状态码")
+		AssertEqual(t, http.StatusForbidden, w.Code, "普通用户访问管理员接口应该返回403状态码")
+	})
 
 	// 测试管理员用户访问管理员接口（应该成功）
-	req2 := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
-	req2.Header.Set("Authorization", "Bearer "+adminLoginResp.AccessToken)
-	w2 := httptest.NewRecorder()
+	t.Run("管理员用户访问管理员接口", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
+		req.Header.Set("Authorization", "Bearer "+adminLoginResp.AccessToken)
+		w := httptest.NewRecorder()
 
-	router.ServeHTTP(w2, req2)
+		router.ServeHTTP(w, req)
 
-	// 注意：这里可能返回200或其他状态码，取决于具体实现
-	// 重要的是不应该返回403（禁止访问）
-	AssertNotEqual(t, http.StatusForbidden, w2.Code, "管理员用户访问管理员接口不应该返回403状态码")
+		// 注意：这里可能返回200或其他状态码，取决于具体实现
+		// 重要的是不应该返回403（禁止访问）
+		AssertNotEqual(t, http.StatusForbidden, w.Code, "管理员用户访问管理员接口不应该返回403状态码")
+	})
 
 	// 测试无令牌访问管理员接口
-	req3 := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
-	w3 := httptest.NewRecorder()
+	t.Run("无令牌访问管理员接口", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
+		w := httptest.NewRecorder()
 
-	router.ServeHTTP(w3, req3)
+		router.ServeHTTP(w, req)
 
-	AssertEqual(t, http.StatusUnauthorized, w3.Code, "无令牌访问管理员接口应该返回401状态码")
+		AssertEqual(t, http.StatusUnauthorized, w.Code, "无令牌访问管理员接口应该返回401状态码")
+	})
 
 	// 测试普通用户访问普通接口（应该成功）
-	req4 := httptest.NewRequest("GET", "/api/v1/user/profile", nil)
-	req4.Header.Set("Authorization", "Bearer "+normalLoginResp.AccessToken)
-	w4 := httptest.NewRecorder()
+	t.Run("普通用户访问普通接口", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/user/profile", nil)
+		req.Header.Set("Authorization", "Bearer "+normalLoginResp.AccessToken)
+		w := httptest.NewRecorder()
 
-	router.ServeHTTP(w4, req4)
+		router.ServeHTTP(w, req)
 
-	AssertEqual(t, http.StatusOK, w4.Code, "普通用户访问普通接口应该返回200状态码")
+		AssertEqual(t, http.StatusOK, w.Code, "普通用户访问普通接口应该返回200状态码")
+	})
 }
 
 // testCompleteUserFlow 测试完整的用户流程

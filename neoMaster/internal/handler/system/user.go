@@ -188,6 +188,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 			"nickname":   createdUser.Nickname,
 			"phone":      createdUser.Phone,
 			"status":     createdUser.Status,
+			"remark":     createdUser.Remark,
 			"created_at": createdUser.CreatedAt,
 		},
 	}

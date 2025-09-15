@@ -241,6 +241,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 			Avatar:      user.Avatar,
 			Phone:       user.Phone,
 			Status:      user.Status,
+			LastLoginIP: user.LastLoginIP, // 添加最后登录IP
 			LastLoginAt: user.LastLoginAt,
 			CreatedAt:   user.CreatedAt,
 			UpdatedAt:   user.UpdatedAt,

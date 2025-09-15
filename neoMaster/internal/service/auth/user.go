@@ -266,6 +266,14 @@ func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserReque
 		Password:  hashedPassword, // 使用哈希后的密码
 		Status:    model.UserStatusEnabled,
 		PasswordV: 1, // 设置密码版本
+		// 将角色ID转换为角色对象切片
+		Roles: func() []*model.Role {
+			roles := make([]*model.Role, len(req.RoleIDs))
+			for i, id := range req.RoleIDs {
+				roles[i] = &model.Role{ID: id}
+			}
+			return roles
+		}(),
 	}
 
 	// 存储到数据库

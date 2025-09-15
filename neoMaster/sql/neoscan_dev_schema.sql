@@ -116,7 +116,11 @@ INSERT INTO `permissions` (`name`, `display_name`, `description`, `resource`, `a
 ('role:read', '查看角色', '查看角色信息的权限', 'role', 'read'),
 ('role:update', '更新角色', '更新角色信息的权限', 'role', 'update'),
 ('role:delete', '删除角色', '删除角色的权限', 'role', 'delete'),
-('permission:read', '查看权限', '查看权限信息的权限', 'permission', 'read');
+('permission:create', '创建权限', '创建新权限的权限', 'permission', 'create'),
+('permission:read', '查看权限', '查看权限信息的权限', 'permission', 'read'),
+('permission:update', '更新权限', '更新权限信息的权限', 'permission', 'update'),
+('permission:delete', '删除权限', '删除权限的权限', 'permission', 'delete');
+
 
 -- 为管理员角色分配所有权限
 INSERT INTO `role_permissions` (`role_id`, `permission_id`) 
@@ -128,7 +132,7 @@ WHERE r.name = 'admin';
 INSERT INTO `role_permissions` (`role_id`, `permission_id`) 
 SELECT r.id, p.id 
 FROM `roles` r, `permissions` p 
-WHERE r.name = 'user' AND p.name IN ('user:read', 'role:read', 'permission:read');
+WHERE r.name = 'user' AND p.name IN ('user:read', 'user:update', 'role:read', 'permission:read');
 
 -- 为访客用户分配只读权限
 INSERT INTO `role_permissions` (`role_id`, `permission_id`) 

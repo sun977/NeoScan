@@ -149,6 +149,29 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// 给新注册的用户分配角色 普通用户 role_id = 2 【注册服务的响应体里面有 user_id 】
+	err = h.userService.AssignRoleToUser(c.Request.Context(), uint(response.User.ID), 2)
+	if err != nil {
+		// 记录角色分配失败错误日志
+		logger.LogError(err, "", 0, req.Username, "user_register_assign_role", "POST", map[string]interface{}{
+			"operation":   "register",
+			"email":       req.Email,
+			"client_ip":   clientIP,
+			"user_agent":  userAgent,
+			"request_id":  c.GetHeader("X-Request-ID"),
+			"timestamp":   logger.NowFormatted(),
+			"role_id":     2,
+			"role_name":   "普通用户",
+			"assign_type": "default",
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "role assignment failed",
+			Error:   err.Error(),
+		})
+	}
+
 	// 记录注册成功业务日志
 	logger.LogBusinessOperation("user_register", uint(response.User.ID), req.Username, "", "", "success", "用户注册成功", map[string]interface{}{
 		"operation":  "register",

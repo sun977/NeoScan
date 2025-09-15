@@ -63,6 +63,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		clientIPRaw = c.ClientIP()
 	}
 	clientIP := utils.NormalizeIP(clientIPRaw)
+	userAgent := c.GetHeader("User-Agent")
 
 	// 检查Content-Type
 	contentType := c.GetHeader("Content-Type")
@@ -71,7 +72,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		logger.LogError(errors.New("missing Content-Type header"), "", 0, "", "user_register", "POST", map[string]interface{}{
 			"operation":  "register",
 			"client_ip":  clientIP,
-			"user_agent": c.GetHeader("User-Agent"),
+			"user_agent": userAgent,
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
 		})
@@ -126,15 +127,15 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	}
 
 	// 调用服务层进行注册
-	response, err := h.userService.Register(c.Request.Context(), &req)
+	response, err := h.userService.Register(c.Request.Context(), &req, clientIP)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录注册失败错误日志
 		logger.LogError(err, "", 0, req.Username, "user_register", "POST", map[string]interface{}{
 			"operation":   "register",
 			"email":       req.Email,
-			"client_ip":   c.ClientIP(),
-			"user_agent":  c.GetHeader("User-Agent"),
+			"client_ip":   clientIP,
+			"user_agent":  userAgent,
 			"status_code": statusCode,
 			"request_id":  c.GetHeader("X-Request-ID"),
 			"timestamp":   logger.NowFormatted(),
@@ -152,8 +153,8 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	logger.LogBusinessOperation("user_register", uint(response.User.ID), req.Username, "", "", "success", "用户注册成功", map[string]interface{}{
 		"operation":  "register",
 		"email":      req.Email,
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
 		"request_id": c.GetHeader("X-Request-ID"),
 		"timestamp":  logger.NowFormatted(),
 	})

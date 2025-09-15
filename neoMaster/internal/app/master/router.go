@@ -174,6 +174,8 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 		user.GET("/profile", r.userHandler.GetUserInfoByID) // handler\system\user.go
 		// 修改用户密码
 		user.POST("/change-password", r.userHandler.ChangePassword) // handler\system\user.go
+		// 更新用户信息（需要补充）
+		// user.POST("/update", r.userHandler.UpdateUserInfo) // handler\system\user.go
 		// 获取用户权限
 		user.GET("/permissions", r.userHandler.GetUserPermission) // handler\system\user.go
 		// 获取用户角色
@@ -189,7 +191,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	admin.Use(r.middlewareManager.GinUserActiveMiddleware())
 	admin.Use(r.middlewareManager.GinAdminRoleMiddleware()) // 这里已经添加了管理员权限检查
 
-	// 用户管理
+	// 用户管理(系统管理员管理用户)
 	userMgmt := admin.Group("/users")
 	{
 		userMgmt.GET("/list", r.userHandler.GetUserList)                      // handler\system\user.go

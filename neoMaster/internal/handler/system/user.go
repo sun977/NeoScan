@@ -744,7 +744,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 }
 
 // DeleteUser 删除用户
-// @Summary 删除用户
+// @Summary 删除用户【硬删除】
 // @Description 根据用户ID删除用户，包含级联删除用户角色关联
 // @Tags 用户管理
 // @Accept json

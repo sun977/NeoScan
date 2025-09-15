@@ -333,45 +333,35 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 // GetUserInfoByID 获取单个用户信息【完成】
 func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user", "GET", map[string]interface{}{
-			"operation":  "get_user",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
-		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
-			Code:    http.StatusInternalServerError,
+	// 从url中获取用户ID
+	userIDStr := c.Param("id")
+	if userIDStr == "" {
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "user_id not found in context",
+			Message: "user id is required",
 		})
 		return
 	}
 
-	// 类型断言获取用户ID
-	userID, ok := userIDInterface.(uint)
-	if !ok {
-		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), "", 0, "", "get_user", "GET", map[string]interface{}{
-			"operation":  "get_user",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
+	// 转换用户ID为uint类型
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		// 记录用户ID格式错误日志
+		logger.LogError(err, "", 0, "", "get_user_info_by_id", "GET", map[string]interface{}{
+			"user_id_str": userIDStr,
+			"error":       "invalid_user_id_format",
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
-			Code:    http.StatusInternalServerError,
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "invalid user_id type",
+			Message: "invalid user id format",
 		})
 		return
 	}
 
 	// 调用服务层获取用户信息
-	userInfo, err := h.userService.GetUserInfoByID(c.Request.Context(), userID)
+	userInfo, err := h.userService.GetUserInfoByID(c.Request.Context(), uint(userID))
 	if err != nil {
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "用户不存在") {

@@ -204,48 +204,39 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 // GetUserByID 获取用户信息
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		// 记录获取用户ID失败错误日志
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
-			"operation":  "get_user_by_id",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
-		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
-			Code:    http.StatusUnauthorized,
+	// userIDInterface, exists := c.Get("user_id")
+	// 从url中获取用户ID
+	userIDStr := c.Param("id")
+	if userIDStr == "" {
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "user context not found",
+			Message: "user id is required",
 		})
 		return
 	}
 
-	// 类型转换用户ID
-	userID, ok := userIDInterface.(uint)
-	if !ok {
-		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
-			"operation":  "get_user_by_id",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
+	// 转换用户ID为uint类型
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		// 记录用户ID格式错误日志
+		logger.LogError(err, "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
+			"user_id_str": userIDStr,
+			"error":       "invalid_user_id_format",
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
-			Code:    http.StatusInternalServerError,
+		c.JSON(http.StatusBadRequest, model.APIResponse{
+			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "invalid user context",
+			Message: "invalid user id format",
 		})
 		return
 	}
 
 	// 调用服务层获取用户信息
-	user, err := h.userService.GetUserByID(c.Request.Context(), userID)
+	user, err := h.userService.GetUserByID(c.Request.Context(), uint(userID))
 	if err != nil {
 		// 记录获取用户详细信息失败错误日志
-		logger.LogError(err, "", userID, "", "get_user_by_id", "GET", map[string]interface{}{
+		logger.LogError(err, "", uint(userID), "", "get_user_by_id", "GET", map[string]interface{}{
 			"operation":  "get_user_by_id",
 			"user_id":    userID,
 			"client_ip":  c.ClientIP(),
@@ -263,7 +254,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	}
 
 	// 记录获取用户信息成功业务日志
-	logger.LogBusinessOperation("get_user_by_id", userID, user.Username, "", "", "success", "获取用户信息成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_user_by_id", uint(userID), user.Username, "", "", "success", "获取用户信息成功", map[string]interface{}{
 		"operation":   "get_user_by_id",
 		"user_id":     userID,
 		"username":    user.Username,

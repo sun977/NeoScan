@@ -52,10 +52,11 @@ func NewUserService(
 
 // Register 用户注册
 // 处理用户注册请求，包括参数验证、用户名/邮箱唯一性检查、密码哈希等
-func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest) (*model.RegisterResponse, error) {
+// 增加注册源头IP
+func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, clientIP string) (*model.RegisterResponse, error) {
 	// 参数验证
 	if req == nil {
-		logger.LogError(errors.New("register request is nil"), "", 0, "", "user_register", "POST", map[string]interface{}{
+		logger.LogError(errors.New("register request is nil"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -63,7 +64,7 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest) 
 	}
 
 	if req.Username == "" {
-		logger.LogError(errors.New("username is empty"), "", 0, "", "user_register", "POST", map[string]interface{}{
+		logger.LogError(errors.New("username is empty"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -124,12 +125,13 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest) 
 
 	// 创建用户对象
 	user := &model.User{
-		Username:  req.Username,
-		Email:     req.Email,
-		Nickname:  req.Nickname,
-		Password:  hashedPassword, // 使用哈希后的密码
-		Status:    model.UserStatusEnabled,
-		PasswordV: 1, // 设置密码版本
+		Username:    req.Username,
+		Email:       req.Email,
+		Nickname:    req.Nickname,
+		Password:    hashedPassword, // 使用哈希后的密码
+		Status:      model.UserStatusEnabled,
+		PasswordV:   1,        // 设置密码版本
+		LastLoginIP: clientIP, // 注册时记录注册IP到 LastLoginIP 字段
 	}
 
 	// 创建用户

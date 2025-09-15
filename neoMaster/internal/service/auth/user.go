@@ -129,6 +129,7 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 		Email:       req.Email,
 		Nickname:    req.Nickname,
 		Password:    hashedPassword, // 使用哈希后的密码
+		Phone:       req.Phone,
 		Status:      model.UserStatusEnabled,
 		PasswordV:   1,        // 设置密码版本
 		LastLoginIP: clientIP, // 注册时记录注册IP到 LastLoginIP 字段

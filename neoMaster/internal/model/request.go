@@ -35,6 +35,7 @@ type CreateUserRequest struct {
 	Nickname string `json:"nickname"`                                  // 用户昵称，可选
 	Phone    string `json:"phone"`                                     // 手机号码，可选
 	RoleIDs  []uint `json:"role_ids"`                                  // 角色ID列表，可选
+	Remark   string `json:"remark"`                                    // 用户备注，可选
 }
 
 // UpdateUserRequest 更新用户请求结构 【没有userID？】

@@ -6,6 +6,7 @@ import (
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -53,13 +54,23 @@ func (h *RegisterHandler) getErrorStatusCode(err error) int {
 
 // Register 注册处理器
 func (h *RegisterHandler) Register(c *gin.Context) {
+	// 规范化客户端IP与User-Agent（在全流程统一使用）
+	clientIPRaw := c.GetHeader("X-Forwarded-For")
+	if clientIPRaw == "" {
+		clientIPRaw = c.GetHeader("X-Real-IP")
+	}
+	if clientIPRaw == "" {
+		clientIPRaw = c.ClientIP()
+	}
+	clientIP := utils.NormalizeIP(clientIPRaw)
+
 	// 检查Content-Type
 	contentType := c.GetHeader("Content-Type")
 	if contentType == "" {
 		// 记录Content-Type缺失错误日志
 		logger.LogError(errors.New("missing Content-Type header"), "", 0, "", "user_register", "POST", map[string]interface{}{
 			"operation":  "register",
-			"client_ip":  c.ClientIP(),
+			"client_ip":  clientIP,
 			"user_agent": c.GetHeader("User-Agent"),
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
@@ -149,7 +160,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 
 	// 返回成功响应
 	c.JSON(http.StatusCreated, model.APIResponse{
-		Code:    http.StatusCreated,
+		Code:    http.StatusCreated, // 201 Created 表示资源创建成功
 		Status:  "success",
 		Message: "registration successful",
 		Data:    response,

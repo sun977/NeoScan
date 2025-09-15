@@ -106,7 +106,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
-			Code:    http.StatusBadRequest,
+			Code:    http.StatusBadRequest, // 400
 			Status:  "error",
 			Message: "validation failed",
 			Error:   err.Error(),

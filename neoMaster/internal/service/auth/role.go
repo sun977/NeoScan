@@ -418,6 +418,10 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 	permissionsChanged := false
 
 	// 应用更新
+	if req.Name != "" && req.Name != role.Name {
+		role.Name = req.Name
+	}
+
 	if req.DisplayName != "" && req.DisplayName != role.DisplayName {
 		role.DisplayName = req.DisplayName
 	}

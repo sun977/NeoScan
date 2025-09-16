@@ -68,6 +68,7 @@ type CreateRoleRequest struct {
 
 // UpdateRoleRequest 更新角色请求结构
 type UpdateRoleRequest struct {
+	Name          string      `json:"name"`           // 角色名称，可选
 	DisplayName   string      `json:"display_name"`   // 角色显示名称，可选
 	Description   string      `json:"description"`    // 角色描述，可选
 	Status        *RoleStatus `json:"status"`         // 角色状态，可选，使用指针以区分零值和未设置

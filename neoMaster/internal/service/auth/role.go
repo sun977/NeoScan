@@ -372,7 +372,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ 
 	}
 
 	// 业务规则：系统角色保护机制（可以根据需要添加）
-	// 例如：某些系统内置角色不能被修改
+	// 例如：某些系统内置角色不能被修改(角色1为系统管理员角色)
 	if roleID == 1 {
 		logger.LogError(errors.New("system role cannot be updated"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
 			"operation": "business_rule_check",
@@ -418,10 +418,10 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 	permissionsChanged := false
 
 	// 应用更新
-	if req.DisplayName != "" {
+	if req.DisplayName != "" && req.DisplayName != role.DisplayName {
 		role.DisplayName = req.DisplayName
 	}
-	if req.Description != "" {
+	if req.Description != "" && req.Description != role.Description {
 		role.Description = req.Description
 	}
 	if req.Status != nil && *req.Status != role.Status {

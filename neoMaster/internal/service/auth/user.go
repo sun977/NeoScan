@@ -580,11 +580,20 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*model.
 func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
 	// 第一层：参数验证层
 	if err := s.validateUpdateUserParams(userID, req); err != nil {
+		// userID 不为 0
+		// 请求包 req 不为空
+		// 邮箱字段格式验证
+		// 密码字段强度验证(6<PASS<128 包含一个字母一个数字)
+		// 用户状态值校验(激活|禁用)
 		return nil, err
 	}
 
 	// 第二层：业务规则验证层
 	user, err := s.validateUserForUpdate(ctx, userID, req)
+	// 验证用户是否存在
+	// 验证用户是否被删除
+	// 管理员角色不能被禁用(userID != 1)
+	// 邮箱字段满足唯一性
 	if err != nil {
 		return nil, err
 	}
@@ -642,7 +651,7 @@ func (s *UserService) validateUpdateUserParams(userID uint, req *model.UpdateUse
 		}
 	}
 
-	// 验证状态值
+	// 验证状态值(激活|禁用)
 	if req.Status != nil {
 		if *req.Status < 0 || *req.Status > 2 {
 			logger.LogError(errors.New("invalid status value"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
@@ -652,7 +661,7 @@ func (s *UserService) validateUpdateUserParams(userID uint, req *model.UpdateUse
 				"error":     "invalid_status_value",
 				"timestamp": logger.NowFormatted(),
 			})
-			return errors.New("用户状态值无效，必须为0(禁用)、1(启用)或2(锁定)")
+			return errors.New("用户状态值无效，必须为0(禁用)、1(启用)")
 		}
 	}
 
@@ -661,7 +670,7 @@ func (s *UserService) validateUpdateUserParams(userID uint, req *model.UpdateUse
 
 // validateUserForUpdate 验证用户是否可以更新
 func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
-	// 检查用户是否存在
+	// 检查用户是否存在(User 模型字段都可以获得)
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
@@ -772,8 +781,28 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *model.User, r
 	passwordChanged := false
 
 	// 应用更新
+	if req.Username != "" && req.Username != user.Username {
+		user.Username = req.Username
+	}
+
+	if req.Nickname != "" && req.Nickname != user.Nickname {
+		user.Nickname = req.Nickname
+	}
+
+	if req.Phone != "" && req.Phone != user.Phone {
+		user.Phone = req.Phone
+	}
+
 	if req.Email != "" && req.Email != user.Email {
 		user.Email = req.Email
+	}
+
+	if req.Avatar != "" && req.Avatar != user.Avatar {
+		user.Avatar = req.Avatar
+	}
+
+	if req.Remark != "" && req.Remark != user.Remark {
+		user.Remark = req.Remark
 	}
 
 	if req.Status != nil && *req.Status != user.Status {
@@ -796,6 +825,13 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *model.User, r
 		user.Password = hashedPassword
 		user.PasswordV++ // 增加密码版本
 		passwordChanged = true
+	}
+
+	// 更新用户角色(角色数据不在这里更新)
+
+	// socket_id 更新
+	if req.SocketID != "" && req.SocketID != user.SocketId {
+		user.SocketId = req.SocketID
 	}
 
 	// 更新到数据库

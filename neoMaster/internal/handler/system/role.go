@@ -98,7 +98,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		return
 	}
 
-	// 调用服务层创建角色
+	// 调用服务层创建角色(可以添加权限)
 	role, err := h.roleService.CreateRole(c.Request.Context(), &req)
 	if err != nil {
 		logger.LogError(err, "", userID, "", "create_role", "POST", map[string]interface{}{

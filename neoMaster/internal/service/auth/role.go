@@ -339,7 +339,8 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 // validateRoleForUpdate 验证角色是否可以更新
 func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ *model.UpdateRoleRequest) (*model.Role, error) {
 	// 检查角色是否存在
-	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
+	// role, err := s.roleRepo.GetRoleByID(ctx, roleID)
+	roleWithPermissions, err := s.roleRepo.GetRoleWithPermissions(ctx, roleID)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
 			"operation": "role_existence_check",
@@ -350,7 +351,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ 
 		return nil, fmt.Errorf("获取角色失败: %w", err)
 	}
 
-	if role == nil {
+	if roleWithPermissions == nil {
 		logger.LogError(errors.New("role not found for update"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
 			"operation": "role_existence_check",
 			"role_id":   roleID,
@@ -361,15 +362,15 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ 
 	}
 
 	// 检查角色状态 - 已删除的角色不能更新
-	if role.DeletedAt != nil {
-		logger.LogError(errors.New("role already deleted"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
-			"operation": "role_status_check",
-			"role_id":   roleID,
-			"error":     "role_already_deleted",
-			"timestamp": logger.NowFormatted(),
-		})
-		return nil, errors.New("角色已被删除，无法更新")
-	}
+	// if role.DeletedAt != nil {
+	// 	logger.LogError(errors.New("role already deleted"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+	// 		"operation": "role_status_check",
+	// 		"role_id":   roleID,
+	// 		"error":     "role_already_deleted",
+	// 		"timestamp": logger.NowFormatted(),
+	// 	})
+	// 	return nil, errors.New("角色已被删除，无法更新")
+	// }
 
 	// 业务规则：系统角色保护机制（可以根据需要添加）
 	// 例如：某些系统内置角色不能被修改(角色1为系统管理员角色)
@@ -383,7 +384,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ 
 		return nil, errors.New("系统角色不能被更新")
 	}
 
-	return role, nil
+	return roleWithPermissions, nil
 }
 
 // executeRoleUpdate 执行角色更新操作（包含事务处理）
@@ -421,7 +422,6 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 	if req.Name != "" && req.Name != role.Name {
 		role.Name = req.Name
 	}
-
 	if req.DisplayName != "" && req.DisplayName != role.DisplayName {
 		role.DisplayName = req.DisplayName
 	}

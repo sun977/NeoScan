@@ -310,7 +310,8 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 	}
 
 	// 调用服务层获取角色信息
-	role, err := h.roleService.GetRoleByID(c.Request.Context(), uint(roleID))
+	// role, err := h.roleService.GetRoleByID(c.Request.Context(), uint(roleID))
+	role, err := h.roleService.GetRoleWithPermissions(c.Request.Context(), uint(roleID))
 	if err != nil {
 		logger.LogError(err, "", userID, "", "get_role_by_id", "GET", map[string]interface{}{
 			"operation":  "get_role_by_id",
@@ -325,6 +326,25 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取角色信息失败: " + err.Error(),
+		})
+		return
+	}
+
+	// 检查角色是否存在
+	if role == nil {
+		logger.LogError(err, "", userID, "", "get_role_by_id", "GET", map[string]interface{}{
+			"operation":  "get_role_by_id",
+			"user_id":    userID,
+			"role_id":    roleID,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "角色不存在",
 		})
 		return
 	}

@@ -792,6 +792,29 @@ func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (
 		return nil, errors.New("角色ID不能为0")
 	}
 
+	// 从数据库获取角色信息
+	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
+	if err != nil {
+		// 记录数据库查询失败日志
+		logger.LogError(err, "", roleID, "", "get_role_by_id", "SERVICE", map[string]interface{}{
+			"operation": "database_query",
+			"role_id":   roleID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取角色信息失败: %w", err)
+	}
+
+	// 检查角色是否存在
+	if role == nil {
+		// 记录角色不存在日志
+		logger.LogError(errors.New("role not found"), "", roleID, "", "get_role_by_id", "SERVICE", map[string]interface{}{
+			"operation": "role_not_found",
+			"role_id":   roleID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("角色不存在")
+	}
+
 	return s.roleRepo.GetRoleWithPermissions(ctx, roleID)
 }
 

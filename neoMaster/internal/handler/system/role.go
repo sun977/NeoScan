@@ -330,24 +330,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 		return
 	}
 
-	// 检查角色是否存在
-	if role == nil {
-		logger.LogError(err, "", userID, "", "get_role_by_id", "GET", map[string]interface{}{
-			"operation":  "get_role_by_id",
-			"user_id":    userID,
-			"role_id":    roleID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
-			"timestamp":  logger.NowFormatted(),
-		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
-			Code:    http.StatusInternalServerError,
-			Status:  "error",
-			Message: "角色不存在",
-		})
-		return
-	}
+	// 检查角色是否存在(业务层已经校验用户是否存在错误，这里不需要再次处理)
 
 	// 记录成功获取角色信息的业务日志
 	logger.LogBusinessOperation("get_role_by_id", userID, "", "", "", "success", "获取角色信息成功", map[string]interface{}{

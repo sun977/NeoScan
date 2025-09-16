@@ -991,11 +991,27 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 		return
 	}
 
-	// 调用Service层执行激活用户业务逻辑
-	err = h.userService.ActivateUser(c.Request.Context(), uint(userID))
+	// 类型断言检查
 	currentUserID, ok := currentUserIDInterface.(uint)
 	if !ok {
-		// if err != nil {
+		logger.LogError(errors.New("invalid user ID type"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
+			"operation":      "activate_user",
+			"error":          "invalid_user_id_type",
+			"target_user_id": userID,
+			"user_id_value":  currentUserIDInterface,
+			"timestamp":      logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "服务器内部错误",
+		})
+		return
+	}
+
+	// 调用Service层执行激活用户业务逻辑
+	err = h.userService.ActivateUser(c.Request.Context(), uint(userID))
+	if err != nil {
 		// Service层已经记录了详细的错误日志，这里只记录Handler层的处理结果
 		logger.LogError(err, "", uint(currentUserID), "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation":      "activate_user",
@@ -1100,10 +1116,27 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 		return
 	}
 
-	// 调用Service层执行禁用用户业务逻辑
-	err = h.userService.DeactivateUser(c.Request.Context(), uint(userID))
+	// 类型断言检查
 	currentUserID, ok := currentUserIDInterface.(uint)
 	if !ok {
+		logger.LogError(errors.New("invalid user ID type"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
+			"operation":      "deactivate_user",
+			"error":          "invalid_user_id_type",
+			"target_user_id": userID,
+			"user_id_value":  currentUserIDInterface,
+			"timestamp":      logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "服务器内部错误",
+		})
+		return
+	}
+
+	// 调用Service层执行禁用用户业务逻辑
+	err = h.userService.DeactivateUser(c.Request.Context(), uint(userID))
+	if err != nil {
 		// Service层已经记录了详细的错误日志，这里只记录Handler层的处理结果
 		logger.LogError(err, "", uint(currentUserID), "", "deactivate_user", "HANDLER", map[string]interface{}{
 			"operation":      "deactivate_user",

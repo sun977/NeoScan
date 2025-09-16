@@ -38,14 +38,18 @@ type CreateUserRequest struct {
 	Remark   string `json:"remark"`                                    // 用户备注，可选
 }
 
-// UpdateUserRequest 更新用户请求结构 【没有userID？】
+// UpdateUserRequest 更新用户请求结构 【userID 不许修改，其他字段可选】
 type UpdateUserRequest struct {
-	Nickname string      `json:"nickname"`                            // 用户昵称，可选
-	Email    string      `json:"email" validate:"omitempty,email"`    // 邮箱地址，可选，如果提供必须符合邮箱格式
-	Phone    string      `json:"phone"`                               // 手机号码，可选
-	Password string      `json:"password" validate:"omitempty,min=6"` // 密码，可选，如果提供最少6字符
-	Status   *UserStatus `json:"status"`                              // 用户状态，可选，使用指针以区分零值和未设置
-	RoleIDs  []uint      `json:"role_ids"`                            // 角色ID列表，可选
+	Username string      `json:"username" validate:"omitempty,min=3,max=50"` // 用户名，可选，3-50字符
+	Nickname string      `json:"nickname"`                                   // 用户昵称，可选
+	Email    string      `json:"email" validate:"omitempty,email"`           // 邮箱地址，可选，如果提供必须符合邮箱格式
+	Phone    string      `json:"phone"`                                      // 手机号码，可选
+	Password string      `json:"password" validate:"omitempty,min=6"`        // 密码，可选，如果提供最少6字符
+	Status   *UserStatus `json:"status"`                                     // 用户状态，可选，使用指针以区分零值和未设置
+	Avatar   string      `json:"avatar"`                                     // 用户头像，可选
+	SocketID string      `json:"socket_id"`                                  // 套接字ID，可选
+	RoleIDs  []uint      `json:"role_ids"`                                   // 角色ID列表，可选
+	Remark   string      `json:"remark"`                                     // 用户备注，可选
 }
 
 // ChangePasswordRequest 修改密码请求结构

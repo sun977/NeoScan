@@ -975,7 +975,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	}
 
 	// 从上下文获取当前操作用户ID（用于审计日志）
-	currentUserID, exists := c.Get("user_id")
+	currentUserIDInterface, exists := c.Get("user_id")
 	if !exists {
 		logger.LogError(errors.New("unauthorized access"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation":      "activate_user",
@@ -993,9 +993,11 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 
 	// 调用Service层执行激活用户业务逻辑
 	err = h.userService.ActivateUser(c.Request.Context(), uint(userID))
-	if err != nil {
+	currentUserID, ok := currentUserIDInterface.(uint)
+	if !ok {
+		// if err != nil {
 		// Service层已经记录了详细的错误日志，这里只记录Handler层的处理结果
-		logger.LogError(err, "", uint(currentUserID.(float64)), "", "activate_user", "HANDLER", map[string]interface{}{
+		logger.LogError(err, "", uint(currentUserID), "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation":      "activate_user",
 			"error":          "service_call_failed",
 			"target_user_id": userID,
@@ -1027,7 +1029,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	}
 
 	// 记录成功的Handler操作日志
-	logger.LogBusinessOperation("activate_user", uint(currentUserID.(float64)), "", "", "", "success", "Handler层激活用户成功", map[string]interface{}{
+	logger.LogBusinessOperation("activate_user", uint(currentUserID), "", "", "", "success", "Handler层激活用户成功", map[string]interface{}{
 		"operation":      "activate_user",
 		"target_user_id": userID,
 		"operator_id":    currentUserID,
@@ -1082,7 +1084,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	}
 
 	// 从上下文获取当前操作用户ID（用于审计日志）
-	currentUserID, exists := c.Get("user_id")
+	currentUserIDInterface, exists := c.Get("user_id")
 	if !exists {
 		logger.LogError(errors.New("unauthorized access"), "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
 			"operation":      "deactivate_user",
@@ -1100,9 +1102,10 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 
 	// 调用Service层执行禁用用户业务逻辑
 	err = h.userService.DeactivateUser(c.Request.Context(), uint(userID))
-	if err != nil {
+	currentUserID, ok := currentUserIDInterface.(uint)
+	if !ok {
 		// Service层已经记录了详细的错误日志，这里只记录Handler层的处理结果
-		logger.LogError(err, "", uint(currentUserID.(float64)), "", "deactivate_user", "HANDLER", map[string]interface{}{
+		logger.LogError(err, "", uint(currentUserID), "", "deactivate_user", "HANDLER", map[string]interface{}{
 			"operation":      "deactivate_user",
 			"error":          "service_call_failed",
 			"target_user_id": userID,
@@ -1134,7 +1137,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	}
 
 	// 记录成功的Handler操作日志
-	logger.LogBusinessOperation("deactivate_user", uint(currentUserID.(float64)), "", "", "", "success", "Handler层禁用用户成功", map[string]interface{}{
+	logger.LogBusinessOperation("deactivate_user", uint(currentUserID), "", "", "", "success", "Handler层禁用用户成功", map[string]interface{}{
 		"operation":      "deactivate_user",
 		"target_user_id": userID,
 		"operator_id":    currentUserID,

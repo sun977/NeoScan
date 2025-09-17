@@ -269,14 +269,23 @@ func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserReque
 		PasswordV: 1, // 设置密码版本
 		Phone:     req.Phone,
 		Remark:    req.Remark,
-		// 将角色ID转换为角色对象切片
-		Roles: func() []*model.Role {
-			roles := make([]*model.Role, len(req.RoleIDs))
-			for i, id := range req.RoleIDs {
-				roles[i] = &model.Role{ID: id}
-			}
-			return roles
-		}(),
+		// // 将角色ID转换为角色对象切片
+		// Roles: func() []*model.Role {
+		// 	roles := make([]*model.Role, len(req.RoleIDs))
+		// 	for i, id := range req.RoleIDs {
+		// 		roles[i] = &model.Role{ID: id}
+		// 	}
+		// 	return roles
+		// }(),
+	}
+
+	// 处理角色关联(将角色ID转换为角色对象切片)
+	if req.RoleIDs != nil {
+		roles := make([]*model.Role, len(req.RoleIDs))
+		for i, id := range req.RoleIDs {
+			roles[i] = &model.Role{ID: id}
+		}
+		user.Roles = roles
 	}
 
 	// 存储到数据库

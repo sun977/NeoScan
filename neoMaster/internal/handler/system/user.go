@@ -700,6 +700,19 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			})
 			return
 		}
+		if err.Error() == "用户名已存在" {
+			// 用户名冲突，返回409
+			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+				"user_id": userID,
+				"error":   "username_conflict",
+			})
+			c.JSON(http.StatusConflict, model.APIResponse{
+				Code:    http.StatusConflict,
+				Status:  "error",
+				Message: "username already exists",
+			})
+			return
+		}
 		// 其他错误，返回500
 		logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 			"user_id": userID,

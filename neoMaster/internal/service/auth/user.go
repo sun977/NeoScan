@@ -602,6 +602,7 @@ func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *mode
 	// 验证用户是否存在
 	// 验证用户是否被删除
 	// 管理员角色不能被禁用(userID != 1)
+	// 用户名字段满足唯一性
 	// 邮箱字段满足唯一性
 	if err != nil {
 		return nil, err
@@ -727,6 +728,33 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 		}
 	}
 
+	// 用户名唯一性
+	if req.Username != "" && req.Username != user.Username {
+		existingUser, err := s.userRepo.GetUserByUsername(ctx, req.Username)
+		if err != nil {
+			logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation": "username_uniqueness_check",
+				"user_id":   userID,
+				"username":  req.Username,
+				"error":     "database_query_failed",
+				"timestamp": logger.NowFormatted(),
+			})
+			return nil, fmt.Errorf("检查用户名唯一性失败: %w", err)
+		}
+		if existingUser != nil && existingUser.ID != userID {
+			logger.LogError(errors.New("username already exists"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+				"operation":        "username_uniqueness_check",
+				"user_id":          userID,
+				"username":         req.Username,
+				"existing_user_id": existingUser.ID,
+				"error":            "username_already_exists",
+				"timestamp":        logger.NowFormatted(),
+			})
+			return nil, errors.New("用户名已存在")
+		}
+		return user, nil
+	}
+
 	// 检查邮箱唯一性
 	if req.Email != "" && req.Email != user.Email {
 		existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
@@ -836,7 +864,30 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *model.User, r
 		passwordChanged = true
 	}
 
-	// 更新用户角色(角色数据不在这里更新)
+	// 更新用户角色信息(如果有指定角色ID)
+	if req.RoleIDs != nil {
+		// 获取用户角色信息封装到结构体中
+		roles := make([]*model.Role, len(req.RoleIDs))
+		for i, id := range req.RoleIDs {
+			roles[i] = &model.Role{ID: id}
+		}
+		user.Roles = roles
+
+		// 先删除旧的角色关联
+		if err := s.userRepo.DeleteUserRolesByUserID(ctx, tx, user.ID); err != nil {
+			tx.Rollback()
+			logger.LogError(err, "", 0, "", "delete_user", "SERVICE", map[string]interface{}{
+				"operation": "cascade_delete_user_roles",
+				"user_id":   user.ID,
+				"error":     "delete_user_roles_failed",
+				"timestamp": logger.NowFormatted(),
+			})
+			return nil, fmt.Errorf("删除用户角色关联失败: %w", err)
+		}
+
+		// 然后更新为新的角色关联(后续更新操作 UpdateUserWithTx 会创建新的关联)
+
+	}
 
 	// socket_id 更新
 	if req.SocketID != "" && req.SocketID != user.SocketId {

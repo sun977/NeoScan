@@ -48,8 +48,8 @@ type UpdateUserRequest struct {
 	Status   *UserStatus `json:"status"`                                     // 用户状态，可选，使用指针以区分零值和未设置(激活|禁用)
 	Avatar   string      `json:"avatar"`                                     // 用户头像，可选
 	SocketID string      `json:"socket_id"`                                  // 套接字ID，可选
-	// RoleIDs  []uint      `json:"role_ids"`                                   // 角色ID列表，可选(角色修改单独处理)
-	Remark string `json:"remark"` // 用户备注，可选
+	RoleIDs  []uint      `json:"role_ids"`                                   // 角色ID列表，可选(角色修改单独处理)
+	Remark   string      `json:"remark"`                                     // 用户备注，可选
 }
 
 // ChangePasswordRequest 修改密码请求结构

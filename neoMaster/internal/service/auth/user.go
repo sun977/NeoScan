@@ -604,6 +604,7 @@ func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *mode
 	// 管理员角色不能被禁用(userID != 1)
 	// 用户名字段满足唯一性
 	// 邮箱字段满足唯一性
+	// 角色id的有效性校验
 	if err != nil {
 		return nil, err
 	}
@@ -779,6 +780,33 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 				"timestamp":        logger.NowFormatted(),
 			})
 			return nil, errors.New("邮箱已存在")
+		}
+	}
+
+	// 如果角色字段不空，则验证角色ID有效性[判断roleID是否存在]
+	if req.RoleIDs != nil {
+		for _, roleID := range req.RoleIDs {
+			roleExists, err := s.userRepo.UserRoleExistsByID(ctx, roleID)
+			if err != nil {
+				logger.LogError(err, "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+					"operation": "role_existence_check",
+					"user_id":   userID,
+					"role_id":   roleID,
+					"error":     "database_query_failed",
+					"timestamp": logger.NowFormatted(),
+				})
+				return nil, fmt.Errorf("检查角色存在性失败: %w", err)
+			}
+			if !roleExists {
+				logger.LogError(errors.New("role not found"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
+					"operation": "role_existence_check",
+					"user_id":   userID,
+					"role_id":   roleID,
+					"error":     "role_not_found",
+					"timestamp": logger.NowFormatted(),
+				})
+				return nil, errors.New("角色不存在")
+			}
 		}
 	}
 

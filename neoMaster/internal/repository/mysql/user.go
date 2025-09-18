@@ -280,6 +280,20 @@ func (r *UserRepository) UserExists(ctx context.Context, username, email string)
 	return count > 0, err
 }
 
+// UserExistsByID 根据ID判断用户是否存在
+func (r *UserRepository) UserExistsByID(ctx context.Context, id uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Count(&count).Error
+	return count > 0, err
+}
+
+// UserRoleExistsByID 根据ID判断用户角色是否存在(本应该是role.go中的函数,写在这个里为了方便,主要用于用户判定角色有效性)
+func (r *UserRepository) UserRoleExistsByID(ctx context.Context, id uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Role{}).Where("id = ?", id).Count(&count).Error
+	return count > 0, err
+}
+
 // BeginTx 开始事务
 func (r *UserRepository) BeginTx(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Begin()

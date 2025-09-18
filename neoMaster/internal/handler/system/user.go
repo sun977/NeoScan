@@ -713,6 +713,19 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			})
 			return
 		}
+		if err.Error() == "角色不存在" {
+			// 角色不存在，返回409
+			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+				"user_id": userID,
+				"error":   "role_not_found",
+			})
+			c.JSON(http.StatusConflict, model.APIResponse{
+				Code:    http.StatusConflict,
+				Status:  "error",
+				Message: "role not found",
+			})
+			return
+		}
 		// 其他错误，返回500
 		logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 			"user_id": userID,

@@ -180,10 +180,17 @@ func (r *RoleRepository) GetRoleList(ctx context.Context, offset, limit int) ([]
 	return roles, total, err
 }
 
-// RoleExists 检查角色是否存在
-func (r *RoleRepository) RoleExists(ctx context.Context, name string) (bool, error) {
+// RoleExistsByName 检查角色是否存在
+func (r *RoleRepository) RoleExistsByName(ctx context.Context, name string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.Role{}).Where("name = ?", name).Count(&count).Error
+	return count > 0, err
+}
+
+// RoleExistsByID 根据ID判断角色是否存在
+func (r *RoleRepository) RoleExistsByID(ctx context.Context, id uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Role{}).Where("id = ?", id).Count(&count).Error
 	return count > 0, err
 }
 

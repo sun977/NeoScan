@@ -297,6 +297,7 @@ func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *mode
 		// 角色软删除状态不能更新(未启用)
 		// 业务规则1：角色保护,系统管理员角色不能被更新
 		// 角色名称冲突校验,不能重复
+		// 权限id的有效性校验
 		return nil, err
 	}
 
@@ -402,6 +403,31 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 		return nil, errors.New("角色名已存在")
 	}
 
+	// 权限id的有效性校验
+	if req.PermissionIDs != nil {
+		for _, permissionID := range req.PermissionIDs {
+			permission, err := s.roleRepo.GetRolePermissions(ctx, permissionID)
+			if err != nil {
+				logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+					"operation": "permission_existence_check",
+					"role_id":   roleID,
+					"error":     "database_query_failed",
+					"timestamp": logger.NowFormatted(),
+				})
+				return nil, fmt.Errorf("获取权限失败: %w", err)
+			}
+			if permission == nil {
+				logger.LogError(errors.New("permission not found"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+					"operation": "permission_existence_check",
+					"role_id":   roleID,
+					"error":     "permission_not_found",
+					"timestamp": logger.NowFormatted(),
+				})
+				return nil, fmt.Errorf("权限不存在: %w", err)
+			}
+		}
+	}
+
 	// 业务规则：系统角色保护机制（可以根据需要添加）
 	// 例如：某些系统内置角色不能被修改(角色1为系统管理员角色)
 	if roleID == 1 {
@@ -484,20 +510,8 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 			return nil, fmt.Errorf("删除角色权限关联失败: %w", err)
 		}
 
-		// 添加新权限关联
-		// for _, permissionID := range req.PermissionIDs {
-		// 	if err := s.roleRepo.AssignPermissionToRole(ctx, role.ID, permissionID); err != nil {
-		// 		// 记录权限分配失败日志，但不影响角色更新
-		// 		logger.LogError(err, "", role.ID, "", "update_role", "SERVICE", map[string]interface{}{
-		// 			"operation":     "assign_permission_to_role",
-		// 			"role_id":       role.ID,
-		// 			"permission_id": permissionID,
-		// 			"timestamp":     logger.NowFormatted(),
-		// 		})
-		// 	}
-		// }
-
 		// 然后创建新的role_permissions关联表记录(后续操作 UpdateRoleWithTx 会创建新的关联 借助GORM的特性实现的)
+		// bug 请求中携带没有的permissionID时，会创建role_permissions关联表记录，同时在的permissions表中创建新的permissionID记录
 		permissionsChanged = true
 	}
 

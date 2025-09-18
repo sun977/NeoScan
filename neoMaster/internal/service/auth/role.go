@@ -284,12 +284,19 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*mo
 func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) (*model.Role, error) {
 	// 第一层：参数验证层
 	if err := s.validateUpdateRoleParams(roleID, req); err != nil {
+		// roleID 不能为0
+		// 请求包 req 不能为空
+		// 角色状态验证(0-禁用,1-启用)
 		return nil, err
 	}
 
 	// 第二层：业务规则验证层
 	role, err := s.validateRoleForUpdate(ctx, roleID, req)
 	if err != nil {
+		// 角色是否存在
+		// 角色软删除状态不能更新(未启用)
+		// 业务规则1：角色保护,系统管理员角色不能被更新
+		// 角色名称冲突校验,不能重复
 		return nil, err
 	}
 
@@ -337,9 +344,11 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 }
 
 // validateRoleForUpdate 验证角色是否可以更新
-func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ *model.UpdateRoleRequest) (*model.Role, error) {
+func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) (*model.Role, error) {
 	// 检查角色是否存在
-	// role, err := s.roleRepo.GetRoleByID(ctx, roleID)
+	// role, err := s.roleRepo.GetRoleByID(ctx, roleID) [GetRoleByID 只能获取角色的基本信息,不包含权限信息]
+	// [数据库中role表本身不带权限信息,角色权限关联信息在role_permissions表里,需要通过GetRoleWithPermissions方法获取角色及其关联的权限]
+	// model.Role 模型中带有 permissions 字段列表
 	roleWithPermissions, err := s.roleRepo.GetRoleWithPermissions(ctx, roleID)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
@@ -361,7 +370,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ 
 		return nil, errors.New("角色不存在")
 	}
 
-	// 检查角色状态 - 已删除的角色不能更新
+	// 检查角色状态 - 已删除的角色不能更新[GetRoleWithPermissions 方法没有返回角色的软删除状态,所以此方法不可用]
 	// if role.DeletedAt != nil {
 	// 	logger.LogError(errors.New("role already deleted"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
 	// 		"operation": "role_status_check",
@@ -371,6 +380,27 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, _ 
 	// 	})
 	// 	return nil, errors.New("角色已被删除，无法更新")
 	// }
+
+	// 角色名冲突校验
+	roleNameConflict, err := s.roleRepo.GetRoleByName(ctx, req.Name)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+			"operation": "role_name_conflict_check",
+			"role_id":   roleID,
+			"error":     "database_query_failed",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("获取角色名冲突失败: %w", err)
+	}
+	if roleNameConflict != nil && roleNameConflict.ID != roleID {
+		logger.LogError(errors.New("role name already exists"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+			"operation": "role_name_conflict_check",
+			"role_id":   roleID,
+			"error":     "role_name_conflict",
+			"timestamp": logger.NowFormatted(),
+		})
+		return nil, errors.New("角色名已存在")
+	}
 
 	// 业务规则：系统角色保护机制（可以根据需要添加）
 	// 例如：某些系统内置角色不能被修改(角色1为系统管理员角色)

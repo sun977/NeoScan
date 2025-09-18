@@ -86,8 +86,10 @@ type CreatePermissionRequest struct {
 
 // UpdatePermissionRequest 更新权限请求结构
 type UpdatePermissionRequest struct {
-	DisplayName string `json:"display_name"` // 权限显示名称，可选
-	Description string `json:"description"`  // 权限描述，可选
-	Resource    string `json:"resource"`     // 资源标识，可选
-	Action      string `json:"action"`       // 操作标识，可选
+	Name        string            `json:"name"`         // 权限名称，可选
+	DisplayName string            `json:"display_name"` // 权限显示名称，可选
+	Description string            `json:"description"`  // 权限描述，可选
+	Resource    string            `json:"resource"`     // 资源标识，可选
+	Status      *PermissionStatus `json:"status"`       // 权限状态，可选
+	Action      string            `json:"action"`       // 操作标识，可选
 }

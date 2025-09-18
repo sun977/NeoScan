@@ -212,7 +212,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 		roleMgmt.POST("/create", r.roleHandler.CreateRole)             // 创建角色(包含权限分配)
 		roleMgmt.GET("/:id", r.roleHandler.GetRoleByID)                // 获取角色详情
 		roleMgmt.POST("/:id", r.roleHandler.UpdateRole)                // 更新角色(包含权限更新)
-		roleMgmt.DELETE("/:id", r.roleHandler.DeleteRole)              // 删除角色
+		roleMgmt.DELETE("/:id", r.roleHandler.DeleteRole)              // 删除角色(硬删除)
 		roleMgmt.POST("/:id/activate", r.roleHandler.ActivateRole)     // 激活角色
 		roleMgmt.POST("/:id/deactivate", r.roleHandler.DeactivateRole) // 禁用角色
 	}
@@ -221,7 +221,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	permMgmt := admin.Group("/permissions")
 	{
 		permMgmt.GET("/list", r.permissionHandler.GetPermissionList)   // handler\system\permission.go
-		permMgmt.POST("/create", r.permissionHandler.CreatePermission) // handler\system\permission.go
+		permMgmt.POST("/create", r.permissionHandler.CreatePermission) // 创建权限(权限状态默认为启用)
 		permMgmt.GET("/:id", r.permissionHandler.GetPermissionByID)    // handler\system\permission.go
 		permMgmt.POST("/:id", r.permissionHandler.UpdatePermission)    // handler\system\permission.go
 		permMgmt.DELETE("/:id", r.permissionHandler.DeletePermission)  // handler\system\permission.go

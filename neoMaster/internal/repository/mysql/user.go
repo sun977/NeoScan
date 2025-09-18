@@ -318,6 +318,10 @@ func (r *UserRepository) DeleteUserWithTx(ctx context.Context, tx *gorm.DB, user
 // @param tx 事务对象
 // @param user 用户对象
 // @return 错误信息
+// 当执行创建或更新操作时，GORM会:
+// 1.保存用户信息到users表中
+// 2.根据用户的模型user.Roles字段中的对象ID，自动维护user_roles关联表，即自动在user_roles表中插入或更新对应的记录
+// 所以开发者只需要操作user对象即可，不需要单独操作关联表动作，GORM会自动处理关联表的操作
 func (r *UserRepository) UpdateUserWithTx(ctx context.Context, tx *gorm.DB, user *model.User) error {
 	user.UpdatedAt = time.Now()
 	err := tx.WithContext(ctx).Save(user).Error

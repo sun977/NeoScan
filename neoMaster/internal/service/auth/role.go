@@ -464,6 +464,14 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 
 	// 更新权限（如果有指定）
 	if req.PermissionIDs != nil {
+		// 获取请求中权限信息到角色结构体 (不能直接将req的[]uint 赋给role的[]model.Permission，需要转换)
+		permissions := make([]model.Permission, len(req.PermissionIDs))
+		for i, id := range req.PermissionIDs {
+			permissions[i] = model.Permission{ID: id}
+		}
+		// 手动创建permission对象(结构体)，并将req.PermissionIDs中的uint转换为Permission结构体，最后赋值给role.Permissions
+		role.Permissions = permissions
+
 		// 删除现有权限关联
 		if err := s.roleRepo.DeleteRolePermissionsByRoleID(ctx, tx, role.ID); err != nil {
 			tx.Rollback()
@@ -477,17 +485,19 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 		}
 
 		// 添加新权限关联
-		for _, permissionID := range req.PermissionIDs {
-			if err := s.roleRepo.AssignPermissionToRole(ctx, role.ID, permissionID); err != nil {
-				// 记录权限分配失败日志，但不影响角色更新
-				logger.LogError(err, "", role.ID, "", "update_role", "SERVICE", map[string]interface{}{
-					"operation":     "assign_permission_to_role",
-					"role_id":       role.ID,
-					"permission_id": permissionID,
-					"timestamp":     logger.NowFormatted(),
-				})
-			}
-		}
+		// for _, permissionID := range req.PermissionIDs {
+		// 	if err := s.roleRepo.AssignPermissionToRole(ctx, role.ID, permissionID); err != nil {
+		// 		// 记录权限分配失败日志，但不影响角色更新
+		// 		logger.LogError(err, "", role.ID, "", "update_role", "SERVICE", map[string]interface{}{
+		// 			"operation":     "assign_permission_to_role",
+		// 			"role_id":       role.ID,
+		// 			"permission_id": permissionID,
+		// 			"timestamp":     logger.NowFormatted(),
+		// 		})
+		// 	}
+		// }
+
+		// 然后创建新的role_permissions关联表记录(后续操作 UpdateRoleWithTx 会创建新的关联 借助GORM的特性实现的)
 		permissionsChanged = true
 	}
 

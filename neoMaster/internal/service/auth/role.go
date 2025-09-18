@@ -576,7 +576,6 @@ func (s *RoleService) DeleteRole(ctx context.Context, roleID uint) error {
 		// 检查角色是否存在
 		// 检查角色状态 - 已删除的角色不能再次删除
 		// 系统管理员角色不能删除
-		//
 		return err
 	}
 
@@ -846,6 +845,12 @@ func (s *RoleService) ActivateRole(ctx context.Context, roleID uint) error {
 // 将指定角色的状态设置为禁用状态
 func (s *RoleService) DeactivateRole(ctx context.Context, roleID uint) error {
 	// 调用通用状态更新函数，体现"好品味"原则：消除特殊情况
+
+	// 系统角色禁止禁用
+	if roleID == 1 {
+		return errors.New("系统角色禁止禁用")
+	}
+
 	return s.UpdateRoleStatus(ctx, roleID, model.RoleStatusDisabled)
 }
 

@@ -314,7 +314,7 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 			"error":     "role_id_zero",
 			"timestamp": logger.NowFormatted(),
 		})
-		return errors.New("角色ID不能为0")
+		return errors.New("role ID cannot be zero")
 	}
 
 	if req == nil {
@@ -324,7 +324,7 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 			"error":     "request_nil",
 			"timestamp": logger.NowFormatted(),
 		})
-		return errors.New("更新角色请求不能为空")
+		return errors.New("update role request is nil")
 	}
 
 	// 验证状态值
@@ -337,7 +337,7 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 				"error":     "invalid_status_value",
 				"timestamp": logger.NowFormatted(),
 			})
-			return errors.New("角色状态值无效，必须为0(禁用)或1(启用)")
+			return errors.New("role status value invalid, must be 0 (disabled) or 1 (enabled)")
 		}
 	}
 
@@ -358,7 +358,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 			"error":     "database_query_failed",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, fmt.Errorf("获取角色失败: %w", err)
+		return nil, fmt.Errorf("failed to get role with permissions: %w", err)
 	}
 
 	if roleWithPermissions == nil {
@@ -368,7 +368,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 			"error":     "role_not_found",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, errors.New("角色不存在")
+		return nil, errors.New("role id not found")
 	}
 
 	// 检查角色状态 - 已删除的角色不能更新[GetRoleWithPermissions 方法没有返回角色的软删除状态,所以此方法不可用]
@@ -391,7 +391,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 			"error":     "database_query_failed",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, fmt.Errorf("获取角色名冲突失败: %w", err)
+		return nil, fmt.Errorf("failed to get role by name: %w", err)
 	}
 	if roleNameConflict != nil && roleNameConflict.ID != roleID {
 		logger.LogError(errors.New("role name already exists"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
@@ -400,7 +400,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 			"error":     "role_name_conflict",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, errors.New("角色名已存在")
+		return nil, errors.New("role name already exists")
 	}
 
 	// 权限id的有效性校验
@@ -414,7 +414,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 					"error":     "database_query_failed",
 					"timestamp": logger.NowFormatted(),
 				})
-				return nil, fmt.Errorf("获取权限失败: %w", err)
+				return nil, fmt.Errorf("failed to get permission: %w", err)
 			}
 			if permission == nil {
 				logger.LogError(errors.New("permission not found"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
@@ -423,7 +423,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 					"error":     "permission_not_found",
 					"timestamp": logger.NowFormatted(),
 				})
-				return nil, fmt.Errorf("权限不存在: %w", err)
+				return nil, fmt.Errorf("permission not found: %w", err)
 			}
 		}
 	}
@@ -437,7 +437,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 			"error":     "system_role_update_forbidden",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, errors.New("系统角色不能被更新")
+		return nil, errors.New("system role cannot be updated")
 	}
 
 	return roleWithPermissions, nil
@@ -507,7 +507,7 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 				"error":     "delete_permissions_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, fmt.Errorf("删除角色权限关联失败: %w", err)
+			return nil, fmt.Errorf("failed to delete role permissions: %w", err)
 		}
 
 		// 然后创建新的role_permissions关联表记录(后续操作 UpdateRoleWithTx 会创建新的关联 借助GORM的特性实现的)
@@ -524,7 +524,7 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 			"error":     "update_role_failed",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, fmt.Errorf("更新角色失败: %w", err)
+		return nil, fmt.Errorf("failed to update role: %w", err)
 	}
 
 	// 提交事务

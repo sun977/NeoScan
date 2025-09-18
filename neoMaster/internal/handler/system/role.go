@@ -369,7 +369,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
-			Message: "未授权访问",
+			Message: "Unauthorized access",
 		})
 		return
 	}
@@ -387,7 +387,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
-			Message: "内部服务器错误",
+			Message: "Internal server error",
 		})
 		return
 	}
@@ -408,7 +408,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "无效的角色ID",
+			Message: "Invalid role ID",
 		})
 		return
 	}
@@ -428,7 +428,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
-			Message: "请求参数无效: " + bindErr.Error(),
+			Message: "Invalid request parameters: " + bindErr.Error(),
 		})
 		return
 	}
@@ -448,7 +448,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
-			Message: "更新角色失败: " + err.Error(),
+			Message: "Failed to update role: " + err.Error(),
 		})
 		return
 	}
@@ -469,7 +469,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	c.JSON(http.StatusOK, model.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "角色更新成功",
+		Message: "Role updated successfully",
 		Data:    role,
 	})
 }

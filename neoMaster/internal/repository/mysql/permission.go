@@ -105,7 +105,7 @@ func (r *PermissionRepository) UpdatePermissionFields(ctx context.Context, permi
 	return r.db.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", permissionID).Updates(fields).Error
 }
 
-// DeletePermission 软删除权限
+// DeletePermission 删除权限
 func (r *PermissionRepository) DeletePermission(ctx context.Context, permissionID uint) error {
 	result := r.db.WithContext(ctx).Delete(&model.Permission{}, permissionID)
 	if result.Error != nil {

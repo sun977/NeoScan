@@ -369,7 +369,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 		return errors.New("权限不存在")
 	}
 
-	// 事务：删除权限关联，再软删除权限
+	// 事务：删除权限关联，再硬删除权限
 	tx := s.permissionRepo.BeginTx(ctx)
 	if tx == nil {
 		logger.LogError(errors.New("failed to begin transaction"), "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{

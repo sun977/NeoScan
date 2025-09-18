@@ -406,7 +406,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 	// 权限id的有效性校验
 	if req.PermissionIDs != nil {
 		for _, permissionID := range req.PermissionIDs {
-			permission, err := s.roleRepo.GetRolePermissions(ctx, permissionID)
+			permission, err := s.roleRepo.GetRolePermissions(ctx, permissionID) // ?
 			if err != nil {
 				logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
 					"operation": "permission_existence_check",

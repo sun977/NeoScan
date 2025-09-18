@@ -142,6 +142,15 @@ func (r *PermissionRepository) PermissionExists(ctx context.Context, name string
 	return count > 0, nil
 }
 
+// PermissionExistsByID 检查权限是否存在
+func (r *PermissionRepository) PermissionExistsByID(ctx context.Context, id uint) (bool, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", id).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // BeginTx 开始事务
 func (r *PermissionRepository) BeginTx(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Begin()

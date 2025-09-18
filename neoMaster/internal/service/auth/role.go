@@ -403,10 +403,10 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 		return nil, errors.New("role name already exists")
 	}
 
-	// 权限id的有效性校验
+	// 权限id的有效性校验[应该校验权限是否存在]
 	if req.PermissionIDs != nil {
 		for _, permissionID := range req.PermissionIDs {
-			permission, err := s.roleRepo.GetRolePermissions(ctx, permissionID) // ?
+			permissionExists, err := s.roleRepo.RolePermissionExists(ctx, permissionID) // 检查角色关联的权限是否存在
 			if err != nil {
 				logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
 					"operation": "permission_existence_check",
@@ -414,16 +414,16 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 					"error":     "database_query_failed",
 					"timestamp": logger.NowFormatted(),
 				})
-				return nil, fmt.Errorf("failed to get permission: %w", err)
+				return nil, fmt.Errorf("failed to check permission existence: %w", err)
 			}
-			if permission == nil {
+			if !permissionExists {
 				logger.LogError(errors.New("permission not found"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
 					"operation": "permission_existence_check",
 					"role_id":   roleID,
 					"error":     "permission_not_found",
 					"timestamp": logger.NowFormatted(),
 				})
-				return nil, fmt.Errorf("permission not found: %w", err)
+				return nil, fmt.Errorf("permission not found: %d", permissionID)
 			}
 		}
 	}

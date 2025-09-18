@@ -194,6 +194,15 @@ func (r *RoleRepository) RoleExistsByID(ctx context.Context, id uint) (bool, err
 	return count > 0, err
 }
 
+// RolePermissionExists 根据权限ID检查权限是否存在(本应该是permission.go中的函数,写在这个里为了方便,主要用于判定角色的权限是否存在)
+func (r *RoleRepository) RolePermissionExists(ctx context.Context, id uint) (bool, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", id).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // BeginTx 开始事务
 func (r *RoleRepository) BeginTx(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Begin()
@@ -281,6 +290,7 @@ func (r *RoleRepository) RemovePermissionFromRole(ctx context.Context, roleID, p
 }
 
 // GetRolePermissions 获取角色权限
+// 根据角色ID查询该角色所拥有的所有权限列表
 func (r *RoleRepository) GetRolePermissions(ctx context.Context, roleID uint) ([]*model.Permission, error) {
 	var role model.Role
 	err := r.db.WithContext(ctx).Preload("Permissions").First(&role, roleID).Error

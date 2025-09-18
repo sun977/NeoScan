@@ -194,27 +194,27 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 用户管理(系统管理员管理用户)
 	userMgmt := admin.Group("/users")
 	{
-		userMgmt.GET("/list", r.userHandler.GetUserList)                      // handler\system\user.go
-		userMgmt.POST("/create", r.userHandler.CreateUser)                    // 系统管理员创建用户,可以指定角色
-		userMgmt.GET("/:id", r.userHandler.GetUserByID)                       // handler\system\user.go
-		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID)              // 获取用户全量信息
+		userMgmt.GET("/list", r.userHandler.GetUserList)                      // 获取用户列表
+		userMgmt.POST("/create", r.userHandler.CreateUser)                    // 系统管理员创建用户(包含角色分配)
+		userMgmt.GET("/:id", r.userHandler.GetUserByID)                       // 获取用户详情(users表)
+		userMgmt.GET("/:id/info", r.userHandler.GetUserInfoByID)              // 获取用户全量信息(包含权限和角色信息)
 		userMgmt.POST("/:id", r.userHandler.UpdateUserByID)                   // 包含用户角色更新
-		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)                     // handler\system\user.go
-		userMgmt.POST("/:id/activate", r.userHandler.ActivateUser)            // handler\system\user.go
-		userMgmt.POST("/:id/deactivate", r.userHandler.DeactivateUser)        // handler\system\user.go
-		userMgmt.POST("/:id/reset-password", r.userHandler.ResetUserPassword) // handler\system\user.go
+		userMgmt.DELETE("/:id", r.userHandler.DeleteUser)                     // 删除用户(同时删除用户角色关系)
+		userMgmt.POST("/:id/activate", r.userHandler.ActivateUser)            // 激活用户
+		userMgmt.POST("/:id/deactivate", r.userHandler.DeactivateUser)        // 禁用用户
+		userMgmt.POST("/:id/reset-password", r.userHandler.ResetUserPassword) // 重置用户密码
 	}
 
 	// 角色管理
 	roleMgmt := admin.Group("/roles")
 	{
-		roleMgmt.GET("/list", r.roleHandler.GetRoleList)               // handler\system\role.go
-		roleMgmt.POST("/create", r.roleHandler.CreateRole)             // handler\system\role.go
-		roleMgmt.GET("/:id", r.roleHandler.GetRoleByID)                // handler\system\role.go
-		roleMgmt.POST("/:id", r.roleHandler.UpdateRole)                // handler\system\role.go
-		roleMgmt.DELETE("/:id", r.roleHandler.DeleteRole)              // handler\system\role.go
-		roleMgmt.POST("/:id/activate", r.roleHandler.ActivateRole)     // handler\system\role.go
-		roleMgmt.POST("/:id/deactivate", r.roleHandler.DeactivateRole) // handler\system\role.go
+		roleMgmt.GET("/list", r.roleHandler.GetRoleList)               // 获取角色列表
+		roleMgmt.POST("/create", r.roleHandler.CreateRole)             // 创建角色(包含权限分配)
+		roleMgmt.GET("/:id", r.roleHandler.GetRoleByID)                // 获取角色详情
+		roleMgmt.POST("/:id", r.roleHandler.UpdateRole)                // 更新角色(包含权限更新)
+		roleMgmt.DELETE("/:id", r.roleHandler.DeleteRole)              // 删除角色
+		roleMgmt.POST("/:id/activate", r.roleHandler.ActivateRole)     // 激活角色
+		roleMgmt.POST("/:id/deactivate", r.roleHandler.DeactivateRole) // 禁用角色
 	}
 
 	// 权限管理

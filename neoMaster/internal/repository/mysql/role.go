@@ -201,6 +201,7 @@ func (r *RoleRepository) BeginTx(ctx context.Context) *gorm.DB {
 
 // DeleteRolePermissionsByRoleID 删除角色的所有权限关联（事务版本）
 func (r *RoleRepository) DeleteRolePermissionsByRoleID(ctx context.Context, tx *gorm.DB, roleID uint) error {
+	// SQL:DELETE FROM role_permissions WHERE role_id = ?;
 	result := tx.WithContext(ctx).Where("role_id = ?", roleID).Delete(&model.RolePermission{})
 	if result.Error != nil {
 		logger.LogError(result.Error, "", roleID, "", "delete_role_permissions", "DELETE", map[string]interface{}{
@@ -213,8 +214,9 @@ func (r *RoleRepository) DeleteRolePermissionsByRoleID(ctx context.Context, tx *
 	return nil
 }
 
-// DeleteRoleWithTx 使用事务软删除角色
+// DeleteRoleWithTx 使用事务硬删除角色
 func (r *RoleRepository) DeleteRoleWithTx(ctx context.Context, tx *gorm.DB, roleID uint) error {
+	// DELETE FROM roles WHERE id = ?;
 	result := tx.WithContext(ctx).Delete(&model.Role{}, roleID)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", roleID, "", "delete_role_with_tx", "DELETE", map[string]interface{}{

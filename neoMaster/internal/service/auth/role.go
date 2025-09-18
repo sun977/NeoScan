@@ -566,12 +566,17 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 func (s *RoleService) DeleteRole(ctx context.Context, roleID uint) error {
 	// 第一层：参数验证层
 	if err := s.validateDeleteRoleParams(roleID); err != nil {
+		// roleID 不为 0
 		return err
 	}
 
 	// 第二层：业务规则验证层
 	role, err := s.validateRoleForDeletion(ctx, roleID)
 	if err != nil {
+		// 检查角色是否存在
+		// 检查角色状态 - 已删除的角色不能再次删除
+		// 系统管理员角色不能删除
+		//
 		return err
 	}
 
@@ -670,7 +675,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 		}
 	}()
 
-	// 1. 删除角色权限关联
+	// 1. 删除角色权限关联[硬删除]
 	if err := s.roleRepo.DeleteRolePermissionsByRoleID(ctx, tx, role.ID); err != nil {
 		tx.Rollback()
 		logger.LogError(err, "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
@@ -682,7 +687,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 		return fmt.Errorf("删除角色权限关联失败: %w", err)
 	}
 
-	// 2. 软删除角色
+	// 2. 硬删除角色
 	if err := s.roleRepo.DeleteRoleWithTx(ctx, tx, role.ID); err != nil {
 		tx.Rollback()
 		logger.LogError(err, "", 0, "", "delete_role", "SERVICE", map[string]interface{}{

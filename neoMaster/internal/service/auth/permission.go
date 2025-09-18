@@ -55,6 +55,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *model.Cre
 		Name:        req.Name,
 		DisplayName: req.DisplayName,
 		Description: req.Description,
+		Status:      model.PermissionStatusEnabled,
 		Resource:    req.Resource,
 		Action:      req.Action,
 	}
@@ -206,7 +207,7 @@ func (s *PermissionService) UpdatePermissionByID(ctx context.Context, permission
 	if err := s.validateUpdatePermissionParams(permissionID, req); err != nil {
 		return nil, err
 	}
-	permission, err := s.validatePermissionForUpdate(ctx, permissionID)
+	permission, err := s.validatePermissionForUpdate(ctx, permissionID, req)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +236,8 @@ func (s *PermissionService) validateUpdatePermissionParams(permissionID uint, re
 	return nil
 }
 
-func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, permissionID uint) (*model.Permission, error) {
+func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, permissionID uint, req *model.UpdatePermissionRequest) (*model.Permission, error) {
+	// 权限存在校验(permission_id有效性)
 	permission, err := s.permissionRepo.GetPermissionByID(ctx, permissionID)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_permission", "SERVICE", map[string]interface{}{
@@ -255,21 +257,64 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 		})
 		return nil, errors.New("权限不存在")
 	}
+
+	// 系统权限保护机制
+	if permission.ID == 1 {
+		logger.LogError(errors.New("system permission cannot be updated"), "", 0, "", "update_permission", "SERVICE", map[string]interface{}{
+			"operation":     "system_permission_protection",
+			"permission_id": permissionID,
+			"error":         "system_permission_update_prohibited",
+			"timestamp":     logger.NowFormatted(),
+		})
+		return nil, errors.New("系统权限不能被修改")
+	}
+
+	// 权限名称冲突校验,不能重复[请求中的新权限名称不能和数据库中已有的权限名称重复]
+	// 如果数据库本身就有权限名称唯一索引,则这部分校验逻辑可以省略,报错数据库唯一性错误,如下
+	// Error 1062 (23000): Duplicate entry 'permission:delete' for key 'permissions.idx_permissions_name'
+	// 如果数据库本身没有权限名称唯一索引,则下面代码会生效(保证权限名称唯一性)
+	exists, err := s.permissionRepo.PermissionExists(ctx, req.Name)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "update_permission", "SERVICE", map[string]interface{}{
+			"operation":     "permission_name_conflict_check",
+			"permission_id": permissionID,
+			"error":         "database_query_failed",
+			"timestamp":     logger.NowFormatted(),
+		})
+		return nil, fmt.Errorf("检查权限名称冲突失败: %w", err)
+	}
+	if exists {
+		// 请求中的新名字与数据库中的名字相同，则不进行更新[只修改其他属性可以不携带name字段]
+		logger.LogError(errors.New("permission name already exists"), "", 0, "", "update_permission", "SERVICE", map[string]interface{}{
+			"operation":     "permission_name_conflict_check",
+			"permission_id": permissionID,
+			"error":         "permission_name_conflict",
+			"timestamp":     logger.NowFormatted(),
+		})
+		return nil, errors.New("权限名称冲突")
+	}
+
 	return permission, nil
 }
 
 func (s *PermissionService) executePermissionUpdate(ctx context.Context, permission *model.Permission, req *model.UpdatePermissionRequest) (*model.Permission, error) {
-	if req.DisplayName != "" {
+	if req.Name != "" && req.Name != permission.Name {
+		permission.Name = req.Name
+	}
+	if req.DisplayName != "" && req.DisplayName != permission.DisplayName {
 		permission.DisplayName = req.DisplayName
 	}
-	if req.Description != "" {
+	if req.Description != "" && req.Description != permission.Description {
 		permission.Description = req.Description
 	}
-	if req.Resource != "" {
+	if req.Resource != "" && req.Resource != permission.Resource {
 		permission.Resource = req.Resource
 	}
-	if req.Action != "" {
+	if req.Action != "" && req.Action != permission.Action {
 		permission.Action = req.Action
+	}
+	if req.Status != nil && *req.Status != permission.Status {
+		permission.Status = *req.Status
 	}
 
 	if err := s.permissionRepo.UpdatePermission(ctx, permission); err != nil {

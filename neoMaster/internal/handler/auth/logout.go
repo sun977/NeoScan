@@ -37,7 +37,7 @@ func (h *LogoutHandler) getErrorStatusCode(err error) int {
 	}
 }
 
-// Logout 用户登出接口
+// Logout 用户登出接口(AccessToken撤销)
 func (h *LogoutHandler) Logout(c *gin.Context) {
 	// 从请求头中获取访问令牌
 	accessToken, err := h.extractTokenFromHeader(c)
@@ -102,7 +102,7 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 	})
 }
 
-// LogoutAll 用户全部登出接口
+// LogoutAll 用户全部登出接口(更新密码版本,所有类型token失效)
 func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	// 从请求头中获取访问令牌
 	accessToken, err := h.extractTokenFromHeader(c)
@@ -147,7 +147,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	}
 
 	// 执行全部登出
-	err = h.sessionService.Logout(c.Request.Context(), accessToken)
+	err = h.sessionService.LogoutAll(c.Request.Context(), accessToken)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录全部登出失败错误日志

@@ -62,11 +62,11 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 
 	// 初始化SessionService（作为TokenBlacklistService的实现）
 	// 注意：这里先创建一个临时的JWTService，后面会重新创建
-	tempJWTService := authService.NewJWTService(jwtManager, userService, nil)
+	tempJWTService := authService.NewJWTService(jwtManager, userService, sessionRepo, nil)
 	sessionService := authService.NewSessionService(userService, passwordManager, tempJWTService, rbacService, sessionRepo)
 
 	// 重新创建JWTService，注入SessionService作为TokenBlacklistService
-	jwtService := authService.NewJWTService(jwtManager, userService, sessionService)
+	jwtService := authService.NewJWTService(jwtManager, userService, sessionRepo, sessionService)
 
 	// 更新SessionService中的JWTService引用
 	// 注意：这里需要重新创建SessionService以避免循环依赖
@@ -160,7 +160,7 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	auth.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 用户登出
-		auth.POST("/logout", r.logoutHandler.Logout) // handler\auth\logout.go
+		auth.POST("/logout", r.logoutHandler.Logout) // handler\auth\logout.go 登出只能登出一次
 		// 用户全部登出
 		auth.POST("/logout-all", r.logoutHandler.LogoutAll) // handler\auth\logout.go
 	}

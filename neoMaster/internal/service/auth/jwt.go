@@ -8,9 +8,10 @@ import (
 	"fmt"     // 用于格式化字符串和错误信息
 	"time"    // 用于处理时间相关操作，如令牌过期时间计算
 
-	"neomaster/internal/model"      // 导入数据模型定义
-	"neomaster/internal/pkg/auth"   // 导入JWT工具包，提供底层JWT操作
-	"neomaster/internal/pkg/logger" // 导入日志管理器
+	"neomaster/internal/model"            // 导入数据模型定义
+	"neomaster/internal/pkg/auth"         // 导入JWT工具包，提供底层JWT操作
+	"neomaster/internal/pkg/logger"       // 导入日志管理器
+	"neomaster/internal/repository/redis" // 导入Redis会话仓库，用于缓存用户密码版本
 
 	"github.com/golang-jwt/jwt/v5" // 导入JWT库，用于令牌解析和验证
 )
@@ -33,9 +34,10 @@ type TokenBlacklistService interface {
 // 这是服务层的核心结构，封装了JWT相关的所有业务逻辑
 // 采用依赖注入的方式，将JWT管理器、用户服务和令牌黑名单服务作为依赖项
 type JWTService struct {
-	jwtManager       *auth.JWTManager      // JWT管理器，负责令牌的底层操作（生成、验证、解析）
-	userService      *UserService          // 用户服务，负责用户相关的业务逻辑
-	blacklistService TokenBlacklistService // 令牌黑名单服务，负责令牌撤销和黑名单检查
+	jwtManager       *auth.JWTManager         // JWT管理器，负责令牌的底层操作（生成、验证、解析）
+	userService      *UserService             // 用户服务，负责用户相关的业务逻辑
+	redisRepo        *redis.SessionRepository // 会话仓库，负责与Redis交互，缓存用户密码版本
+	blacklistService TokenBlacklistService    // 令牌黑名单服务，负责令牌撤销和黑名单检查
 }
 
 // NewJWTService 创建JWT服务实例
@@ -43,13 +45,19 @@ type JWTService struct {
 // 参数:
 //   - jwtManager: JWT管理器实例，提供令牌操作的底层功能
 //   - userService: 用户服务实例，提供用户业务逻辑功能
+//   - redisRepo: Redis会话仓库实例，提供与Redis交互的功能
 //   - blacklistService: 令牌黑名单服务实例，提供令牌撤销和黑名单检查功能
 //
 // 返回: JWTService指针，包含所有JWT相关的业务方法
-func NewJWTService(jwtManager *auth.JWTManager, userService *UserService, blacklistService TokenBlacklistService) *JWTService {
+func NewJWTService(
+	jwtManager *auth.JWTManager,
+	userService *UserService,
+	redisRepo *redis.SessionRepository,
+	blacklistService TokenBlacklistService) *JWTService {
 	return &JWTService{
 		jwtManager:       jwtManager,       // 注入JWT管理器依赖
 		userService:      userService,      // 注入用户服务依赖
+		redisRepo:        redisRepo,        // 注入Redis会话仓库依赖
 		blacklistService: blacklistService, // 注入令牌黑名单服务依赖
 	}
 }
@@ -584,9 +592,18 @@ func (s *JWTService) ValidatePasswordVersion(ctx context.Context, tokenString st
 
 	// 从数据库获取用户当前的密码版本号
 	// 优先从缓存获取以提高性能，缓存未命中时查询数据库
-	currentPasswordV, err := s.userService.GetUserPasswordVersion(ctx, uint(claims.UserID))
+	// 从缓存获取用户密码版本
+	currentPasswordV, err := s.redisRepo.GetPasswordVersion(ctx, uint64(claims.UserID))
 	if err != nil {
-		return false, fmt.Errorf("failed to get user password version: %w", err)
+		return false, fmt.Errorf("failed to get user password version from cache: %w", err)
+	}
+	// 没有返回 0
+	if currentPasswordV == 0 {
+		// 缓存未命中，从数据库获取密码版本
+		currentPasswordV, err = s.userService.GetUserPasswordVersion(ctx, uint(claims.UserID))
+		if err != nil {
+			return false, fmt.Errorf("failed to get user password version from database: %w", err)
+		}
 	}
 
 	// 比较令牌中的密码版本与数据库中的当前版本

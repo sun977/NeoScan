@@ -1,6 +1,8 @@
 package master
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,6 +14,7 @@ import (
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 )
 
 // MiddlewareManager 中间件管理器
@@ -49,22 +52,24 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		// 从请求头中提取访问令牌
 		accessToken, err := m.extractTokenFromGinHeader(c)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"status":  "error",
-				"message": "missing or invalid authorization header",
-				"error":   err.Error(),
+			c.JSON(http.StatusUnauthorized, model.APIResponse{
+				Code:    http.StatusUnauthorized,
+				Status:  "error",
+				Message: "missing or invalid authorization header",
+				Error:   err.Error(),
 			})
 			c.Abort()
-			return
+			return // 认证失败，直接返回
 		}
 
 		// 验证令牌 accessToken
 		claims, err := m.sessionService.ValidateSession(c.Request.Context(), accessToken)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"status":  "error",
-				"message": "invalid or expired token",
-				"error":   err.Error(),
+			c.JSON(http.StatusUnauthorized, model.APIResponse{
+				Code:    http.StatusUnauthorized,
+				Status:  "error",
+				Message: "invalid or expired token",
+				Error:   err.Error(),
 			})
 			c.Abort()
 			return
@@ -74,14 +79,61 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		// 注意：由于Redis连接问题，此功能可能会失败，但不会导致崩溃
 		validVersion, err := m.jwtService.ValidatePasswordVersion(c.Request.Context(), accessToken)
 		if err != nil {
-			// 如果是Redis连接问题，记录警告但不阻止请求
-			// TODO: 添加日志记录
-			// 暂时跳过密码版本验证，允许请求继续
-			logger.Warn("Failed to validate password version, token validation will continue:", err)
+			// 记录错误日志
+			logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_check", "GET", map[string]interface{}{
+				"operation":    "password_version_check",
+				"token_prefix": accessToken[:10] + "...",
+				"client_ip":    c.ClientIP(),
+				"user_agent":   c.GetHeader("User-Agent"),
+				"timestamp":    logger.NowFormatted(),
+			})
+
+			// 根据不同的错误类型返回不同的响应
+			switch {
+			case errors.Is(err, context.DeadlineExceeded):
+				// 超时错误，可能是网络问题
+				logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_timeout", "GET", map[string]interface{}{
+					"operation":    "password_version_check",
+					"error_type":   "network_timeout",
+					"token_prefix": accessToken[:10] + "...",
+					"timestamp":    logger.NowFormatted(),
+				})
+
+			case errors.Is(err, redis.Nil):
+				// Redis键不存在，可能需要特殊处理
+				logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_not_found", "GET", map[string]interface{}{
+					"operation":    "password_version_check",
+					"error_type":   "not_found",
+					"token_prefix": accessToken[:10] + "...",
+					"timestamp":    logger.NowFormatted(),
+				})
+
+			default:
+				// 其他未知错误
+				logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_unknown_error", "GET", map[string]interface{}{
+					"operation":    "password_version_check",
+					"error_type":   "unknown",
+					"token_prefix": accessToken[:10] + "...",
+					"timestamp":    logger.NowFormatted(),
+				})
+
+			}
+
+			// 如果是临时性错误（如Redis连接问题），可以允许请求继续
+			// 但应该记录警告并考虑通知管理员
 		} else if !validVersion {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"status":  "error",
-				"message": "token version mismatch, please login again",
+			// 密码版本不匹配，令牌已失效
+			logger.LogBusinessOperation("password_version_mismatch", uint(claims.ID), claims.Username, "", "", "warning", "令牌因密码版本不匹配被拒绝", map[string]interface{}{
+				"operation":    "password_version_check",
+				"token_prefix": accessToken[:10] + "...",
+				"timestamp":    logger.NowFormatted(),
+				"client_ip":    c.ClientIP(),
+				"user_agent":   c.GetHeader("User-Agent"),
+			})
+			c.JSON(http.StatusUnauthorized, model.APIResponse{
+				Code:    http.StatusUnauthorized,
+				Status:  "error",
+				Message: "token version mismatch, please login again",
 			})
 			c.Abort()
 			return

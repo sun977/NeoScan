@@ -230,9 +230,9 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 会话管理
 	sessionMgmt := admin.Group("/sessions")
 	{
-		sessionMgmt.GET("/list", r.sessionHandler.ListActiveSessions)                        // handler\system\session.go
-		sessionMgmt.POST("/:userId/revoke", r.sessionHandler.RevokeSession)                  // handler\system\session.go
-		sessionMgmt.POST("/user/:userId/revoke-all", r.sessionHandler.RevokeAllUserSessions) // handler\system\session.go
+		sessionMgmt.GET("/user/list", r.sessionHandler.ListActiveSessions)                   // 使用 Query 参数指定 userId 来查询用户的会话列表
+		sessionMgmt.POST("/user/:userId/revoke", r.sessionHandler.RevokeSession)             // Param 路径传参
+		sessionMgmt.POST("/user/:userId/revoke-all", r.sessionHandler.RevokeAllUserSessions) // 撤销用户所有会话
 	}
 }
 

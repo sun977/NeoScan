@@ -156,6 +156,11 @@ func (r *UserRepository) UpdateLastLogin(ctx context.Context, userID uint, userI
 	}).Error
 }
 
+// UpdatePasswordVersion 更新用户密码版本号
+func (r *UserRepository) UpdatePasswordVersion(ctx context.Context, userID uint, passwordV int64) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Update("password_v", passwordV).Error
+}
+
 // GetUserPasswordVersion 获取用户密码版本号
 func (r *UserRepository) GetUserPasswordVersion(ctx context.Context, userID uint) (int64, error) {
 	var passwordV int64

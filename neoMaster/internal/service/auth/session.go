@@ -250,7 +250,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	}, nil
 }
 
-// Logout 用户登出
+// Logout 用户登出所有设备(通过密码版本更新的方式现实)
 func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	if accessToken == "" {
 		logger.LogError(errors.New("access token cannot be empty"), "", 0, "", "user_logout", "POST", map[string]interface{}{
@@ -307,6 +307,95 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 		username = user.Username
 	}
 	logger.LogBusinessOperation("user_logout", userID, username, "", "", "success", "用户登出成功", logData)
+
+	return nil
+}
+
+// LogoutAll 用户全部登出
+func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) error {
+	if accessToken == "" {
+		logger.LogError(errors.New("access token cannot be empty"), "", 0, "", "user_logout_all", "POST", map[string]interface{}{
+			"operation": "logout_all",
+			"timestamp": logger.NowFormatted(),
+		})
+		return errors.New("access token cannot be empty")
+	}
+
+	// 解析访问令牌获取声明信息
+	claims, err := s.jwtService.ValidateAccessToken(accessToken)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "user_logout_all", "POST", map[string]interface{}{
+			"operation":    "logout_all",
+			"token_prefix": accessToken[:10] + "...",
+			"timestamp":    logger.NowFormatted(),
+		})
+		return fmt.Errorf("failed to validate access token: %w", err)
+	}
+
+	// 获取用户信息
+	user, err := s.userService.GetUserByID(ctx, claims.UserID)
+	if err != nil {
+		logger.LogError(err, "", uint(claims.UserID), "", "user_logout_all", "POST", map[string]interface{}{
+			"operation":    "logout_all",
+			"token_prefix": accessToken[:10] + "...",
+			"timestamp":    logger.NowFormatted(),
+		})
+		// 继续执行撤销操作
+	}
+
+	// 删除用户的所有会话（Redis中的会话数据）
+	if derr := s.sessionRepo.DeleteAllUserSessions(ctx, uint64(claims.UserID)); derr != nil {
+		logger.LogError(derr, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+			"operation": "logout_all_delete_sessions",
+			"timestamp": logger.NowFormatted(),
+		})
+		// 不返回错误，继续执行
+	}
+
+	// 增加用户密码版本号，使所有令牌失效
+	// 获取用户密码版本的方法(GetUserPasswordVersion)
+	passwordV, err := s.userService.GetUserPasswordVersion(ctx, claims.UserID)
+	if err != nil {
+		logger.LogError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+			"operation": "logout_all_get_password_version",
+			"timestamp": logger.NowFormatted(),
+		})
+		// 继续执行撤销操作
+	}
+	if user != nil {
+		newPasswordV := passwordV + 1
+		if err := s.userService.UpdateUserPasswordVersion(ctx, user.ID, newPasswordV); err != nil {
+			logger.LogError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+				"operation": "logout_all_update_password_version",
+				"timestamp": logger.NowFormatted(),
+			})
+			// 不返回错误，继续执行
+		}
+
+		// 存储新的密码版本到缓存
+		expiration := 24 * time.Hour // 与refresh token有效期一致
+		if err := s.StorePasswordVersion(ctx, uint(claims.UserID), newPasswordV, expiration); err != nil {
+			logger.LogError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+				"operation": "logout_all_store_password_version",
+				"timestamp": logger.NowFormatted(),
+			})
+		}
+	}
+
+	// 记录成功登出所有设备的业务日志
+	logData := map[string]interface{}{
+		"token_prefix": accessToken[:10] + "...",
+		"timestamp":    time.Now(),
+	}
+	userID := uint(claims.UserID)
+	username := ""
+	if user != nil {
+		username = user.Username
+		logData["user_id"] = user.ID
+		logData["username"] = user.Username
+	}
+
+	logger.LogBusinessOperation("user_logout_all", userID, username, "", "", "success", "用户从所有设备登出成功", logData)
 
 	return nil
 }

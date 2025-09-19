@@ -1506,8 +1506,8 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*model.R
 	return roles, nil
 }
 
-// UpdatePasswordWithVersion 更新用户密码并递增密码版本号
-// 这是一个原子操作，确保密码更新和版本号递增同时完成，用于使旧token失效
+// UpdatePasswordWithVersion 更新用户密码并递增密码版本号(没有使用)
+// 这是一个原子操作，确保密码更新和版本号递增同时完成
 func (s *UserService) UpdatePasswordWithVersion(ctx context.Context, userID uint, newPassword string) error {
 	// 参数验证
 	if userID == 0 {
@@ -1550,7 +1550,7 @@ func (s *UserService) UpdatePasswordWithVersion(ctx context.Context, userID uint
 }
 
 // UpdatePasswordWithVersionHashed 使用已哈希的密码更新用户密码并递增密码版本号
-// 这是一个原子操作，确保密码更新和版本号递增同时完成，用于使旧token失效
+// 这是一个原子操作，确保密码更新和版本号递增同时完成，用于修改用户密码
 // 注意：此方法接收已哈希的密码，主要供内部服务调用
 func (s *UserService) UpdatePasswordWithVersionHashed(ctx context.Context, userID uint, passwordHash string) error {
 	// 参数验证
@@ -1589,14 +1589,50 @@ func (s *UserService) UpdatePasswordWithVersionHashed(ctx context.Context, userI
 
 // GetUserPasswordVersion 获取用户密码版本号
 // 用于密码版本控制，确保修改密码后旧token失效
+// 注意：此方法接收已哈希的密码，主要供内部服务调用
 func (s *UserService) GetUserPasswordVersion(ctx context.Context, userID uint) (int64, error) {
 	// 参数验证
 	if userID == 0 {
 		return 0, errors.New("用户ID不能为0")
 	}
 
+	// 检查用户是否存在
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return 0, fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return 0, errors.New("用户不存在")
+	}
+
 	// 调用数据访问层获取密码版本号
 	return s.userRepo.GetUserPasswordVersion(ctx, userID)
+}
+
+// UpdateUserPasswordVersion 更新用户密码版本号
+// 用于密码版本控制，确保修改密码后旧token失效
+// 注意：此方法接收密码版本号，主要供内部服务调用
+func (s *UserService) UpdateUserPasswordVersion(ctx context.Context, userID uint, passwordV int64) error {
+	if userID == 0 {
+		return errors.New("用户ID不能为0")
+	}
+
+	if passwordV < 0 {
+		return errors.New("密码版本号不能小于0")
+	}
+
+	// 检查用户是否存在
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("获取用户失败: %w", err)
+	}
+
+	if user == nil {
+		return errors.New("用户不存在")
+	}
+
+	return s.userRepo.UpdatePasswordVersion(ctx, userID, passwordV)
 }
 
 // GetUserWithRolesAndPermissions 获取用户及其角色和权限

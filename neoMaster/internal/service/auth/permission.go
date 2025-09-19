@@ -338,7 +338,9 @@ func (s *PermissionService) executePermissionUpdate(ctx context.Context, permiss
 }
 
 // DeletePermission 删除权限(权限表记录删除+权限角色关联表记录删除,不修改角色表记录)
+// 优化版本：将所有数据库操作都放在事务内部，避免锁等待超时问题
 func (s *PermissionService) DeletePermission(ctx context.Context, permissionID uint) error {
+	// 参数验证
 	if permissionID == 0 {
 		logger.LogError(errors.New("invalid permission ID for deletion"), "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "parameter_validation",
@@ -349,28 +351,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 		return errors.New("权限ID不能为0")
 	}
 
-	// 检查权限是否存在
-	permissionExists, err := s.permissionRepo.PermissionExistsByID(ctx, permissionID)
-	if err != nil {
-		logger.LogError(err, "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
-			"operation":     "permission_existence_check",
-			"permission_id": permissionID,
-			"error":         "database_query_failed",
-			"timestamp":     logger.NowFormatted(),
-		})
-		return fmt.Errorf("faild to check permission existence: %w", err)
-	}
-	if !permissionExists {
-		logger.LogError(errors.New("permission not found for deletion"), "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
-			"operation":     "permission_existence_check",
-			"permission_id": permissionID,
-			"error":         "permission_not_found",
-			"timestamp":     logger.NowFormatted(),
-		})
-		return errors.New("permission not found for deletion")
-	}
-
-	// 事务：删除权限关联，再硬删除权限
+	// 开始事务 - 将所有操作都放在事务内部，避免事务外查询造成的锁冲突
 	tx := s.permissionRepo.BeginTx(ctx)
 	if tx == nil {
 		logger.LogError(errors.New("failed to begin transaction"), "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
@@ -382,6 +363,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 		return errors.New("开始事务失败")
 	}
 
+	// 使用 defer 确保事务回滚和 panic 恢复
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -395,7 +377,32 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 		}
 	}()
 
-	// 1. 删除权限角色关联记录 role_permissions 表
+	// 1. 在事务内检查权限是否存在（避免事务外查询造成的锁冲突）
+	// 不再调用 permissionRepo.PermissionExistsByID 方法
+	// 改用事务内的查询来检查权限是否存在
+	var count int64
+	if err := tx.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", permissionID).Count(&count).Error; err != nil {
+		tx.Rollback()
+		logger.LogError(err, "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
+			"operation":     "permission_existence_check",
+			"permission_id": permissionID,
+			"error":         "database_query_failed",
+			"timestamp":     logger.NowFormatted(),
+		})
+		return fmt.Errorf("检查权限存在性失败: %w", err)
+	}
+	if count == 0 {
+		tx.Rollback()
+		logger.LogError(errors.New("permission not found for deletion"), "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
+			"operation":     "permission_existence_check",
+			"permission_id": permissionID,
+			"error":         "permission_not_found",
+			"timestamp":     logger.NowFormatted(),
+		})
+		return errors.New("权限不存在")
+	}
+
+	// 2. 先删除权限角色关联记录 - role_permissions（子表）- 确保删除顺序正确
 	if err := s.permissionRepo.DeleteRolePermissionsByPermissionID(ctx, tx, permissionID); err != nil {
 		tx.Rollback()
 		logger.LogError(err, "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
@@ -407,11 +414,11 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 		return fmt.Errorf("删除权限与角色关联失败: %w", err)
 	}
 
-	// 2. 硬删除权限 permission 表
-	if err := s.permissionRepo.DeletePermission(ctx, permissionID); err != nil {
+	// 3. 再删除权限记录 - permissions（父表）- 使用事务内的删除操作
+	if err := tx.WithContext(ctx).Delete(&model.Permission{}, permissionID).Error; err != nil {
 		tx.Rollback()
 		logger.LogError(err, "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
-			"operation":     "soft_delete_permission",
+			"operation":     "delete_permission",
 			"permission_id": permissionID,
 			"error":         "delete_permission_failed",
 			"timestamp":     logger.NowFormatted(),
@@ -419,6 +426,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 		return fmt.Errorf("删除权限失败: %w", err)
 	}
 
+	// 4. 提交事务
 	if err := tx.Commit().Error; err != nil {
 		logger.LogError(err, "", 0, "", "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "transaction_commit",
@@ -429,6 +437,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 		return fmt.Errorf("提交事务失败: %w", err)
 	}
 
+	// 记录成功日志
 	logger.LogBusinessOperation("delete_permission", permissionID, "", "", "", "success", "权限删除成功", map[string]interface{}{
 		"operation":     "permission_deletion_success",
 		"permission_id": permissionID,

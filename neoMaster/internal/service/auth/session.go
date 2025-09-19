@@ -327,14 +327,24 @@ func (s *SessionService) RefreshToken(ctx context.Context, req *model.RefreshTok
 
 // ValidateSession 验证会话
 func (s *SessionService) ValidateSession(ctx context.Context, accessToken string) (*model.User, error) {
+	// 验证令牌是否为空
 	if accessToken == "" {
 		return nil, errors.New("access token cannot be empty")
 	}
 
-	// 验证令牌并获取用户信息
-	user, err := s.jwtService.GetUserFromToken(ctx, accessToken)
+	// 验证令牌有效性
+	// 1.这里会检查令牌格式、签名有效性、是否过期等
+	// 2.检查令牌是否在黑名单中（已被撤销）
+	// 验证成功返回解析出的JWT声明信息，失败返回错误信息
+	claims, err := s.jwtService.ValidateAccessToken(accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid session: %w", err)
+	}
+
+	// 使用JWT声明中的用户ID获取用户信息
+	user, err := s.userService.GetUserByID(ctx, claims.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
 	// 检查用户是否仍然活跃

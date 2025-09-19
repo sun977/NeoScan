@@ -58,7 +58,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 验证令牌
+		// 验证令牌 accessToken
 		claims, err := m.sessionService.ValidateSession(c.Request.Context(), accessToken)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -77,6 +77,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 			// 如果是Redis连接问题，记录警告但不阻止请求
 			// TODO: 添加日志记录
 			// 暂时跳过密码版本验证，允许请求继续
+			logger.Warn("Failed to validate password version, token validation will continue:", err)
 		} else if !validVersion {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status":  "error",

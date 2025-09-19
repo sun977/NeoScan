@@ -191,8 +191,9 @@ func (r *SessionRepository) DeleteToken(ctx context.Context, tokenID string) err
 
 // GetUserSessions 获取用户的所有会话（用于多设备登录管理）
 func (r *SessionRepository) GetUserSessions(ctx context.Context, userID uint64) ([]*model.SessionData, error) {
-	// 生成用户会话模式键
+	// 生成用户会话模式键 (使用通配符匹配所有会话) ["session:user:1:*"]
 	pattern := r.getUserSessionPattern(userID)
+	// pattern := r.getSessionKey(userID)
 
 	// 获取匹配的键
 	keys, err := r.client.Keys(ctx, pattern).Result()
@@ -296,9 +297,15 @@ func (r *SessionRepository) DeleteRefreshToken(ctx context.Context, userID uint6
 
 // 私有方法：生成各种键名
 
-// getSessionKey 生成会话键
+// getSessionKey 生成会话键[用于精确查询]
+// 会话键用于存储用户的会话数据，键的格式为 session:user:{userID}
 func (r *SessionRepository) getSessionKey(userID uint64) string {
 	return fmt.Sprintf("session:user:%d", userID)
+}
+
+// getUserSessionPattern 生成用户会话模式键[用于批量操作]
+func (r *SessionRepository) getUserSessionPattern(userID uint64) string {
+	return fmt.Sprintf("session:user:%d:*", userID)
 }
 
 // getTokenKey 生成令牌键
@@ -311,12 +318,7 @@ func (r *SessionRepository) getRevokedTokenKey(tokenID string) string {
 	return fmt.Sprintf("revoked:token:%s", tokenID)
 }
 
-// getUserSessionPattern 生成用户会话模式键
-func (r *SessionRepository) getUserSessionPattern(userID uint64) string {
-	return fmt.Sprintf("session:user:%d:*", userID)
-}
-
-// getRefreshTokenKey 生成刷新令牌键
+// getRefreshTokenKey 生成刷新令牌键[KEY:refresh:user:{userID}:token:{tokenID}]
 func (r *SessionRepository) getRefreshTokenKey(userID uint64, tokenID string) string {
 	return fmt.Sprintf("refresh:user:%d:token:%s", userID, tokenID)
 }
@@ -364,7 +366,7 @@ func (r *SessionRepository) DeletePasswordVersion(ctx context.Context, userID ui
 	return nil
 }
 
-// getPasswordVersionKey 生成密码版本缓存键
+// getPasswordVersionKey 生成密码版本缓存键[KEY:password_version:<userID>]
 func (r *SessionRepository) getPasswordVersionKey(userID uint64) string {
 	return fmt.Sprintf("password_version:%d", userID)
 }

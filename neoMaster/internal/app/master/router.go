@@ -159,10 +159,11 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	auth.Use(r.middlewareManager.GinJWTAuthMiddleware())
 	auth.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
-		// 用户登出
-		auth.POST("/logout", r.logoutHandler.Logout) // handler\auth\logout.go 登出只能登出一次
-		// 用户全部登出
-		auth.POST("/logout-all", r.logoutHandler.LogoutAll) // handler\auth\logout.go
+		// 登出只能一次
+		// 用户登出(访问token加黑)
+		auth.POST("/logout", r.logoutHandler.Logout)
+		// 用户全部登出(更新密码版本,所有类型token失效)
+		auth.POST("/logout-all", r.logoutHandler.LogoutAll)
 	}
 
 	// 用户相关路由（需要JWT认证和用户激活状态检查）
@@ -171,15 +172,15 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	user.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 获取当前用户信息(不是用户所有信息,仅用户信息)
-		user.GET("/profile", r.userHandler.GetUserInfoByID) // handler\system\user.go
+		user.GET("/profile", r.userHandler.GetUserInfoByID) // 获取当前用户信息(users表)
 		// 修改用户密码
-		user.POST("/change-password", r.userHandler.ChangePassword) // handler\system\user.go
+		user.POST("/change-password", r.userHandler.ChangePassword) // 修改用户密码
 		// 更新用户信息（需要补充）
 		// user.POST("/update", r.userHandler.UpdateUserInfo) // handler\system\user.go
 		// 获取用户权限
-		user.GET("/permissions", r.userHandler.GetUserPermission) // handler\system\user.go
+		user.GET("/permissions", r.userHandler.GetUserPermission) // 获取用户权限(permissions表)
 		// 获取用户角色
-		user.GET("/roles", r.userHandler.GetUserRoles) // handler\system\user.go
+		user.GET("/roles", r.userHandler.GetUserRoles) // 获取用户角色(roles表)
 	}
 }
 
@@ -187,9 +188,9 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 管理员路由组（需要JWT认证、用户激活状态检查和管理员权限）
 	admin := v1.Group("/admin")
-	admin.Use(r.middlewareManager.GinJWTAuthMiddleware())
-	admin.Use(r.middlewareManager.GinUserActiveMiddleware())
-	admin.Use(r.middlewareManager.GinAdminRoleMiddleware()) // 这里已经添加了管理员权限检查
+	admin.Use(r.middlewareManager.GinJWTAuthMiddleware())    // JWT认证中间件
+	admin.Use(r.middlewareManager.GinUserActiveMiddleware()) // 用户激活状态检查中间件
+	admin.Use(r.middlewareManager.GinAdminRoleMiddleware())  // 管理员权限检查中间件
 
 	// 用户管理(系统管理员管理用户)
 	userMgmt := admin.Group("/users")
@@ -231,7 +232,7 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	sessionMgmt := admin.Group("/sessions")
 	{
 		sessionMgmt.GET("/user/list", r.sessionHandler.ListActiveSessions)                   // 使用 Query 参数指定 userId 来查询用户的会话列表
-		sessionMgmt.POST("/user/:userId/revoke", r.sessionHandler.RevokeSession)             // Param 路径传参
+		sessionMgmt.POST("/user/:userId/revoke", r.sessionHandler.RevokeSession)             // 撤销用户会话 Param 路径传参
 		sessionMgmt.POST("/user/:userId/revoke-all", r.sessionHandler.RevokeAllUserSessions) // 撤销用户所有会话
 	}
 }

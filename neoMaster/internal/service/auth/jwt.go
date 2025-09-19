@@ -257,31 +257,31 @@ func (s *JWTService) RefreshTokens(ctx context.Context, refreshToken string) (*a
 //   - ctx: 请求上下文
 //   - tokenString: 有效的访问令牌字符串
 //
-// 返回: 用户模型实例和错误信息
-func (s *JWTService) GetUserFromToken(ctx context.Context, tokenString string) (*model.User, error) {
-	// 第一步：验证访问令牌并获取声明信息
-	claims, err := s.ValidateAccessToken(tokenString)
-	if err != nil {
-		// 令牌验证失败，直接返回错误
-		return nil, err
-	}
+// // 返回: 用户模型实例和错误信息
+// func (s *JWTService) GetUserFromToken(ctx context.Context, tokenString string) (*model.User, error) {
+// 	// 第一步：验证访问令牌并获取声明信息
+// 	claims, err := s.ValidateAccessToken(tokenString)
+// 	if err != nil {
+// 		// 令牌验证失败，直接返回错误
+// 		return nil, err
+// 	}
 
-	// 第二步：根据令牌中的用户ID查询数据库获取用户信息
-	// 这确保获取的是最新的用户数据，而不是令牌中可能过时的信息
-	user, err := s.userService.GetUserByID(ctx, claims.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
+// 	// 第二步：根据令牌中的用户ID查询数据库获取用户信息
+// 	// 这确保获取的是最新的用户数据，而不是令牌中可能过时的信息
+// 	user, err := s.userService.GetUserByID(ctx, claims.UserID)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get user: %w", err)
+// 	}
 
-	// 检查用户是否存在
-	// 用户可能在令牌有效期内被删除
-	if user == nil {
-		return nil, errors.New("user not found")
-	}
+// 	// 检查用户是否存在
+// 	// 用户可能在令牌有效期内被删除
+// 	if user == nil {
+// 		return nil, errors.New("user not found")
+// 	}
 
-	// 返回完整的用户信息
-	return user, nil
-}
+// 	// 返回完整的用户信息
+// 	return user, nil
+// }
 
 // CheckTokenExpiry 检查令牌是否即将过期
 // 这个方法用于提前检测令牌是否接近过期，便于客户端主动刷新令牌

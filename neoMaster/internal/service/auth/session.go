@@ -260,8 +260,29 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 		return errors.New("access token cannot be empty")
 	}
 
-	// 获取用户信息用于日志记录
-	user, err := s.jwtService.GetUserFromToken(ctx, accessToken)
+	// 获取用户信息用于日志记录 jwtService.GetUserFromToken 设计不合理，已弃用
+	// user, err := s.jwtService.GetUserFromToken(ctx, accessToken)
+	// if err != nil {
+	// 	logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
+	// 		"operation":    "logout",
+	// 		"token_prefix": accessToken[:10] + "...",
+	// 		"timestamp":    logger.NowFormatted(),
+	// 	})
+	// 	// 继续执行撤销操作，即使获取用户信息失败
+	// }
+
+	// 应该是解析accessToken获取user信息
+	claims, err := s.jwtService.ValidateAccessToken(accessToken)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
+			"operation":    "logout",
+			"token_prefix": accessToken[:10] + "...",
+			"timestamp":    logger.NowFormatted(),
+		})
+		return fmt.Errorf("failed to validate access token: %w", err)
+	}
+
+	user, err := s.userService.GetUserByID(ctx, claims.UserID)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
 			"operation":    "logout",
@@ -271,7 +292,7 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 		// 继续执行撤销操作，即使获取用户信息失败
 	}
 
-	// 撤销令牌
+	// 撤销令牌（将令牌添加到黑名单--添加到redis缓存中--"revoked:token:20250919173619-856583300"）
 	if err := s.jwtService.RevokeToken(ctx, accessToken); err != nil {
 		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
 			"operation":    "logout",

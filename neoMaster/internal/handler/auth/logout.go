@@ -126,7 +126,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	}
 
 	// 验证令牌并获取用户ID
-	claims, err := h.sessionService.ValidateSession(c.Request.Context(), accessToken)
+	user, err := h.sessionService.ValidateSession(c.Request.Context(), accessToken)
 	if err != nil {
 		// 记录令牌验证失败错误日志
 		logger.LogError(err, "", 0, "", "user_logout_all", "POST", map[string]interface{}{
@@ -151,7 +151,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录全部登出失败错误日志
-		logger.LogError(err, "", uint(claims.ID), "", "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(err, "", uint(user.ID), "", "user_logout_all", "POST", map[string]interface{}{
 			"operation":   "logout_all",
 			"client_ip":   c.ClientIP(),
 			"user_agent":  c.GetHeader("User-Agent"),
@@ -169,7 +169,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	}
 
 	// 记录全部登出成功业务日志
-	logger.LogBusinessOperation("user_logout_all", uint(claims.ID), "", "", "", "success", "用户全部登出成功", map[string]interface{}{
+	logger.LogBusinessOperation("user_logout_all", uint(user.ID), "", "", "", "success", "用户全部登出成功", map[string]interface{}{
 		"operation":  "logout_all",
 		"client_ip":  c.ClientIP(),
 		"user_agent": c.GetHeader("User-Agent"),
@@ -183,7 +183,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 		Status:  "success",
 		Message: "logout all successful",
 		Data: map[string]interface{}{
-			"user_id": claims.ID,
+			"user_id": user.ID,
 			"message": "All sessions have been terminated",
 		},
 	})

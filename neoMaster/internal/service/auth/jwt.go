@@ -199,6 +199,28 @@ func (s *JWTService) ValidateRefreshToken(tokenString string) (*jwt.RegisteredCl
 		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
+	// 添加黑名单检查（与AccessToken相同）
+	if claims.ID != "" {
+		isRevoked, err := s.blacklistService.IsTokenRevoked(context.Background(), claims.ID)
+		if err != nil {
+			logger.LogError(err, "", 0, "", "refresh_token_blacklist_check", "GET", map[string]interface{}{
+				"operation":    "validate_refresh_token",
+				"token_prefix": tokenString[:10] + "...",
+				"jti":          claims.ID,
+				"timestamp":    logger.NowFormatted(),
+			})
+			// 根据安全策略决定是否继续
+		} else if isRevoked {
+			logger.LogError(errors.New("refresh token has been revoked"), "", 0, "", "refresh_token_revoked", "GET", map[string]interface{}{
+				"operation":    "validate_refresh_token",
+				"token_prefix": tokenString[:10] + "...",
+				"jti":          claims.ID,
+				"timestamp":    logger.NowFormatted(),
+			})
+			return nil, errors.New("refresh token has been revoked")
+		}
+	}
+
 	// 验证成功，返回标准JWT声明
 	return claims, nil
 }

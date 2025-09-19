@@ -4,6 +4,7 @@
  * @date: 2025.09.05
  * @description: 会话数据交互层
  * @func:单纯数据访问,不应该包含业务逻辑
+ * @note: 留下了兼容性代码，后续有时间扩展单用户多会话支持，目前仅支持单用户单会话
  */
 package redis
 
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"neomaster/internal/model"
+	// "neomaster/internal/pkg/utils"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -30,6 +32,15 @@ func NewSessionRepository(client *redis.Client) *SessionRepository {
 	}
 }
 
+// generateUniqueSessionID 生成唯一的会话ID
+// func (r *SessionRepository) generateUniqueSessionID() (string, error) {
+// 	sessionID, err := utils.GenerateUUID()
+// 	if err != nil {
+// 		return "", fmt.Errorf("utils.GenerateUUID failed to generate UUID: %w", err)
+// 	}
+// 	return sessionID, nil
+// }
+
 // StoreSession 存储用户会话信息
 func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, sessionData *model.SessionData, expiration time.Duration) error {
 	// 序列化会话数据
@@ -38,7 +49,16 @@ func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, ses
 		return fmt.Errorf("failed to marshal session data: %w", err)
 	}
 
-	// 生成会话键
+	// // 支持单用户多会话
+	// // 生成唯一的会话ID
+	// sessionID, err := r.generateUniqueSessionID()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to generate unique session id: %w", err)
+	// }
+	// // 生成会话键[KEY:session:user:{userID}:{sessionID}]
+	// sessionKey := r.createSessionKey(userID, sessionID)
+
+	// // 生成会话键
 	sessionKey := r.getSessionKey(userID)
 
 	// 存储到Redis
@@ -298,10 +318,15 @@ func (r *SessionRepository) DeleteRefreshToken(ctx context.Context, userID uint6
 // 私有方法：生成各种键名
 
 // getSessionKey 生成会话键[用于精确查询]
-// 会话键用于存储用户的会话数据，键的格式为 session:user:{userID}
+// 会话键用于存储用户的会话数据，键的格式为 [session:user:{userID}:] (保留一个:分割空位用于后续扩展sessionID)
 func (r *SessionRepository) getSessionKey(userID uint64) string {
-	return fmt.Sprintf("session:user:%d", userID)
+	return fmt.Sprintf("session:user:%d:", userID)
 }
+
+// // createSessionKey 创建会话键(包含用户ID和会话ID)[KEY:session:user:{userID}:{sessionID}]
+// func (r *SessionRepository) createSessionKey(userID uint64, sessionID string) string {
+// 	return fmt.Sprintf("session:user:%d:%s", userID, sessionID)
+// }
 
 // getUserSessionPattern 生成用户会话模式键[用于批量操作]
 func (r *SessionRepository) getUserSessionPattern(userID uint64) string {

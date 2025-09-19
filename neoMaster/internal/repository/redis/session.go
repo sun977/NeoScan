@@ -166,7 +166,7 @@ func (r *SessionRepository) GetToken(ctx context.Context, tokenID string) (*mode
 	return &tokenData, nil
 }
 
-// RevokeToken 撤销令牌（添加到黑名单）
+// RevokeToken 撤销令牌（添加到黑名单）[实际上是存入了redis缓存中("revoked:token:20250919173619-856583300")]
 func (r *SessionRepository) RevokeToken(ctx context.Context, tokenID string, expiration time.Duration) error {
 	// 生成撤销令牌键
 	revokedKey := r.getRevokedTokenKey(tokenID)

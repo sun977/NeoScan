@@ -260,17 +260,6 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 		return errors.New("access token cannot be empty")
 	}
 
-	// 获取用户信息用于日志记录 jwtService.GetUserFromToken 设计不合理，已弃用
-	// user, err := s.jwtService.GetUserFromToken(ctx, accessToken)
-	// if err != nil {
-	// 	logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
-	// 		"operation":    "logout",
-	// 		"token_prefix": accessToken[:10] + "...",
-	// 		"timestamp":    logger.NowFormatted(),
-	// 	})
-	// 	// 继续执行撤销操作，即使获取用户信息失败
-	// }
-
 	// 应该是解析accessToken获取user信息
 	claims, err := s.jwtService.ValidateAccessToken(accessToken)
 	if err != nil {
@@ -332,7 +321,7 @@ func (s *SessionService) RefreshToken(ctx context.Context, req *model.RefreshTok
 		return nil, errors.New("refresh token cannot be empty")
 	}
 
-	// 刷新令牌
+	// 刷新令牌(包含验证刷新令牌)
 	tokenPair, err := s.jwtService.RefreshTokens(ctx, req.RefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh tokens: %w", err)

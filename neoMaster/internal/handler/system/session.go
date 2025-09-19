@@ -43,8 +43,8 @@ func (h *SessionHandler) ListActiveSessions(c *gin.Context) {
 		return
 	}
 
-	// 管理入口：通过查询参数指定要查看的用户ID
-	queryUserIDStr := c.Query("user_id")
+	// 管理入口：通过查询参数指定要查看的用户ID Query 参数
+	queryUserIDStr := c.Query("userId")
 	if queryUserIDStr == "" {
 		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "缺少 user_id 参数"})
 		return
@@ -86,6 +86,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 		return
 	}
 
+	// 	Param 路径参数
 	userIDStr := c.Param("userId")
 	userID64, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {

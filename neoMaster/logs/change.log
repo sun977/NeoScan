@@ -16,3 +16,14 @@
 4.修复了用户会话删除但用户登录的bug
 5.优化了中间件jwt的校验
 6.还有部分API返回格式不统一，时间格式不统一，clientIP没有统一格式化，userAgent没有统一格式化等
+
+# 格式化客户端IP的方法，目前只有注册时有，其他地方没有，需要补充
+    clientIPRaw := c.GetHeader("X-Forwarded-For")
+	if clientIPRaw == "" {
+		clientIPRaw = c.GetHeader("X-Real-IP")
+	}
+	if clientIPRaw == "" {
+		clientIPRaw = c.ClientIP()
+	}
+	clientIP := utils.NormalizeIP(clientIPRaw)
+	userAgent := c.GetHeader("User-Agent")

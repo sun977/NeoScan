@@ -174,7 +174,7 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 	// 构造响应
 	response := &model.RegisterResponse{
 		User:    userInfo,
-		Message: "注册成功",
+		Message: "registration successful",
 	}
 
 	return response, nil

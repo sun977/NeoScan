@@ -67,18 +67,21 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 
 	// 检查Content-Type
 	contentType := c.GetHeader("Content-Type")
+	XRequestID := c.GetHeader("X-Request-ID")
 	if contentType == "" {
 		// 记录Content-Type缺失错误日志
-		logger.LogError(errors.New("missing Content-Type header"), "", 0, "", "user_register", "POST", map[string]interface{}{
+		logger.LogError(errors.New("missing Content-Type header"), XRequestID, 0, clientIP, "/api/v1/auth/register", "POST", map[string]interface{}{
 			"operation":  "register",
+			"option":     "contentTypeCheck",
+			"func_name":  "handler.auth.register.Register",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
-			"request_id": c.GetHeader("X-Request-ID"),
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
-			Status:  "error",
+			Status:  "failed",
 			Message: "Content-Type header is required",
 			Error:   "missing Content-Type header",
 		})
@@ -89,17 +92,19 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	var req model.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// 记录请求体解析失败错误日志
-		logger.LogError(err, "", 0, "", "user_register", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/register", "POST", map[string]interface{}{
 			"operation":    "register",
-			"client_ip":    c.ClientIP(),
-			"user_agent":   c.GetHeader("User-Agent"),
-			"request_id":   c.GetHeader("X-Request-ID"),
+			"option":       "ShouldBindJSON",
+			"func_name":    "handler.auth.register.Register",
+			"client_ip":    clientIP,
+			"user_agent":   userAgent,
+			"request_id":   XRequestID,
 			"content_type": contentType,
 			"timestamp":    logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
-			Status:  "error",
+			Status:  "failed",
 			Message: "invalid request body",
 			Error:   err.Error(),
 		})
@@ -109,17 +114,20 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	// 验证请求参数
 	if err := h.validateRegisterRequest(&req); err != nil {
 		// 记录参数验证失败错误日志
-		logger.LogError(err, "", 0, req.Username, "user_register", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/register", "POST", map[string]interface{}{
 			"operation":  "register",
+			"option":     "validateRegisterRequest",
+			"func_name":  "handler.auth.register.Register",
+			"username":   req.Username,
 			"email":      req.Email,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
-			Status:  "error",
+			Status:  "failed",
 			Message: "validation failed",
 			Error:   err.Error(),
 		})
@@ -131,18 +139,21 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录注册失败错误日志
-		logger.LogError(err, "", 0, req.Username, "user_register", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/register", "POST", map[string]interface{}{
 			"operation":   "register",
+			"option":      "userService.Register",
+			"func_name":   "handler.auth.register.Register",
+			"username":    req.Username,
 			"email":       req.Email,
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"status_code": statusCode,
-			"request_id":  c.GetHeader("X-Request-ID"),
+			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
-			Status:  "error",
+			Status:  "failed",
 			Message: "registration failed",
 			Error:   err.Error(),
 		})
@@ -153,32 +164,39 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	err = h.userService.AssignRoleToUser(c.Request.Context(), uint(response.User.ID), 2)
 	if err != nil {
 		// 记录角色分配失败错误日志
-		logger.LogError(err, "", 0, req.Username, "user_register_assign_role", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/register", "POST", map[string]interface{}{
 			"operation":   "register",
+			"option":      "userService.AssignRoleToUser",
+			"func_name":   "handler.auth.register.Register",
+			"username":    req.Username,
 			"email":       req.Email,
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
-			"request_id":  c.GetHeader("X-Request-ID"),
+			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 			"role_id":     2,
-			"role_name":   "普通用户",
+			"role_name":   "user",
 			"assign_type": "default",
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
 			Code:    http.StatusInternalServerError,
-			Status:  "error",
+			Status:  "failed",
 			Message: "role assignment failed",
 			Error:   err.Error(),
 		})
 	}
 
 	// 记录注册成功业务日志
-	logger.LogBusinessOperation("user_register", uint(response.User.ID), req.Username, clientIP, "", "success", "用户注册成功", map[string]interface{}{
+	logger.LogBusinessOperation("user_register", uint(response.User.ID), req.Username, clientIP, XRequestID, "success", "user register success", map[string]interface{}{
 		"operation":  "register",
+		"option":     "user_register:success",
+		"func_name":  "handler.auth.register.Register",
+		"user_id":    response.User.ID,
+		"username":   req.Username,
 		"email":      req.Email,
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
-		"request_id": c.GetHeader("X-Request-ID"),
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 

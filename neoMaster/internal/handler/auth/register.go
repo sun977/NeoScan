@@ -173,7 +173,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	}
 
 	// 记录注册成功业务日志
-	logger.LogBusinessOperation("user_register", uint(response.User.ID), req.Username, "", "", "success", "用户注册成功", map[string]interface{}{
+	logger.LogBusinessOperation("user_register", uint(response.User.ID), req.Username, clientIP, "", "success", "用户注册成功", map[string]interface{}{
 		"operation":  "register",
 		"email":      req.Email,
 		"client_ip":  clientIP,

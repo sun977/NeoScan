@@ -396,7 +396,7 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 				userIDUint = uint(id)
 			}
 		}
-		logger.LogBusinessOperation("http_request", userIDUint, username, "", "", "success", "API请求", map[string]interface{}{
+		logger.LogBusinessOperation("http_request", userIDUint, username, "", "", "success", "API Request", map[string]interface{}{
 			"operation":     "http_request",
 			"method":        c.Request.Method,
 			"url":           c.Request.URL.String(),

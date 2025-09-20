@@ -158,17 +158,17 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 
 	// 构造用户信息
 	userInfo := &model.UserInfo{
-		ID:          user.ID,
-		Username:    user.Username,
-		Email:       user.Email,
-		Nickname:    user.Nickname,
-		Avatar:      user.Avatar,
-		Phone:       user.Phone,
-		Status:      model.UserStatus(user.Status),
-		CreatedAt:   user.CreatedAt,
-		Roles:       []string{}, // 新注册用户暂无角色
-		Permissions: []string{}, // 新注册用户暂无权限
-		Remark:      user.Remark,
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		Nickname:  user.Nickname,
+		Avatar:    user.Avatar,
+		Phone:     user.Phone,
+		Status:    model.UserStatus(user.Status),
+		CreatedAt: user.CreatedAt,
+		// Roles:       []string{}, // 新注册用户暂无角色
+		// Permissions: []string{}, // 新注册用户暂无权限
+		// Remark: user.Remark,
 	}
 
 	// 构造响应

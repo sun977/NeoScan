@@ -38,24 +38,24 @@ type RegisterResponse struct {
 
 // UserInfo 用户信息响应结构
 type UserInfo struct {
-	ID          uint       `json:"id"`            // 用户ID
-	Username    string     `json:"username"`      // 用户名
-	Email       string     `json:"email"`         // 邮箱地址
-	Nickname    string     `json:"nickname"`      // 用户昵称
-	Avatar      string     `json:"avatar"`        // 用户头像URL
-	Phone       string     `json:"phone"`         // 手机号码
-	Status      UserStatus `json:"status"`        // 用户状态
-	LastLoginAt *time.Time `json:"last_login_at"` // 最后登录时间
-	CreatedAt   time.Time  `json:"created_at"`    // 创建时间
-	Roles       []string   `json:"roles"`         // 用户角色名称列表
-	Permissions []string   `json:"permissions"`   // 用户权限名称列表
-	Remark      string     `json:"remark"`        // 备注
+	ID          uint       `json:"id"`                    // 用户ID
+	Username    string     `json:"username"`              // 用户名
+	Email       string     `json:"email"`                 // 邮箱地址
+	Nickname    string     `json:"nickname"`              // 用户昵称
+	Avatar      string     `json:"avatar,omitempty"`      // 用户头像URL
+	Phone       string     `json:"phone"`                 // 手机号码
+	Status      UserStatus `json:"status"`                // 用户状态
+	LastLoginAt *time.Time `json:"last_login_at"`         // 最后登录时间
+	CreatedAt   time.Time  `json:"created_at"`            // 创建时间
+	Roles       []string   `json:"roles,omitempty"`       // 用户角色名称列表
+	Permissions []string   `json:"permissions,omitempty"` // 用户权限名称列表
+	Remark      string     `json:"remark,omitempty"`      // 备注
 }
 
 // APIResponse 通用API响应结构
 type APIResponse struct {
-	Code    int               `json:"code,omitempty"`   // 响应状态码，可选
-	Status  string            `json:"status"`           // 响应状态："success" 或 "error"
+	Code    int               `json:"code"`             // 响应状态码
+	Status  string            `json:"status"`           // 响应状态："success" 或 "failed"
 	Message string            `json:"message"`          // 响应消息
 	Data    interface{}       `json:"data,omitempty"`   // 响应数据，可选
 	Error   string            `json:"error,omitempty"`  // 错误信息，可选

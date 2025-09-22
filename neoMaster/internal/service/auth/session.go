@@ -55,25 +55,37 @@ func NewSessionService(
 // userAgent: 用户代理信息，从HTTP请求头中获取
 func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, clientIP, userAgent string) (*model.LoginResponse, error) {
 	if req == nil {
-		logger.LogError(errors.New("login request cannot be nil"), "", 0, "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(errors.New("login request cannot be nil"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "request_nil",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, errors.New("login request cannot be nil")
 	}
 
 	if req.Username == "" {
-		logger.LogError(errors.New("username cannot be empty"), "", 0, "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(errors.New("username cannot be empty"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "request_username_empty",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, errors.New("username cannot be empty")
 	}
 
 	if req.Password == "" {
-		logger.LogError(errors.New("password cannot be empty"), "", 0, "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(errors.New("password cannot be empty"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "request_password_empty",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, errors.New("password cannot be empty")
 	}
@@ -85,26 +97,34 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	// 尝试通过用户名查找
 	user, err = s.userService.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		// 如果是用户不存在的错误，尝试通过邮箱查找
-		if err.Error() == "用户不存在" {
+		// 如果是用户不存在的错误，尝试通过邮箱查找 [username 可能是邮箱]
+		if err.Error() == "user not found" {
 			user, err = s.userService.GetUserByEmail(ctx, req.Username)
 			if err != nil {
 				// 邮箱查找也失败，记录日志并返回错误
-				logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
-					"operation": "login",
-					"username":  req.Username,
-					"error":     "user_not_found",
-					"timestamp": logger.NowFormatted(),
+				logger.LogError(err, "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+					"operation":  "login",
+					"option":     "request_user_not_found",
+					"func_name":  "service.auth.session.Login",
+					"client_ip":  clientIP,
+					"user_agent": userAgent,
+					"username":   req.Username,
+					"error":      "user_not_found",
+					"timestamp":  logger.NowFormatted(),
 				})
 				return nil, errors.New("invalid username or password")
 			}
 		} else {
 			// 其他数据库错误
-			logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
-				"operation": "login",
-				"username":  req.Username,
-				"error":     "database_error",
-				"timestamp": logger.NowFormatted(),
+			logger.LogError(err, "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+				"operation":  "login",
+				"option":     "request_database_error",
+				"func_name":  "service.auth.session.Login",
+				"client_ip":  clientIP,
+				"user_agent": userAgent,
+				"username":   req.Username,
+				"error":      "database_error",
+				"timestamp":  logger.NowFormatted(),
 			})
 			return nil, errors.New("invalid username or password")
 		}
@@ -112,21 +132,30 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 
 	// 如果用户不存在（两种方式都没找到）
 	if user == nil {
-		logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username":  req.Username,
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(fmt.Errorf("user not found"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "request_user_not_found",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"username":   req.Username,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, errors.New("invalid username or password")
 	}
 
 	// 检查用户是否激活
 	if !user.IsActive() {
-		logger.LogError(errors.New("user account is not active"), "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username":  user.Username,
-			"status":    user.Status,
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(errors.New("user account is not active"), "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "request_user_account_not_active",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"user_id":    user.ID,
+			"username":   user.Username,
+			"status":     user.Status,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, errors.New("user account is inactive")
 	}
@@ -134,18 +163,28 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	// 验证密码
 	isValid, err := s.passwordManager.VerifyPassword(req.Password, user.Password)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username":  user.Username,
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "VerifyPassword",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"user_id":    user.ID,
+			"username":   user.Username,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 	if !isValid {
-		logger.LogError(errors.New("password is incorrect"), "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username":  user.Username,
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(errors.New("password is incorrect"), "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "VerifyPassword_error",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"user_id":    user.ID,
+			"username":   user.Username,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, errors.New("invalid username or password")
 	}
@@ -153,10 +192,15 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	// 生成令牌
 	tokenPair, err := s.jwtService.GenerateTokens(ctx, user)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username":  user.Username,
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "GenerateTokens",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"user_id":    user.ID,
+			"username":   user.Username,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
@@ -172,10 +216,15 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	// 获取用户角色和权限信息
 	userWithPerms, err := s.userService.GetUserWithRolesAndPermissions(ctx, user.ID)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
-			"operation": "login",
-			"username":  user.Username,
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "login",
+			"option":     "request:GetUserWithRolesAndPermissions",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"user_id":    user.ID,
+			"username":   user.Username,
+			"timestamp":  logger.NowFormatted(),
 		})
 		return nil, fmt.Errorf("failed to get user permissions: %w", err)
 	}
@@ -211,22 +260,34 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	sessionExpiration := time.Duration(tokenPair.ExpiresIn) * time.Second
 	err = s.sessionRepo.StoreSession(ctx, uint64(user.ID), sessionData, sessionExpiration)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), "", "user_login", "POST", map[string]interface{}{
-			"operation": "store_session",
-			"username":  user.Username,
-			"timestamp": logger.NowFormatted(),
+		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+			"operation":  "store_session",
+			"option":     "request:StoreSession",
+			"func_name":  "service.auth.session.Login",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"user_id":    user.ID,
+			"username":   user.Username,
+			"timestamp":  logger.NowFormatted(),
 		})
 		// 会话存储失败不影响登录，但记录警告
 		fmt.Printf("Warning: failed to store session: %v\n", err)
 	}
 
 	// 记录成功登录的业务日志
-	logger.LogBusinessOperation("user_login", uint(user.ID), user.Username, "", "", "success", "用户登录成功", map[string]interface{}{
-		"email":       user.Email,
-		"roles":       roles,
-		"permissions": permissions,                        // 添加权限信息到日志中
-		"session_id":  tokenPair.AccessToken[:10] + "...", // 只记录token前缀
-		"timestamp":   logger.NowFormatted(),
+	logger.LogBusinessOperation("user_login", uint(user.ID), user.Username, clientIP, "", "success", "user login success", map[string]interface{}{
+		"operation":  "login",
+		"option":     "service:Login",
+		"func_name":  "handler.auth.login.Login",
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"user_id":    user.ID,
+		"username":   user.Username,
+		"email":      user.Email,
+		// "roles":       roles,
+		// "permissions": permissions,                        // 添加权限信息到日志中
+		"session_id": tokenPair.AccessToken[:10] + "...", // 只记录token前缀
+		"timestamp":  logger.NowFormatted(),
 	})
 
 	return &model.LoginResponse{

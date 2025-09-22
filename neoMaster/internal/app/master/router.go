@@ -160,9 +160,7 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	auth.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 登出只能一次
-		// 用户登出(访问token加黑)
-		auth.POST("/logout", r.logoutHandler.Logout)
-		// 用户全部登出(更新密码版本,所有类型token失效)
+		// 用户全部登出(更新密码版本,所有类型token失效,不再使用redis撤销黑名单的方式)
 		auth.POST("/logout-all", r.logoutHandler.LogoutAll)
 	}
 

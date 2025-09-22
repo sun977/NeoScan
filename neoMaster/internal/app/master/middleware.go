@@ -11,6 +11,7 @@ import (
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -367,6 +368,31 @@ func (m *MiddlewareManager) GinSecurityHeadersMiddleware() gin.HandlerFunc {
 func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
+
+		// 提取必要请求信息
+		clientIPRaw := c.GetHeader("X-Forwarded-For")
+		if clientIPRaw == "" {
+			clientIPRaw = c.GetHeader("X-Real-IP")
+		}
+		if clientIPRaw == "" {
+			clientIPRaw = c.ClientIP()
+		}
+		clientIP := utils.NormalizeIP(clientIPRaw)
+
+		// 存储到Gin上下文
+		c.Set("client_ip", clientIP) // 这个是标准化后的可以用作业务使用的客户端IP
+		// Gin上下文通过c.Set()方式存储值，后续可以通过c.Get("xx_key")获取
+
+		// 存储到标准上下文
+		ctx := c.Request.Context()
+		ctx = context.WithValue(ctx, "client_ip", clientIP)
+		// c.Request.Context()返回是标准的context.Context上下文，不包含gin的上下文
+		// 可以使用WithValue方法将自定义的上下文值存储到标准上下文中
+		// 这样后续使用标准上下文为参数的函数就可以安全获取自定义的上下文值
+		// 获取方式：clientIP, _ := ctx.Value("client_ip").(string)
+		c.Request = c.Request.WithContext(ctx)
+		// 本项目只有handler中使用了Gin上下文，剩下的逻辑都在service中使用的标准上下文
+		// 所以这里需要将Gin上下文的client_ip也存储到标准上下文
 
 		// 处理请求
 		c.Next()

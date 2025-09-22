@@ -313,8 +313,11 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 
 // Logout 用户登出所有设备(通过密码版本更新的方式现实)
 func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	clientIP, _ := ctx.Value("client_ip").(string)
+
 	if accessToken == "" {
-		logger.LogError(errors.New("access token cannot be empty"), "", 0, "", "user_logout", "POST", map[string]interface{}{
+		logger.LogError(errors.New("access token cannot be empty"), "", 0, clientIP, "user_logout", "POST", map[string]interface{}{
 			"operation": "logout",
 			"timestamp": logger.NowFormatted(),
 		})

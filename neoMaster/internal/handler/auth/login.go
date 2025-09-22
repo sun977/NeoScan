@@ -101,8 +101,11 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	// 验证请求参数
 	if err := h.validateLoginRequest(&req); err != nil {
 		// 记录参数验证失败日志
-		logger.LogError(err, "", 0, req.Username, "user_login", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/login", "POST", map[string]interface{}{
 			"operation":  "login",
+			"option":     "validateLoginRequest",
+			"func_name":  "handler.auth.login.Login",
+			"username":   req.Username,
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": XRequestID,
@@ -123,8 +126,11 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
 		// 记录登录失败的错误日志
-		logger.LogError(err, "", 0, req.Username, "user_login", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/login", "POST", map[string]interface{}{
 			"operation":   "login",
+			"option":      "sessionService.Login",
+			"func_name":   "handler.auth.login.Login",
+			"username":    req.Username,
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"status_code": statusCode,
@@ -141,8 +147,12 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	}
 
 	// 记录登录成功的业务日志
-	logger.LogBusinessOperation("user_login", uint(resp.User.ID), req.Username, "", "", "success", "用户登录成功", map[string]interface{}{
+	logger.LogBusinessOperation("user_login", uint(resp.User.ID), req.Username, clientIP, XRequestID, "success", "user login success", map[string]interface{}{
 		"operation":  "user_login",
+		"option":     "user_login:success",
+		"func_name":  "handler.auth.login.Login",
+		"user_id":    resp.User.ID,
+		"username":   req.Username,
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": XRequestID,

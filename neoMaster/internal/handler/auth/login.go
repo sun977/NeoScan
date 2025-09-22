@@ -72,6 +72,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	}
 	clientIP := utils.NormalizeIP(clientIPRaw)
 	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求体
 	var req model.LoginRequest // 创建一个LoginRequest结构体变量
@@ -83,7 +84,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 			"operation":  "login",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
-			"request_id": c.GetHeader("X-Request-ID"),
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
@@ -102,7 +103,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 			"operation":  "login",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
-			"request_id": c.GetHeader("X-Request-ID"),
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
@@ -125,7 +126,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"status_code": statusCode,
-			"request_id":  c.GetHeader("X-Request-ID"),
+			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
 		c.JSON(statusCode, model.APIResponse{
@@ -142,7 +143,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		"operation":  "user_login",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
-		"request_id": c.GetHeader("X-Request-ID"),
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 

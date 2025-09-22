@@ -80,8 +80,10 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		// 使用Gin的ShouldBindJSON方法解析并绑定请求体到req结构体中
 		// 如果解析失败，返回400 Bad Request错误
 		// 记录错误日志
-		logger.LogError(err, "", 0, "", "user_login", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/login", "POST", map[string]interface{}{
 			"operation":  "login",
+			"option":     "ShouldBindJSON",
+			"func_name":  "handler.auth.login.Login",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": XRequestID,
@@ -89,7 +91,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest, // 400
-			Status:  "error",
+			Status:  "failed",
 			Message: "invalid request body",
 			Error:   err.Error(),
 		})
@@ -108,7 +110,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest, // 400
-			Status:  "error",
+			Status:  "failed",
 			Message: "validation failed",
 			Error:   err.Error(),
 		})
@@ -131,7 +133,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
-			Status:  "error",
+			Status:  "failed",
 			Message: "login failed",
 			Error:   err.Error(),
 		})

@@ -319,6 +319,9 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	if accessToken == "" {
 		logger.LogError(errors.New("access token cannot be empty"), "", 0, clientIP, "user_logout", "POST", map[string]interface{}{
 			"operation": "logout",
+			"option":    "accessToken_empty",
+			"func_name": "service.auth.session.Logout",
+			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("access token cannot be empty")
@@ -327,8 +330,10 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 应该是解析accessToken获取user信息
 	claims, err := s.jwtService.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "user_logout", "POST", map[string]interface{}{
 			"operation":    "logout",
+			"option":       "ValidateAccessToken",
+			"func_name":    "service.auth.session.Logout",
 			"token_prefix": accessToken[:10] + "...",
 			"timestamp":    logger.NowFormatted(),
 		})
@@ -337,8 +342,11 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 
 	user, err := s.userService.GetUserByID(ctx, claims.UserID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
+		logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout", "POST", map[string]interface{}{
 			"operation":    "logout",
+			"option":       "GetUserByID",
+			"func_name":    "service.auth.session.GetUserByID",
+			"user_id":      claims.UserID,
 			"token_prefix": accessToken[:10] + "...",
 			"timestamp":    logger.NowFormatted(),
 		})
@@ -347,8 +355,11 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 
 	// 撤销令牌（将令牌添加到黑名单--添加到redis缓存中--"revoked:token:20250919173619-856583300"）
 	if err := s.jwtService.RevokeToken(ctx, accessToken); err != nil {
-		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
+		logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout", "POST", map[string]interface{}{
 			"operation":    "logout",
+			"option":       "revoke_token",
+			"func_name":    "service.auth.session.Logout",
+			"user_id":      claims.UserID,
 			"token_prefix": accessToken[:10] + "...",
 			"timestamp":    logger.NowFormatted(),
 		})
@@ -357,8 +368,11 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 
 	// 记录成功登出的业务日志
 	logData := map[string]interface{}{
+		"operation":    "logout",
+		"option":       "user_logout:success",
+		"func_name":    "service.auth.session.Logout",
 		"token_prefix": accessToken[:10] + "...",
-		"timestamp":    time.Now(),
+		"timestamp":    logger.NowFormatted(),
 	}
 	if user != nil {
 		logData["user_id"] = user.ID
@@ -370,7 +384,7 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 		userID = uint(user.ID)
 		username = user.Username
 	}
-	logger.LogBusinessOperation("user_logout", userID, username, "", "", "success", "用户登出成功", logData)
+	logger.LogBusinessOperation("user_logout", userID, username, clientIP, "", "success", "user logout success", logData)
 
 	return nil
 }

@@ -173,6 +173,7 @@ func (r *SessionRepository) RevokeToken(ctx context.Context, tokenID string, exp
 
 	// 添加到黑名单，值为撤销时间戳
 	revokedAt := time.Now().Unix()
+	// 使用redis的set命令将撤销令牌键添加到缓存中，值为撤销时间戳
 	err := r.client.Set(ctx, revokedKey, revokedAt, expiration).Err()
 	if err != nil {
 		return fmt.Errorf("failed to revoke token: %w", err)

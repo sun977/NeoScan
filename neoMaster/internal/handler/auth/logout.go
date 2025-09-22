@@ -118,7 +118,6 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "logout successful",
-		Data:    nil,
 	})
 }
 

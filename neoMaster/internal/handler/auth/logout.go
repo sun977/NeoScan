@@ -123,21 +123,36 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 
 // LogoutAll 用户全部登出接口(更新密码版本,所有类型token失效)
 func (h *LogoutHandler) LogoutAll(c *gin.Context) {
+	// 规范化参数变量
+	clientIPRaw := c.GetHeader("X-Forwarded-For")
+	if clientIPRaw == "" {
+		clientIPRaw = c.GetHeader("X-Real-IP")
+	}
+	if clientIPRaw == "" {
+		clientIPRaw = c.ClientIP()
+	}
+	clientIP := utils.NormalizeIP(clientIPRaw)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	authorization := c.GetHeader("Authorization")
+
 	// 从请求头中获取访问令牌
 	accessToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
 		// 记录令牌提取失败错误日志
-		logger.LogError(err, "", 0, "", "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/logout", "POST", map[string]interface{}{
 			"operation":            "logout_all",
-			"client_ip":            c.ClientIP(),
-			"user_agent":           c.GetHeader("User-Agent"),
-			"request_id":           c.GetHeader("X-Request-ID"),
-			"authorization_header": c.GetHeader("Authorization") != "",
+			"option":               "logout_all",
+			"func_name":            "handler.auth.logout.LogoutAll",
+			"client_ip":            clientIP,
+			"user_agent":           userAgent,
+			"request_id":           XRequestID,
+			"authorization_header": authorization != "",
 			"timestamp":            logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
-			Status:  "error",
+			Status:  "failed",
 			Message: "missing or invalid authorization header",
 			Error:   err.Error(),
 		})
@@ -148,17 +163,19 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	user, err := h.sessionService.ValidateSession(c.Request.Context(), accessToken)
 	if err != nil {
 		// 记录令牌验证失败错误日志
-		logger.LogError(err, "", 0, "", "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/logout", "POST", map[string]interface{}{
 			"operation":  "logout_all",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"option":     "validateSession",
+			"func_name":  "handler.auth.logout.LogoutAll",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"has_token":  accessToken != "",
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
 			Code:    http.StatusUnauthorized,
-			Status:  "error",
+			Status:  "failed",
 			Message: "invalid token",
 			Error:   err.Error(),
 		})
@@ -170,17 +187,19 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录全部登出失败错误日志
-		logger.LogError(err, "", uint(user.ID), "", "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/logout", "POST", map[string]interface{}{
 			"operation":   "logout_all",
-			"client_ip":   c.ClientIP(),
-			"user_agent":  c.GetHeader("User-Agent"),
+			"option":      "logout_all",
+			"func_name":   "handler.auth.logout.LogoutAll",
+			"client_ip":   clientIP,
+			"user_agent":  userAgent,
 			"status_code": statusCode,
-			"request_id":  c.GetHeader("X-Request-ID"),
+			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,
-			Status:  "error",
+			Status:  "failed",
 			Message: "logout all failed",
 			Error:   err.Error(),
 		})
@@ -188,11 +207,11 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	}
 
 	// 记录全部登出成功业务日志
-	logger.LogBusinessOperation("user_logout_all", uint(user.ID), "", "", "", "success", "用户全部登出成功", map[string]interface{}{
+	logger.LogBusinessOperation("user_logout_all", uint(user.ID), "", "", "", "success", "user logout all success", map[string]interface{}{
 		"operation":  "logout_all",
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 

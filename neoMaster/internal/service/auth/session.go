@@ -391,9 +391,14 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 
 // LogoutAll 用户全部登出
 func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	clientIP, _ := ctx.Value("client_ip").(string)
 	if accessToken == "" {
-		logger.LogError(errors.New("access token cannot be empty"), "", 0, "", "user_logout_all", "POST", map[string]interface{}{
-			"operation": "logout_all",
+		logger.LogError(errors.New("access token cannot be empty"), "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
+			"operation": "logout",
+			"option":    "accessToken_empty",
+			"func_name": "service.auth.session.Logout",
+			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
 		})
 		return errors.New("access token cannot be empty")
@@ -402,8 +407,10 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	// 解析访问令牌获取声明信息
 	claims, err := s.jwtService.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation":    "logout_all",
+			"option":       "ValidateAccessToken",
+			"func_name":    "service.auth.session.LogoutAll",
 			"token_prefix": accessToken[:10] + "...",
 			"timestamp":    logger.NowFormatted(),
 		})
@@ -413,8 +420,11 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	// 获取用户信息
 	user, err := s.userService.GetUserByID(ctx, claims.UserID)
 	if err != nil {
-		logger.LogError(err, "", uint(claims.UserID), "", "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation":    "logout_all",
+			"option":       "GetUserByID",
+			"func_name":    "service.auth.session.GetUserByID",
+			"user_id":      claims.UserID,
 			"token_prefix": accessToken[:10] + "...",
 			"timestamp":    logger.NowFormatted(),
 		})
@@ -423,8 +433,13 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 
 	// 删除用户的所有会话（Redis中的会话数据）
 	if derr := s.sessionRepo.DeleteAllUserSessions(ctx, uint64(claims.UserID)); derr != nil {
-		logger.LogError(derr, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(derr, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout_all_delete_sessions",
+			"option":    "DeleteAllUserSessions",
+			"func_name": "service.auth.session.LogoutAll",
+			"user_id":   claims.UserID,
+			"username":  user.Username,
+			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
 		})
 		// 不返回错误，继续执行
@@ -436,6 +451,11 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	if err != nil {
 		logger.LogError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout_all_get_password_version",
+			"option":    "GetUserPasswordVersion",
+			"func_name": "service.auth.session.LogoutAll",
+			"user_id":   claims.UserID,
+			"username":  user.Username,
+			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
 		})
 		// 继续执行撤销操作
@@ -443,8 +463,13 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	if user != nil {
 		newPasswordV := passwordV + 1
 		if err := s.userService.UpdateUserPasswordVersion(ctx, user.ID, newPasswordV); err != nil {
-			logger.LogError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+			logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 				"operation": "logout_all_update_password_version",
+				"option":    "UpdateUserPasswordVersion",
+				"func_name": "service.auth.session.LogoutAll",
+				"user_id":   claims.UserID,
+				"username":  user.Username,
+				"client_ip": clientIP,
 				"timestamp": logger.NowFormatted(),
 			})
 			// 不返回错误，继续执行
@@ -453,8 +478,13 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 		// 存储新的密码版本到缓存
 		expiration := 24 * time.Hour // 与refresh token有效期一致
 		if err := s.StorePasswordVersion(ctx, uint(claims.UserID), newPasswordV, expiration); err != nil {
-			logger.LogError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+			logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 				"operation": "logout_all_store_password_version",
+				"option":    "StorePasswordVersion",
+				"func_name": "service.auth.session.LogoutAll",
+				"user_id":   claims.UserID,
+				"username":  user.Username,
+				"client_ip": clientIP,
 				"timestamp": logger.NowFormatted(),
 			})
 		}
@@ -473,7 +503,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 		logData["username"] = user.Username
 	}
 
-	logger.LogBusinessOperation("user_logout_all", userID, username, "", "", "success", "用户从所有设备登出成功", logData)
+	logger.LogBusinessOperation("user_logout_all", userID, username, clientIP, "", "success", "user logout all success", logData)
 
 	return nil
 }

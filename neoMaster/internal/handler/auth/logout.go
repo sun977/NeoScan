@@ -6,6 +6,7 @@ import (
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -39,16 +40,29 @@ func (h *LogoutHandler) getErrorStatusCode(err error) int {
 
 // Logout 用户登出接口(AccessToken撤销)
 func (h *LogoutHandler) Logout(c *gin.Context) {
+	// 规范化参数变量
+	clientIPRaw := c.GetHeader("X-Forwarded-For")
+	if clientIPRaw == "" {
+		clientIPRaw = c.GetHeader("X-Real-IP")
+	}
+	if clientIPRaw == "" {
+		clientIPRaw = c.ClientIP()
+	}
+	clientIP := utils.NormalizeIP(clientIPRaw)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	authorization := c.GetHeader("Authorization")
+
 	// 从请求头中获取访问令牌
 	accessToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
 		// 记录令牌提取失败错误日志
 		logger.LogError(err, "", 0, "", "user_logout", "POST", map[string]interface{}{
 			"operation":            "logout",
-			"client_ip":            c.ClientIP(),
-			"user_agent":           c.GetHeader("User-Agent"),
-			"request_id":           c.GetHeader("X-Request-ID"),
-			"authorization_header": c.GetHeader("Authorization") != "",
+			"client_ip":            clientIP,
+			"user_agent":           userAgent,
+			"request_id":           XRequestID,
+			"authorization_header": authorization != "",
 			"timestamp":            logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{

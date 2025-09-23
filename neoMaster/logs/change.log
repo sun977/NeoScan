@@ -46,3 +46,4 @@
 	runtime: goroutine stack exceeds 1000000000-byte limit runtime: sp=0xc02f5194b0 stack=[0xc02f518000, 0xc04f518000]
 	- 数据结构：JWTService依赖SessionService，SessionService又依赖JWTService，形成循环
 	- 报错原因：循环依赖会导致无限递归初始化，最终栈溢出
+2. 用户信息更新接口存在响应错误，响应没有根据具体错误类型返回，只返回了更新失败，涉及接口管理员使用用户更新接口和用户使用的更新接口

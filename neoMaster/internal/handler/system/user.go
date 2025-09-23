@@ -773,29 +773,40 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 // UserUpdateInfoByID 用户专用更新信息方式，不允许携带角色调整【未完成】
 // 用户专用更新信息方式，不允许携带角色调整
 func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
-	// 从URL路径参数获取用户ID
-	userIDStr := c.Param("id")
-	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "error",
-			Message: "user id is required",
+	// 从gin上下文获取用户ID（中间件已验证并存储）
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		// 记录用户ID不存在错误日志
+		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "user_update_info_by_id", "GET", map[string]interface{}{
+			"operation":  "user_update_info_by_id",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "user_id not found in context",
 		})
 		return
 	}
 
-	// 转换用户ID为uint类型
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		// 记录用户ID格式错误日志
-		logger.LogError(err, "", 0, "", "update_user_by_id", "POST", map[string]interface{}{
-			"user_id_str": userIDStr,
-			"error":       "invalid_user_id_format",
+	// 类型断言获取用户ID
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		// 记录用户ID类型转换失败错误日志
+		logger.LogError(errors.New("user_id type assertion failed"), "", 0, "", "user_update_info_by_id", "GET", map[string]interface{}{
+			"operation":  "user_update_info_by_id",
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.GetHeader("User-Agent"),
+			"request_id": c.GetHeader("X-Request-ID"),
+			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "error",
-			Message: "invalid user id format",
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "invalid user_id type",
 		})
 		return
 	}
@@ -818,7 +829,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 
 	// 调用service层更新用户信息 - 核心业务逻辑 【用户只能更新自己的信息，不能更新角色等，需要重写service层的 UserUpdateInfoByID 方法】
 	// updatedUser, err := h.userService.UpdateUserByID(c.Request.Context(), uint(userID), &req)
-	updatedUser, err := h.userService.UpdateUserByID(c.Request.Context(), uint(userID), &req)
+	updatedUser, err := h.userService.UserUpdateInfoByID(c.Request.Context(), uint(userID), &req)
 	if err != nil {
 		// 根据错误类型返回不同的HTTP状态码
 		if err.Error() == "用户不存在" {
@@ -829,7 +840,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			})
 			c.JSON(http.StatusNotFound, model.APIResponse{
 				Code:    http.StatusNotFound,
-				Status:  "error",
+				Status:  "failed",
 				Message: "user not found",
 			})
 			return
@@ -842,7 +853,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			})
 			c.JSON(http.StatusConflict, model.APIResponse{
 				Code:    http.StatusConflict,
-				Status:  "error",
+				Status:  "failed",
 				Message: "email already exists",
 			})
 			return
@@ -855,21 +866,8 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			})
 			c.JSON(http.StatusConflict, model.APIResponse{
 				Code:    http.StatusConflict,
-				Status:  "error",
+				Status:  "failed",
 				Message: "username already exists",
-			})
-			return
-		}
-		if err.Error() == "角色不存在" {
-			// 角色不存在，返回409
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
-				"user_id": userID,
-				"error":   "role_not_found",
-			})
-			c.JSON(http.StatusConflict, model.APIResponse{
-				Code:    http.StatusConflict,
-				Status:  "error",
-				Message: "role not found",
 			})
 			return
 		}
@@ -880,7 +878,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
 			Code:    http.StatusInternalServerError,
-			Status:  "error",
+			Status:  "failed",
 			Message: "failed to update user",
 		})
 		return
@@ -911,7 +909,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	c.JSON(http.StatusOK, model.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "user updated successfully",
+		Message: "user info updated success",
 		Data:    userInfo,
 	})
 }

@@ -171,7 +171,7 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 		// 修改用户密码
 		user.POST("/change-password", r.userHandler.ChangePassword) // 修改用户密码
 		// 更新用户信息（需要补充）
-		user.POST("/update", r.userHandler.UserUpdateInfoByID) // 【未完成】允许用户自己修改自己的信息（仅user表，不能修改角色和权限等）
+		user.POST("/update", r.userHandler.UserUpdateInfoByID) // 【有bug】允许用户自己修改自己的信息（仅user表，不能修改角色和权限等）
 		// 获取用户权限
 		user.GET("/permissions", r.userHandler.GetUserPermission) // 获取用户权限(permissions表)
 		// 获取用户角色

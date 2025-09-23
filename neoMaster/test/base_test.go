@@ -128,27 +128,19 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 		// 然后创建依赖用户服务的其他服务
 		rbacService = authService.NewRBACService(userService)
 
-		// 创建临时的JWTService用于初始化SessionService
-		tempJWTService := authService.NewJWTService(jwtManager, userService, nil)
+		// 先创建SessionService（不传入JWTService）
 		authSvc = authService.NewSessionService(
 			userService,
 			passwordManager,
-			tempJWTService,
 			rbacService,
 			sessionRepo,
 		)
 
-		// 重新创建JWTService，注入SessionService作为TokenBlacklistService
-		jwtService = authService.NewJWTService(jwtManager, userService, authSvc)
+		// 再创建JWTService
+		jwtService = authService.NewJWTService(jwtManager, userService, sessionRepo)
 
-		// 重新创建SessionService以使用正确的JWTService
-		authSvc = authService.NewSessionService(
-			userService,
-			passwordManager,
-			jwtService,
-			rbacService,
-			sessionRepo,
-		)
+		// 设置SessionService的TokenGenerator（解决循环依赖）
+		authSvc.SetTokenGenerator(jwtService)
 	}
 
 	// 创建中间件管理器 - 只有在所有服务都可用时才创建

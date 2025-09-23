@@ -24,11 +24,21 @@ import (
 	"neomaster/internal/repository/redis"
 )
 
+// TokenGenerator 令牌生成器接口 - 解耦JWTService依赖
+type TokenGenerator interface {
+	GenerateTokens(ctx context.Context, user *model.User) (*auth.TokenPair, error)
+	ValidateAccessToken(tokenString string) (*auth.JWTClaims, error)
+	RefreshTokens(ctx context.Context, refreshToken string) (*auth.TokenPair, error)
+	CheckTokenExpiry(tokenString string, threshold time.Duration) (bool, error)
+	GetTokenRemainingTime(tokenString string) (time.Duration, error)
+	ValidatePasswordVersion(ctx context.Context, tokenString string) (bool, error)
+}
+
 // SessionService 会话管理服务
 type SessionService struct {
 	userService     *UserService
 	passwordManager *auth.PasswordManager
-	jwtService      *JWTService
+	tokenGenerator  TokenGenerator // 使用接口而不是具体实现
 	rbacService     *RBACService
 	sessionRepo     *redis.SessionRepository
 }
@@ -37,17 +47,21 @@ type SessionService struct {
 func NewSessionService(
 	userService *UserService,
 	passwordManager *auth.PasswordManager,
-	jwtService *JWTService,
 	rbacService *RBACService,
 	sessionRepo *redis.SessionRepository,
 ) *SessionService {
 	return &SessionService{
 		userService:     userService,
 		passwordManager: passwordManager,
-		jwtService:      jwtService,
+		tokenGenerator:  nil, // 稍后通过SetTokenGenerator设置
 		rbacService:     rbacService,
 		sessionRepo:     sessionRepo,
 	}
+}
+
+// SetTokenGenerator 设置令牌生成器 - 解决循环依赖
+func (s *SessionService) SetTokenGenerator(tokenGenerator TokenGenerator) {
+	s.tokenGenerator = tokenGenerator
 }
 
 // Login 用户登录
@@ -189,8 +203,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 		return nil, errors.New("invalid username or password")
 	}
 
-	// 生成令牌
-	tokenPair, err := s.jwtService.GenerateTokens(ctx, user)
+	// 生成JWT令牌对
+	tokenPair, err := s.tokenGenerator.GenerateTokens(ctx, user)
 	if err != nil {
 		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
@@ -314,7 +328,8 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 // LogoutAll 用户全部登出 (通过密码版本更新的方式现实)
 func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	clientIP, _ := ctx.Value("client_ip").(string)
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if accessToken == "" {
 		logger.LogError(errors.New("access token cannot be empty"), "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout",
@@ -326,8 +341,8 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 		return errors.New("access token cannot be empty")
 	}
 
-	// 解析访问令牌获取声明信息
-	claims, err := s.jwtService.ValidateAccessToken(accessToken)
+	// 验证访问令牌
+	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
 	if err != nil {
 		logger.LogError(err, "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation":    "logout_all",
@@ -440,8 +455,8 @@ func (s *SessionService) RefreshToken(ctx context.Context, req *model.RefreshTok
 		return nil, errors.New("refresh token cannot be empty")
 	}
 
-	// 刷新令牌(包含验证刷新令牌)
-	tokenPair, err := s.jwtService.RefreshTokens(ctx, req.RefreshToken)
+	// 刷新令牌
+	tokenPair, err := s.tokenGenerator.RefreshTokens(ctx, req.RefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh tokens: %w", err)
 	}
@@ -465,7 +480,7 @@ func (s *SessionService) ValidateSession(ctx context.Context, accessToken string
 	// 1.这里会检查令牌格式、签名有效性、是否过期等
 	// 2.检查令牌是否在黑名单中（已被撤销）
 	// 验证成功返回解析出的JWT声明信息，失败返回错误信息
-	claims, err := s.jwtService.ValidateAccessToken(accessToken)
+	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid session: %w", err)
 	}
@@ -496,12 +511,12 @@ func (s *SessionService) CheckRole(ctx context.Context, userID uint, roleName st
 
 // IsTokenExpiringSoon 检查令牌是否即将过期
 func (s *SessionService) IsTokenExpiringSoon(accessToken string, threshold time.Duration) (bool, error) {
-	return s.jwtService.CheckTokenExpiry(accessToken, threshold)
+	return s.tokenGenerator.CheckTokenExpiry(accessToken, threshold)
 }
 
 // GetTokenRemainingTime 获取令牌剩余时间
 func (s *SessionService) GetTokenRemainingTime(accessToken string) (time.Duration, error) {
-	return s.jwtService.GetTokenRemainingTime(accessToken)
+	return s.tokenGenerator.GetTokenRemainingTime(accessToken)
 }
 
 // StorePasswordVersion 存储用户密码版本到缓存
@@ -520,6 +535,14 @@ func (s *SessionService) DeleteAllUserSessions(ctx context.Context, userID uint)
 //   - ctx: 请求上下文
 //   - jti: JWT ID（令牌唯一标识符）
 //   - expiration: 黑名单过期时间
+//
+// // 返回: 错误信息
+// RevokeToken 撤销令牌
+// 实现TokenBlacklistService接口
+// 参数:
+//   - ctx: 请求上下文
+//   - jti: JWT ID（令牌唯一标识符）
+//   - expiration: 令牌过期时间
 //
 // 返回: 错误信息
 func (s *SessionService) RevokeToken(ctx context.Context, jti string, expiration time.Duration) error {
@@ -580,7 +603,46 @@ func (s *SessionService) IsTokenRevoked(ctx context.Context, jti string) (bool, 
 	return isRevoked, nil
 }
 
-// 主要用于handler层sessionHandler的实现
+// Logout 用户登出
+// 参数:
+//   - ctx: 请求上下文
+//   - accessToken: 访问令牌
+//
+// 返回: 错误信息
+func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
+	if accessToken == "" {
+		return errors.New("access token cannot be empty")
+	}
+
+	// 验证访问令牌
+	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "logout", "POST", map[string]interface{}{
+			"operation": "logout",
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("invalid access token: %w", err)
+	}
+
+	// 撤销令牌
+	err = s.RevokeToken(ctx, claims.ID, time.Until(time.Unix(claims.ExpiresAt.Unix(), 0)))
+	if err != nil {
+		logger.LogError(err, "", claims.UserID, "", "logout", "POST", map[string]interface{}{
+			"operation": "logout",
+			"user_id":   claims.UserID,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	// 记录登出业务日志
+	logger.LogBusinessOperation("logout", claims.UserID, "", "", "", "success", "用户登出成功", map[string]interface{}{
+		"user_id":   claims.UserID,
+		"timestamp": logger.NowFormatted(),
+	})
+
+	return nil
+}
 // GetUserSessions 获取指定用户的所有会话
 func (s *SessionService) GetUserSessions(ctx context.Context, userID uint) ([]*model.SessionData, error) {
 	if userID == 0 {

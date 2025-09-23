@@ -52,7 +52,7 @@ func TestJWTBlacklistIntegration(t *testing.T) {
 		assert.Equal(t, testUser.Username, claims.Username, "用户名应该匹配")
 
 		// 2. 撤销令牌
-		err = suite.JWTService.RevokeToken(ctx, tokenPair.AccessToken)
+		err = suite.JWTService.RevokeToken(ctx, tokenPair.AccessToken, time.Hour)
 		assert.NoError(t, err, "令牌撤销应该成功")
 
 		// 3. 验证撤销后的令牌应该无效

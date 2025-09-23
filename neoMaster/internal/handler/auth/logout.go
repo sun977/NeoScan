@@ -38,6 +38,86 @@ func (h *LogoutHandler) getErrorStatusCode(err error) int {
 	}
 }
 
+// Logout 用户登出接口[弃用,使用LogoutAll]
+// 该接口用于用户登出,将当前会话从Redis中删除,并将令牌添加到黑名单中,以防止后续请求使用该令牌进行认证
+func (h *LogoutHandler) Logout(c *gin.Context) {
+	// 规范化参数变量
+	clientIPRaw := c.GetHeader("X-Forwarded-For")
+	if clientIPRaw == "" {
+		clientIPRaw = c.GetHeader("X-Real-IP")
+	}
+	if clientIPRaw == "" {
+		clientIPRaw = c.ClientIP()
+	}
+	clientIP := utils.NormalizeIP(clientIPRaw)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	authorization := c.GetHeader("Authorization")
+
+	// 从请求头中获取访问令牌
+	accessToken, err := h.extractTokenFromHeader(c)
+	if err != nil {
+		// 记录令牌提取失败错误日志
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/logout", "POST", map[string]interface{}{
+			"operation":            "logout",
+			"option":               "logout",
+			"func_name":            "handler.auth.logout.Logout",
+			"client_ip":            clientIP,
+			"user_agent":           userAgent,
+			"request_id":           XRequestID,
+			"authorization_header": authorization != "",
+			"timestamp":            logger.NowFormatted(),
+		})
+		c.JSON(http.StatusUnauthorized, model.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "failed",
+			Message: "missing or invalid authorization header",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 调用SessionService的Logout方法
+	err = h.sessionService.Logout(c.Request.Context(), accessToken)
+	if err != nil {
+		// 记录登出失败错误日志
+		logger.LogError(err, XRequestID, 0, clientIP, "/api/v1/auth/logout", "POST", map[string]interface{}{
+			"operation":  "logout",
+			"option":     "sessionService.Logout",
+			"func_name":  "handler.auth.logout.Logout",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
+			"has_token":  accessToken != "",
+			"timestamp":  logger.NowFormatted(),
+		})
+
+		statusCode := h.getErrorStatusCode(err)
+		c.JSON(statusCode, model.APIResponse{
+			Code:    statusCode,
+			Status:  "failed",
+			Message: "logout failed",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 记录登出成功业务日志
+	logger.LogBusinessOperation("logout", 0, clientIP, userAgent, XRequestID, "success", "用户登出成功", map[string]interface{}{
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
+		"timestamp":  logger.NowFormatted(),
+	})
+
+	// 返回成功响应
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "logout successful",
+	})
+}
+
 // LogoutAll 用户全部登出接口(更新密码版本,所有类型token失效,不再使用redis撤销黑名单的方式)
 func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	// 规范化参数变量

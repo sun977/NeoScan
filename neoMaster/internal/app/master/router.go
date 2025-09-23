@@ -60,17 +60,14 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	// 初始化RBAC服务（不依赖其他服务）
 	rbacService := authService.NewRBACService(userService)
 
-	// 初始化SessionService（作为TokenBlacklistService的实现）
-	// 注意：这里先创建一个临时的JWTService，后面会重新创建
-	tempJWTService := authService.NewJWTService(jwtManager, userService, sessionRepo, nil)
-	sessionService := authService.NewSessionService(userService, passwordManager, tempJWTService, rbacService, sessionRepo)
+	// 先创建SessionService（不传入JWTService）
+	sessionService := authService.NewSessionService(userService, passwordManager, rbacService, sessionRepo)
 
-	// 重新创建JWTService，注入SessionService作为TokenBlacklistService
-	jwtService := authService.NewJWTService(jwtManager, userService, sessionRepo, sessionService)
+	// 再创建JWTService
+	jwtService := authService.NewJWTService(jwtManager, userService, sessionRepo)
 
-	// 更新SessionService中的JWTService引用
-	// 注意：这里需要重新创建SessionService以避免循环依赖
-	sessionService = authService.NewSessionService(userService, passwordManager, jwtService, rbacService, sessionRepo)
+	// 设置SessionService的TokenGenerator（解决循环依赖）
+	sessionService.SetTokenGenerator(jwtService)
 
 	// 初始化PasswordService（密码管理服务）
 	passwordService := authService.NewPasswordService(userService, sessionService, passwordManager, time.Hour*24)

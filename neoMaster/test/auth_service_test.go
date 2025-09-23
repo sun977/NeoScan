@@ -14,6 +14,12 @@ import (
 // TestAuthService 测试认证服务的核心功能
 func TestAuthService(t *testing.T) {
 	RunWithTestEnvironment(t, func(ts *TestSuite) {
+		// 检查必要的服务是否可用
+		if ts.UserService == nil || ts.SessionService == nil {
+			t.Skip("跳过认证服务测试：数据库连接失败，必要的服务不可用")
+			return
+		}
+
 		t.Run("用户注册", func(t *testing.T) {
 			testUserRegistration(t, ts)
 		})

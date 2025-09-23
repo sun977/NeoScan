@@ -385,7 +385,10 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 
 		// 存储到标准上下文
 		ctx := c.Request.Context()
-		ctx = context.WithValue(ctx, "client_ip", clientIP)
+		type clientIPKeyType struct{}
+		// 定义一个常量作为上下文键,避免使用空的匿名结构体
+		var clientIPKey = clientIPKeyType{}
+		ctx = context.WithValue(ctx, clientIPKey, clientIP)
 		// c.Request.Context()返回是标准的context.Context上下文，不包含gin的上下文
 		// 可以使用WithValue方法将自定义的上下文值存储到标准上下文中
 		// 这样后续使用标准上下文为参数的函数就可以安全获取自定义的上下文值

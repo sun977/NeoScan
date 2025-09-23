@@ -22,6 +22,12 @@ import (
 // TestAPIIntegration 测试API集成功能
 func TestAPIIntegration(t *testing.T) {
 	RunWithTestEnvironment(t, func(ts *TestSuite) {
+		// 检查必要的服务是否可用
+		if ts.UserService == nil || ts.SessionService == nil {
+			t.Skip("跳过API集成测试：数据库连接失败，必要的服务不可用")
+			return
+		}
+
 		// 设置Gin为测试模式
 		gin.SetMode(gin.TestMode)
 
@@ -67,6 +73,12 @@ func setupTestRouter(ts *TestSuite) *gin.Engine {
 			"error": "Method not allowed",
 		})
 	})
+
+	// 检查必要的服务是否可用
+	if ts.UserService == nil || ts.SessionService == nil {
+		// 返回一个基本的路由器，不注册任何需要服务的路由
+		return router
+	}
 
 	// 创建处理器
 	// 创建PasswordService
@@ -654,6 +666,12 @@ func testCompleteUserFlow(t *testing.T, ts *TestSuite) {
 // TestAPIErrorHandling 测试API错误处理
 func TestAPIErrorHandling(t *testing.T) {
 	RunWithTestEnvironment(t, func(ts *TestSuite) {
+		// 检查必要的服务是否可用
+		if ts.UserService == nil || ts.SessionService == nil {
+			t.Skip("跳过API错误处理测试：数据库连接失败，必要的服务不可用")
+			return
+		}
+
 		router := setupTestRouter(ts)
 
 		t.Run("JSON格式错误", func(t *testing.T) {

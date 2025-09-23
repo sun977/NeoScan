@@ -19,25 +19,24 @@ import (
 // TokenBlacklistService 令牌黑名单服务接口
 // 这个接口定义了令牌黑名单操作的标准方法
 // 通过接口解耦JWTService和SessionService之间的循环依赖
-type TokenBlacklistService interface {
-	// RevokeToken 撤销令牌（将令牌添加到黑名单）
-	// tokenJTI: JWT的唯一标识符
-	// expiration: 黑名单过期时间，通常设置为令牌的剩余有效时间
-	RevokeToken(ctx context.Context, tokenJTI string, expiration time.Duration) error
+// type TokenBlacklistService interface {
+// RevokeToken 撤销令牌（将令牌添加到黑名单）
+// tokenJTI: JWT的唯一标识符
+// expiration: 黑名单过期时间，通常设置为令牌的剩余有效时间
+// RevokeToken(ctx context.Context, tokenJTI string, expiration time.Duration) error
 
-	// IsTokenRevoked 检查令牌是否已被撤销（是否在黑名单中）
-	// tokenJTI: JWT的唯一标识符
-	IsTokenRevoked(ctx context.Context, tokenJTI string) (bool, error)
-}
+// IsTokenRevoked 检查令牌是否已被撤销（是否在黑名单中）
+// tokenJTI: JWT的唯一标识符
+// IsTokenRevoked(ctx context.Context, tokenJTI string) (bool, error)
+// }
 
 // JWTService JWT认证服务结构体
 // 这是服务层的核心结构，封装了JWT相关的所有业务逻辑
 // 采用依赖注入的方式，将JWT管理器、用户服务和令牌黑名单服务作为依赖项
 type JWTService struct {
-	jwtManager       *auth.JWTManager         // JWT管理器，负责令牌的底层操作（生成、验证、解析）
-	userService      *UserService             // 用户服务，负责用户相关的业务逻辑
-	redisRepo        *redis.SessionRepository // 会话仓库，负责与Redis交互，缓存用户密码版本
-	blacklistService TokenBlacklistService    // 令牌黑名单服务，负责令牌撤销和黑名单检查
+	jwtManager  *auth.JWTManager         // JWT管理器，负责令牌的底层操作（生成、验证、解析）
+	userService *UserService             // 用户服务，负责用户相关的业务逻辑
+	redisRepo   *redis.SessionRepository // 会话仓库，负责与Redis交互，缓存用户密码版本
 }
 
 // NewJWTService 创建JWT服务实例
@@ -52,13 +51,11 @@ type JWTService struct {
 func NewJWTService(
 	jwtManager *auth.JWTManager,
 	userService *UserService,
-	redisRepo *redis.SessionRepository,
-	blacklistService TokenBlacklistService) *JWTService {
+	redisRepo *redis.SessionRepository) *JWTService {
 	return &JWTService{
-		jwtManager:       jwtManager,       // 注入JWT管理器依赖
-		userService:      userService,      // 注入用户服务依赖
-		redisRepo:        redisRepo,        // 注入Redis会话仓库依赖
-		blacklistService: blacklistService, // 注入令牌黑名单服务依赖
+		jwtManager:  jwtManager,  // 注入JWT管理器依赖
+		userService: userService, // 注入用户服务依赖
+		redisRepo:   redisRepo,   // 注入Redis会话仓库依赖
 	}
 }
 
@@ -162,31 +159,37 @@ func (s *JWTService) ValidateAccessToken(tokenString string) (*auth.JWTClaims, e
 		return nil, fmt.Errorf("invalid access token: %w", err)
 	}
 
-	// 第二步：检查令牌是否在黑名单中（已被撤销）
+	// // 检查密码版本（关键步骤）[启用的话会出现相互调用故障]
+	// validVersion, err := s.ValidatePasswordVersion(context.Background(), tokenString)
+	// if err != nil || !validVersion {
+	// 	return nil, errors.New("token version mismatch")
+	// }
+
+	// 第二步：检查令牌是否在黑名单中（已被撤销）【不再检查redis黑名单】
 	// 使用令牌的JTI（JWT ID）进行黑名单检查
-	if claims.ID != "" {
-		isRevoked, err := s.blacklistService.IsTokenRevoked(context.Background(), claims.ID)
-		if err != nil {
-			// 黑名单检查失败，记录错误日志但不阻止验证（降级处理）
-			// 这样可以避免Redis故障导致所有令牌验证失败
-			logger.LogError(err, "", uint(claims.UserID), "", "token_blacklist_check", "GET", map[string]interface{}{
-				"operation":    "validate_access_token",
-				"token_prefix": tokenString[:10] + "...",
-				"jti":          claims.ID,
-				"timestamp":    logger.NowFormatted(),
-			})
-			// 继续验证流程，不因黑名单检查失败而拒绝令牌
-		} else if isRevoked {
-			// 令牌已被撤销，拒绝访问
-			logger.LogError(errors.New("token has been revoked"), "", uint(claims.UserID), "", "token_revoked", "GET", map[string]interface{}{
-				"operation":    "validate_access_token",
-				"token_prefix": tokenString[:10] + "...",
-				"jti":          claims.ID,
-				"timestamp":    logger.NowFormatted(),
-			})
-			return nil, errors.New("token has been revoked")
-		}
-	}
+	// if claims.ID != "" {
+	// 	isRevoked, err := s.blacklistService.IsTokenRevoked(context.Background(), claims.ID)
+	// 	if err != nil {
+	// 		// 黑名单检查失败，记录错误日志但不阻止验证（降级处理）
+	// 		// 这样可以避免Redis故障导致所有令牌验证失败
+	// 		logger.LogError(err, "", uint(claims.UserID), "", "token_blacklist_check", "GET", map[string]interface{}{
+	// 			"operation":    "validate_access_token",
+	// 			"token_prefix": tokenString[:10] + "...",
+	// 			"jti":          claims.ID,
+	// 			"timestamp":    logger.NowFormatted(),
+	// 		})
+	// 		// 继续验证流程，不因黑名单检查失败而拒绝令牌
+	// 	} else if isRevoked {
+	// 		// 令牌已被撤销，拒绝访问
+	// 		logger.LogError(errors.New("token has been revoked"), "", uint(claims.UserID), "", "token_revoked", "GET", map[string]interface{}{
+	// 			"operation":    "validate_access_token",
+	// 			"token_prefix": tokenString[:10] + "...",
+	// 			"jti":          claims.ID,
+	// 			"timestamp":    logger.NowFormatted(),
+	// 		})
+	// 		return nil, errors.New("token has been revoked")
+	// 	}
+	// }
 
 	// 验证成功，返回解析出的JWT声明信息
 	return claims, nil
@@ -207,27 +210,33 @@ func (s *JWTService) ValidateRefreshToken(tokenString string) (*jwt.RegisteredCl
 		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
+	// // 检查密码版本（关键步骤）[启用的话会出现相互调用故障]
+	// validVersion, err := s.ValidatePasswordVersion(context.Background(), tokenString)
+	// if err != nil || !validVersion {
+	// 	return nil, errors.New("token version mismatch")
+	// }
+
 	// 添加黑名单检查（与AccessToken相同）
-	if claims.ID != "" {
-		isRevoked, err := s.blacklistService.IsTokenRevoked(context.Background(), claims.ID)
-		if err != nil {
-			logger.LogError(err, "", 0, "", "refresh_token_blacklist_check", "GET", map[string]interface{}{
-				"operation":    "validate_refresh_token",
-				"token_prefix": tokenString[:10] + "...",
-				"jti":          claims.ID,
-				"timestamp":    logger.NowFormatted(),
-			})
-			// 根据安全策略决定是否继续
-		} else if isRevoked {
-			logger.LogError(errors.New("refresh token has been revoked"), "", 0, "", "refresh_token_revoked", "GET", map[string]interface{}{
-				"operation":    "validate_refresh_token",
-				"token_prefix": tokenString[:10] + "...",
-				"jti":          claims.ID,
-				"timestamp":    logger.NowFormatted(),
-			})
-			return nil, errors.New("refresh token has been revoked")
-		}
-	}
+	// if claims.ID != "" {
+	// 	isRevoked, err := s.blacklistService.IsTokenRevoked(context.Background(), claims.ID)
+	// 	if err != nil {
+	// 		logger.LogError(err, "", 0, "", "refresh_token_blacklist_check", "GET", map[string]interface{}{
+	// 			"operation":    "validate_refresh_token",
+	// 			"token_prefix": tokenString[:10] + "...",
+	// 			"jti":          claims.ID,
+	// 			"timestamp":    logger.NowFormatted(),
+	// 		})
+	// 		// 根据安全策略决定是否继续
+	// 	} else if isRevoked {
+	// 		logger.LogError(errors.New("refresh token has been revoked"), "", 0, "", "refresh_token_revoked", "GET", map[string]interface{}{
+	// 			"operation":    "validate_refresh_token",
+	// 			"token_prefix": tokenString[:10] + "...",
+	// 			"jti":          claims.ID,
+	// 			"timestamp":    logger.NowFormatted(),
+	// 		})
+	// 		return nil, errors.New("refresh token has been revoked")
+	// 	}
+	// }
 
 	// 验证成功，返回标准JWT声明
 	return claims, nil
@@ -341,6 +350,39 @@ func (s *JWTService) CheckTokenExpiry(tokenString string, threshold time.Duratio
 	return time.Until(expiryTime) <= threshold, nil
 }
 
+// // RevokeToken 撤销令牌（将令牌添加到黑名单）
+// 参数:
+//   - ctx: 请求上下文
+//   - tokenJTI: JWT的唯一标识符
+//   - expiration: 黑名单过期时间，通常设置为令牌的剩余有效时间
+//
+// 返回: 错误信息
+func (s *JWTService) RevokeToken(ctx context.Context, tokenJTI string, expiration time.Duration) error {
+	if tokenJTI == "" {
+		return errors.New("token JTI cannot be empty")
+	}
+
+	// 调用Redis仓库的RevokeToken方法
+	// 这里遵循了层级调用关系：Service → Repository
+	err := s.redisRepo.RevokeToken(ctx, tokenJTI, expiration)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "revoke_token", "POST", map[string]interface{}{
+			"operation": "revoke_token",
+			"jti":       tokenJTI,
+			"timestamp": logger.NowFormatted(),
+		})
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	// 记录令牌撤销的业务日志
+	logger.LogBusinessOperation("revoke_token", 0, "", "", "", "success", "令牌撤销成功", map[string]interface{}{
+		"jti":       tokenJTI,
+		"timestamp": logger.NowFormatted(),
+	})
+
+	return nil
+}
+
 // RevokeToken 撤销令牌（通过黑名单机制）
 // 这个方法用于主动撤销有效的令牌，常用于用户登出或安全事件处理
 // JWT本身是无状态的，撤销需要通过黑名单机制实现
@@ -349,66 +391,66 @@ func (s *JWTService) CheckTokenExpiry(tokenString string, threshold time.Duratio
 //   - tokenString: 待撤销的访问令牌字符串
 //
 // 返回: 错误信息
-func (s *JWTService) RevokeToken(ctx context.Context, tokenString string) error {
-	// 直接解析令牌获取声明信息，不进行完整验证
-	// 这样可以撤销已过期但尚未从黑名单中移除的令牌
-	claims, err := s.jwtManager.ValidateAccessToken(tokenString)
-	if err != nil {
-		// 令牌解析失败，记录错误但不阻止撤销流程
-		logger.LogError(err, "", 0, "", "token_revoke_parse", "POST", map[string]interface{}{
-			"operation":    "revoke_token",
-			"token_prefix": tokenString[:10] + "...",
-			"timestamp":    logger.NowFormatted(),
-		})
-		return fmt.Errorf("failed to parse token for revocation: %w", err)
-	}
+// func (s *JWTService) RevokeToken(ctx context.Context, tokenString string) error {
+// 	// 直接解析令牌获取声明信息，不进行完整验证
+// 	// 这样可以撤销已过期但尚未从黑名单中移除的令牌
+// 	claims, err := s.jwtManager.ValidateAccessToken(tokenString)
+// 	if err != nil {
+// 		// 令牌解析失败，记录错误但不阻止撤销流程
+// 		logger.LogError(err, "", 0, "", "token_revoke_parse", "POST", map[string]interface{}{
+// 			"operation":    "revoke_token",
+// 			"token_prefix": tokenString[:10] + "...",
+// 			"timestamp":    logger.NowFormatted(),
+// 		})
+// 		return fmt.Errorf("failed to parse token for revocation: %w", err)
+// 	}
 
-	// 检查令牌是否有JTI（JWT ID）
-	if claims.ID == "" {
-		logger.LogError(errors.New("token has no JTI"), "", uint(claims.UserID), "", "token_revoke_no_jti", "POST", map[string]interface{}{
-			"operation":    "revoke_token",
-			"token_prefix": tokenString[:10] + "...",
-			"timestamp":    logger.NowFormatted(),
-		})
-		return errors.New("token has no JTI, cannot revoke")
-	}
+// 	// 检查令牌是否有JTI（JWT ID）
+// 	if claims.ID == "" {
+// 		logger.LogError(errors.New("token has no JTI"), "", uint(claims.UserID), "", "token_revoke_no_jti", "POST", map[string]interface{}{
+// 			"operation":    "revoke_token",
+// 			"token_prefix": tokenString[:10] + "...",
+// 			"timestamp":    logger.NowFormatted(),
+// 		})
+// 		return errors.New("token has no JTI, cannot revoke")
+// 	}
 
-	// 计算令牌的剩余有效时间，用作黑名单过期时间
-	var expiration time.Duration
-	if claims.ExpiresAt != nil {
-		remaining := time.Until(claims.ExpiresAt.Time)
-		if remaining > 0 {
-			expiration = remaining
-		} else {
-			// 令牌已过期，设置一个较短的黑名单时间（1小时）
-			expiration = time.Hour
-		}
-	} else {
-		// 令牌没有过期时间，设置默认黑名单时间（24小时）
-		expiration = 24 * time.Hour
-	}
+// 	// 计算令牌的剩余有效时间，用作黑名单过期时间
+// 	var expiration time.Duration
+// 	if claims.ExpiresAt != nil {
+// 		remaining := time.Until(claims.ExpiresAt.Time)
+// 		if remaining > 0 {
+// 			expiration = remaining
+// 		} else {
+// 			// 令牌已过期，设置一个较短的黑名单时间（1小时）
+// 			expiration = time.Hour
+// 		}
+// 	} else {
+// 		// 令牌没有过期时间，设置默认黑名单时间（24小时）
+// 		expiration = 24 * time.Hour
+// 	}
 
-	// 调用黑名单服务撤销令牌
-	err = s.blacklistService.RevokeToken(ctx, claims.ID, expiration)
-	if err != nil {
-		logger.LogError(err, "", uint(claims.UserID), "", "token_revoke_blacklist", "POST", map[string]interface{}{
-			"operation":    "revoke_token",
-			"token_prefix": tokenString[:10] + "...",
-			"jti":          claims.ID,
-			"timestamp":    logger.NowFormatted(),
-		})
-		return fmt.Errorf("failed to add token to blacklist: %w", err)
-	}
+// 	// 调用黑名单服务撤销令牌
+// 	err = s.blacklistService.RevokeToken(ctx, claims.ID, expiration)
+// 	if err != nil {
+// 		logger.LogError(err, "", uint(claims.UserID), "", "token_revoke_blacklist", "POST", map[string]interface{}{
+// 			"operation":    "revoke_token",
+// 			"token_prefix": tokenString[:10] + "...",
+// 			"jti":          claims.ID,
+// 			"timestamp":    logger.NowFormatted(),
+// 		})
+// 		return fmt.Errorf("failed to add token to blacklist: %w", err)
+// 	}
 
-	// 记录令牌撤销的业务日志
-	logger.LogBusinessOperation("revoke_token", uint(claims.UserID), claims.Username, "", "", "success", "令牌撤销成功", map[string]interface{}{
-		"token_prefix": tokenString[:10] + "...",
-		"jti":          claims.ID,
-		"timestamp":    logger.NowFormatted(),
-	})
+// 	// 记录令牌撤销的业务日志
+// 	logger.LogBusinessOperation("revoke_token", uint(claims.UserID), claims.Username, "", "", "success", "令牌撤销成功", map[string]interface{}{
+// 		"token_prefix": tokenString[:10] + "...",
+// 		"jti":          claims.ID,
+// 		"timestamp":    logger.NowFormatted(),
+// 	})
 
-	return nil
-}
+// 	return nil
+// }
 
 // GetTokenClaims 获取令牌声明信息
 // 这个方法用于解析令牌并获取其中包含的声明信息

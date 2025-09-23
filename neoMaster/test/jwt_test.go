@@ -316,7 +316,7 @@ func testTokenRevocation(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "令牌应该有效")
 
 	// 撤销令牌
-	err = ts.JWTService.RevokeToken(ctx, tokenPair.AccessToken)
+	err = ts.JWTService.RevokeToken(ctx, tokenPair.AccessToken, time.Hour)
 	AssertNoError(t, err, "撤销令牌不应该出错")
 
 	// 注意：由于当前实现中RevokeToken只是预留接口，实际没有实现黑名单机制
@@ -324,7 +324,7 @@ func testTokenRevocation(t *testing.T, ts *TestSuite) {
 	// 在实际项目中，撤销后的令牌验证应该失败
 
 	// 测试撤销无效令牌
-	err = ts.JWTService.RevokeToken(ctx, "invalid.token")
+	err = ts.JWTService.RevokeToken(ctx, "invalid.token", time.Hour)
 	AssertError(t, err, "撤销无效令牌应该出错")
 }
 

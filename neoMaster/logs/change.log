@@ -41,3 +41,8 @@
 
 ---20250922 
 1. 删除token黑名单机制缓存，使用密码版本统一让所有token失效
+---20250923
+1. 在ValidateRefreshToken函数中如果添加密码版本验证，会导致系统报错如下（所以暂时取消密码版本验证）：
+	runtime: goroutine stack exceeds 1000000000-byte limit runtime: sp=0xc02f5194b0 stack=[0xc02f518000, 0xc04f518000]
+	- 数据结构：JWTService依赖SessionService，SessionService又依赖JWTService，形成循环
+	- 报错原因：循环依赖会导致无限递归初始化，最终栈溢出

@@ -3,75 +3,92 @@
 基于文档中的Agent管理模块需求，建议采用如下数据模型设计：
 
 ```go
-// Agent 节点模型
+// 1. Agent基础信息 - 相对静态，注册时确定
 type Agent struct {
     // 基本信息
     ID           string    `json:"id" gorm:"primaryKey"`
+    AgentID      string    `json:"agent_id" gorm:"index"`
     Hostname     string    `json:"hostname" gorm:"not null"`
     IPAddress    string    `json:"ip_address" gorm:"not null"`
-    Port         int       `json:"port" gorm:"default:8080"`
+    Port         int       `json:"port" gorm:"default:5772"`
     Version      string    `json:"version"`
-    
-    // 状态信息
     Status       string    `json:"status" gorm:"default:offline"` // online, offline, error, maintenance
-    LastHeartbeat time.Time `json:"last_heartbeat"`
-    RegisteredAt  time.Time `json:"registered_at"`
-    UpdatedAt     time.Time `json:"updated_at"`
     
+    // 静态系统信息
+    OS           string    `json:"os"`
+    Arch         string    `json:"arch"`
+    CPUCores     int       `json:"cpu_cores"`
+    MemoryTotal  int64     `json:"memory_total"`
+    DiskTotal    int64     `json:"disk_total"`
+
     // 能力和标签
     Capabilities []string  `json:"capabilities" gorm:"type:json"`
     Tags         []string  `json:"tags" gorm:"type:json"`
-    
-    // 系统信息
-    SystemInfo   SystemInfo `json:"system_info" gorm:"embedded"`
-    
-    // 配置信息
-    Config       AgentConfig `json:"config" gorm:"embedded"`
-    
-    // 负载信息
-    LoadInfo     LoadInfo   `json:"load_info" gorm:"embedded"`
+
+    // 时间戳
+    LastHeartbeat time.Time `json:"last_heartbeat"`
+    RegisteredAt  time.Time `json:"registered_at"`
+    UpdatedAt     time.Time `json:"updated_at"`
 }
 
-// 系统信息
-type SystemInfo struct {
-    OS          string  `json:"os"`
-    Arch        string  `json:"arch"`
-    CPUCores    int     `json:"cpu_cores"`
-    MemoryTotal int64   `json:"memory_total"`
-    DiskTotal   int64   `json:"disk_total"`
-    CPUUsage    float64 `json:"cpu_usage"`
-    MemoryUsage float64 `json:"memory_usage"`
-    DiskUsage   float64 `json:"disk_usage"`
-}
-
-// Agent配置
+// 2. Agent配置 - 独立管理，支持版本控制
 type AgentConfig struct {
+    ID                  string    `json:"id" gorm:"primaryKey"`
+    AgentID             string    `json:"agent_id" gorm:"index"`
+    Version             int       `json:"version" gorm:"default:1"`
     HeartbeatInterval   int            `json:"heartbeat_interval"`    // 心跳间隔
     TaskPollInterval    int            `json:"task_poll_interval"`     // 任务轮询间隔
     MaxConcurrentTasks  int            `json:"max_concurrent_tasks"`   // 最大并发任务数
     PluginConfig        map[string]interface{} `json:"plugin_config" gorm:"type:json"` // 插件配置
     LogLevel            string         `json:"log_level"`              // 日志级别
     ScanTimeout         int            `json:"scan_timeout"`           // 扫描超时时间
+    IsActive            bool      `json:"is_active" gorm:"default:true"`
+    CreatedAt           time.Time `json:"created_at"`
+    UpdatedAt           time.Time `json:"updated_at"`
 }
 
-// 负载信息
-type LoadInfo struct {
-    CPUUsage          float64 `json:"cpu_usage"`
-    MemoryUsage       float64 `json:"memory_usage"`
-    DiskUsage         float64 `json:"disk_usage"`
-    NetworkBytesSent  int64   `json:"network_bytes_sent"`
-    NetworkBytesRecv  int64   `json:"network_bytes_recv"`
-    ActiveConnections int     `json:"active_connections"`
-    RunningTasks      int     `json:"running_tasks"`
-    CompletedTasks    int     `json:"completed_tasks"`
-    FailedTasks       int     `json:"failed_tasks"`
+// 3. Agent负载信息 - 高频更新，独立存储
+type AgentMetrics struct {
+    ID                string    `json:"id" gorm:"primaryKey"`
+    AgentID           string    `json:"agent_id" gorm:"index"`
+    CPUUsage          float64   `json:"cpu_usage"`
+    MemoryUsage       float64   `json:"memory_usage"`
+    DiskUsage         float64   `json:"disk_usage"`
+    NetworkBytesSent  int64     `json:"network_bytes_sent"`
+    NetworkBytesRecv  int64     `json:"network_bytes_recv"`
+    ActiveConnections int       `json:"active_connections"`
+    RunningTasks      int       `json:"running_tasks"`
+    CompletedTasks    int       `json:"completed_tasks"`
+    FailedTasks       int       `json:"failed_tasks"`
+    Timestamp         time.Time `json:"timestamp" gorm:"index"`
+}
+
+// 统一的度量接口
+type MetricsCollector interface {
+    GetCPUUsage() float64
+    GetMemoryUsage() float64
+    GetDiskUsage() float64
+    GetNetworkStats() (sent, recv int64)
+    GetTaskStats() (running, completed, failed int)
+}
+
+// Agent实现度量收集
+func (a *Agent) CollectMetrics() *AgentMetrics {
+    return &AgentMetrics{
+        ID:      generateMetricsID(),
+        AgentID: a.ID,
+        // ... 统一的度量收集逻辑
+        Timestamp: time.Now(),
+    }
 }
 
 // Agent分组
-type AgentGroup struct {
+type AgentGroupMember struct {
     ID          string    `json:"id" gorm:"primaryKey"`
     Name        string    `json:"name" gorm:"not null"`
     Description string    `json:"description"`
+    AgentID   string    `json:"agent_id"`
+    GroupID   string    `json:"group_id"`
     Tags        []string  `json:"tags" gorm:"type:json"`
     CreatedAt   time.Time `json:"created_at"`
     UpdatedAt   time.Time `json:"updated_at"`
@@ -85,6 +102,7 @@ type AgentVersion struct {
     Changelog   string    `json:"changelog"`
     DownloadURL string    `json:"download_url"`
     IsActive    bool      `json:"is_active"`
+    IsLatest    bool      `json:"is_latest"
 }
 ```
 

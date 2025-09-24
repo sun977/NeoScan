@@ -25,6 +25,7 @@ import (
 	"neomaster/internal/model"
 	pkgAuth "neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
 )
 
@@ -84,15 +85,20 @@ func parsePaginationParams(c *gin.Context) (page, limit int) {
 // CreateUser 创建用户（管理员专用） 【已完成】
 // 创建新用户，包含完整的参数验证和权限检查
 func (h *UserHandler) CreateUser(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录获取用户ID失败错误日志
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "create_user", "POST", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":  "create_user",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
@@ -107,11 +113,11 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "create_user", "POST", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":  "create_user",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -126,12 +132,12 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req model.CreateUserRequest
 	if parseErr := c.ShouldBindJSON(&req); parseErr != nil {
 		// 记录请求参数解析失败错误日志
-		logger.LogError(parseErr, "", userID, "", "create_user", "POST", map[string]interface{}{
+		logger.LogError(parseErr, XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":  "create_user",
 			"user_id":    userID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
@@ -147,14 +153,14 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	createdUser, err := h.userService.CreateUser(c.Request.Context(), &req)
 	if err != nil {
 		// 记录创建用户失败错误日志
-		logger.LogError(err, "", userID, "", "create_user", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":       "create_user",
 			"user_id":         userID,
 			"target_username": req.Username,
 			"target_email":    req.Email,
-			"client_ip":       c.ClientIP(),
-			"user_agent":      c.GetHeader("User-Agent"),
-			"request_id":      c.GetHeader("X-Request-ID"),
+			"client_ip":       clientIP,
+			"user_agent":      userAgent,
+			"request_id":      XRequestID,
 			"timestamp":       logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -167,15 +173,15 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	// 记录创建用户成功业务日志
-	logger.LogBusinessOperation("create_user", userID, "", "", "", "success", "创建用户成功", map[string]interface{}{
+	logger.LogBusinessOperation("create_user", userID, "", clientIP, XRequestID, "success", "创建用户成功", map[string]interface{}{
 		"operation":        "create_user",
 		"operator_id":      userID,
 		"created_user_id":  createdUser.ID,
 		"created_username": createdUser.Username,
 		"created_email":    createdUser.Email,
-		"client_ip":        c.ClientIP(),
-		"user_agent":       c.GetHeader("User-Agent"),
-		"request_id":       c.GetHeader("X-Request-ID"),
+		"client_ip":        clientIP,
+		"user_agent":       userAgent,
+		"request_id":       XRequestID,
 		"timestamp":        logger.NowFormatted(),
 	})
 
@@ -204,6 +210,11 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 
 // GetUserByID 获取用户信息
 func (h *UserHandler) GetUserByID(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 从上下文获取用户ID（中间件已验证并存储）
 	// userIDInterface, exists := c.Get("user_id")
 	// 从url中获取用户ID
@@ -221,7 +232,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
 		// 记录用户ID格式错误日志
-		logger.LogError(err, "", 0, "", "get_user_by_id", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, uint(userID), clientIP, "get_user_by_id", "GET", map[string]interface{}{
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
@@ -237,12 +248,12 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	user, err := h.userService.GetUserByID(c.Request.Context(), uint(userID))
 	if err != nil {
 		// 记录获取用户详细信息失败错误日志
-		logger.LogError(err, "", uint(userID), "", "get_user_by_id", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, uint(userID), clientIP, "get_user_by_id", "GET", map[string]interface{}{
 			"operation":  "get_user_by_id",
 			"user_id":    userID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -255,15 +266,15 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	}
 
 	// 记录获取用户信息成功业务日志
-	logger.LogBusinessOperation("get_user_by_id", uint(userID), user.Username, "", "", "success", "获取用户信息成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_user_by_id", uint(userID), user.Username, clientIP, XRequestID, "success", "获取用户信息成功", map[string]interface{}{
 		"operation":   "get_user_by_id",
 		"user_id":     userID,
 		"username":    user.Username,
 		"target_id":   user.ID,
 		"target_name": user.Username,
-		"client_ip":   c.ClientIP(),
-		"user_agent":  c.GetHeader("User-Agent"),
-		"request_id":  c.GetHeader("X-Request-ID"),
+		"client_ip":   clientIP,
+		"user_agent":  userAgent,
+		"request_id":  XRequestID,
 		"timestamp":   logger.NowFormatted(),
 	})
 
@@ -294,6 +305,11 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 // 支持分页查询，返回用户基本信息列表
 // GetUserList 获取用户列表 - 重构版本，遵循"好品味"原则
 func (h *UserHandler) GetUserList(c *gin.Context) {
+	// 获取客户端IP
+	clientIP := utils.GetClientIP(c)
+	// userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 解析分页参数，使用简单的默认值处理
 	page, limit := parsePaginationParams(c)
 	offset := (page - 1) * limit
@@ -302,7 +318,7 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	users, total, err := h.userService.GetUserList(c.Request.Context(), offset, limit)
 	if err != nil {
 		// 简化错误处理 - 只记录必要信息
-		logger.LogError(err, "", 0, "", "get_user_list", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "get_user_list", "GET", map[string]interface{}{
 			"page":  page,
 			"limit": limit,
 		})
@@ -333,6 +349,11 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 
 // GetUserInfoByID 获取单个用户信息【完成】
 func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	// userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 从上下文获取用户ID（中间件已验证并存储）
 	// 从url中获取用户ID
 	userIDStr := c.Param("id")
@@ -349,7 +370,7 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
 		// 记录用户ID格式错误日志
-		logger.LogError(err, "", 0, "", "get_user_info_by_id", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, uint(userID), clientIP, "get_user_info_by_id", "GET", map[string]interface{}{
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
@@ -394,15 +415,20 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 // GetUserInfo 获取单个用户信息（当前用户信息）
 // 从accesstoken获取用户ID并获取用户的全量信息(包含权限和角色信息)
 func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
+	// 获取客户端IP
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 从请求头提取访问令牌
 	accessToken, err := h.extractTokenFromContext(c)
 	if err != nil {
 		// 记录令牌提取失败错误日志
-		logger.LogError(err, "", 0, "", "get_user", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, 0, clientIP, "get_user", "GET", map[string]interface{}{
 			"operation":  "get_user",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{
@@ -418,11 +444,11 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 	userInfo, err := h.userService.GetCurrentUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
 		// 记录获取用户信息失败错误日志
-		logger.LogError(err, "", 0, "", "get_user", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, uint(userInfo.ID), clientIP, "get_user", "GET", map[string]interface{}{
 			"operation":  "get_user",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"has_token":  accessToken != "",
 			"timestamp":  logger.NowFormatted(),
 		})
@@ -436,11 +462,11 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 	}
 
 	// 记录获取用户信息成功业务日志
-	logger.LogBusinessOperation("get_user", uint(userInfo.ID), userInfo.Username, "", "", "success", "获取用户信息成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_user", uint(userInfo.ID), userInfo.Username, clientIP, XRequestID, "success", "获取用户信息成功", map[string]interface{}{
 		"operation":  "get_user",
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 
@@ -455,15 +481,20 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 
 // GetUserPermission 获取用户权限
 func (h *UserHandler) GetUserPermission(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -478,11 +509,11 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), "", 0, "", "get_user_permissions", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -497,12 +528,12 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	permissions, err := h.userService.GetUserPermissions(c.Request.Context(), userID)
 	if err != nil {
 		// 记录获取用户权限失败错误日志
-		logger.LogError(err, "", userID, "", "get_user_permissions", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
 			"user_id":    userID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -515,13 +546,13 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	}
 
 	// 记录获取用户权限成功业务日志
-	logger.LogBusinessOperation("get_user_permissions", userID, "", "", "", "success", "获取用户权限成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_user_permissions", userID, "", clientIP, XRequestID, "success", "获取用户权限成功", map[string]interface{}{
 		"operation":        "get_user_permissions",
 		"user_id":          userID,
 		"permission_count": len(permissions),
-		"client_ip":        c.ClientIP(),
-		"user_agent":       c.GetHeader("User-Agent"),
-		"request_id":       c.GetHeader("X-Request-ID"),
+		"client_ip":        clientIP,
+		"user_agent":       userAgent,
+		"request_id":       XRequestID,
 		"timestamp":        logger.NowFormatted(),
 	})
 
@@ -541,15 +572,20 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 
 // GetUserRoles 获取用户角色
 func (h *UserHandler) GetUserRoles(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_user_roles", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_roles", "GET", map[string]interface{}{
 			"operation":  "get_user_roles",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -564,11 +600,11 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), "", 0, "", "get_user_roles", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_roles", "GET", map[string]interface{}{
 			"operation":  "get_user_roles",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -583,12 +619,12 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	roles, err := h.userService.GetUserRoles(c.Request.Context(), userID)
 	if err != nil {
 		// 记录获取用户角色失败错误日志
-		logger.LogError(err, "", userID, "", "get_user_roles", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "get_user_roles", "GET", map[string]interface{}{
 			"operation":  "get_user_roles",
 			"user_id":    userID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -601,13 +637,13 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	}
 
 	// 记录获取用户角色成功业务日志
-	logger.LogBusinessOperation("get_user_roles", userID, "", "", "", "success", "获取用户角色成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_user_roles", userID, "", clientIP, XRequestID, "success", "获取用户角色成功", map[string]interface{}{
 		"operation":  "get_user_roles",
 		"user_id":    userID,
 		"role_count": len(roles),
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 
@@ -628,6 +664,11 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 // UpdateUserByID 更新用户信息 - 遵循Handler->Service层级调用原则
 // 管理员专用
 func (h *UserHandler) UpdateUserByID(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	// userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	// 从URL路径参数获取用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
@@ -643,7 +684,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
 		// 记录用户ID格式错误日志
-		logger.LogError(err, "", 0, "", "update_user_by_id", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
@@ -659,7 +700,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	var req model.UpdateUserRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		// 记录请求参数解析失败日志
-		logger.LogError(bindErr, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+		logger.LogError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
 			"user_id": userID,
 			"error":   "request_parse_failed",
 		})
@@ -681,7 +722,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 		switch {
 		case strings.Contains(errorMsg, "user not found"):
 			// 用户不存在，返回404
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "user_not_found",
 			})
@@ -689,7 +730,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "user not found"
 		case strings.Contains(errorMsg, "email already exists"):
 			// 邮箱冲突，返回409
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "email_conflict",
 			})
@@ -697,7 +738,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "email already exists"
 		case strings.Contains(errorMsg, "username already exists"):
 			// 用户名冲突，返回409
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "username_conflict",
 			})
@@ -705,7 +746,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "username already exists"
 		case strings.Contains(errorMsg, "role not found"):
 			// 角色不存在，返回409
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "role_not_found",
 			})
@@ -713,7 +754,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "role not found"
 		default:
 			// 其他错误，返回500
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "update_failed",
 			})
@@ -743,7 +784,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	}
 
 	// 记录更新成功日志
-	logger.LogBusinessOperation("update_user_by_id", uint(userID), "", "", "", "success", "用户信息更新成功", map[string]interface{}{
+	logger.LogBusinessOperation("update_user_by_id", uint(userID), "", clientIP, XRequestID, "success", "用户信息更新成功", map[string]interface{}{
 		"user_id":  userID,
 		"username": updatedUser.Username,
 		"email":    updatedUser.Email,
@@ -761,15 +802,19 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 // UserUpdateInfoByID 用户专用更新信息方式，不允许携带角色调整【未完成】
 // 用户专用更新信息方式，不允许携带角色调整
 func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
 	// 从gin上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "user_update_info_by_id", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "user_update_info_by_id", "GET", map[string]interface{}{
 			"operation":  "user_update_info_by_id",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -784,11 +829,11 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), "", 0, "", "user_update_info_by_id", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "user_update_info_by_id", "GET", map[string]interface{}{
 			"operation":  "user_update_info_by_id",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{
@@ -803,7 +848,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	var req model.UpdateUserRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		// 记录请求参数解析失败日志
-		logger.LogError(bindErr, "", uint(userID), "", "update_user_by_id", "PUT", map[string]interface{}{
+		logger.LogError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
 			"user_id": userID,
 			"error":   "request_parse_failed",
 		})
@@ -826,7 +871,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 		switch {
 		case strings.Contains(errorMsg, "user not found"):
 			// 用户不存在，返回404
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "user_not_found",
 			})
@@ -834,7 +879,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			message = "user not found"
 		case strings.Contains(errorMsg, "email already exists"):
 			// 邮箱冲突，返回409
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "email_conflict",
 			})
@@ -842,7 +887,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			message = "email already exists"
 		case strings.Contains(errorMsg, "username already exists"):
 			// 用户名冲突，返回409
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "username_conflict",
 			})
@@ -850,7 +895,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			message = "username already exists"
 		default:
 			// 其他错误，返回500
-			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "update_failed",
 			})
@@ -880,7 +925,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	}
 
 	// 记录更新成功日志
-	logger.LogBusinessOperation("update_user_by_id", uint(userID), "", "", "", "success", "用户信息更新成功", map[string]interface{}{
+	logger.LogBusinessOperation("update_user_by_id", uint(userID), "", clientIP, XRequestID, "success", "用户信息更新成功", map[string]interface{}{
 		"user_id":  userID,
 		"username": updatedUser.Username,
 		"email":    updatedUser.Email,
@@ -977,11 +1022,15 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 
 // ChangePassword 修改用户密码  【已完成】
 func (h *UserHandler) ChangePassword(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	// userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
 	// 从中间件上下文获取用户ID
 	// 本身是自己修改自己的密码，所以令牌和中间件封装的上下文中用户ID一致，所以可以这样写，节省了解析令牌时间（中间件已经解析过令牌）
 	userID, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user ID not found in context"), "", 0, "", "change_password", "PUT", map[string]interface{}{
+		logger.LogError(errors.New("user ID not found in context"), XRequestID, 0, clientIP, "change_password", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"error":     "user_id_missing",
 			"timestamp": logger.NowFormatted(),
@@ -997,7 +1046,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	// 类型断言获取用户ID
 	userIDUint, ok := userID.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user ID type"), "", 0, "", "change_password", "PUT", map[string]interface{}{
+		logger.LogError(errors.New("invalid user ID type"), XRequestID, userIDUint, clientIP, "change_password", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"error":     "invalid_user_id_type",
 			"timestamp": logger.NowFormatted(),
@@ -1013,7 +1062,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	// 解析请求体
 	var req model.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, "", userIDUint, "", "change_password", "PUT", map[string]interface{}{
+		logger.LogError(err, XRequestID, userIDUint, clientIP, "change_password", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"error":     "invalid_request_body",
 			"timestamp": logger.NowFormatted(),
@@ -1078,7 +1127,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	}
 
 	// 记录成功操作日志
-	logger.LogBusinessOperation("change_password", userIDUint, "", "", "", "success", "用户密码修改成功", map[string]interface{}{
+	logger.LogBusinessOperation("change_password", userIDUint, "", clientIP, XRequestID, "success", "用户密码修改成功", map[string]interface{}{
 		"operation": "change_password",
 		"timestamp": logger.NowFormatted(),
 	})

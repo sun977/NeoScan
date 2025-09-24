@@ -1001,7 +1001,7 @@ func (s *UserService) UserUpdateInfoByID(ctx context.Context, userID uint, req *
 		return nil, err
 	}
 
-	// 第三层：事务处理层
+	// 第三层：事务处理层 返回 user
 	return s.executeUserUpdateInfo(ctx, user, req)
 }
 
@@ -1014,7 +1014,7 @@ func (s *UserService) validateUserUpdateInfoParams(userID uint, req *model.Updat
 			"error":     "user_id_zero",
 			"timestamp": logger.NowFormatted(),
 		})
-		return errors.New("用户ID不能为0")
+		return errors.New("user id cannot be zero")
 	}
 
 	if req == nil {
@@ -1024,7 +1024,7 @@ func (s *UserService) validateUserUpdateInfoParams(userID uint, req *model.Updat
 			"error":     "request_nil",
 			"timestamp": logger.NowFormatted(),
 		})
-		return errors.New("更新用户请求不能为空")
+		return errors.New("update user request cannot be empty")
 	}
 
 	// 验证邮箱格式
@@ -1037,7 +1037,7 @@ func (s *UserService) validateUserUpdateInfoParams(userID uint, req *model.Updat
 				"error":     "invalid_email_format",
 				"timestamp": logger.NowFormatted(),
 			})
-			return errors.New("邮箱格式无效")
+			return errors.New("email format is invalid")
 		}
 	}
 
@@ -1050,7 +1050,7 @@ func (s *UserService) validateUserUpdateInfoParams(userID uint, req *model.Updat
 				"error":     "password_strength_validation_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return fmt.Errorf("密码强度验证失败: %w", err)
+			return fmt.Errorf("password strength validation failed: %w", err)
 		}
 	}
 
@@ -1064,7 +1064,7 @@ func (s *UserService) validateUserUpdateInfoParams(userID uint, req *model.Updat
 				"error":     "invalid_status_value",
 				"timestamp": logger.NowFormatted(),
 			})
-			return errors.New("用户状态值无效，必须为0(禁用)、1(启用)")
+			return errors.New("invalid status value, must be 0-disabled, 1-enabled")
 		}
 	}
 
@@ -1082,7 +1082,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 			"error":     "database_query_failed",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, fmt.Errorf("获取用户失败: %w", err)
+		return nil, fmt.Errorf("get user failed: %w", err)
 	}
 
 	if user == nil {
@@ -1092,7 +1092,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 			"error":     "user_not_found",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, errors.New("用户不存在")
+		return nil, errors.New("user not found")
 	}
 
 	// 检查用户状态 - 已删除的用户不能更新
@@ -1103,7 +1103,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 			"error":     "user_already_deleted",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, errors.New("用户已被删除，无法更新")
+		return nil, errors.New("user already deleted, cannot update")
 	}
 
 	// 业务规则：系统管理员账户的特殊限制
@@ -1117,7 +1117,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 				"error":     "system_admin_status_change_forbidden",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, errors.New("不能禁用或锁定系统管理员账户")
+			return nil, errors.New("cannot disable or lock system admin account")
 		}
 	}
 
@@ -1132,7 +1132,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 				"error":     "database_query_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, fmt.Errorf("检查用户名唯一性失败: %w", err)
+			return nil, fmt.Errorf("check username uniqueness failed: %w", err)
 		}
 		if existingUser != nil && existingUser.ID != userID {
 			logger.LogError(errors.New("username already exists"), "", userID, "", "update_user", "SERVICE", map[string]interface{}{
@@ -1143,7 +1143,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 				"error":            "username_already_exists",
 				"timestamp":        logger.NowFormatted(),
 			})
-			return nil, errors.New("用户名已存在")
+			return nil, errors.New("username already exists")
 		}
 		return user, nil
 	}
@@ -1159,7 +1159,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 				"error":     "database_query_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, fmt.Errorf("检查邮箱唯一性失败: %w", err)
+			return nil, fmt.Errorf("check email uniqueness failed: %w", err)
 		}
 
 		if existingUser != nil && existingUser.ID != userID {
@@ -1171,7 +1171,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 				"error":            "email_already_exists",
 				"timestamp":        logger.NowFormatted(),
 			})
-			return nil, errors.New("邮箱已存在")
+			return nil, errors.New("email already exists")
 		}
 	}
 

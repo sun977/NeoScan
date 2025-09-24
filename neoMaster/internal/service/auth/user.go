@@ -1175,32 +1175,32 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 		}
 	}
 
-	// 如果角色字段不空，则验证角色ID有效性[判断roleID是否存在]
-	if req.RoleIDs != nil {
-		for _, roleID := range req.RoleIDs {
-			roleExists, err := s.userRepo.UserRoleExistsByID(ctx, roleID)
-			if err != nil {
-				logger.LogError(err, "", userID, "", "update_user", "SERVICE", map[string]interface{}{
-					"operation": "role_existence_check",
-					"user_id":   userID,
-					"role_id":   roleID,
-					"error":     "database_query_failed",
-					"timestamp": logger.NowFormatted(),
-				})
-				return nil, fmt.Errorf("检查角色存在性失败: %w", err)
-			}
-			if !roleExists {
-				logger.LogError(errors.New("role not found"), "", userID, "", "update_user", "SERVICE", map[string]interface{}{
-					"operation": "role_existence_check",
-					"user_id":   userID,
-					"role_id":   roleID,
-					"error":     "role_not_found",
-					"timestamp": logger.NowFormatted(),
-				})
-				return nil, errors.New("角色不存在")
-			}
-		}
-	}
+	// // 如果角色字段不空，则验证角色ID有效性[判断roleID是否存在]
+	// if req.RoleIDs != nil {
+	// 	for _, roleID := range req.RoleIDs {
+	// 		roleExists, err := s.userRepo.UserRoleExistsByID(ctx, roleID)
+	// 		if err != nil {
+	// 			logger.LogError(err, "", userID, "", "update_user", "SERVICE", map[string]interface{}{
+	// 				"operation": "role_existence_check",
+	// 				"user_id":   userID,
+	// 				"role_id":   roleID,
+	// 				"error":     "database_query_failed",
+	// 				"timestamp": logger.NowFormatted(),
+	// 			})
+	// 			return nil, fmt.Errorf("检查角色存在性失败: %w", err)
+	// 		}
+	// 		if !roleExists {
+	// 			logger.LogError(errors.New("role not found"), "", userID, "", "update_user", "SERVICE", map[string]interface{}{
+	// 				"operation": "role_existence_check",
+	// 				"user_id":   userID,
+	// 				"role_id":   roleID,
+	// 				"error":     "role_not_found",
+	// 				"timestamp": logger.NowFormatted(),
+	// 			})
+	// 			return nil, errors.New("角色不存在")
+	// 		}
+	// 	}
+	// }
 
 	return user, nil
 }

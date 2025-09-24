@@ -20,6 +20,7 @@ import (
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
 )
 
@@ -35,13 +36,18 @@ func NewPermissionHandler(permissionService *auth.PermissionService) *Permission
 
 // CreatePermission 创建权限
 func (h *PermissionHandler) CreatePermission(c *gin.Context) {
+	// 规范化参数变量
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "create_permission", "POST", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
@@ -49,12 +55,12 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "create_permission", "POST", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
 			"user_id":    userIDInterface,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
@@ -63,12 +69,12 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 
 	var req model.CreatePermissionRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		logger.LogError(bindErr, "", userID, "", "create_permission", "POST", map[string]interface{}{
+		logger.LogError(bindErr, XRequestID, userID, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
 			"user_id":    userID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "请求参数无效: " + bindErr.Error()})
@@ -77,27 +83,27 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 
 	permission, err := h.permissionService.CreatePermission(c.Request.Context(), &req)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "create_permission", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
 			"user_id":    userID,
 			"name":       req.Name,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "创建权限失败: " + err.Error()})
 		return
 	}
 
-	logger.LogBusinessOperation("create_permission", userID, "", "", "", "success", "权限创建成功", map[string]interface{}{
+	logger.LogBusinessOperation("create_permission", userID, "", clientIP, XRequestID, "success", "权限创建成功", map[string]interface{}{
 		"operation":  "create_permission",
 		"user_id":    userID,
 		"perm_id":    permission.ID,
 		"perm_name":  permission.Name,
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 
@@ -106,13 +112,18 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 
 // GetPermissionList 获取权限列表
 func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
+	// 规范化参数变量
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_permission_list", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_permission_list", "GET", map[string]interface{}{
 			"operation":  "get_permission_list",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
@@ -120,12 +131,12 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "get_permission_list", "GET", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "get_permission_list", "GET", map[string]interface{}{
 			"operation":  "get_permission_list",
 			"user_id":    userIDInterface,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
@@ -137,15 +148,15 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 
 	permissions, total, err := h.permissionService.GetPermissionList(c.Request.Context(), offset, limit)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "get_permission_list", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "get_permission_list", "GET", map[string]interface{}{
 			"operation":  "get_permission_list",
 			"user_id":    userID,
 			"page":       page,
 			"limit":      limit,
 			"offset":     offset,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取权限列表失败: " + err.Error()})
@@ -162,16 +173,16 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 
 	response := model.PermissionListResponse{Permissions: permList, Pagination: pagination}
 
-	logger.LogBusinessOperation("get_permission_list", userID, "", "", "", "success", "获取权限列表成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_permission_list", userID, "", clientIP, XRequestID, "success", "获取权限列表成功", map[string]interface{}{
 		"operation":    "get_permission_list",
 		"user_id":      userID,
 		"page":         page,
 		"limit":        limit,
 		"total":        total,
 		"result_count": len(permissions),
-		"client_ip":    c.ClientIP(),
-		"user_agent":   c.GetHeader("User-Agent"),
-		"request_id":   c.GetHeader("X-Request-ID"),
+		"client_ip":    clientIP,
+		"user_agent":   userAgent,
+		"request_id":   XRequestID,
 		"timestamp":    logger.NowFormatted(),
 	})
 
@@ -180,13 +191,18 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 
 // GetPermissionByID 获取单个权限
 func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
+	// 规范化参数变量
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
@@ -194,12 +210,12 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
 			"user_id":    userIDInterface,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
@@ -209,13 +225,13 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 	permIDStr := c.Param("id")
 	permID, err := strconv.ParseUint(permIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
 			"user_id":    userID,
 			"perm_id":    permIDStr,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
@@ -224,27 +240,27 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 
 	permission, serr := h.permissionService.GetPermissionByID(c.Request.Context(), uint(permID))
 	if serr != nil {
-		logger.LogError(serr, "", userID, "", "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogError(serr, XRequestID, userID, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
 			"user_id":    userID,
 			"perm_id":    permID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取权限信息失败: " + serr.Error()})
 		return
 	}
 
-	logger.LogBusinessOperation("get_permission_by_id", userID, "", "", "", "success", "获取权限信息成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_permission_by_id", userID, "", clientIP, XRequestID, "success", "获取权限信息成功", map[string]interface{}{
 		"operation":  "get_permission_by_id",
 		"user_id":    userID,
 		"perm_id":    permID,
 		"perm_name":  permission.Name,
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 
@@ -253,13 +269,18 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 
 // UpdatePermission 更新权限
 func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
+	// 规范化参数变量
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "update_permission", "POST", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
@@ -267,12 +288,12 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "update_permission", "POST", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userIDInterface,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
@@ -282,13 +303,13 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 	permIDStr := c.Param("id")
 	permID, err := strconv.ParseUint(permIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "update_permission", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userID,
 			"perm_id":    permIDStr,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
@@ -297,13 +318,13 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 
 	var req model.UpdatePermissionRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		logger.LogError(bindErr, "", userID, "", "update_permission", "POST", map[string]interface{}{
+		logger.LogError(bindErr, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userID,
 			"perm_id":    permID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "请求参数无效: " + bindErr.Error()})
@@ -312,27 +333,27 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 
 	permission, uerr := h.permissionService.UpdatePermissionByID(c.Request.Context(), uint(permID), &req)
 	if uerr != nil {
-		logger.LogError(uerr, "", userID, "", "update_permission", "POST", map[string]interface{}{
+		logger.LogError(uerr, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userID,
 			"perm_id":    permID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "更新权限失败: " + uerr.Error()})
 		return
 	}
 
-	logger.LogBusinessOperation("update_permission", userID, "", "", "", "success", "权限更新成功", map[string]interface{}{
+	logger.LogBusinessOperation("update_permission", userID, "", clientIP, XRequestID, "success", "权限更新成功", map[string]interface{}{
 		"operation":  "update_permission",
 		"user_id":    userID,
 		"perm_id":    permID,
 		"perm_name":  permission.Name,
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 
@@ -341,13 +362,18 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 
 // DeletePermission 删除权限
 func (h *PermissionHandler) DeletePermission(c *gin.Context) {
+	// 规范化参数变量
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
@@ -355,12 +381,12 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
 			"user_id":    userIDInterface,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
@@ -370,13 +396,13 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	permIDStr := c.Param("id")
 	permID, err := strconv.ParseUint(permIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, "", userID, "", "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogError(err, XRequestID, userID, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
 			"user_id":    userID,
 			"perm_id":    permIDStr,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
@@ -384,26 +410,26 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	}
 
 	if derr := h.permissionService.DeletePermission(c.Request.Context(), uint(permID)); derr != nil {
-		logger.LogError(derr, "", userID, "", "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogError(derr, XRequestID, userID, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
 			"user_id":    userID,
 			"perm_id":    permID,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "删除权限失败: " + derr.Error()})
 		return
 	}
 
-	logger.LogBusinessOperation("delete_permission", userID, "", "", "", "success", "权限删除成功", map[string]interface{}{
+	logger.LogBusinessOperation("delete_permission", userID, "", clientIP, XRequestID, "success", "权限删除成功", map[string]interface{}{
 		"operation":  "delete_permission",
 		"user_id":    userID,
 		"perm_id":    permID,
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 

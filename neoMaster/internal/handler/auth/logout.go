@@ -42,14 +42,7 @@ func (h *LogoutHandler) getErrorStatusCode(err error) int {
 // 该接口用于用户登出,将当前会话从Redis中删除,并将令牌添加到黑名单中,以防止后续请求使用该令牌进行认证
 func (h *LogoutHandler) Logout(c *gin.Context) {
 	// 规范化参数变量
-	clientIPRaw := c.GetHeader("X-Forwarded-For")
-	if clientIPRaw == "" {
-		clientIPRaw = c.GetHeader("X-Real-IP")
-	}
-	if clientIPRaw == "" {
-		clientIPRaw = c.ClientIP()
-	}
-	clientIP := utils.NormalizeIP(clientIPRaw)
+	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	authorization := c.GetHeader("Authorization")
@@ -121,14 +114,7 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 // LogoutAll 用户全部登出接口(更新密码版本,所有类型token失效,不再使用redis撤销黑名单的方式)
 func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	// 规范化参数变量
-	clientIPRaw := c.GetHeader("X-Forwarded-For")
-	if clientIPRaw == "" {
-		clientIPRaw = c.GetHeader("X-Real-IP")
-	}
-	if clientIPRaw == "" {
-		clientIPRaw = c.ClientIP()
-	}
-	clientIP := utils.NormalizeIP(clientIPRaw)
+	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	authorization := c.GetHeader("Authorization")

@@ -55,14 +55,7 @@ func (h *RegisterHandler) getErrorStatusCode(err error) int {
 // Register 注册处理器
 func (h *RegisterHandler) Register(c *gin.Context) {
 	// 规范化客户端IP与User-Agent（在全流程统一使用）
-	clientIPRaw := c.GetHeader("X-Forwarded-For")
-	if clientIPRaw == "" {
-		clientIPRaw = c.GetHeader("X-Real-IP")
-	}
-	if clientIPRaw == "" {
-		clientIPRaw = c.ClientIP()
-	}
-	clientIP := utils.NormalizeIP(clientIPRaw)
+	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 
 	// 检查Content-Type

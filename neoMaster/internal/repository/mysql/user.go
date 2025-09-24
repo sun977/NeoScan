@@ -59,7 +59,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uint) (*model.User,
 				"operation": "get_user_by_id",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, nil // 返回 nil 而不是错误，让业务层处理
+			return nil, err // 返回 err 让业务层处理
 		}
 		// 记录数据库错误日志
 		logger.LogError(err, "", id, "", "user_get", "GET", map[string]interface{}{
@@ -83,7 +83,7 @@ func (r *UserRepository) GetUserByUsername(ctx context.Context, username string)
 				"username":  username,
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, nil // 返回 nil 而不是错误，让业务层处理
+			return nil, err // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
 		logger.LogError(err, "", 0, "", "user_get", "GET", map[string]interface{}{
@@ -108,7 +108,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 				"email":     email,
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, nil // 返回 nil 而不是错误，让业务层处理
+			return nil, err // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
 		logger.LogError(err, "", 0, "", "user_get", "GET", map[string]interface{}{

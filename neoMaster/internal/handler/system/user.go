@@ -1392,14 +1392,18 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 
 // ResetUserPassword 重置用户密码
 func (h *UserHandler) ResetUserPassword(c *gin.Context) {
+	// 提取参数
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
 	// 从上下文获取管理员用户ID（中间件已验证并存储）
 	adminIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), "", 0, "", "reset_user_password", "POST", map[string]interface{}{
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
@@ -1408,12 +1412,12 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 
 	adminID, ok := adminIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), "", 0, "", "reset_user_password", "POST", map[string]interface{}{
+		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
-			"user_id":    adminIDInterface,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"user_id":    adminID,
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
@@ -1423,7 +1427,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 	// 从URL路径中获取目标用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		logger.LogError(errors.New("missing user ID"), "", adminID, "", "reset_user_password", "POST", map[string]interface{}{
+		logger.LogError(errors.New("missing user ID"), XRequestID, 0, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation": "reset_user_password",
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),

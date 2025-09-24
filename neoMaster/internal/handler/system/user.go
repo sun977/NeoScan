@@ -675,67 +675,55 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	updatedUser, err := h.userService.UpdateUserByID(c.Request.Context(), uint(userID), &req)
 	if err != nil {
 		// 根据错误类型返回不同的HTTP状态码
-		if err.Error() == "用户不存在" {
+		var statusCode int
+		var message string
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "user not found"):
 			// 用户不存在，返回404
 			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "user_not_found",
 			})
-			c.JSON(http.StatusNotFound, model.APIResponse{
-				Code:    http.StatusNotFound,
-				Status:  "error",
-				Message: "user not found",
-			})
-			return
-		}
-		if err.Error() == "邮箱已存在" {
+			statusCode = http.StatusNotFound
+			message = "user not found"
+		case strings.Contains(errorMsg, "email already exists"):
 			// 邮箱冲突，返回409
 			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "email_conflict",
 			})
-			c.JSON(http.StatusConflict, model.APIResponse{
-				Code:    http.StatusConflict,
-				Status:  "error",
-				Message: "email already exists",
-			})
-			return
-		}
-		if err.Error() == "用户名已存在" {
+			statusCode = http.StatusConflict
+			message = "email already exists"
+		case strings.Contains(errorMsg, "username already exists"):
 			// 用户名冲突，返回409
 			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "username_conflict",
 			})
-			c.JSON(http.StatusConflict, model.APIResponse{
-				Code:    http.StatusConflict,
-				Status:  "error",
-				Message: "username already exists",
-			})
-			return
-		}
-		if err.Error() == "角色不存在" {
+			statusCode = http.StatusConflict
+			message = "username already exists"
+		case strings.Contains(errorMsg, "role not found"):
 			// 角色不存在，返回409
 			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "role_not_found",
 			})
-			c.JSON(http.StatusConflict, model.APIResponse{
-				Code:    http.StatusConflict,
-				Status:  "error",
-				Message: "role not found",
+			statusCode = http.StatusNotFound
+			message = "role not found"
+		default:
+			// 其他错误，返回500
+			logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
+				"user_id": userID,
+				"error":   "update_failed",
 			})
-			return
+			statusCode = http.StatusInternalServerError
+			message = errorMsg // 其他错误返回原始错误信息
 		}
-		// 其他错误，返回500
-		logger.LogError(err, "", uint(userID), "", "update_user_by_id", "POST", map[string]interface{}{
-			"user_id": userID,
-			"error":   "update_failed",
-		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
-			Code:    http.StatusInternalServerError,
-			Status:  "error",
-			Message: "failed to update user",
+		c.JSON(statusCode, model.APIResponse{
+			Code:    statusCode,
+			Status:  "failed",
+			Message: message,
 		})
 		return
 	}

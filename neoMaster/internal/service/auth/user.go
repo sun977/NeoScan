@@ -690,7 +690,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 			"error":     "database_query_failed",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, fmt.Errorf("获取用户失败: %w", err)
+		return nil, fmt.Errorf("get user failed: %w", err)
 	}
 
 	if user == nil {
@@ -700,7 +700,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 			"error":     "user_not_found",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, errors.New("用户不存在")
+		return nil, errors.New("user not found")
 	}
 
 	// 检查用户状态 - 已删除的用户不能更新
@@ -711,7 +711,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 			"error":     "user_already_deleted",
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, errors.New("用户已被删除，无法更新")
+		return nil, errors.New("user already deleted, cannot update")
 	}
 
 	// 业务规则：系统管理员账户的特殊限制
@@ -725,7 +725,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 				"error":     "system_admin_status_change_forbidden",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, errors.New("不能禁用或锁定系统管理员账户")
+			return nil, errors.New("cannot disable or lock system admin account")
 		}
 	}
 
@@ -740,7 +740,8 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 				"error":     "database_query_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, fmt.Errorf("检查用户名唯一性失败: %w", err)
+			// 只记录错误，不返回，返回会终结服务，新用户名在数据库中可以不存在
+			// return nil, fmt.Errorf("check username uniqueness failed: %w", err)
 		}
 		if existingUser != nil && existingUser.ID != userID {
 			logger.LogError(errors.New("username already exists"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
@@ -751,7 +752,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 				"error":            "username_already_exists",
 				"timestamp":        logger.NowFormatted(),
 			})
-			return nil, errors.New("用户名已存在")
+			return nil, errors.New("username already exists")
 		}
 		return user, nil
 	}
@@ -767,9 +768,9 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 				"error":     "database_query_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, fmt.Errorf("检查邮箱唯一性失败: %w", err)
+			// 只记录错误，不返回，返回会终结服务，新邮箱在数据库中可以不存在
+			// return nil, fmt.Errorf("check email uniqueness failed: %w", err)
 		}
-
 		if existingUser != nil && existingUser.ID != userID {
 			logger.LogError(errors.New("email already exists"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
 				"operation":        "email_uniqueness_check",
@@ -779,7 +780,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 				"error":            "email_already_exists",
 				"timestamp":        logger.NowFormatted(),
 			})
-			return nil, errors.New("邮箱已存在")
+			return nil, errors.New("email already exists")
 		}
 	}
 
@@ -795,7 +796,8 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 					"error":     "database_query_failed",
 					"timestamp": logger.NowFormatted(),
 				})
-				return nil, fmt.Errorf("检查角色存在性失败: %w", err)
+				// 角色不能在数据库中不存在，这里要返回终结服务
+				return nil, fmt.Errorf("check role existence failed: %w", err)
 			}
 			if !roleExists {
 				logger.LogError(errors.New("role not found"), "", 0, "", "update_user", "SERVICE", map[string]interface{}{
@@ -805,7 +807,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 					"error":     "role_not_found",
 					"timestamp": logger.NowFormatted(),
 				})
-				return nil, errors.New("角色不存在")
+				return nil, errors.New("role not found")
 			}
 		}
 	}
@@ -1132,7 +1134,8 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 				"error":     "database_query_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, fmt.Errorf("check username uniqueness failed: %w", err)
+			// 新用户名可以在数据库中不存在，这里不能返回，会终结服务
+			// return nil, fmt.Errorf("check username uniqueness failed: %w", err)
 		}
 		if existingUser != nil && existingUser.ID != userID {
 			logger.LogError(errors.New("username already exists"), "", userID, "", "update_user", "SERVICE", map[string]interface{}{
@@ -1159,7 +1162,8 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 				"error":     "database_query_failed",
 				"timestamp": logger.NowFormatted(),
 			})
-			return nil, fmt.Errorf("check email uniqueness failed: %w", err)
+			// 新邮箱可以在数据库中不存在，这里不能返回，会终结服务
+			// return nil, fmt.Errorf("check email uniqueness failed: %w", err)
 		}
 
 		if existingUser != nil && existingUser.ID != userID {
@@ -1174,34 +1178,6 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 			return nil, errors.New("email already exists")
 		}
 	}
-
-	// // 如果角色字段不空，则验证角色ID有效性[判断roleID是否存在]
-	// if req.RoleIDs != nil {
-	// 	for _, roleID := range req.RoleIDs {
-	// 		roleExists, err := s.userRepo.UserRoleExistsByID(ctx, roleID)
-	// 		if err != nil {
-	// 			logger.LogError(err, "", userID, "", "update_user", "SERVICE", map[string]interface{}{
-	// 				"operation": "role_existence_check",
-	// 				"user_id":   userID,
-	// 				"role_id":   roleID,
-	// 				"error":     "database_query_failed",
-	// 				"timestamp": logger.NowFormatted(),
-	// 			})
-	// 			return nil, fmt.Errorf("检查角色存在性失败: %w", err)
-	// 		}
-	// 		if !roleExists {
-	// 			logger.LogError(errors.New("role not found"), "", userID, "", "update_user", "SERVICE", map[string]interface{}{
-	// 				"operation": "role_existence_check",
-	// 				"user_id":   userID,
-	// 				"role_id":   roleID,
-	// 				"error":     "role_not_found",
-	// 				"timestamp": logger.NowFormatted(),
-	// 			})
-	// 			return nil, errors.New("角色不存在")
-	// 		}
-	// 	}
-	// }
-
 	return user, nil
 }
 

@@ -1427,7 +1427,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 	// 从URL路径中获取目标用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		logger.LogError(errors.New("missing user ID"), XRequestID, 0, clientIP, "reset_user_password", "POST", map[string]interface{}{
+		logger.LogError(errors.New("missing user ID"), XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation": "reset_user_password",
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),
@@ -1438,12 +1438,12 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 
 	userID64, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, "", adminID, "", "reset_user_password", "POST", map[string]interface{}{
+		logger.LogError(err, XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
 			"target_id":  userIDStr,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
@@ -1452,12 +1452,12 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 
 	// 调用服务层重置密码（服务层固定为 123456）
 	if rerr := h.userService.ResetUserPassword(c.Request.Context(), uint(userID64), ""); rerr != nil {
-		logger.LogError(rerr, "", adminID, "", "reset_user_password", "POST", map[string]interface{}{
+		logger.LogError(rerr, XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
 			"target_id":  userID64,
-			"client_ip":  c.ClientIP(),
-			"user_agent": c.GetHeader("User-Agent"),
-			"request_id": c.GetHeader("X-Request-ID"),
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "重置密码失败: " + rerr.Error()})
@@ -1465,11 +1465,11 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 	}
 
 	// 记录成功业务日志
-	logger.LogBusinessOperation("reset_user_password", adminID, "", "", "", "success", "重置用户密码成功", map[string]interface{}{
+	logger.LogBusinessOperation("reset_user_password", adminID, "", clientIP, XRequestID, "success", "重置用户密码成功", map[string]interface{}{
 		"target_id":  userID64,
-		"client_ip":  c.ClientIP(),
-		"user_agent": c.GetHeader("User-Agent"),
-		"request_id": c.GetHeader("X-Request-ID"),
+		"client_ip":  clientIP,
+		"user_agent": userAgent,
+		"request_id": XRequestID,
 		"timestamp":  logger.NowFormatted(),
 	})
 

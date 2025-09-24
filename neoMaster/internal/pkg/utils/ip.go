@@ -3,6 +3,8 @@ package utils
 import (
 	"net"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 // NormalizeIP 标准化IP地址：
@@ -33,4 +35,16 @@ func NormalizeIP(input string) string {
 	}
 
 	return parsed.String()
+}
+
+// 从Gin上下文获取客户端IP
+func GetClientIP(c *gin.Context) string {
+	clientIPRaw := c.GetHeader("X-Forwarded-For")
+	if clientIPRaw == "" {
+		clientIPRaw = c.GetHeader("X-Real-IP")
+	}
+	if clientIPRaw == "" {
+		clientIPRaw = c.ClientIP()
+	}
+	return NormalizeIP(clientIPRaw)
 }

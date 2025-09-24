@@ -369,15 +369,8 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 
-		// 提取必要请求信息
-		clientIPRaw := c.GetHeader("X-Forwarded-For")
-		if clientIPRaw == "" {
-			clientIPRaw = c.GetHeader("X-Real-IP")
-		}
-		if clientIPRaw == "" {
-			clientIPRaw = c.ClientIP()
-		}
-		clientIP := utils.NormalizeIP(clientIPRaw)
+		// 提取并格式化客户端IP
+		clientIP := utils.GetClientIP(c)
 
 		// 存储到Gin上下文
 		c.Set("client_ip", clientIP) // 这个是标准化后的可以用作业务使用的客户端IP

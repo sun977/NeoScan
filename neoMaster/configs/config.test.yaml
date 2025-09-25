@@ -3,7 +3,7 @@
 # 服务器配置
 server:
   host: "127.0.0.1"
-  port: 8081
+  port: 8123
   mode: "test"
   read_timeout: 10s
   write_timeout: 10s
@@ -16,7 +16,7 @@ database:
     host: "localhost"
     port: 3306
     username: "root"
-    password: ""  # 通过环境变量设置
+    password: "ROOT"  
     database: "neoscan_test"
     charset: "utf8mb4"
     parse_time: true
@@ -31,7 +31,7 @@ database:
     host: "localhost"
     port: 6379
     password: ""
-    database: 1  # 使用不同的数据库
+    database: 0  
     pool_size: 5
     min_idle_conns: 2
     dial_timeout: 3s
@@ -82,7 +82,7 @@ security:
 
 # 会话配置
 session:
-  store: "memory"  # 测试环境使用内存存储
+  store: "redis"  # 测试环境使用内存存储
   key: "neoscan_test_session"
   max_age: 3600
   secure: false

@@ -43,6 +43,13 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		KeyLength:   32,
 	}
 	passwordManager := authPkg.NewPasswordManager(passwordConfig)
+	// // 根据配置选择会话存储方式【后续待补充】
+	// var sessionRepo authService.SessionRepository
+	// if cfg.Session.Store == "memory" {
+	// 	sessionRepo = memory.NewSessionRepository()
+	// } else {
+	// 	sessionRepo = redisRepo.NewSessionRepository(redisClient)
+	// }
 	sessionRepo := redisRepo.NewSessionRepository(redisClient)
 
 	// 初始化用户服务UserService

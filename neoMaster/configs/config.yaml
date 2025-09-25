@@ -52,7 +52,7 @@ jwt:
 # 日志配置
 log:
   level: "debug"  # debug, info, warn, error, fatal, panic
-  format: "text"  # json, text  # 日志格式
+  format: "json"  # json, text  # 日志格式
   output: "file"  # stdout, stderr, file  # 日志输出位置
   file_path: "logs/app.log"  # 日志文件路径(仅当output为file时生效)
   max_size: 100  # MB  # 日志文件最大大小(MB)

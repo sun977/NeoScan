@@ -50,6 +50,11 @@ func NewMiddlewareManager(sessionService *auth.SessionService, rbacService *auth
 // 使用方式: router.Use(middlewareManager.GinJWTAuthMiddleware())
 func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 提取参数
+		clientIP := utils.GetClientIP(c)
+		XRequestID := c.GetHeader("X-Request-ID")
+		userAgent := c.GetHeader("User-Agent")
+
 		// 从请求头中提取访问令牌
 		accessToken, err := m.extractTokenFromGinHeader(c)
 		if err != nil {
@@ -66,9 +71,18 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		// 验证令牌 accessToken
 		claims, err := m.sessionService.ValidateSession(c.Request.Context(), accessToken)
 		if err != nil {
+			// 记录错误日志
+			logger.LogError(err, XRequestID, 0, clientIP, "token_validation", "GET", map[string]interface{}{
+				"operation":    "token_validation",
+				"token_prefix": accessToken[:10] + "...",
+				"client_ip":    clientIP,
+				"user_agent":   userAgent,
+				"X-Request-ID": XRequestID,
+				"timestamp":    logger.NowFormatted(),
+			})
 			c.JSON(http.StatusUnauthorized, model.APIResponse{
 				Code:    http.StatusUnauthorized,
-				Status:  "error",
+				Status:  "failed",
 				Message: "invalid or expired token",
 				Error:   err.Error(),
 			})
@@ -81,11 +95,13 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		validVersion, err := m.jwtService.ValidatePasswordVersion(c.Request.Context(), accessToken)
 		if err != nil {
 			// 记录错误日志
-			logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_check", "GET", map[string]interface{}{
+			logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_check", "GET", map[string]interface{}{
 				"operation":    "password_version_check",
 				"token_prefix": accessToken[:10] + "...",
-				"client_ip":    c.ClientIP(),
-				"user_agent":   c.GetHeader("User-Agent"),
+				"client_ip":    clientIP,
+				"username":     claims.Username,
+				"user_agent":   userAgent,
+				"X-Request-ID": XRequestID,
 				"timestamp":    logger.NowFormatted(),
 			})
 
@@ -93,28 +109,34 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 			switch {
 			case errors.Is(err, context.DeadlineExceeded):
 				// 超时错误，可能是网络问题
-				logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_timeout", "GET", map[string]interface{}{
+				logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_timeout", "GET", map[string]interface{}{
 					"operation":    "password_version_check",
 					"error_type":   "network_timeout",
+					"username":     claims.Username,
 					"token_prefix": accessToken[:10] + "...",
+					"X-Request-ID": XRequestID,
 					"timestamp":    logger.NowFormatted(),
 				})
 
 			case errors.Is(err, redis.Nil):
 				// Redis键不存在，可能需要特殊处理
-				logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_not_found", "GET", map[string]interface{}{
+				logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_not_found", "GET", map[string]interface{}{
 					"operation":    "password_version_check",
 					"error_type":   "not_found",
+					"username":     claims.Username,
+					"X-Request-ID": XRequestID,
 					"token_prefix": accessToken[:10] + "...",
 					"timestamp":    logger.NowFormatted(),
 				})
 
 			default:
 				// 其他未知错误
-				logger.LogError(err, "", uint(claims.ID), claims.Username, "password_version_unknown_error", "GET", map[string]interface{}{
+				logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_unknown_error", "GET", map[string]interface{}{
 					"operation":    "password_version_check",
 					"error_type":   "unknown",
 					"token_prefix": accessToken[:10] + "...",
+					"username":     claims.Username,
+					"X-Request-ID": XRequestID,
 					"timestamp":    logger.NowFormatted(),
 				})
 
@@ -124,16 +146,18 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 			// 但应该记录警告并考虑通知管理员
 		} else if !validVersion {
 			// 密码版本不匹配，令牌已失效
-			logger.LogBusinessOperation("password_version_mismatch", uint(claims.ID), claims.Username, "", "", "warning", "令牌因密码版本不匹配被拒绝", map[string]interface{}{
+			logger.LogBusinessOperation("password_version_mismatch", uint(claims.ID), claims.Username, clientIP, XRequestID, "warning", "令牌因密码版本不匹配被拒绝", map[string]interface{}{
 				"operation":    "password_version_check",
 				"token_prefix": accessToken[:10] + "...",
+				"client_ip":    clientIP,
+				"username":     claims.Username,
+				"user_agent":   userAgent,
+				"X-Request-ID": XRequestID,
 				"timestamp":    logger.NowFormatted(),
-				"client_ip":    c.ClientIP(),
-				"user_agent":   c.GetHeader("User-Agent"),
 			})
 			c.JSON(http.StatusUnauthorized, model.APIResponse{
 				Code:    http.StatusUnauthorized,
-				Status:  "error",
+				Status:  "failed",
 				Message: "token version mismatch, please login again",
 			})
 			c.Abort()
@@ -371,6 +395,8 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 
 		// 提取并格式化客户端IP
 		clientIP := utils.GetClientIP(c)
+		XRequestID := c.GetHeader("X-Request-ID")
+		userAgent := c.GetHeader("User-Agent")
 
 		// 存储到Gin上下文
 		c.Set("client_ip", clientIP) // 这个是标准化后的可以用作业务使用的客户端IP
@@ -418,14 +444,16 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 				userIDUint = uint(id)
 			}
 		}
-		logger.LogBusinessOperation("http_request", userIDUint, username, "", "", "success", "API Request", map[string]interface{}{
+		logger.LogBusinessOperation("http_request", userIDUint, username, clientIP, XRequestID, "success", "API Request", map[string]interface{}{
 			"operation":     "http_request",
 			"method":        c.Request.Method,
 			"url":           c.Request.URL.String(),
 			"status_code":   statusCode,
 			"duration":      duration.Milliseconds(),
-			"client_ip":     c.ClientIP(),
-			"user_agent":    c.Request.UserAgent(),
+			"client_ip":     clientIP,
+			"username":      username,
+			"user_agent":    userAgent,
+			"X-Request-ID":  XRequestID,
 			"referer":       c.Request.Referer(),
 			"request_size":  c.Request.ContentLength,
 			"response_size": int64(c.Writer.Size()),
@@ -437,15 +465,40 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 			errorMsg := ""
 			if errors := c.Errors; len(errors) > 0 {
 				errorMsg = errors.String()
+			} else {
+				// 如果没有详细错误信息，则根据状态码提供默认错误描述
+				switch statusCode {
+				case 400:
+					errorMsg = "Bad Request"
+				case 401:
+					errorMsg = "Unauthorized"
+				case 403:
+					errorMsg = "Forbidden"
+				case 404:
+					errorMsg = "Not Found"
+				case 405:
+					errorMsg = "Method Not Allowed"
+				case 500:
+					errorMsg = "Internal Server Error"
+				case 502:
+					errorMsg = "Bad Gateway"
+				case 503:
+					errorMsg = "Service Unavailable"
+				default:
+					errorMsg = http.StatusText(statusCode)
+				}
 			}
 
-			logger.LogError(fmt.Errorf("HTTP %d: %s", statusCode, errorMsg), "", userIDUint, username, "http_request", c.Request.Method, map[string]interface{}{
-				"operation":   "http_request",
-				"method":      c.Request.Method,
-				"url":         c.Request.URL.String(),
-				"status_code": statusCode,
-				"client_ip":   c.ClientIP(),
-				"timestamp":   logger.NowFormatted(),
+			logger.LogError(fmt.Errorf("HTTP %d: %s", statusCode, errorMsg), XRequestID, userIDUint, clientIP, "http_request", c.Request.Method, map[string]interface{}{
+				"operation":    "http_request",
+				"method":       c.Request.Method,
+				"url":          c.Request.URL.String(),
+				"status_code":  statusCode,
+				"username":     username,
+				"client_ip":    clientIP,
+				"user_agent":   userAgent,
+				"X-Request-ID": XRequestID,
+				"timestamp":    logger.NowFormatted(),
 			})
 		}
 	}

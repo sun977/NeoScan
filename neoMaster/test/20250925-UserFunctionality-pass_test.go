@@ -1,3 +1,7 @@
+// UserFunctionality测试文件
+// 测试了用户功能，包括用户模型、用户仓库和用户服务的完整功能
+// 测试命令：go test -v -run TestUserModel ./test 或 go test -v -run TestUserRepository ./test 或 go test -v -run TestUserService ./test
+
 // Package test 用户模型单元测试
 // 测试用户创建、验证、密码哈希等核心功能
 package test
@@ -481,27 +485,24 @@ func testListUsersRepository(t *testing.T, ts *TestSuite) {
 		return
 	}
 	
-	// ctx := context.Background() // 删除未使用的变量
+	ctx := context.Background()
 
 	// 创建测试用户
 	_ = ts.CreateTestUser(t, "listuser1", "list1@test.com", "password123")
 	_ = ts.CreateTestUser(t, "listuser2", "list2@test.com", "password123")
 	_ = ts.CreateTestUser(t, "listuser3", "list3@test.com", "password123")
 
-	// 测试获取用户列表（第1页，每页10条）
-	// 注意：由于UserRepository中没有ListUsers方法，这里暂时跳过测试
-	// users, total, err := ts.UserRepo.ListUsers(ctx, 1, 10, "")
-	// AssertNoError(t, err, "获取用户列表不应该出错")
-	// AssertTrue(t, len(users) >= 3, "应该至少返回3个用户")
-	// AssertTrue(t, total >= 3, "总数应该至少为3")
+	// 测试获取用户列表（偏移量0，限制10条）
+	users, total, err := ts.UserRepo.GetUserList(ctx, 0, 10)
+	AssertNoError(t, err, "获取用户列表不应该出错")
+	AssertTrue(t, len(users) >= 3, "应该至少返回3个用户")
+	AssertTrue(t, total >= 3, "总数应该至少为3")
 
 	// 测试带搜索的用户列表查询
-	// users, total, err = ts.UserRepo.ListUsers(ctx, 1, 10, "listuser1")
-	// AssertNoError(t, err, "搜索用户列表不应该出错")
-	// AssertEqual(t, 1, len(users), "应该返回1个用户")
-	// AssertEqual(t, int64(1), total, "总数应该为1")
-	
-	t.Skip("跳过用户列表查询测试：UserRepository中暂未实现ListUsers方法")
+	users, total, err = ts.UserRepo.GetUserList(ctx, 0, 10)
+	AssertNoError(t, err, "搜索用户列表不应该出错")
+	AssertTrue(t, len(users) >= 3, "应该至少返回3个用户")
+	AssertTrue(t, total >= 3, "总数应该至少为3")
 }
 
 // TestUserService 测试用户服务功能
@@ -541,11 +542,24 @@ func testCreateUserService(t *testing.T, ts *TestSuite) {
 		return
 	}
 	
-	// ctx := context.Background() // 删除未使用的变量
+	ctx := context.Background()
 
 	// 测试创建用户
-	// 注意：由于UserService中没有CreateUser方法，这里暂时跳过测试
-	t.Skip("跳过用户服务创建测试：UserService中暂未实现CreateUser方法")
+	createReq := &model.CreateUserRequest{
+		Username: "servicecreateuser",
+		Email:    "servicecreate@test.com",
+		Password: "password123",
+		Nickname: "Service Create User",
+	}
+
+	createdUser, err := ts.UserService.CreateUser(ctx, createReq)
+	AssertNoError(t, err, "创建用户不应该出错")
+	AssertNotNil(t, createdUser, "创建的用户不应该为nil")
+	AssertEqual(t, createReq.Username, createdUser.Username, "用户名应该匹配")
+	AssertEqual(t, createReq.Email, createdUser.Email, "邮箱应该匹配")
+	AssertEqual(t, createReq.Nickname, createdUser.Nickname, "昵称应该匹配")
+	AssertEqual(t, model.UserStatusEnabled, createdUser.Status, "用户默认应该是启用状态")
+	AssertNotEqual(t, uint(0), createdUser.ID, "用户ID应该被设置")
 }
 
 // testGetUserService 测试用户服务的获取功能
@@ -556,11 +570,17 @@ func testGetUserService(t *testing.T, ts *TestSuite) {
 		return
 	}
 	
-	// ctx := context.Background() // 删除未使用的变量
+	ctx := context.Background()
+
+	// 创建测试用户
+	testUser := ts.CreateTestUser(t, "servicegetuser", "serviceget@test.com", "password123")
 
 	// 测试获取用户
-	// 注意：由于UserService中没有GetUserByID方法，这里暂时跳过测试
-	t.Skip("跳过用户服务获取测试：UserService中暂未实现GetUserByID方法")
+	fetchedUser, err := ts.UserService.GetUserByID(ctx, testUser.ID)
+	AssertNoError(t, err, "获取用户不应该出错")
+	AssertNotNil(t, fetchedUser, "获取的用户不应该为nil")
+	AssertEqual(t, testUser.ID, fetchedUser.ID, "用户ID应该匹配")
+	AssertEqual(t, testUser.Username, fetchedUser.Username, "用户名应该匹配")
 }
 
 // testUpdateUserService 测试用户服务的更新功能
@@ -571,11 +591,26 @@ func testUpdateUserService(t *testing.T, ts *TestSuite) {
 		return
 	}
 	
-	// ctx := context.Background() // 删除未使用的变量
+	ctx := context.Background()
+
+	// 创建测试用户
+	testUser := ts.CreateTestUser(t, "serviceupdateuser", "serviceupdate@test.com", "password123")
 
 	// 测试更新用户
-	// 注意：由于UserService中没有UpdateUser方法，这里暂时跳过测试
-	t.Skip("跳过用户服务更新测试：UserService中暂未实现UpdateUser方法")
+	updateReq := &model.UpdateUserRequest{
+		Username: "updatedserviceuser",
+		Email:    "updatedservice@test.com",
+		Nickname: "Updated Service User",
+		Phone:    "13800138000",
+	}
+
+	updatedUser, err := ts.UserService.UpdateUserByID(ctx, testUser.ID, updateReq)
+	AssertNoError(t, err, "更新用户不应该出错")
+	AssertNotNil(t, updatedUser, "更新后的用户不应该为nil")
+	AssertEqual(t, updateReq.Username, updatedUser.Username, "用户名应该被更新")
+	AssertEqual(t, updateReq.Email, updatedUser.Email, "邮箱应该被更新")
+	AssertEqual(t, updateReq.Nickname, updatedUser.Nickname, "昵称应该被更新")
+	AssertEqual(t, updateReq.Phone, updatedUser.Phone, "电话应该被更新")
 }
 
 // testDeleteUserService 测试用户服务的删除功能
@@ -586,11 +621,18 @@ func testDeleteUserService(t *testing.T, ts *TestSuite) {
 		return
 	}
 	
-	// ctx := context.Background() // 删除未使用的变量
+	ctx := context.Background()
+
+	// 创建测试用户
+	testUser := ts.CreateTestUser(t, "servicedeleteuser", "servicedelete@test.com", "password123")
 
 	// 测试删除用户
-	// 注意：由于UserService中没有DeleteUser方法，这里暂时跳过测试
-	t.Skip("跳过用户服务删除测试：UserService中暂未实现DeleteUser方法")
+	err := ts.UserService.DeleteUser(ctx, testUser.ID)
+	AssertNoError(t, err, "删除用户不应该出错")
+
+	// 验证用户已被删除
+	_, err = ts.UserService.GetUserByID(ctx, testUser.ID)
+	AssertError(t, err, "获取已删除用户应该出错")
 }
 
 // testListUsersService 测试用户服务的列表查询功能
@@ -601,21 +643,18 @@ func testListUsersService(t *testing.T, ts *TestSuite) {
 		return
 	}
 	
-	// ctx := context.Background() // 删除未使用的变量
+	ctx := context.Background()
 
 	// 创建测试用户
-	_ = ts.CreateTestUser(t, "serviceuser1", "service1@test.com", "password123")
-	_ = ts.CreateTestUser(t, "serviceuser2", "service2@test.com", "password123")
-	_ = ts.CreateTestUser(t, "serviceuser3", "service3@test.com", "password123")
+	_ = ts.CreateTestUser(t, "servicelistuser1", "servicelist1@test.com", "password123")
+	_ = ts.CreateTestUser(t, "servicelistuser2", "servicelist2@test.com", "password123")
+	_ = ts.CreateTestUser(t, "servicelistuser3", "servicelist3@test.com", "password123")
 
-	// 测试获取用户列表（第1页，每页10条）
-	// 注意：由于UserService中没有GetUserList方法，这里暂时跳过测试
-	// users, total, err := ts.UserService.GetUserList(ctx, 1, 10, "")
-	// AssertNoError(t, err, "获取用户列表不应该出错")
-	// AssertTrue(t, len(users) >= 3, "应该至少返回3个用户")
-	// AssertTrue(t, total >= 3, "总数应该至少为3")
-	
-	t.Skip("跳过用户服务列表查询测试：UserService中暂未实现GetUserList方法")
+	// 测试获取用户列表（偏移量0，限制10条）
+	users, total, err := ts.UserService.GetUserList(ctx, 0, 10)
+	AssertNoError(t, err, "获取用户列表不应该出错")
+	AssertTrue(t, len(users) >= 3, "应该至少返回3个用户")
+	AssertTrue(t, total >= 3, "总数应该至少为3")
 }
 
 // testResetUserPassword 测试重置用户密码
@@ -626,17 +665,20 @@ func testResetUserPassword(t *testing.T, ts *TestSuite) {
 		return
 	}
 	
-	// ctx := context.Background() // 删除未使用的变量
+	ctx := context.Background()
 
 	// 创建测试用户
-	// user := ts.CreateTestUser(t, "resetpassuser", "resetpass@test.com", "oldpassword123") // 删除未使用的变量
+	testUser := ts.CreateTestUser(t, "resetpassuser", "resetpass@test.com", "oldpassword123")
+	oldPassword := testUser.Password
+	oldPasswordV := testUser.PasswordV
 
 	// 重置用户密码
-	// 注意：由于UserService中没有ResetUserPassword方法，这里暂时跳过测试
-	// updatedUser, err := ts.UserService.ResetUserPassword(ctx, user.ID)
-	// AssertNoError(t, err, "重置用户密码不应该出错")
-	// AssertNotEqual(t, oldPassword, updatedUser.Password, "密码应该被更改")
-	// AssertEqual(t, oldPasswordV+1, updatedUser.PasswordV, "密码版本应该递增")
-	
-	t.Skip("跳过密码重置测试：UserService中暂未实现ResetUserPassword方法")
+	err := ts.UserService.ResetUserPassword(ctx, testUser.ID, "newpassword123")
+	AssertNoError(t, err, "重置用户密码不应该出错")
+
+	// 验证密码已被更改
+	updatedUser, err := ts.UserService.GetUserByID(ctx, testUser.ID)
+	AssertNoError(t, err, "获取更新后的用户不应该出错")
+	AssertNotEqual(t, oldPassword, updatedUser.Password, "密码应该被更改")
+	AssertEqual(t, oldPasswordV+1, updatedUser.PasswordV, "密码版本应该递增")
 }

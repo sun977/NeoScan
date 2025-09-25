@@ -1,3 +1,9 @@
+// RoleHandler测试文件
+// 测试了角色处理器功能，包括创建角色、获取角色列表、根据ID获取角色等
+// 测试命令：go test -v -run TestRoleHandler ./test
+
+// Package test 角色处理器测试
+// 测试角色相关的API接口功能
 package test
 
 import (

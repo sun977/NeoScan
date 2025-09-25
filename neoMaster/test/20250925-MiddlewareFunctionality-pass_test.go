@@ -1,5 +1,9 @@
-// Package test 中间件单元测试
-// 测试JWT认证中间件和权限验证中间件功能
+// MiddlewareFunctionality测试文件
+// 测试了中间件功能，包括JWT认证、用户激活状态检查、管理员权限检查、中间件执行顺序和错误传播等
+// 测试命令：go test -v -run TestMiddlewareChaining ./test
+
+// Package test 中间件功能测试
+// 测试Gin框架中间件的链式调用和功能
 package test
 
 import (

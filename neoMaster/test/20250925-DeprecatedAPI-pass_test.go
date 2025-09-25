@@ -1,5 +1,9 @@
+// DeprecatedAPI测试文件
+// 测试了已弃用的API接口，包括登出接口的功能和错误处理
+// 测试命令：go test -v -run TestDeprecatedAPI ./test
+
 // Package test 已弃用API测试
-// 测试NeoScan Master v4.0中已标记为弃用但仍需保持兼容的API接口
+// 测试NeoScan Master v4.0中已弃用的API接口
 package test
 
 import (

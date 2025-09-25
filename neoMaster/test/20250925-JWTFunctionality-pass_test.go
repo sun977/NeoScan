@@ -1,5 +1,9 @@
-// Package test JWT服务单元测试
-// 测试令牌生成、验证、刷新和权限检查功能
+// JWTFunctionality测试文件
+// 测试了JWT令牌的生成、验证、过期检查和撤销等功能
+// 测试命令：go test -v -run TestJWTService ./test
+
+// Package test JWT服务测试
+// 测试JSON Web Token相关的功能
 package test
 
 import (

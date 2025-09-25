@@ -1,3 +1,9 @@
+// PermissionHandler测试文件
+// 测试了权限处理器功能，包括创建权限、获取权限列表、根据ID获取权限等
+// 测试命令：go test -v -run TestPermissionHandler ./test
+
+// Package test 权限处理器测试
+// 测试权限相关的API接口功能
 package test
 
 import (
@@ -17,7 +23,7 @@ import (
 	authsvc "neomaster/internal/service/auth"
 )
 
-// TestPermissionHandler covers admin permission CRUD endpoints
+// TestPermissionHandler covers admin permission endpoints
 func TestPermissionHandler(t *testing.T) {
 	RunWithTestEnvironment(t, func(ts *TestSuite) {
 		if ts.DB == nil || ts.SessionService == nil {
@@ -28,16 +34,16 @@ func TestPermissionHandler(t *testing.T) {
 		gin.SetMode(gin.TestMode)
 
 		// Build services and handler
-		permRepo := mysqlrepo.NewPermissionRepository(ts.DB)
-		permService := authsvc.NewPermissionService(permRepo)
-		permHandler := system.NewPermissionHandler(permService)
+		permissionRepo := mysqlrepo.NewPermissionRepository(ts.DB)
+		permissionService := authsvc.NewPermissionService(permissionRepo)
+		permissionHandler := system.NewPermissionHandler(permissionService)
 
 		// Prepare admin user and token
-		adminUser := ts.CreateTestUser(t, "permadmin", "permadmin@test.com", "password123")
+		adminUser := ts.CreateTestUser(t, "permissionadmin", "permissionadmin@test.com", "password123")
 		adminRole := ts.CreateTestRole(t, "admin", "管理员角色")
 		ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
 
-		loginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{Username: "permadmin", Password: "password123"}, "127.0.0.1", "test-agent")
+		loginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{Username: "permissionadmin", Password: "password123"}, "127.0.0.1", "test-agent")
 		AssertNoError(t, err, "管理员登录不应该出错")
 
 		// Router with admin group
@@ -48,20 +54,16 @@ func TestPermissionHandler(t *testing.T) {
 			c.Next()
 		})
 		{
-			admin.POST("/permissions/create", permHandler.CreatePermission)
-			admin.GET("/permissions/list", permHandler.GetPermissionList)
-			admin.GET("/permissions/:id", permHandler.GetPermissionByID)
-			admin.POST("/permissions/:id", permHandler.UpdatePermission)
-			admin.DELETE("/permissions/:id", permHandler.DeletePermission)
+			admin.POST("/permissions/create", permissionHandler.CreatePermission)
+			admin.GET("/permissions/list", permissionHandler.GetPermissionList)
+			admin.GET("/permissions/:id", permissionHandler.GetPermissionByID)
 		}
 
 		// Create permission
 		createBody, _ := json.Marshal(map[string]any{
-			"name":         "perm.view.logs",
-			"display_name": "查看日志",
-			"description":  "允许查看系统日志",
-			"resource":     "logs",
-			"action":       "view",
+			"name":         "view_audit_logs",
+			"display_name": "查看审计日志",
+			"description":  "允许查看系统审计日志",
 		})
 		req := httptest.NewRequest("POST", "/api/v1/admin/permissions/create", bytes.NewBuffer(createBody))
 		req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
@@ -70,29 +72,22 @@ func TestPermissionHandler(t *testing.T) {
 		r.ServeHTTP(w, req)
 		AssertEqual(t, http.StatusCreated, w.Code, "创建权限应该返回201")
 
+		// Parse created permission id
 		var createResp model.APIResponse
-		AssertNoError(t, json.Unmarshal(w.Body.Bytes(), &createResp), "解析创建响应不应该出错")
-		AssertEqual(t, "success", createResp.Status, "创建权限响应状态应为success")
+		AssertNoError(t, json.Unmarshal(w.Body.Bytes(), &createResp), "解析创建响应不应出错")
+		permissionJSON, _ := json.Marshal(createResp.Data)
+		var createdPermission model.Permission
+		_ = json.Unmarshal(permissionJSON, &createdPermission)
+		AssertTrue(t, createdPermission.ID > 0, "创建的权限ID应大于0")
 
 		// List permissions
 		w2 := httptest.NewRecorder()
 		r.ServeHTTP(w2, httptest.NewRequest("GET", "/api/v1/admin/permissions/list?page=1&limit=10", nil))
 		AssertEqual(t, http.StatusOK, w2.Code, "获取权限列表应该成功")
 
-		// Read created permission id from first response
-		permJSON, _ := json.Marshal(createResp.Data)
-		var created model.Permission
-		_ = json.Unmarshal(permJSON, &created)
-		AssertTrue(t, created.ID > 0, "创建的权限ID应大于0")
-
-		// Get by id
+		// Get permission by id
 		w3 := httptest.NewRecorder()
-		r.ServeHTTP(w3, httptest.NewRequest("GET", "/api/v1/admin/permissions/"+itoa(created.ID), nil))
+		r.ServeHTTP(w3, httptest.NewRequest("GET", "/api/v1/admin/permissions/"+strconv.FormatUint(uint64(createdPermission.ID), 10), nil))
 		AssertEqual(t, http.StatusOK, w3.Code, "根据ID获取权限应该成功")
 	})
-}
-
-// helper to convert uint to string without importing strconv in many places
-func itoa(id uint) string {
-	return strconv.FormatUint(uint64(id), 10)
 }

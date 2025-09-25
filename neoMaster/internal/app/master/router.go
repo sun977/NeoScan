@@ -166,8 +166,8 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	user.Use(r.middlewareManager.GinJWTAuthMiddleware())
 	user.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
-		// 获取当前用户信息(不是用户所有信息,仅用户信息)
-		user.GET("/profile", r.userHandler.GetUserInfoByID) // 获取当前用户信息(users表)
+		// 获取当前用户全量信息(包含权限和角色信息)
+		user.GET("/profile", r.userHandler.GetUserInfoByIDforUser) // 获取当前用户全量信息
 		// 修改用户密码
 		user.POST("/change-password", r.userHandler.ChangePassword) // 修改用户密码
 		// 更新用户信息（需要补充）

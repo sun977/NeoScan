@@ -347,7 +347,82 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	})
 }
 
-// GetUserInfoByID 获取单个用户信息【完成】
+// GetUserInfoByID 用户获取自己的信息(用户专用)【完成】
+func (h *UserHandler) GetUserInfoByIDforUser(c *gin.Context) {
+	// 获取参数
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+
+	// 从上下文获取用户ID（中间件已验证并存储）
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		// 记录用户ID不存在错误日志
+		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_info", "GET", map[string]interface{}{
+			"operation":  "get_user_info",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "user_id not found in context",
+		})
+		return
+	}
+
+	// 类型断言获取用户ID
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		// 记录用户ID类型转换失败错误日志
+		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_info", "GET", map[string]interface{}{
+			"operation":  "get_user_info",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": XRequestID,
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "invalid user_id type",
+		})
+		return
+	}
+
+	// 调用服务层获取用户信息
+	userInfo, err := h.userService.GetUserInfoByID(c.Request.Context(), userID)
+	if err != nil {
+		// 根据错误类型返回不同的HTTP状态码
+		if strings.Contains(err.Error(), "用户不存在") {
+			c.JSON(http.StatusNotFound, model.APIResponse{
+				Code:    http.StatusNotFound,
+				Status:  "error",
+				Message: "用户不存在",
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, model.APIResponse{
+				Code:    http.StatusInternalServerError,
+				Status:  "error",
+				Message: "获取用户信息失败",
+				Error:   err.Error(),
+			})
+		}
+		return
+	}
+
+	// 返回成功响应
+	c.JSON(http.StatusOK, model.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "获取用户信息成功",
+		Data:    userInfo,
+	})
+}
+
+// GetUserInfoByID 获取单个用户全量信息(管理员专用)【完成】
 func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	// 获取参数
 	clientIP := utils.GetClientIP(c)
@@ -412,7 +487,7 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	})
 }
 
-// GetUserInfo 获取单个用户信息（当前用户信息）
+// GetUserInfo 获取单个用户信息（当前用户信息）【未使用】
 // 从accesstoken获取用户ID并获取用户的全量信息(包含权限和角色信息)
 func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 	// 获取客户端IP

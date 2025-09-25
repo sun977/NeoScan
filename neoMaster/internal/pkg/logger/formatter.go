@@ -232,8 +232,10 @@ func LogError(err error, requestID string, userID uint, clientIP, path, method s
 		fields[k] = v
 	}
 
-	// 记录错误日志
-	LoggerInstance.logger.WithFields(fields).Error("System error occurred")
+	// // 记录错误日志
+	// LoggerInstance.logger.WithFields(fields).Error("System error occurred")
+	// 记录错误日志，包含具体的错误信息
+	LoggerInstance.logger.WithFields(fields).Errorf("System error occurred: %s", err.Error())
 }
 
 // LogSystemEvent 记录系统事件日志

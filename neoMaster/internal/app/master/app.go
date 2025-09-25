@@ -36,8 +36,8 @@ func NewApp() (*App, error) {
 
 	// 记录应用启动日志
 	logger.LogBusinessOperation("app_start", 0, "", "", "", "success", "NeoMaster application starting", map[string]interface{}{
-		"version": "1.0.0",
-		"env":     "development",
+		"version":   "1.0.0",
+		"env":       "development",
 		"timestamp": logger.NowFormatted(),
 	})
 
@@ -48,9 +48,9 @@ func NewApp() (*App, error) {
 		// 记录数据库连接失败日志
 		logger.LogError(err, "", 0, "", "db_connect", "CONNECT", map[string]interface{}{
 			"operation": "mysql_connect",
-			"host": cfg.Database.MySQL.Host,
-			"port": cfg.Database.MySQL.Port,
-			"database": cfg.Database.MySQL.Database,
+			"host":      cfg.Database.MySQL.Host,
+			"port":      cfg.Database.MySQL.Port,
+			"database":  cfg.Database.MySQL.Database,
 			"timestamp": logger.NowFormatted(),
 		})
 		// 在开发阶段，如果数据库连接失败，我们继续运行但使用nil
@@ -59,33 +59,67 @@ func NewApp() (*App, error) {
 		// 记录数据库连接成功日志
 		logger.LogBusinessOperation("db_connect", 0, "", "", "", "success", "MySQL database connected successfully", map[string]interface{}{
 			"operation": "mysql_connect",
-			"host": cfg.Database.MySQL.Host,
-			"database": cfg.Database.MySQL.Database,
+			"host":      cfg.Database.MySQL.Host,
+			"database":  cfg.Database.MySQL.Database,
 			"timestamp": logger.NowFormatted(),
 		})
 	}
 
-	// 初始化Redis连接
-	redisClient, err := database.NewRedisConnection(&cfg.Database.Redis)
-	if err != nil {
-		log.Printf("Warning: Failed to connect to Redis: %v", err)
-		// 记录Redis连接失败日志
-		logger.LogError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
-			"operation": "redis_connect",
-			"host": cfg.Database.Redis.Host,
-			"port": cfg.Database.Redis.Port,
-			"database": cfg.Database.Redis.Database,
-			"timestamp": logger.NowFormatted(),
-		})
-		// 在开发阶段，如果Redis连接失败，我们继续运行但使用nil
-		redisClient = nil
+	// // 初始化Redis连接
+	// redisClient, err := database.NewRedisConnection(&cfg.Database.Redis)
+	// if err != nil {
+	// 	log.Printf("Warning: Failed to connect to Redis: %v", err)
+	// 	// 记录Redis连接失败日志
+	// 	logger.LogError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
+	// 		"operation": "redis_connect",
+	// 		"host":      cfg.Database.Redis.Host,
+	// 		"port":      cfg.Database.Redis.Port,
+	// 		"database":  cfg.Database.Redis.Database,
+	// 		"timestamp": logger.NowFormatted(),
+	// 	})
+	// 	// 在开发阶段，如果Redis连接失败，我们继续运行但使用nil
+	// 	redisClient = nil
+	// } else {
+	// 	// 记录Redis连接成功日志
+	// 	logger.LogBusinessOperation("redis_connect", 0, "", "", "", "success", "Redis connected successfully", map[string]interface{}{
+	// 		"operation": "redis_connect",
+	// 		"host":      cfg.Database.Redis.Host,
+	// 		"database":  cfg.Database.Redis.Database,
+	// 		"timestamp": logger.NowFormatted(),
+	// 	})
+	// }
+
+	// 初始化Redis连接【后续待补充使用内存存储,目前默认使用redis】
+	var redisClient *redis.Client
+	if cfg.Session.Store != "memory" {
+		redisClient, err = database.NewRedisConnection(&cfg.Database.Redis)
+		if err != nil {
+			log.Printf("Warning: Failed to connect to Redis: %v", err)
+			// 记录Redis连接失败日志
+			logger.LogError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
+				"operation": "redis_connect",
+				"host":      cfg.Database.Redis.Host,
+				"port":      cfg.Database.Redis.Port,
+				"database":  cfg.Database.Redis.Database,
+				"timestamp": logger.NowFormatted(),
+			})
+			// 在开发阶段，如果Redis连接失败，我们继续运行但使用nil
+			redisClient = nil
+		} else {
+			// 记录Redis连接成功日志
+			logger.LogBusinessOperation("redis_connect", 0, "", "", "", "success", "Redis connected successfully", map[string]interface{}{
+				"operation": "redis_connect",
+				"host":      cfg.Database.Redis.Host,
+				"database":  cfg.Database.Redis.Database,
+				"timestamp": logger.NowFormatted(),
+			})
+		}
 	} else {
-		// 记录Redis连接成功日志
-		logger.LogBusinessOperation("redis_connect", 0, "", "", "", "success", "Redis connected successfully", map[string]interface{}{
-			"operation": "redis_connect",
-			"host": cfg.Database.Redis.Host,
-			"database": cfg.Database.Redis.Database,
-			"timestamp": logger.NowFormatted(),
+		log.Printf("Using memory session store")
+		logger.LogBusinessOperation("session_store", 0, "", "", "", "success", "Using memory session store", map[string]interface{}{
+			"operation":  "session_store_init",
+			"store_type": "memory",
+			"timestamp":  logger.NowFormatted(),
 		})
 	}
 

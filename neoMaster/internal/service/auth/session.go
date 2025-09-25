@@ -617,12 +617,11 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 		return errors.New("access token cannot be empty")
 	}
 
-	// 验证访问令牌
+	// 验证访问令牌[这里的claims可能为空]
 	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", claims.UserID, clientIP, "logout", "POST", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "logout", "POST", map[string]interface{}{
 			"operation": "logout",
-			"user_id":   claims.UserID,
 			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
 		})

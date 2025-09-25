@@ -55,9 +55,12 @@ func NewRoleService(roleRepo *mysql.RoleRepository) *RoleService {
 // CreateRole 创建角色
 // 处理角色创建的完整流程，包括参数验证、重复检查、权限分配等
 func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleRequest) (*model.Role, error) {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证
 	if req == nil {
-		logger.LogError(errors.New("request is nil"), "", 0, "", "role_create", "POST", map[string]interface{}{
+		logger.LogError(errors.New("request is nil"), "", 0, clientIP, "role_create", "POST", map[string]interface{}{
 			"operation": "create_role",
 			"error":     "request is nil",
 			"timestamp": logger.NowFormatted(),
@@ -66,7 +69,7 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 	}
 
 	if req.Name == "" {
-		logger.LogError(errors.New("role name is empty"), "", 0, "", "role_create", "POST", map[string]interface{}{
+		logger.LogError(errors.New("role name is empty"), "", 0, clientIP, "role_create", "POST", map[string]interface{}{
 			"operation": "create_role",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -76,7 +79,7 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 	// 检查角色名是否已存在
 	existingRole, err := s.roleRepo.GetRoleByName(ctx, req.Name)
 	if err == nil && existingRole != nil {
-		logger.LogError(errors.New("role name already exists"), "", 0, "", "role_create", "POST", map[string]interface{}{
+		logger.LogError(errors.New("role name already exists"), "", 0, clientIP, "role_create", "POST", map[string]interface{}{
 			"operation":        "create_role",
 			"name":             req.Name,
 			"existing_role_id": existingRole.ID,
@@ -96,7 +99,7 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 	// 存储到数据库
 	err = s.roleRepo.CreateRole(ctx, role)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "role_create", "POST", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "role_create", "POST", map[string]interface{}{
 			"operation": "create_role_db",
 			"name":      req.Name,
 			"timestamp": logger.NowFormatted(),
@@ -109,7 +112,7 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 		for _, permissionID := range req.PermissionIDs {
 			if err := s.roleRepo.AssignPermissionToRole(ctx, role.ID, permissionID); err != nil {
 				// 记录权限分配失败日志，但不影响角色创建
-				logger.LogError(err, "", role.ID, "", "role_create", "POST", map[string]interface{}{
+				logger.LogError(err, "", 0, clientIP, "role_create", "POST", map[string]interface{}{
 					"operation":     "assign_permission_to_role",
 					"role_id":       role.ID,
 					"permission_id": permissionID,
@@ -120,8 +123,9 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 	}
 
 	// 记录成功创建角色的业务日志
-	logger.LogBusinessOperation("create_role", role.ID, role.Name, "", "", "success", "Role created successfully", map[string]interface{}{
+	logger.LogBusinessOperation("create_role", 0, "system", clientIP, "", "success", "Role created successfully", map[string]interface{}{
 		"name":             role.Name,
+		"role_id":          role.ID,
 		"display_name":     role.DisplayName,
 		"status":           role.Status,
 		"permission_count": len(req.PermissionIDs),
@@ -134,9 +138,12 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 // GetRoleByID 根据角色ID获取角色
 // 完整的业务逻辑包括：参数验证、上下文检查、数据获取、状态验证、日志记录
 func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*model.Role, error) {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证：角色ID必须有效
 	if roleID == 0 {
-		logger.LogError(errors.New("invalid role ID: cannot be zero"), "", 0, "", "get_role_by_id", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("invalid role ID: cannot be zero"), "", 0, clientIP, "get_role_by_id", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"role_id":   roleID,
 			"timestamp": logger.NowFormatted(),
@@ -155,7 +162,7 @@ func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*model.Role
 	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
 	if err != nil {
 		// 记录数据库查询失败日志
-		logger.LogError(err, "", roleID, "", "get_role_by_id", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", roleID, clientIP, "get_role_by_id", "SERVICE", map[string]interface{}{
 			"operation": "database_query",
 			"role_id":   roleID,
 			"timestamp": logger.NowFormatted(),
@@ -166,7 +173,7 @@ func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*model.Role
 	// 检查角色是否存在
 	if role == nil {
 		// 记录角色不存在日志
-		logger.LogError(errors.New("role not found"), "", roleID, "", "get_role_by_id", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("role not found"), "", 0, clientIP, "get_role_by_id", "SERVICE", map[string]interface{}{
 			"operation": "role_not_found",
 			"role_id":   roleID,
 			"timestamp": logger.NowFormatted(),
@@ -175,7 +182,7 @@ func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*model.Role
 	}
 
 	// 记录成功获取角色信息的业务日志
-	logger.LogBusinessOperation("get_role_by_id", roleID, role.Name, "", "", "success", "角色信息获取成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_role_by_id", 0, "system", clientIP, "", "success", "角色信息获取成功", map[string]interface{}{
 		"operation":   "get_role_success",
 		"role_id":     roleID,
 		"name":        role.Name,
@@ -206,13 +213,16 @@ func (s *RoleService) GetRoleByName(ctx context.Context, name string) (*model.Ro
 // GetRoleList 获取角色列表
 // 提供分页查询功能，包含完整的参数验证和错误处理
 func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*model.Role, int64, error) {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 保存原始参数值用于日志记录
 	originalOffset := offset
 	originalLimit := limit
 
 	// 参数验证：偏移量不能为负数
 	if offset < 0 {
-		logger.LogError(fmt.Errorf("invalid offset parameter: %d", offset), "", 0, "", "get_role_list", "SERVICE", map[string]interface{}{
+		logger.LogError(fmt.Errorf("invalid offset parameter: %d", offset), "", 0, clientIP, "get_role_list", "SERVICE", map[string]interface{}{
 			"operation": "get_role_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -230,7 +240,7 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*mo
 
 	// 记录参数修正日志（如果发生了修正）
 	if originalLimit != limit || originalOffset != offset {
-		logger.LogBusinessOperation("get_role_list", 0, "system", "", "", "parameter_corrected", "分页参数已自动修正", map[string]interface{}{
+		logger.LogBusinessOperation("get_role_list", 0, "system", clientIP, "", "parameter_corrected", "分页参数已自动修正", map[string]interface{}{
 			"operation":        "get_role_list",
 			"original_offset":  originalOffset,
 			"original_limit":   originalLimit,
@@ -252,7 +262,7 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*mo
 	roles, total, err := s.roleRepo.GetRoleList(ctx, offset, limit)
 	if err != nil {
 		// 记录数据库查询错误
-		logger.LogError(err, "", 0, "", "get_role_list", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "get_role_list", "SERVICE", map[string]interface{}{
 			"operation": "get_role_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -267,7 +277,7 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*mo
 	}
 
 	// 记录成功操作日志
-	logger.LogBusinessOperation("get_role_list", 0, "system", "", "", "success", "获取角色列表成功", map[string]interface{}{
+	logger.LogBusinessOperation("get_role_list", 0, "system", clientIP, "", "success", "获取角色列表成功", map[string]interface{}{
 		"operation":    "get_role_list",
 		"offset":       offset,
 		"limit":        limit,
@@ -283,7 +293,7 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*mo
 // 处理角色更新的完整流程，包括参数验证、重复检查、权限更新、事务处理等
 func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) (*model.Role, error) {
 	// 第一层：参数验证层
-	if err := s.validateUpdateRoleParams(roleID, req); err != nil {
+	if err := s.validateUpdateRoleParams(ctx, roleID, req); err != nil {
 		// roleID 不能为0
 		// 请求包 req 不能为空
 		// 角色状态验证(0-禁用,1-启用)
@@ -306,9 +316,13 @@ func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *mode
 }
 
 // validateUpdateRoleParams 验证更新角色的参数
-func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRoleRequest) error {
+func (s *RoleService) validateUpdateRoleParams(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+
 	if roleID == 0 {
-		logger.LogError(errors.New("invalid role ID for update"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("invalid role ID for update"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"role_id":   roleID,
 			"error":     "role_id_zero",
@@ -318,7 +332,7 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 	}
 
 	if req == nil {
-		logger.LogError(errors.New("update request is nil"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("update request is nil"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"role_id":   roleID,
 			"error":     "request_nil",
@@ -330,7 +344,7 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 	// 验证状态值
 	if req.Status != nil {
 		if *req.Status < 0 || *req.Status > 1 {
-			logger.LogError(errors.New("invalid status value"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+			logger.LogError(errors.New("invalid status value"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 				"operation": "parameter_validation",
 				"role_id":   roleID,
 				"status":    *req.Status,
@@ -346,13 +360,16 @@ func (s *RoleService) validateUpdateRoleParams(roleID uint, req *model.UpdateRol
 
 // validateRoleForUpdate 验证角色是否可以更新
 func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) (*model.Role, error) {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 检查角色是否存在
 	// role, err := s.roleRepo.GetRoleByID(ctx, roleID) [GetRoleByID 只能获取角色的基本信息,不包含权限信息]
 	// [数据库中role表本身不带权限信息,角色权限关联信息在role_permissions表里,需要通过GetRoleWithPermissions方法获取角色及其关联的权限]
 	// model.Role 模型中带有 permissions 字段列表
 	roleWithPermissions, err := s.roleRepo.GetRoleWithPermissions(ctx, roleID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "role_existence_check",
 			"role_id":   roleID,
 			"error":     "database_query_failed",
@@ -362,7 +379,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 	}
 
 	if roleWithPermissions == nil {
-		logger.LogError(errors.New("role not found for update"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("role not found for update"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "role_existence_check",
 			"role_id":   roleID,
 			"error":     "role_not_found",
@@ -385,7 +402,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 	// 角色名冲突校验
 	roleNameConflict, err := s.roleRepo.GetRoleByName(ctx, req.Name)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "role_name_conflict_check",
 			"role_id":   roleID,
 			"error":     "database_query_failed",
@@ -394,7 +411,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 		return nil, fmt.Errorf("failed to get role by name: %w", err)
 	}
 	if roleNameConflict != nil && roleNameConflict.ID != roleID {
-		logger.LogError(errors.New("role name already exists"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("role name already exists"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "role_name_conflict_check",
 			"role_id":   roleID,
 			"error":     "role_name_conflict",
@@ -408,7 +425,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 		for _, permissionID := range req.PermissionIDs {
 			permissionExists, err := s.roleRepo.RolePermissionExists(ctx, permissionID) // 检查角色关联的权限是否存在
 			if err != nil {
-				logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+				logger.LogError(err, "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 					"operation": "permission_existence_check",
 					"role_id":   roleID,
 					"error":     "database_query_failed",
@@ -417,7 +434,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 				return nil, fmt.Errorf("failed to check permission existence: %w", err)
 			}
 			if !permissionExists {
-				logger.LogError(errors.New("permission not found"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+				logger.LogError(errors.New("permission not found"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 					"operation": "permission_existence_check",
 					"role_id":   roleID,
 					"error":     "permission_not_found",
@@ -431,7 +448,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 	// 业务规则：系统角色保护机制（可以根据需要添加）
 	// 例如：某些系统内置角色不能被修改(角色1为系统管理员角色)
 	if roleID == 1 {
-		logger.LogError(errors.New("system role cannot be updated"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("system role cannot be updated"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "business_rule_check",
 			"role_id":   roleID,
 			"error":     "system_role_update_forbidden",
@@ -445,10 +462,13 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 
 // executeRoleUpdate 执行角色更新操作（包含事务处理）
 func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, req *model.UpdateRoleRequest) (*model.Role, error) {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 开始事务
 	tx := s.roleRepo.BeginTx(ctx)
 	if tx == nil {
-		logger.LogError(errors.New("failed to begin transaction"), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("failed to begin transaction"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "transaction_begin",
 			"role_id":   role.ID,
 			"error":     "transaction_begin_failed",
@@ -460,7 +480,7 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			logger.LogError(fmt.Errorf("panic during role update: %v", r), "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+			logger.LogError(fmt.Errorf("panic during role update: %v", r), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 				"operation": "panic_recovery",
 				"role_id":   role.ID,
 				"error":     "panic_occurred",
@@ -501,7 +521,7 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 		// 删除现有权限关联
 		if err := s.roleRepo.DeleteRolePermissionsByRoleID(ctx, tx, role.ID); err != nil {
 			tx.Rollback()
-			logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+			logger.LogError(err, "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 				"operation": "delete_role_permissions",
 				"role_id":   role.ID,
 				"error":     "delete_permissions_failed",
@@ -518,7 +538,7 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 	// 更新到数据库
 	if err := s.roleRepo.UpdateRoleWithTx(ctx, tx, role); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "database_update",
 			"role_id":   role.ID,
 			"error":     "update_role_failed",
@@ -529,7 +549,7 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
-		logger.LogError(err, "", 0, "", "update_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
 			"operation": "transaction_commit",
 			"role_id":   role.ID,
 			"error":     "transaction_commit_failed",
@@ -548,10 +568,10 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 		changes["permission_count"] = len(req.PermissionIDs)
 	}
 
-	logger.LogBusinessOperation("update_role", role.ID, role.Name, "", "", "success", "角色更新成功", map[string]interface{}{
+	logger.LogBusinessOperation("update_role", 0, "", clientIP, "", "success", "角色更新成功", map[string]interface{}{
 		"operation":  "role_update_success",
 		"role_id":    role.ID,
-		"name":       role.Name,
+		"role_name":  role.Name,
 		"status":     role.Status,
 		"changes":    changes,
 		"updated_at": logger.NowFormatted(),
@@ -565,7 +585,7 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 // 完整的业务逻辑包括：参数验证、业务规则检查、级联删除、事务处理、审计日志
 func (s *RoleService) DeleteRole(ctx context.Context, roleID uint) error {
 	// 第一层：参数验证层
-	if err := s.validateDeleteRoleParams(roleID); err != nil {
+	if err := s.validateDeleteRoleParams(ctx, roleID); err != nil {
 		// roleID 不为 0
 		return err
 	}
@@ -584,9 +604,12 @@ func (s *RoleService) DeleteRole(ctx context.Context, roleID uint) error {
 }
 
 // validateDeleteRoleParams 验证删除角色的参数
-func (s *RoleService) validateDeleteRoleParams(roleID uint) error {
+func (s *RoleService) validateDeleteRoleParams(ctx context.Context, roleID uint) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if roleID == 0 {
-		logger.LogError(errors.New("invalid role ID for deletion"), "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("invalid role ID for deletion"), "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"role_id":   roleID,
 			"error":     "role_id_zero",
@@ -599,10 +622,13 @@ func (s *RoleService) validateDeleteRoleParams(roleID uint) error {
 
 // validateRoleForDeletion 验证角色是否可以删除
 func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) (*model.Role, error) {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 检查角色是否存在
 	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "role_existence_check",
 			"role_id":   roleID,
 			"error":     "database_query_failed",
@@ -612,7 +638,7 @@ func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) 
 	}
 
 	if role == nil {
-		logger.LogError(errors.New("role not found for deletion"), "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("role not found for deletion"), "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "role_existence_check",
 			"role_id":   roleID,
 			"error":     "role_not_found",
@@ -623,7 +649,7 @@ func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) 
 
 	// 检查角色状态 - 已删除的角色不能再次删除
 	if role.DeletedAt != nil {
-		logger.LogError(errors.New("role already deleted"), "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("role already deleted"), "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "role_status_check",
 			"role_id":   roleID,
 			"error":     "role_already_deleted",
@@ -635,7 +661,7 @@ func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) 
 	// 业务规则：系统角色保护机制（可以根据需要添加）
 	// 例如：某些系统内置角色不能被删除
 	if roleID == 1 {
-		logger.LogError(errors.New("system role cannot be deleted"), "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("system role cannot be deleted"), "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "business_rule_check",
 			"role_id":   roleID,
 			"error":     "system_role_delete_forbidden",
@@ -649,10 +675,13 @@ func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) 
 
 // executeRoleDeletion 执行角色删除操作（包含事务处理）
 func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 开始事务
 	tx := s.roleRepo.BeginTx(ctx)
 	if tx == nil {
-		logger.LogError(errors.New("failed to begin transaction"), "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("failed to begin transaction"), "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "transaction_begin",
 			"role_id":   role.ID,
 			"error":     "transaction_begin_failed",
@@ -664,7 +693,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			logger.LogError(fmt.Errorf("panic during role deletion: %v", r), "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+			logger.LogError(fmt.Errorf("panic during role deletion: %v", r), "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 				"operation": "panic_recovery",
 				"role_id":   role.ID,
 				"error":     "panic_occurred",
@@ -677,7 +706,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 	// 1. 删除角色权限关联[硬删除]
 	if err := s.roleRepo.DeleteRolePermissionsByRoleID(ctx, tx, role.ID); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "cascade_delete_role_permissions",
 			"role_id":   role.ID,
 			"error":     "delete_role_permissions_failed",
@@ -689,7 +718,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 	// 2. 硬删除角色
 	if err := s.roleRepo.DeleteRoleWithTx(ctx, tx, role.ID); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "soft_delete_role",
 			"role_id":   role.ID,
 			"error":     "delete_role_failed",
@@ -700,7 +729,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
-		logger.LogError(err, "", 0, "", "delete_role", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "transaction_commit",
 			"role_id":   role.ID,
 			"error":     "transaction_commit_failed",
@@ -710,10 +739,10 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 	}
 
 	// 记录成功删除日志
-	logger.LogBusinessOperation("delete_role", role.ID, role.Name, "", "", "success", "角色删除成功", map[string]interface{}{
+	logger.LogBusinessOperation("delete_role", 0, "", clientIP, "", "success", "角色删除成功", map[string]interface{}{
 		"operation":  "role_deletion_success",
 		"role_id":    role.ID,
-		"name":       role.Name,
+		"role_name":  role.Name,
 		"deleted_at": logger.NowFormatted(),
 		"timestamp":  logger.NowFormatted(),
 	})
@@ -724,9 +753,12 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 // UpdateRoleStatus 更新角色状态 - 通用状态管理函数
 // 将指定角色的状态设置为启用或禁用状态，消除重复代码，体现"好品味"原则
 func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status model.RoleStatus) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证层 - 消除特殊情况
 	if roleID == 0 {
-		logger.LogError(errors.New("invalid role ID"), "", 0, "", "update_role_status", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("invalid role ID"), "", 0, clientIP, "update_role_status", "SERVICE", map[string]interface{}{
 			"operation": "update_role_status",
 			"error":     "invalid_role_id",
 			"role_id":   roleID,
@@ -737,7 +769,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 
 	// 验证状态值有效性 - 严格的参数检查
 	if status != model.RoleStatusEnabled && status != model.RoleStatusDisabled {
-		logger.LogError(errors.New("invalid status value"), "", 0, "", "update_role_status", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("invalid status value"), "", 0, clientIP, "update_role_status", "SERVICE", map[string]interface{}{
 			"operation": "update_role_status",
 			"error":     "invalid_status_value",
 			"role_id":   roleID,
@@ -750,7 +782,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 	// 业务规则验证层 - 检查角色是否存在
 	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
 	if err != nil {
-		logger.LogError(err, "", roleID, "", "update_role_status", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", roleID, clientIP, "update_role_status", "SERVICE", map[string]interface{}{
 			"operation": "update_role_status",
 			"error":     "get_role_failed",
 			"role_id":   roleID,
@@ -760,7 +792,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 	}
 
 	if role == nil {
-		logger.LogError(errors.New("role not found"), "", roleID, "", "update_role_status", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("role not found"), "", roleID, clientIP, "update_role_status", "SERVICE", map[string]interface{}{
 			"operation": "update_role_status",
 			"error":     "role_not_found",
 			"role_id":   roleID,
@@ -776,7 +808,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 			statusText = "启用"
 		}
 
-		logger.LogBusinessOperation("update_role_status", roleID, role.Name, "", "", "success",
+		logger.LogBusinessOperation("update_role_status", roleID, role.Name, clientIP, "", "success",
 			fmt.Sprintf("角色已处于%s状态", statusText), map[string]interface{}{
 				"operation":      "update_role_status",
 				"role_id":        roleID,
@@ -802,7 +834,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 			statusText = "启用"
 		}
 
-		logger.LogError(err, "", roleID, "", "update_role_status", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", roleID, clientIP, "update_role_status", "SERVICE", map[string]interface{}{
 			"operation": "update_role_status",
 			"error":     fmt.Sprintf("%s_failed", statusText),
 			"role_id":   roleID,
@@ -820,11 +852,11 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 		statusTextOpposite = "禁用"
 	}
 
-	logger.LogBusinessOperation("update_role_status", roleID, role.Name, "", "", "success",
+	logger.LogBusinessOperation("update_role_status", 0, "", clientIP, "", "success",
 		fmt.Sprintf("角色%s成功", statusText), map[string]interface{}{
 			"operation":       "update_role_status",
 			"role_id":         roleID,
-			"name":            role.Name,
+			"role_name":       role.Name,
 			"previous_status": statusTextOpposite,
 			"new_status":      statusText,
 			"target_status":   int(status),
@@ -856,6 +888,9 @@ func (s *RoleService) DeactivateRole(ctx context.Context, roleID uint) error {
 
 // GetRoleWithPermissions 获取角色及其权限
 func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (*model.Role, error) {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if roleID == 0 {
 		return nil, errors.New("角色ID不能为0")
 	}
@@ -864,7 +899,7 @@ func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (
 	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
 	if err != nil {
 		// 记录数据库查询失败日志
-		logger.LogError(err, "", roleID, "", "get_role_by_id", "SERVICE", map[string]interface{}{
+		logger.LogError(err, "", roleID, clientIP, "get_role_by_id", "SERVICE", map[string]interface{}{
 			"operation": "database_query",
 			"role_id":   roleID,
 			"timestamp": logger.NowFormatted(),
@@ -875,7 +910,7 @@ func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (
 	// 检查角色是否存在
 	if role == nil {
 		// 记录角色不存在日志
-		logger.LogError(errors.New("role not found"), "", roleID, "", "get_role_by_id", "SERVICE", map[string]interface{}{
+		logger.LogError(errors.New("role not found"), "", roleID, clientIP, "get_role_by_id", "SERVICE", map[string]interface{}{
 			"operation": "role_not_found",
 			"role_id":   roleID,
 			"timestamp": logger.NowFormatted(),

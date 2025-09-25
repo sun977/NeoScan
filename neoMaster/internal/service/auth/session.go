@@ -116,7 +116,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 			user, err = s.userService.GetUserByEmail(ctx, req.Username)
 			if err != nil {
 				// 邮箱查找也失败，记录日志并返回错误
-				logger.LogError(err, "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+				logger.LogError(err, "", user.ID, clientIP, "user_login", "POST", map[string]interface{}{
 					"operation":  "login",
 					"option":     "request_user_not_found",
 					"func_name":  "service.auth.session.Login",
@@ -130,7 +130,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 			}
 		} else {
 			// 其他数据库错误
-			logger.LogError(err, "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+			logger.LogError(err, "", user.ID, clientIP, "user_login", "POST", map[string]interface{}{
 				"operation":  "login",
 				"option":     "request_database_error",
 				"func_name":  "service.auth.session.Login",
@@ -344,7 +344,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	// 验证访问令牌
 	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation":    "logout_all",
 			"option":       "ValidateAccessToken",
 			"func_name":    "service.auth.session.LogoutAll",
@@ -370,11 +370,11 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 
 	// 删除用户的所有会话（Redis中的会话数据）
 	if derr := s.sessionRepo.DeleteAllUserSessions(ctx, uint64(claims.UserID)); derr != nil {
-		logger.LogError(derr, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogError(derr, "", user.ID, clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout_all_delete_sessions",
 			"option":    "DeleteAllUserSessions",
 			"func_name": "service.auth.session.LogoutAll",
-			"user_id":   claims.UserID,
+			"user_id":   user.ID,
 			"username":  user.Username,
 			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
@@ -610,6 +610,9 @@ func (s *SessionService) IsTokenRevoked(ctx context.Context, jti string) (bool, 
 //
 // 返回: 错误信息
 func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if accessToken == "" {
 		return errors.New("access token cannot be empty")
 	}
@@ -617,8 +620,10 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 验证访问令牌
 	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "logout", "POST", map[string]interface{}{
+		logger.LogError(err, "", claims.UserID, clientIP, "logout", "POST", map[string]interface{}{
 			"operation": "logout",
+			"user_id":   claims.UserID,
+			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("invalid access token: %w", err)
@@ -627,22 +632,24 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 撤销令牌
 	err = s.RevokeToken(ctx, claims.ID, time.Until(time.Unix(claims.ExpiresAt.Unix(), 0)))
 	if err != nil {
-		logger.LogError(err, "", claims.UserID, "", "logout", "POST", map[string]interface{}{
+		logger.LogError(err, "", claims.UserID, clientIP, "logout", "POST", map[string]interface{}{
 			"operation": "logout",
 			"user_id":   claims.UserID,
+			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
 		})
 		return fmt.Errorf("failed to revoke token: %w", err)
 	}
 
 	// 记录登出业务日志
-	logger.LogBusinessOperation("logout", claims.UserID, "", "", "", "success", "用户登出成功", map[string]interface{}{
+	logger.LogBusinessOperation("logout", claims.UserID, "", clientIP, "", "success", "用户登出成功", map[string]interface{}{
 		"user_id":   claims.UserID,
 		"timestamp": logger.NowFormatted(),
 	})
 
 	return nil
 }
+
 // GetUserSessions 获取指定用户的所有会话
 func (s *SessionService) GetUserSessions(ctx context.Context, userID uint) ([]*model.SessionData, error) {
 	if userID == 0 {

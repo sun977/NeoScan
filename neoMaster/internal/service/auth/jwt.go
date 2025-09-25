@@ -350,7 +350,7 @@ func (s *JWTService) CheckTokenExpiry(tokenString string, threshold time.Duratio
 	return time.Until(expiryTime) <= threshold, nil
 }
 
-// // RevokeToken 撤销令牌（将令牌添加到黑名单）
+// // RevokeToken 撤销令牌（将令牌添加到黑名单）[未使用]
 // 参数:
 //   - ctx: 请求上下文
 //   - tokenJTI: JWT的唯一标识符
@@ -358,6 +358,10 @@ func (s *JWTService) CheckTokenExpiry(tokenString string, threshold time.Duratio
 //
 // 返回: 错误信息
 func (s *JWTService) RevokeToken(ctx context.Context, tokenJTI string, expiration time.Duration) error {
+	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
+	type clientIPKeyType struct{}
+	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+
 	if tokenJTI == "" {
 		return errors.New("token JTI cannot be empty")
 	}
@@ -366,7 +370,7 @@ func (s *JWTService) RevokeToken(ctx context.Context, tokenJTI string, expiratio
 	// 这里遵循了层级调用关系：Service → Repository
 	err := s.redisRepo.RevokeToken(ctx, tokenJTI, expiration)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "revoke_token", "POST", map[string]interface{}{
+		logger.LogError(err, "", 0, clientIP, "revoke_token", "POST", map[string]interface{}{
 			"operation": "revoke_token",
 			"jti":       tokenJTI,
 			"timestamp": logger.NowFormatted(),
@@ -375,82 +379,13 @@ func (s *JWTService) RevokeToken(ctx context.Context, tokenJTI string, expiratio
 	}
 
 	// 记录令牌撤销的业务日志
-	logger.LogBusinessOperation("revoke_token", 0, "", "", "", "success", "令牌撤销成功", map[string]interface{}{
+	logger.LogBusinessOperation("revoke_token", 0, "", clientIP, "", "success", "令牌撤销成功", map[string]interface{}{
 		"jti":       tokenJTI,
 		"timestamp": logger.NowFormatted(),
 	})
 
 	return nil
 }
-
-// RevokeToken 撤销令牌（通过黑名单机制）
-// 这个方法用于主动撤销有效的令牌，常用于用户登出或安全事件处理
-// JWT本身是无状态的，撤销需要通过黑名单机制实现
-// 参数:
-//   - ctx: 请求上下文
-//   - tokenString: 待撤销的访问令牌字符串
-//
-// 返回: 错误信息
-// func (s *JWTService) RevokeToken(ctx context.Context, tokenString string) error {
-// 	// 直接解析令牌获取声明信息，不进行完整验证
-// 	// 这样可以撤销已过期但尚未从黑名单中移除的令牌
-// 	claims, err := s.jwtManager.ValidateAccessToken(tokenString)
-// 	if err != nil {
-// 		// 令牌解析失败，记录错误但不阻止撤销流程
-// 		logger.LogError(err, "", 0, "", "token_revoke_parse", "POST", map[string]interface{}{
-// 			"operation":    "revoke_token",
-// 			"token_prefix": tokenString[:10] + "...",
-// 			"timestamp":    logger.NowFormatted(),
-// 		})
-// 		return fmt.Errorf("failed to parse token for revocation: %w", err)
-// 	}
-
-// 	// 检查令牌是否有JTI（JWT ID）
-// 	if claims.ID == "" {
-// 		logger.LogError(errors.New("token has no JTI"), "", uint(claims.UserID), "", "token_revoke_no_jti", "POST", map[string]interface{}{
-// 			"operation":    "revoke_token",
-// 			"token_prefix": tokenString[:10] + "...",
-// 			"timestamp":    logger.NowFormatted(),
-// 		})
-// 		return errors.New("token has no JTI, cannot revoke")
-// 	}
-
-// 	// 计算令牌的剩余有效时间，用作黑名单过期时间
-// 	var expiration time.Duration
-// 	if claims.ExpiresAt != nil {
-// 		remaining := time.Until(claims.ExpiresAt.Time)
-// 		if remaining > 0 {
-// 			expiration = remaining
-// 		} else {
-// 			// 令牌已过期，设置一个较短的黑名单时间（1小时）
-// 			expiration = time.Hour
-// 		}
-// 	} else {
-// 		// 令牌没有过期时间，设置默认黑名单时间（24小时）
-// 		expiration = 24 * time.Hour
-// 	}
-
-// 	// 调用黑名单服务撤销令牌
-// 	err = s.blacklistService.RevokeToken(ctx, claims.ID, expiration)
-// 	if err != nil {
-// 		logger.LogError(err, "", uint(claims.UserID), "", "token_revoke_blacklist", "POST", map[string]interface{}{
-// 			"operation":    "revoke_token",
-// 			"token_prefix": tokenString[:10] + "...",
-// 			"jti":          claims.ID,
-// 			"timestamp":    logger.NowFormatted(),
-// 		})
-// 		return fmt.Errorf("failed to add token to blacklist: %w", err)
-// 	}
-
-// 	// 记录令牌撤销的业务日志
-// 	logger.LogBusinessOperation("revoke_token", uint(claims.UserID), claims.Username, "", "", "success", "令牌撤销成功", map[string]interface{}{
-// 		"token_prefix": tokenString[:10] + "...",
-// 		"jti":          claims.ID,
-// 		"timestamp":    logger.NowFormatted(),
-// 	})
-
-// 	return nil
-// }
 
 // GetTokenClaims 获取令牌声明信息
 // 这个方法用于解析令牌并获取其中包含的声明信息

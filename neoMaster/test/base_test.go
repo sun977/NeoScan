@@ -213,8 +213,48 @@ func (tc *TestConfig) SetupTestDatabase(t *testing.T) {
 
 	// 清理测试数据，确保每个测试开始时数据库是干净的
 	tc.CleanupTestDatabase(t)
+	
+	// 创建默认角色
+	tc.createDefaultRoles(t)
 
 	t.Logf("✅ 测试数据库 %s 设置完成", dbName)
+}
+
+// createDefaultRoles 创建默认角色
+func (tc *TestConfig) createDefaultRoles(t *testing.T) {
+	// 如果数据库连接不可用，跳过创建默认角色
+	if tc.DB == nil {
+		return
+	}
+
+	ctx := context.Background()
+	
+	// 创建管理员角色 (ID: 1)
+	adminRole := &model.Role{
+		Name:        "admin",
+		DisplayName: "系统管理员",
+		Description: "系统管理员角色，拥有所有权限",
+		Status:      model.RoleStatusEnabled,
+	}
+	
+	// 设置ID为1
+	tc.DB.WithContext(ctx).Exec("ALTER TABLE roles AUTO_INCREMENT = 1")
+	if err := tc.DB.WithContext(ctx).Create(adminRole).Error; err != nil {
+		t.Logf("创建管理员角色失败: %v", err)
+	}
+	
+	// 创建普通用户角色 (ID: 2)
+	userRole := &model.Role{
+		Name:        "user",
+		DisplayName: "普通用户",
+		Description: "普通用户角色",
+		Status:      model.RoleStatusEnabled,
+	}
+	
+	// 设置ID为2
+	if err := tc.DB.WithContext(ctx).Create(userRole).Error; err != nil {
+		t.Logf("创建普通用户角色失败: %v", err)
+	}
 }
 
 // migrateTestDatabase 执行测试数据库迁移

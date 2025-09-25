@@ -42,7 +42,7 @@ database:
 
 # JWT配置
 jwt:
-  secret: "test_jwt_secret_key_for_testing_only"
+  secret: "neoscan_jwt_secret_key_at_least_32_characters_long"
   issuer: "neoscan-test"
   access_token_expire: 1h
   refresh_token_expire: 24h

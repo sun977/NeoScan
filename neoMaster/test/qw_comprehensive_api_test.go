@@ -123,7 +123,7 @@ func setupComprehensiveTestRouter(ts *TestSuite) *gin.Engine {
 		auth.POST("/refresh-header", refreshHandler.RefreshTokenFromHeader)
 		auth.POST("/check-expiry", refreshHandler.CheckTokenExpiry)
 		// 注意：/logout 已弃用，不进行测试
-		auth.POST("/logout-all", logoutHandler.LogoutAll)
+		// auth.POST("/logout-all", logoutHandler.LogoutAll) // 移动到受保护路由组中
 	}
 
 	// 检查中间件管理器是否可用

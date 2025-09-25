@@ -1,20 +1,19 @@
-# NeoScan Master API 测试指南 v2.0
+# NeoScan Master API 测试指南 v4.0
 
 ## 📋 版本更新说明
 
-**版本**: v2.0  
-**更新日期**: 2025-09-01  
+**版本**: v4.0  
+**更新日期**: 2025-09-25  
 **主要变更**:
-- 新增完整的单元测试和集成测试覆盖
-- 重构用户服务架构测试：UserService功能合并到UserRepository
-- 优化数据库测试：支持测试数据库自动创建和清理
-- 增强权限测试：完整的角色权限关联测试
-- 改进测试环境：支持数据库连接失败时的优雅跳过
-- 新增性能测试和并发测试指导
+- 根据v4.0接口文档更新测试用例
+- 优化测试流程和测试数据管理
+- 增强会话管理测试覆盖
+- 改进权限和角色管理测试
+- 更新认证和令牌管理测试
 
 ## 🎯 测试概览
 
-本指南提供了NeoScan Master API v2.0的完整测试方案，包括：
+本指南提供了NeoScan Master API v4.0的完整测试方案，包括：
 - **单元测试**: 模型层、仓库层、服务层的独立测试
 - **集成测试**: API端点的完整流程测试
 - **性能测试**: 接口响应时间和并发能力测试
@@ -90,9 +89,7 @@ curl http://localhost:8123/api/ready
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-09-01T12:00:00Z",
-  "version": "v2.0",
-  "uptime": "5s"
+  "timestamp": "2025-09-01T12:00:00Z"
 }
 ```
 
@@ -274,9 +271,10 @@ pm.test("Status code is 200", function () {
 });
 
 // 验证响应格式
-pm.test("Response has success field", function () {
+pm.test("Response has code field", function () {
     const jsonData = pm.response.json();
-    pm.expect(jsonData).to.have.property('success');
+    pm.expect(jsonData).to.have.property('code');
+    pm.expect(jsonData.code).to.eql(200);
 });
 
 // 保存令牌（登录接口）
@@ -383,44 +381,89 @@ curl -s -X GET "$BASE_URL/api/v1/user/profile" \
 
 ### 1. 基础认证测试
 
-#### 步骤1: 用户登录
+#### 步骤1: 用户注册
 ```http
-POST /api/v1/auth/login
+POST /api/v1/auth/register
 Content-Type: application/json
 
 {
-  "username": "admin",
-  "password": "admin123"
+  "username": "newuser",
+  "email": "user@example.com",
+  "password": "userpass123"
 }
 ```
 
 **预期响应**:
 ```json
 {
-  "success": true,
-  "message": "登录成功",
+  "code": 201,
+  "status": "success",
+  "message": "注册成功",
   "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "token_type": "Bearer",
-    "expires_in": 86400,
     "user": {
       "id": 1,
-      "username": "admin",
-      "email": "admin@example.com",
-      "roles": ["admin"]
-    }
+      "username": "newuser",
+      "email": "user@example.com",
+      "nickname": "Sun977",
+      "avatar": "",
+      "phone": "",
+      "status": 1,
+      "last_login_at": null,
+      "created_at": "2025-09-20T18:35:56.431+08:00"
+    },
+    "message": "registration successful"
   }
 }
 ```
 
-#### 步骤2: 使用令牌访问受保护资源
+#### 步骤2: 用户登录
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "userpass123"
+}
+```
+
+**预期响应**:
+```json
+{
+  "code": 200,
+  "status": "success",
+  "message": "login successful",
+  "data": {
+    "user": {
+      "id": 46,
+      "username": "newuser",
+      "email": "user@example.com",
+      "nickname": "Sun977",
+      "avatar": "",
+      "phone": "",
+      "socket_id": "",
+      "remark": "",
+      "status": 1,
+      "last_login_at": "2025-09-15T15:48:11+08:00",
+      "last_login_ip": "127.0.0.5",
+      "created_at": "2025-09-15T15:38:21+08:00",
+      "updated_at": "2025-09-15T15:48:11+08:00",
+      "roles": []
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 3600
+  }
+}
+```
+
+#### 步骤3: 使用令牌访问受保护资源
 ```http
 GET /api/v1/user/profile
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-#### 步骤3: 刷新令牌
+#### 步骤4: 刷新令牌
 ```http
 POST /api/v1/auth/refresh
 Content-Type: application/json
@@ -430,10 +473,10 @@ Content-Type: application/json
 }
 ```
 
-#### 步骤4: 用户登出
+#### 步骤5: 用户全部登出
 ```http
-POST /api/v1/auth/logout
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+POST /api/v1/auth/logout-all
+Authorization: Bearer eyJhbGciOiJIuI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 ### 2. 权限验证测试
@@ -459,6 +502,184 @@ Authorization: Bearer <user_token>
   "error": "FORBIDDEN",
   "message": "权限不足"
 }
+```
+
+## 👨‍💼 管理员功能测试
+
+### 1. 用户管理测试
+
+#### 获取用户列表
+```http
+GET /api/v1/admin/users/list?offset=1&limit=10
+Authorization: Bearer <admin_token>
+```
+
+#### 创建用户
+```http
+POST /api/v1/admin/users/create
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "testpass123",
+  "nickname": "测试用户",
+  "phone": "13800138000",
+  "remark": "测试账户",
+  "is_active": true
+}
+```
+
+#### 获取用户详情
+```http
+GET /api/v1/admin/users/{id}
+Authorization: Bearer <admin_token>
+```
+
+#### 更新用户信息
+```http
+POST /api/v1/admin/users/{id}
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "username": "updateduser",
+  "email": "updated@example.com",
+  "nickname": "更新用户",
+  "phone": "13900139000",
+  "remark": "更新账户",
+  "status": 1
+}
+```
+
+#### 删除用户
+```http
+DELETE /api/v1/admin/users/{id}
+Authorization: Bearer <admin_token>
+```
+
+### 2. 角色管理测试
+
+#### 获取角色列表
+```http
+GET /api/v1/admin/roles/list
+Authorization: Bearer <admin_token>
+```
+
+#### 创建角色
+```http
+POST /api/v1/admin/roles/create
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "name": "editor",
+  "display_name": "编辑员",
+  "description": "内容编辑角色"
+}
+```
+
+#### 获取角色详情
+```http
+GET /api/v1/admin/roles/{id}
+Authorization: Bearer <admin_token>
+```
+
+#### 更新角色
+```http
+POST /api/v1/admin/roles/{id}
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "name": "editor",
+  "display_name": "编辑员",
+  "description": "内容编辑角色",
+  "status": 1
+}
+```
+
+#### 删除角色
+```http
+DELETE /api/v1/admin/roles/{id}
+Authorization: Bearer <admin_token>
+```
+
+### 3. 权限管理测试
+
+#### 获取权限列表
+```http
+GET /api/v1/admin/permissions/list
+Authorization: Bearer <admin_token>
+```
+
+#### 创建权限
+```http
+POST /api/v1/admin/permissions/create
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "name": "content:read",
+  "display_name": "内容查看",
+  "description": "查看内容的权限",
+  "resource": "content",
+  "action": "read"
+}
+```
+
+#### 获取权限详情
+```http
+GET /api/v1/admin/permissions/{id}
+Authorization: Bearer <admin_token>
+```
+
+#### 更新权限
+```http
+POST /api/v1/admin/permissions/{id}
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "name": "content:read",
+  "display_name": "内容查看",
+  "description": "查看内容的权限",
+  "resource": "content",
+  "action": "read",
+  "is_active": true
+}
+```
+
+#### 删除权限
+```http
+DELETE /api/v1/admin/permissions/{id}
+Authorization: Bearer <admin_token>
+```
+
+### 4. 会话管理测试
+
+#### 获取活跃会话列表
+```http
+GET /api/v1/admin/sessions/user/list?userId=1
+Authorization: Bearer <admin_token>
+```
+
+#### 撤销用户会话
+```http
+POST /api/v1/admin/sessions/user/{userId}/revoke
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "token_id": "uuid-string"
+}
+```
+
+#### 撤销用户所有会话
+```http
+POST /api/v1/admin/sessions/user/{userId}/revoke-all
+Authorization: Bearer <admin_token>
 ```
 
 ## 📊 性能测试
@@ -908,6 +1129,6 @@ echo "=== 所有测试通过 ==="
 ---
 
 **文档维护**: 本测试指南与代码同步更新，确保测试用例覆盖所有功能点。  
-**最后更新**: 2025-09-01  
-**文档版本**: v2.0  
+**最后更新**: 2025-09-25  
+**文档版本**: v4.0  
 **测试覆盖率目标**: > 80%

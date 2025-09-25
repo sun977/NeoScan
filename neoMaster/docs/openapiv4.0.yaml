@@ -1,0 +1,4292 @@
+openapi: 3.0.1
+info:
+  title: NeoScan Master API
+  description: |
+    NeoScan Master 服务器API接口文档 v4.0
+    
+    ## 版本更新说明
+    
+    **版本**: v4.0  
+    **更新日期**: 2025-09-25  
+    **主要变更**:
+    - 人工测试并修改了v3.0的bug
+    
+    ## 认证说明
+    
+    大部分API需要JWT Bearer Token认证，请在请求头中包含：
+    ```
+    Authorization: Bearer <access_token>
+    ```
+  version: 1.0.0
+tags:
+  - name: 健康检查
+  - name: 认证
+  - name: 用户信息
+  - name: 管理员-用户管理
+  - name: 管理员-角色管理
+  - name: 管理员-权限管理
+  - name: 管理员-会话管理
+paths:
+  /api/health:
+    get:
+      summary: 健康检查
+      deprecated: false
+      description: 检查服务器健康状态
+      tags:
+        - 健康检查
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: '2025-09-01T12:00:00Z'
+          headers: {}
+      security: []
+  /api/ready:
+    get:
+      summary: 就绪检查
+      deprecated: false
+      description: 检查服务器就绪状态（数据库、Redis连接）
+      tags:
+        - 健康检查
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: '2025-09-01T12:00:00Z'
+          headers: {}
+      security: []
+  /api/live:
+    get:
+      summary: 存活检查
+      deprecated: false
+      description: 检查服务器存活状态
+      tags:
+        - 健康检查
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: alive
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: '2025-09-01T12:00:00Z'
+              example:
+                status: alive
+                timestamp: '2025-09-15 14:59:27.737'
+          headers: {}
+      security: []
+  /api/v1/auth/register:
+    post:
+      summary: 用户注册
+      deprecated: false
+      description: 用户注册账户
+      tags:
+        - 认证
+      parameters:
+        - name: X-Forwarded-For
+          in: header
+          description: ''
+          required: true
+          example: 127.0.0.4
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  description: 用户名
+                  example: newuser
+                email:
+                  type: string
+                  format: email
+                  description: 邮箱地址
+                  example: user@example.com
+                password:
+                  type: string
+                  description: 密码
+                  example: userpass123
+            example:
+              username: newuser
+              email: user@example.com
+              password: userpass123
+              nickname: Sun977
+              phone: '13851705772'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                    example: 注册成功
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                          username:
+                            type: string
+                          email:
+                            type: string
+                          nickname:
+                            type: string
+                          avatar:
+                            type: string
+                          phone:
+                            type: string
+                          status:
+                            type: integer
+                          last_login_at:
+                            type: 'null'
+                          created_at:
+                            type: string
+                          roles:
+                            type: array
+                            items:
+                              type: string
+                          permissions:
+                            type: array
+                            items:
+                              type: string
+                          remark:
+                            type: string
+                        required:
+                          - id
+                          - username
+                          - email
+                          - nickname
+                          - avatar
+                          - phone
+                          - status
+                          - last_login_at
+                          - created_at
+                          - roles
+                          - permissions
+                          - remark
+                      message:
+                        type: string
+                    required:
+                      - user
+                      - message
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 201
+                status: success
+                message: registration successful
+                data:
+                  user:
+                    id: 12
+                    username: 123newuser
+                    email: 123user@example.com
+                    nickname: Sun977
+                    phone: '13851705772'
+                    status: 1
+                    last_login_at: null
+                    created_at: '2025-09-20T18:35:56.431+08:00'
+                  message: registration successful
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security: []
+  /api/v1/auth/login:
+    post:
+      summary: 用户登录
+      deprecated: false
+      description: 用户登录获取JWT令牌
+      tags:
+        - 认证
+      parameters:
+        - name: X-Forwarded-For
+          in: header
+          description: ''
+          required: true
+          example: 127.0.0.5
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: 用户名或邮箱
+                  example: admin
+                password:
+                  type: string
+                  description: 密码
+                  example: admin123
+                remember_me:
+                  type: boolean
+                  description: 记住我
+                  default: false
+            example:
+              username: admin
+              password: admin123
+              remember_me: false
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                code: 200
+                status: success
+                message: login successful
+                data:
+                  user:
+                    id: 46
+                    username: newuser
+                    email: user@example.com
+                    nickname: Sun977
+                    avatar: ''
+                    phone: ''
+                    socket_id: ''
+                    remark: ''
+                    status: 1
+                    last_login_at: '2025-09-15T15:48:11+08:00'
+                    last_login_ip: 127.0.0.5
+                    created_at: '2025-09-15T15:38:21+08:00'
+                    updated_at: '2025-09-15T15:48:11+08:00'
+                    roles: []
+                  access_token: >-
+                    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo0NiwidXNlcm5hbWUiOiJuZXd1c2VyIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwicGFzc3dvcmRfdiI6MSwicm9sZXMiOltdLCJpc3MiOiJuZW9zY2FuIiwic3ViIjoibmV3dXNlciIsImF1ZCI6WyJuZW9zY2FuLXdlYiJdLCJleHAiOjE3NTc5MjY1NjAsIm5iZiI6MTc1NzkyMjk2MCwiaWF0IjoxNzU3OTIyOTYwLCJqdGkiOiIyMDI1MDkxNTE1NTYwMC0yMTc2MTI4MDAifQ.a0_jCYOwSLb7YD19ZL_Bxs91YbUWVilZYXU5qvp2Tgc
+                  refresh_token: >-
+                    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJuZW9zY2FuIiwic3ViIjoibmV3dXNlciIsImF1ZCI6WyJuZW9zY2FuLXJlZnJlc2giXSwiZXhwIjoxNzU4MDA5MzYwLCJuYmYiOjE3NTc5MjI5NjAsImlhdCI6MTc1NzkyMjk2MCwianRpIjoiMjAyNTA5MTUxNTU2MDAtMjE3NjEyODAwIn0.AenJtDPJmjyDiu1rAEgQ8cBkUuKyp0kZxRKCyoo9Igg
+                  expires_in: 3600
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '429':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security: []
+  /api/v1/auth/refresh:
+    post:
+      summary: 刷新令牌
+      deprecated: false
+      description: 使用刷新令牌获取新的访问令牌
+      tags:
+        - 认证
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: 刷新令牌
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: refresh token successful
+                    data:
+                      access_token: >-
+                        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo0NiwidXNlcm5hbWUiOiJuZXd1c2VyIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwicGFzc3dvcmRfdiI6MSwicm9sZXMiOltdLCJpc3MiOiJuZW9zY2FuIiwic3ViIjoibmV3dXNlciIsImF1ZCI6WyJuZW9zY2FuLXdlYiJdLCJleHAiOjE3NTc5MjcxMjAsIm5iZiI6MTc1NzkyMzUyMCwiaWF0IjoxNzU3OTIzNTIwLCJqdGkiOiIyMDI1MDkxNTE2MDUyMC00MDM4MDA5MDAifQ.mI4V49JBbh4SBIbGKt3tvYIvuI1DJtyCNqhpjxj4jII
+                      refresh_token: >-
+                        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJuZW9zY2FuIiwic3ViIjoibmV3dXNlciIsImF1ZCI6WyJuZW9zY2FuLXJlZnJlc2giXSwiZXhwIjoxNzU4MDA5OTIwLCJuYmYiOjE3NTc5MjM1MjAsImlhdCI6MTc1NzkyMzUyMCwianRpIjoiMjAyNTA5MTUxNjA1MjAtNDAzODAwOTAwIn0.CB7rp4-ATlA4V7mj7zKbBhX5rokfQt8IdVNpANchTz0
+                      expires_in: 3600
+                      token_type: Bearer
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 401
+                    status: error
+                    message: refresh token failed
+                    error: >-
+                      failed to refresh tokens: invalid refresh token: token
+                      signature is invalid: signature is invalid
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security: []
+  /api/v1/auth/refresh-header:
+    post:
+      summary: 从请求头刷新令牌
+      deprecated: false
+      description: 从Authorization头刷新令牌
+      tags:
+        - 认证
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: refresh token successful
+                    data:
+                      access_token: >-
+                        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo0NiwidXNlcm5hbWUiOiJuZXd1c2VyIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwicGFzc3dvcmRfdiI6MSwicm9sZXMiOltdLCJpc3MiOiJuZW9zY2FuIiwic3ViIjoibmV3dXNlciIsImF1ZCI6WyJuZW9zY2FuLXdlYiJdLCJleHAiOjE3NTc5Mjg1MzUsIm5iZiI6MTc1NzkyNDkzNSwiaWF0IjoxNzU3OTI0OTM1LCJqdGkiOiIyMDI1MDkxNTE2Mjg1NS05MDYzNDU2MDAifQ.C-uese_ToULAJQPPj7Zy6P-WRQFTEGey2svKCkJWSAI
+                      refresh_token: >-
+                        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJuZW9zY2FuIiwic3ViIjoibmV3dXNlciIsImF1ZCI6WyJuZW9zY2FuLXJlZnJlc2giXSwiZXhwIjoxNzU4MDExMzM1LCJuYmYiOjE3NTc5MjQ5MzUsImlhdCI6MTc1NzkyNDkzNSwianRpIjoiMjAyNTA5MTUxNjI4NTUtOTA2ODY5NDAwIn0.NNQKPXRZgaN-PSbKiZtB8p4rHRka4yomqpk3GKOas1M
+                      expires_in: 3600
+                      token_type: Bearer
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 401
+                    status: error
+                    message: refresh token failed
+                    error: >-
+                      failed to refresh tokens: invalid refresh token: token is
+                      malformed: could not JSON decode header: invalid character
+                      'È' looking for beginning of value
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/auth/check-expiry:
+    post:
+      summary: 检查令牌过期时间
+      deprecated: false
+      description: 检查令牌过期时间
+      tags:
+        - 认证
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      is_expiring_soon:
+                        type: boolean
+                      remaining_seconds:
+                        type: integer
+                      remaining_time:
+                        type: string
+                    required:
+                      - is_expiring_soon
+                      - remaining_seconds
+                      - remaining_time
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: check token expiry successful
+                    data:
+                      is_expiring_soon: false
+                      remaining_seconds: 3384
+                      remaining_time: 56m24.8637136s
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 500
+                    status: error
+                    message: check token expiry failed
+                    error: >-
+                      invalid access token: token is malformed: could not JSON
+                      decode header: invalid character 'È' looking for beginning
+                      of value
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/auth/logout:
+    post:
+      summary: 用户登出(已弃用)
+      deprecated: false
+      description: 用户登出，使当前accessToken令牌失效（accessToken令牌进入缓存redis黑名单）
+      tags:
+        - 认证
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: logout successful
+                '2':
+                  summary: 异常示例
+                  value:
+                    error: >-
+                      invalid session: invalid access token: token is malformed:
+                      could not JSON decode header: invalid character 'È'
+                      looking for beginning of value
+                    message: invalid or expired token
+                    status: error
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/auth/logout-all:
+    post:
+      summary: 用户全部登出
+      deprecated: false
+      description: 用户全部设备登出，使所有令牌失效（密码版本自增，所有令牌失效）
+      tags:
+        - 认证
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                    example: 已从所有设备登出
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                      user_id:
+                        type: integer
+                    required:
+                      - message
+                      - user_id
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: logout all successful
+                    data:
+                      message: All sessions have been terminated
+                      user_id: 46
+                '2':
+                  summary: 异常示例
+                  value:
+                    error: >-
+                      invalid session: invalid access token: token is malformed:
+                      could not JSON decode header: invalid character 'È'
+                      looking for beginning of value
+                    message: invalid or expired token
+                    status: error
+                '3':
+                  summary: 已经退出
+                  value:
+                    error: 'invalid session: token has been revoked'
+                    message: invalid or expired token
+                    status: error
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/user/profile:
+    get:
+      summary: 获取当前用户信息
+      deprecated: false
+      description: 获取当前登录用户的详细信息（token在revoked状态不能获取）
+      tags:
+        - 用户信息
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      nickname:
+                        type: string
+                      avatar:
+                        type: string
+                      phone:
+                        type: string
+                      status:
+                        type: integer
+                      last_login_at:
+                        type: string
+                      created_at:
+                        type: string
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                      remark:
+                        type: string
+                    required:
+                      - id
+                      - username
+                      - email
+                      - nickname
+                      - avatar
+                      - phone
+                      - status
+                      - last_login_at
+                      - created_at
+                      - roles
+                      - permissions
+                      - remark
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 异常示例
+                  value:
+                    error: 'invalid session: token has been revoked'
+                    message: invalid or expired token
+                    status: error
+                '2':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: 获取用户信息成功
+                    data:
+                      id: 46
+                      username: newuser
+                      email: user@example.com
+                      nickname: Sun977
+                      avatar: ''
+                      phone: ''
+                      status: 1
+                      last_login_at: '2025-09-15T16:54:21+08:00'
+                      created_at: '2025-09-15T15:38:21+08:00'
+                      roles: []
+                      permissions: []
+                      remark: ''
+                '3':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: 获取用户信息成功
+                    data:
+                      id: 2
+                      username: newuser123
+                      email: newem222ail22@example.com
+                      nickname: 新昵称1
+                      avatar: ceshi2.png
+                      phone: '13800138002'
+                      status: 1
+                      last_login_at: '2025-09-25T11:25:14+08:00'
+                      created_at: '2025-09-15T19:22:06+08:00'
+                      roles:
+                        - user
+                      permissions:
+                        - user:read
+                        - user:update
+                        - role:read
+                        - permission:read
+                      remark: 更新的备注2
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/user/update:
+    post:
+      summary: 更新用户信息
+      deprecated: false
+      description: 更新当前用户的基本信息
+      tags:
+        - 用户信息
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                  description: 昵称
+                  example: 新昵称
+                email:
+                  type: string
+                  format: email
+                  description: 邮箱
+                  example: new@example.com
+                phone:
+                  type: string
+                  description: 手机号
+                  example: '13800138000'
+                avatar:
+                  type: string
+                  description: 头像URL
+                  example: https://example.com/avatar.jpg
+            example:
+              username: newuser123
+              email: newem222ail22@example.com
+              nickname: 新昵称1
+              phone: '13800138002'
+              remark: 更新的备注2
+              avatar: ceshi2.png
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      nickname:
+                        type: string
+                      avatar:
+                        type: string
+                      phone:
+                        type: string
+                      status:
+                        type: integer
+                      last_login_at:
+                        type: string
+                      created_at:
+                        type: string
+                      remark:
+                        type: string
+                    required:
+                      - id
+                      - username
+                      - email
+                      - nickname
+                      - avatar
+                      - phone
+                      - status
+                      - last_login_at
+                      - created_at
+                      - remark
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: user info updated success
+                data:
+                  id: 2
+                  username: newuser123
+                  email: newem222ail22@example.com
+                  nickname: 新昵称1
+                  avatar: ceshi2.png
+                  phone: '13800138002'
+                  status: 1
+                  last_login_at: '2025-09-23T19:14:02+08:00'
+                  created_at: '2025-09-15T19:22:06+08:00'
+                  remark: 更新的备注2
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/user/change-password:
+    post:
+      summary: 修改用户密码
+      deprecated: false
+      description: 修改当前用户密码
+      tags:
+        - 用户信息
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                old_password:
+                  type: string
+                  description: 旧密码
+                new_password:
+                  type: string
+                  description: 新密码
+              required:
+                - old_password
+                - new_password
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                    example: 密码修改成功
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 密码修改成功，请重新登录
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/user/permissions:
+    get:
+      summary: 获取用户权限
+      deprecated: false
+      description: 获取当前用户的权限列表
+      tags:
+        - 用户信息
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      permissions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                            display_name:
+                              type: string
+                            description:
+                              type: string
+                            resource:
+                              type: string
+                            action:
+                              type: string
+                            created_at:
+                              type: string
+                            updated_at:
+                              type: string
+                          required:
+                            - id
+                            - name
+                            - display_name
+                            - description
+                            - resource
+                            - action
+                            - created_at
+                            - updated_at
+                    required:
+                      - permissions
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: user permissions retrieved successfully
+                    data:
+                      permissions:
+                        - id: 2
+                          name: user:create
+                          display_name: 创建用户
+                          description: 创建新用户的权限
+                          resource: user
+                          action: create
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 3
+                          name: user:read
+                          display_name: 查看用户
+                          description: 查看用户信息的权限
+                          resource: user
+                          action: read
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 4
+                          name: user:update
+                          display_name: 更新用户
+                          description: 更新用户信息的权限
+                          resource: user
+                          action: update
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 6
+                          name: role:create
+                          display_name: 创建角色
+                          description: 创建新角色的权限
+                          resource: role
+                          action: create
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 7
+                          name: role:read
+                          display_name: 查看角色
+                          description: 查看角色信息的权限
+                          resource: role
+                          action: read
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 10
+                          name: permission:read
+                          display_name: 查看权限
+                          description: 查看权限信息的权限
+                          resource: permission
+                          action: read
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 1
+                          name: system:admin
+                          display_name: 系统管理
+                          description: 系统管理权限
+                          resource: system
+                          action: admin
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 5
+                          name: user:delete
+                          display_name: 删除用户
+                          description: 删除用户的权限
+                          resource: user
+                          action: delete
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 8
+                          name: role:update
+                          display_name: 更新角色
+                          description: 更新角色信息的权限
+                          resource: role
+                          action: update
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                        - id: 9
+                          name: role:delete
+                          display_name: 删除角色
+                          description: 删除角色的权限
+                          resource: role
+                          action: delete
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                '2':
+                  summary: 异常示例
+                  value:
+                    error: >-
+                      invalid session: invalid access token: token is malformed:
+                      could not JSON decode header: invalid character 'È'
+                      looking for beginning of value
+                    message: invalid or expired token
+                    status: error
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/user/roles:
+    get:
+      summary: 获取用户角色
+      deprecated: false
+      description: 获取当前用户的角色列表
+      tags:
+        - 用户信息
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      roles:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Role'
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: user roles retrieved successfully
+                    data:
+                      roles:
+                        - id: 1
+                          name: admin
+                          display_name: 系统管理员
+                          description: 拥有系统所有权限的超级管理员
+                          status: 1
+                          created_at: '2025-09-01T19:20:34+08:00'
+                          updated_at: '2025-09-01T19:20:34+08:00'
+                          permissions: null
+                '2':
+                  summary: 异常示例
+                  value:
+                    error: >-
+                      invalid session: invalid access token: token is malformed:
+                      could not JSON decode header: invalid character 'È'
+                      looking for beginning of value
+                    message: invalid or expired token
+                    status: error
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/users/list:
+    get:
+      summary: 获取用户列表
+      deprecated: false
+      description: 获取所有用户列表（支持分页和搜索）
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: offset
+          in: query
+          description: 偏移量
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: 每页数量
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            email:
+                              type: string
+                            nickname:
+                              type: string
+                            avatar:
+                              type: string
+                            phone:
+                              type: string
+                            socket_id:
+                              type: string
+                            remark:
+                              type: string
+                            status:
+                              type: integer
+                            last_login_at:
+                              type: string
+                              nullable: true
+                            last_login_ip:
+                              type: string
+                            created_at:
+                              type: string
+                            updated_at:
+                              type: string
+                            roles:
+                              type: 'null'
+                          required:
+                            - id
+                            - username
+                            - email
+                            - nickname
+                            - avatar
+                            - phone
+                            - socket_id
+                            - remark
+                            - status
+                            - last_login_at
+                            - last_login_ip
+                            - created_at
+                            - updated_at
+                            - roles
+                      pagination:
+                        type: object
+                        properties:
+                          limit:
+                            type: integer
+                          page:
+                            type: integer
+                          pages:
+                            type: integer
+                          total:
+                            type: integer
+                        required:
+                          - limit
+                          - page
+                          - pages
+                          - total
+                    required:
+                      - items
+                      - pagination
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: user list retrieved successfully
+                data:
+                  items:
+                    - id: 1
+                      username: admin
+                      email: admin@neoscan.com
+                      nickname: 系统管理员
+                      avatar: ''
+                      phone: ''
+                      socket_id: ''
+                      remark: 系统用户
+                      status: 1
+                      last_login_at: '2025-09-15T17:38:26+08:00'
+                      last_login_ip: 127.0.0.5
+                      created_at: '2025-09-01T19:20:34+08:00'
+                      updated_at: '2025-09-15T17:38:26+08:00'
+                      roles: null
+                    - id: 23
+                      username: testuser1
+                      email: testuser1@example.com
+                      nickname: 测试用户1
+                      avatar: https://example.com/avatar1.jpg
+                      phone: '13800000001'
+                      socket_id: ''
+                      remark: 测试账户1
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 24
+                      username: testuser2
+                      email: testuser2@example.com
+                      nickname: 测试用户2
+                      avatar: https://example.com/avatar2.jpg
+                      phone: '13800000002'
+                      socket_id: ''
+                      remark: 测试账户2
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 25
+                      username: testuser3
+                      email: testuser3@example.com
+                      nickname: 测试用户3
+                      avatar: https://example.com/avatar3.jpg
+                      phone: '13800000003'
+                      socket_id: ''
+                      remark: 测试账户3
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 26
+                      username: testuser4
+                      email: testuser4@example.com
+                      nickname: 测试用户4
+                      avatar: https://example.com/avatar4.jpg
+                      phone: '13800000004'
+                      socket_id: ''
+                      remark: 测试账户4
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 27
+                      username: testuser5
+                      email: testuser5@example.com
+                      nickname: 测试用户5
+                      avatar: https://example.com/avatar5.jpg
+                      phone: '13800000005'
+                      socket_id: ''
+                      remark: 测试账户5
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 28
+                      username: testuser6
+                      email: testuser6@example.com
+                      nickname: 测试用户6
+                      avatar: https://example.com/avatar6.jpg
+                      phone: '13800000006'
+                      socket_id: ''
+                      remark: 测试账户6
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 29
+                      username: testuser7
+                      email: testuser7@example.com
+                      nickname: 测试用户7
+                      avatar: https://example.com/avatar7.jpg
+                      phone: '13800000007'
+                      socket_id: ''
+                      remark: 测试账户7
+                      status: 0
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 30
+                      username: testuser8
+                      email: testuser8@example.com
+                      nickname: 测试用户8
+                      avatar: https://example.com/avatar8.jpg
+                      phone: '13800000008'
+                      socket_id: ''
+                      remark: 测试账户8
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                    - id: 31
+                      username: testuser9
+                      email: testuser9@example.com
+                      nickname: 测试用户9
+                      avatar: https://example.com/avatar9.jpg
+                      phone: '13800000009'
+                      socket_id: ''
+                      remark: 测试账户9
+                      status: 1
+                      last_login_at: null
+                      last_login_ip: ''
+                      created_at: '2025-09-13T19:12:03+08:00'
+                      updated_at: '2025-09-13T19:12:03+08:00'
+                      roles: null
+                  pagination:
+                    limit: 10
+                    page: 1
+                    pages: 2
+                    total: 12
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/users/create:
+    post:
+      summary: 创建用户
+      deprecated: false
+      description: 创建新用户
+      tags:
+        - 管理员-用户管理
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  description: 用户名
+                  example: newuser
+                email:
+                  type: string
+                  format: email
+                  description: 邮箱
+                  example: user@example.com
+                password:
+                  type: string
+                  description: 密码
+                  example: userpass123
+                nickname:
+                  type: string
+                  description: 昵称
+                  example: 新用户
+                phone:
+                  type: string
+                  description: 手机号
+                  example: '13800138000'
+                remark:
+                  type: string
+                  description: 备注
+                  example: 测试用户
+                is_active:
+                  type: boolean
+                  description: 是否激活
+                  default: true
+                roles:
+                  type: array
+                  items:
+                    type: integer
+                  description: 角色ID列表
+                  example:
+                    - 1
+                    - 2
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 用户创建成功
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 2
+                      username:
+                        type: string
+                        example: newuser
+                      email:
+                        type: string
+                        example: user@example.com
+                      created_at:
+                        type: string
+                        format: date-time
+              example:
+                code: 201
+                status: success
+                message: user created successfully
+                data:
+                  user:
+                    created_at: '2025-09-15T17:53:13.04+08:00'
+                    email: user@qq.com
+                    id: 47
+                    nickname: 新用户
+                    phone: ''
+                    status: 1
+                    username: newuser2
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/users/{id}:
+    get:
+      summary: 获取用户详情
+      deprecated: false
+      description: 获取指定用户的详细信息
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: id
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          created_at:
+                            type: string
+                          email:
+                            type: string
+                          id:
+                            type: integer
+                          nickname:
+                            type: string
+                          phone:
+                            type: string
+                          status:
+                            type: integer
+                          updated_at:
+                            type: string
+                          username:
+                            type: string
+                        required:
+                          - created_at
+                          - email
+                          - id
+                          - nickname
+                          - phone
+                          - status
+                          - updated_at
+                          - username
+                    required:
+                      - user
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: user information retrieved successfully
+                data:
+                  user:
+                    created_at: '2025-09-15T17:53:13+08:00'
+                    email: user@qq.com
+                    id: 47
+                    nickname: 新用户
+                    phone: ''
+                    status: 1
+                    updated_at: '2025-09-15T17:53:13+08:00'
+                    username: newuser2
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+    post:
+      summary: 更新用户信息(含角色信息更新)
+      deprecated: false
+      description: |-
+        更新指定用户的信息(事务修改)
+        字段全部可选增加，不可修改用户角色
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: id
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: 邮箱
+                nickname:
+                  type: string
+                  description: 昵称
+                phone:
+                  type: string
+                  description: 手机号
+                remark:
+                  type: string
+                  description: 备注
+                username:
+                  type: string
+                  description: 用户名
+                status:
+                  type: integer
+                  description: 用户状态
+                avatar:
+                  type: string
+                  description: 头像
+                password:
+                  type: string
+                  description: 密码
+              required:
+                - username
+                - email
+                - nickname
+                - phone
+                - remark
+                - status
+                - avatar
+                - password
+            example:
+              username: newname
+              email: newemail22@example.com
+              nickname: 新昵称1
+              phone: '13800138002'
+              remark: 更新的备注2
+              status: 0
+              avatar: ceshi2.png
+              password: admin123
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      nickname:
+                        type: string
+                      avatar:
+                        type: string
+                      phone:
+                        type: string
+                      status:
+                        type: integer
+                      last_login_at:
+                        type: string
+                      created_at:
+                        type: string
+                      roles:
+                        type: 'null'
+                      permissions:
+                        type: 'null'
+                      remark:
+                        type: string
+                    required:
+                      - id
+                      - username
+                      - email
+                      - nickname
+                      - avatar
+                      - phone
+                      - status
+                      - last_login_at
+                      - created_at
+                      - roles
+                      - permissions
+                      - remark
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: user updated successfully
+                    data:
+                      id: 8
+                      username: newname
+                      email: newemail22@example.com
+                      nickname: 新昵称1
+                      avatar: ceshi2.png
+                      phone: '13800138002'
+                      status: 0
+                      last_login_at: '2025-09-15T20:24:54+08:00'
+                      created_at: '2025-09-15T20:23:53+08:00'
+                      roles: null
+                      permissions: null
+                      remark: 更新的备注2
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 404
+                    status: error
+                    message: user not found
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+    delete:
+      summary: 删除用户
+      deprecated: false
+      description: 删除指定用户（软删除）
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: id
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 用户删除成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/users/{id}/info:
+    get:
+      summary: 获取用户详细信息
+      deprecated: false
+      description: 获取指定用户的详细信息（包括角色和权限）
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: id
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      nickname:
+                        type: string
+                      avatar:
+                        type: string
+                      phone:
+                        type: string
+                      status:
+                        type: integer
+                      last_login_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                      remark:
+                        type: string
+                    required:
+                      - id
+                      - username
+                      - email
+                      - nickname
+                      - avatar
+                      - phone
+                      - status
+                      - last_login_at
+                      - created_at
+                      - roles
+                      - permissions
+                      - remark
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: 获取用户信息成功
+                data:
+                  id: 2
+                  username: newuser
+                  email: user@example.com
+                  nickname: Sun977
+                  avatar: ''
+                  phone: ''
+                  status: 1
+                  last_login_at: null
+                  created_at: '2025-09-15T19:22:06+08:00'
+                  roles:
+                    - user
+                  permissions:
+                    - role:read
+                    - permission:read
+                    - user:read
+                    - user:update
+                  remark: ''
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/users/{id}/activate:
+    post:
+      summary: 激活用户
+      deprecated: false
+      description: 激活指定用户
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: id
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: 用户激活成功
+                    data:
+                      status: activated
+                      user_id: 8
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 404
+                    status: error
+                    message: 用户不存在
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/users/{id}/deactivate:
+    post:
+      summary: 禁用用户
+      deprecated: false
+      description: 禁用指定用户
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: id
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      user_id:
+                        type: integer
+                    required:
+                      - status
+                      - user_id
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: 用户禁用成功
+                    data:
+                      status: deactivated
+                      user_id: 8
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 404
+                    status: error
+                    message: 用户不存在
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/users/{id}/reset-password:
+    post:
+      summary: 重置用户密码
+      deprecated: false
+      description: 重置指定用户的密码
+      tags:
+        - 管理员-用户管理
+      parameters:
+        - name: id
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - new_password
+              properties:
+                new_password:
+                  type: string
+                  description: 新密码
+                  example: newpass123
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 重置密码成功
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/roles/list:
+    get:
+      summary: 获取角色列表
+      deprecated: false
+      description: 获取所有角色列表
+      tags:
+        - 管理员-角色管理
+      parameters:
+        - name: offset
+          in: query
+          description: 偏移
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: 每页数量
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      roles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                            display_name:
+                              type: string
+                            description:
+                              type: string
+                            status:
+                              type: integer
+                            created_at:
+                              type: string
+                            updated_at:
+                              type: string
+                            permissions:
+                              type: 'null'
+                          required:
+                            - id
+                            - name
+                            - display_name
+                            - description
+                            - status
+                            - created_at
+                            - updated_at
+                            - permissions
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          page:
+                            type: integer
+                          page_size:
+                            type: integer
+                          total_pages:
+                            type: integer
+                          has_next:
+                            type: boolean
+                          has_previous:
+                            type: boolean
+                          data:
+                            type: 'null'
+                        required:
+                          - total
+                          - page
+                          - page_size
+                          - total_pages
+                          - has_next
+                          - has_previous
+                          - data
+                    required:
+                      - roles
+                      - pagination
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: 获取角色列表成功
+                data:
+                  roles:
+                    - id: 1
+                      name: admin
+                      display_name: 系统管理员
+                      description: 拥有系统所有权限的超级管理员
+                      status: 1
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                      permissions: null
+                    - id: 2
+                      name: user
+                      display_name: 普通用户
+                      description: 系统普通用户，拥有基础功能权限
+                      status: 1
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                      permissions: null
+                  pagination:
+                    total: 4
+                    page: 1
+                    page_size: 2
+                    total_pages: 2
+                    has_next: true
+                    has_previous: false
+                    data: null
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/roles/create:
+    post:
+      summary: 创建角色
+      deprecated: false
+      description: 创建新角色
+      tags:
+        - 管理员-角色管理
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - display_name
+              properties:
+                name:
+                  type: string
+                  description: 角色名称（英文）
+                  example: editor
+                display_name:
+                  type: string
+                  description: 角色显示名称
+                  example: 编辑员
+                description:
+                  type: string
+                  description: 角色描述
+                  example: 内容编辑角色
+                is_active:
+                  type: boolean
+                  description: 是否激活
+                  default: true
+            example: ''
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      display_name:
+                        type: string
+                      description:
+                        type: string
+                      status:
+                        type: integer
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      permissions:
+                        type: 'null'
+                    required:
+                      - id
+                      - name
+                      - display_name
+                      - description
+                      - status
+                      - created_at
+                      - updated_at
+                      - permissions
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 201
+                    status: success
+                    message: 角色创建成功
+                    data:
+                      id: 5
+                      name: editor
+                      display_name: 编辑员
+                      description: 内容编辑角色
+                      status: 1
+                      created_at: '2025-09-16T16:36:24.709+08:00'
+                      updated_at: '2025-09-16T16:36:24.709+08:00'
+                      permissions: null
+                '2':
+                  summary: 成功示例(带权限分配)
+                  value:
+                    code: 201
+                    status: success
+                    message: 角色创建成功
+                    data:
+                      id: 6
+                      name: editor1
+                      display_name: 编辑员
+                      description: 内容编辑角色
+                      status: 1
+                      created_at: '2025-09-16T16:38:35.566+08:00'
+                      updated_at: '2025-09-16T16:38:35.566+08:00'
+                      permissions: null
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/roles/{id}:
+    get:
+      summary: 获取角色详情
+      deprecated: false
+      description: 获取指定角色的详细信息
+      tags:
+        - 管理员-角色管理
+      parameters:
+        - name: id
+          in: path
+          description: 角色ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      display_name:
+                        type: string
+                      description:
+                        type: string
+                      status:
+                        type: integer
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      permissions:
+                        type: 'null'
+                    required:
+                      - id
+                      - name
+                      - display_name
+                      - description
+                      - status
+                      - created_at
+                      - updated_at
+                      - permissions
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: 获取角色信息成功
+                    data:
+                      id: 6
+                      name: editor1
+                      display_name: 编辑员
+                      description: 内容编辑角色
+                      status: 1
+                      created_at: '2025-09-16T16:38:36+08:00'
+                      updated_at: '2025-09-16T16:38:36+08:00'
+                      permissions: null
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 500
+                    status: error
+                    message: '获取角色信息失败: 角色不存在'
+                '3':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: 获取角色信息成功
+                    data:
+                      id: 1
+                      name: admin
+                      display_name: 系统管理员
+                      description: 拥有系统所有权限的超级管理员
+                      status: 1
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                      permissions:
+                        - id: 1
+                          name: system:admin
+                          display_name: 系统管理
+                          description: 系统管理权限
+                          resource: system
+                          action: admin
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 2
+                          name: user:create
+                          display_name: 创建用户
+                          description: 创建新用户的权限
+                          resource: user
+                          action: create
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 3
+                          name: user:read
+                          display_name: 查看用户
+                          description: 查看用户信息的权限
+                          resource: user
+                          action: read
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 4
+                          name: user:update
+                          display_name: 更新用户
+                          description: 更新用户信息的权限
+                          resource: user
+                          action: update
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 5
+                          name: user:delete
+                          display_name: 删除用户
+                          description: 删除用户的权限
+                          resource: user
+                          action: delete
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 6
+                          name: role:create
+                          display_name: 创建角色
+                          description: 创建新角色的权限
+                          resource: role
+                          action: create
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 7
+                          name: role:read
+                          display_name: 查看角色
+                          description: 查看角色信息的权限
+                          resource: role
+                          action: read
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 8
+                          name: role:update
+                          display_name: 更新角色
+                          description: 更新角色信息的权限
+                          resource: role
+                          action: update
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 9
+                          name: role:delete
+                          display_name: 删除角色
+                          description: 删除角色的权限
+                          resource: role
+                          action: delete
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 10
+                          name: permission:create
+                          display_name: 创建权限
+                          description: 创建新权限的权限
+                          resource: permission
+                          action: create
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 11
+                          name: permission:read
+                          display_name: 查看权限
+                          description: 查看权限信息的权限
+                          resource: permission
+                          action: read
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 12
+                          name: permission:update
+                          display_name: 更新权限
+                          description: 更新权限信息的权限
+                          resource: permission
+                          action: update
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+                        - id: 13
+                          name: permission:delete
+                          display_name: 删除权限
+                          description: 删除权限的权限
+                          resource: permission
+                          action: delete
+                          created_at: '2025-09-15T19:18:10+08:00'
+                          updated_at: '2025-09-15T19:18:10+08:00'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+    post:
+      summary: 更新角色
+      deprecated: false
+      description: 更新指定角色的信息
+      tags:
+        - 管理员-角色管理
+      parameters:
+        - name: id
+          in: path
+          description: 角色ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 角色名称
+                display_name:
+                  type: string
+                  description: 角色显示名称
+                description:
+                  type: string
+                  description: 角色描述
+                status:
+                  type: integer
+              required:
+                - name
+                - display_name
+                - description
+                - status
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                code: 200
+                status: success
+                message: 角色更新成功
+                data:
+                  id: 6
+                  name: editor2
+                  display_name: 编辑员3
+                  description: 内容编辑员3
+                  status: 1
+                  created_at: '2025-09-16T16:38:36+08:00'
+                  updated_at: '2025-09-16T18:02:53.605+08:00'
+                  permissions: null
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+    delete:
+      summary: 删除角色
+      deprecated: false
+      description: 删除指定角色
+      tags:
+        - 管理员-角色管理
+      parameters:
+        - name: id
+          in: path
+          description: 角色ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    status: success
+                    message: 角色删除成功
+                '2':
+                  summary: 异常示例
+                  value:
+                    code: 500
+                    status: error
+                    message: '删除角色失败: 角色不存在'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/roles/{id}/activate:
+    post:
+      summary: 激活角色
+      deprecated: false
+      description: 激活指定角色
+      tags:
+        - 管理员-角色管理
+      parameters:
+        - name: id
+          in: path
+          description: 角色ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 角色激活成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/roles/{id}/deactivate:
+    post:
+      summary: 禁用角色
+      deprecated: false
+      description: 禁用指定角色
+      tags:
+        - 管理员-角色管理
+      parameters:
+        - name: id
+          in: path
+          description: 角色ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 角色禁用成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/permissions/list:
+    get:
+      summary: 获取权限列表
+      deprecated: false
+      description: 获取所有权限列表
+      tags:
+        - 管理员-权限管理
+      parameters:
+        - name: offset
+          in: query
+          description: ''
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: ''
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      permissions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                            display_name:
+                              type: string
+                            description:
+                              type: string
+                            resource:
+                              type: string
+                            action:
+                              type: string
+                            created_at:
+                              type: string
+                            updated_at:
+                              type: string
+                          required:
+                            - id
+                            - name
+                            - display_name
+                            - description
+                            - resource
+                            - action
+                            - created_at
+                            - updated_at
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          page:
+                            type: integer
+                          page_size:
+                            type: integer
+                          total_pages:
+                            type: integer
+                          has_next:
+                            type: boolean
+                          has_previous:
+                            type: boolean
+                          data:
+                            type: 'null'
+                        required:
+                          - total
+                          - page
+                          - page_size
+                          - total_pages
+                          - has_next
+                          - has_previous
+                          - data
+                    required:
+                      - permissions
+                      - pagination
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: 获取权限列表成功
+                data:
+                  permissions:
+                    - id: 1
+                      name: system:admin
+                      display_name: 系统管理
+                      description: 系统管理权限
+                      resource: system
+                      action: admin
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 2
+                      name: user:create
+                      display_name: 创建用户
+                      description: 创建新用户的权限
+                      resource: user
+                      action: create
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 3
+                      name: user:read
+                      display_name: 查看用户
+                      description: 查看用户信息的权限
+                      resource: user
+                      action: read
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 4
+                      name: user:update
+                      display_name: 更新用户
+                      description: 更新用户信息的权限
+                      resource: user
+                      action: update
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 5
+                      name: user:delete
+                      display_name: 删除用户
+                      description: 删除用户的权限
+                      resource: user
+                      action: delete
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 6
+                      name: role:create
+                      display_name: 创建角色
+                      description: 创建新角色的权限
+                      resource: role
+                      action: create
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 7
+                      name: role:read
+                      display_name: 查看角色
+                      description: 查看角色信息的权限
+                      resource: role
+                      action: read
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 8
+                      name: role:update
+                      display_name: 更新角色
+                      description: 更新角色信息的权限
+                      resource: role
+                      action: update
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 9
+                      name: role:delete
+                      display_name: 删除角色
+                      description: 删除角色的权限
+                      resource: role
+                      action: delete
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                    - id: 10
+                      name: permission:create
+                      display_name: 创建权限
+                      description: 创建新权限的权限
+                      resource: permission
+                      action: create
+                      created_at: '2025-09-15T19:18:10+08:00'
+                      updated_at: '2025-09-15T19:18:10+08:00'
+                  pagination:
+                    total: 13
+                    page: 1
+                    page_size: 10
+                    total_pages: 2
+                    has_next: true
+                    has_previous: false
+                    data: null
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/permissions/create:
+    post:
+      summary: 创建权限
+      deprecated: false
+      description: 创建新权限
+      tags:
+        - 管理员-权限管理
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - display_name
+                - resource
+                - action
+              properties:
+                name:
+                  type: string
+                  description: 权限名称
+                  example: content:read
+                display_name:
+                  type: string
+                  description: 权限显示名称
+                  example: 内容查看
+                description:
+                  type: string
+                  description: 权限描述
+                  example: 查看内容的权限
+                resource:
+                  type: string
+                  description: 资源类型
+                  example: content
+                action:
+                  type: string
+                  description: 操作类型
+                  example: read
+                is_active:
+                  type: boolean
+                  description: 是否激活
+                  default: true
+            example: ''
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      display_name:
+                        type: string
+                      description:
+                        type: string
+                      resource:
+                        type: string
+                      action:
+                        type: string
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                    required:
+                      - id
+                      - name
+                      - display_name
+                      - description
+                      - resource
+                      - action
+                      - created_at
+                      - updated_at
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 201
+                status: success
+                message: 权限创建成功
+                data:
+                  id: 15
+                  name: content:read
+                  display_name: 内容查看
+                  description: 查看内容的权限
+                  resource: content
+                  action: read
+                  created_at: '2025-09-18T18:35:35.445+08:00'
+                  updated_at: '2025-09-18T18:35:35.445+08:00'
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/permissions/{id}:
+    get:
+      summary: 获取权限详情
+      deprecated: false
+      description: 获取指定权限的详细信息
+      tags:
+        - 管理员-权限管理
+      parameters:
+        - name: id
+          in: path
+          description: 权限ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      display_name:
+                        type: string
+                      description:
+                        type: string
+                      resource:
+                        type: string
+                      status:
+                        type: integer
+                      action:
+                        type: string
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                    required:
+                      - id
+                      - name
+                      - display_name
+                      - description
+                      - resource
+                      - status
+                      - action
+                      - created_at
+                      - updated_at
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: 获取权限信息成功
+                data:
+                  id: 1
+                  name: system:admin
+                  display_name: 系统管理
+                  description: 系统管理权限
+                  resource: system
+                  status: 1
+                  action: admin
+                  created_at: '2025-09-15T19:18:10+08:00'
+                  updated_at: '2025-09-15T19:18:10+08:00'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+    post:
+      summary: 更新权限
+      deprecated: false
+      description: 更新指定权限的信息
+      tags:
+        - 管理员-权限管理
+      parameters:
+        - name: id
+          in: path
+          description: 权限ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 权限名称
+                  example: content:read
+                display_name:
+                  type: string
+                  description: 权限显示名称
+                  example: 内容查看
+                description:
+                  type: string
+                  description: 权限描述
+                  example: 查看内容的权限
+                resource:
+                  type: string
+                  description: 资源类型
+                  example: content
+                action:
+                  type: string
+                  description: 操作类型
+                  example: read
+                is_active:
+                  type: boolean
+                  description: 是否激活
+                  example: true
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      display_name:
+                        type: string
+                      description:
+                        type: string
+                      resource:
+                        type: string
+                      status:
+                        type: integer
+                      action:
+                        type: string
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                    required:
+                      - id
+                      - name
+                      - display_name
+                      - description
+                      - resource
+                      - status
+                      - action
+                      - created_at
+                      - updated_at
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: 权限更新成功
+                data:
+                  id: 16
+                  name: content:read
+                  display_name: 内容查看222
+                  description: 查看内容的权限222
+                  resource: content22
+                  status: 1
+                  action: read22
+                  created_at: '2025-09-18T18:49:06+08:00'
+                  updated_at: '2025-09-18T19:34:10.876+08:00'
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+    delete:
+      summary: 删除权限
+      deprecated: false
+      description: 删除指定权限
+      tags:
+        - 管理员-权限管理
+      parameters:
+        - name: id
+          in: path
+          description: 权限ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 权限删除成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/sessions/user/list:
+    get:
+      summary: 获取活跃会话列表
+      deprecated: false
+      description: |-
+        获取指定用户的活跃会话列表(不区分用户合法性)
+        用户ID合法且有会话 --- 返回会话信息
+        用户ID合法且无会话 --- 返回data[]空
+        用户ID不合法 --- 返回data[]空
+      tags:
+        - 管理员-会话管理
+      parameters:
+        - name: userId
+          in: query
+          description: 用户ID
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id:
+                          type: integer
+                        username:
+                          type: string
+                        email:
+                          type: string
+                        roles:
+                          type: array
+                          items:
+                            type: string
+                        permissions:
+                          type: array
+                          items:
+                            type: string
+                        login_time:
+                          type: string
+                        last_active:
+                          type: string
+                        client_ip:
+                          type: string
+                        user_agent:
+                          type: string
+                required:
+                  - code
+                  - status
+                  - message
+                  - data
+              example:
+                code: 200
+                status: success
+                message: 获取活跃会话成功
+                data:
+                  - user_id: 1
+                    username: admin
+                    email: admin@neoscan.com
+                    roles:
+                      - admin
+                    permissions:
+                      - system:admin
+                      - user:create
+                      - user:read
+                      - user:update
+                      - user:delete
+                      - role:create
+                      - role:read
+                      - role:update
+                      - role:delete
+                      - permission:create
+                      - permission:read
+                      - permission:update
+                      - permission:delete
+                    login_time: '2025-09-19T15:53:06.9708233+08:00'
+                    last_active: '2025-09-19T15:53:06.9708233+08:00'
+                    client_ip: 127.0.0.5
+                    user_agent: Apifox/1.0.0 (https://apifox.com)
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/sessions/user/{userId}/revoke:
+    post:
+      summary: 撤销用户会话
+      deprecated: false
+      description: 撤销指定用户的特定会话
+      tags:
+        - 管理员-会话管理
+      parameters:
+        - name: userId
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token_id
+              properties:
+                token_id:
+                  type: string
+                  description: 令牌ID
+                  example: uuid-string
+            example: ''
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 撤销会话成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+  /api/v1/admin/sessions/user/{userId}/revoke-all:
+    post:
+      summary: 撤销用户所有会话
+      deprecated: false
+      description: 撤销指定用户的所有会话
+      tags:
+        - 管理员-会话管理
+      parameters:
+        - name: userId
+          in: path
+          description: 用户ID
+          required: true
+          example: 0
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - code
+                  - status
+                  - message
+              example:
+                code: 200
+                status: success
+                message: 撤销用户所有会话成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          headers: {}
+      security:
+        - bearer: []
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 操作成功
+        data:
+          type: object
+          properties: {}
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-09-01T12:00:00Z'
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: 错误代码
+          example: UNAUTHORIZED
+        message:
+          type: string
+          description: 错误描述
+          example: 未授权访问
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-09-01T12:00:00Z'
+        details:
+          type: string
+          description: 详细错误信息（开发模式）
+          nullable: true
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 用户ID
+          example: 1
+        username:
+          type: string
+          description: 用户名
+          example: admin
+        email:
+          type: string
+          format: email
+          description: 邮箱
+          example: admin@example.com
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+          example: '2025-01-01T00:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+          example: '2025-09-01T12:00:00Z'
+        is_active:
+          type: boolean
+          description: 是否激活
+          example: true
+        roles:
+          type: array
+          items:
+            type: string
+          description: 角色列表
+          example:
+            - admin
+        permissions:
+          type: array
+          items:
+            type: string
+          description: 权限列表
+          example:
+            - user:read
+            - user:write
+            - admin:all
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            nickname:
+              type: string
+              description: 昵称
+              example: 管理员
+            avatar:
+              type: string
+              description: 头像URL
+              example: ''
+            phone:
+              type: string
+              description: 手机号
+              example: ''
+            remark:
+              type: string
+              description: 备注
+              example: 系统管理员
+            password_version:
+              type: integer
+              description: 密码版本
+              example: 1
+            last_login_at:
+              type: string
+              format: date-time
+              description: 最后登录时间
+              example: '2025-09-01T12:00:00Z'
+            roles:
+              type: array
+              items:
+                $ref: '#/components/schemas/Role'
+              description: 角色详细信息
+            permissions:
+              type: array
+              items:
+                $ref: '#/components/schemas/Permission'
+              description: 权限详细信息
+    Role:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 角色ID
+          example: 1
+        name:
+          type: string
+          description: 角色名称
+          example: admin
+        display_name:
+          type: string
+          description: 角色显示名称
+          example: 管理员
+        description:
+          type: string
+          description: 角色描述
+          example: 系统管理员角色
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+          example: '2025-01-01T00:00:00Z'
+    Permission:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 权限ID
+          example: 1
+        name:
+          type: string
+          description: 权限名称
+          example: user:read
+        display_name:
+          type: string
+          description: 权限显示名称
+          example: 用户查看
+        description:
+          type: string
+          description: 权限描述
+          example: 查看用户信息的权限
+        resource:
+          type: string
+          description: 资源类型
+          example: user
+        action:
+          type: string
+          description: 操作类型
+          example: read
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 登录成功
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: 访问令牌
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            refresh_token:
+              type: string
+              description: 刷新令牌
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            token_type:
+              type: string
+              description: 令牌类型
+              example: Bearer
+            expires_in:
+              type: integer
+              description: 访问令牌过期时间（秒）
+              example: 86400
+            refresh_expires_in:
+              type: integer
+              description: 刷新令牌过期时间（秒）
+              example: 604800
+            user:
+              $ref: '#/components/schemas/UserProfile'
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-09-01T12:00:00Z'
+    TokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: 新的访问令牌
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            expires_in:
+              type: integer
+              description: 过期时间（秒）
+              example: 86400
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-09-01T12:00:00Z'
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+servers:
+  - url: http://localhost:8123
+    description: NeoScan Master API
+security: []

@@ -3,7 +3,6 @@
 package test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 
 	authHandler "neomaster/internal/handler/auth"
 	"neomaster/internal/model"
-	authService "neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

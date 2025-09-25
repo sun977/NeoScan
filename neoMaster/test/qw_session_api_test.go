@@ -67,8 +67,11 @@ func setupSessionTestRouter(ts *TestSuite) *gin.Engine {
 		ts.passwordManager,
 		24*3600, // 24小时
 	)
-	userHandler := system.NewUserHandler(ts.UserService, passwordService)
+	_ = system.NewUserHandler(ts.UserService, passwordService)
 	loginHandler := authHandler.NewLoginHandler(ts.SessionService)
+	
+	// 创建会话处理器
+	sessionHandler := system.NewSessionHandler(ts.SessionService)
 
 	// 检查中间件管理器是否可用
 	if ts.MiddlewareManager == nil {
@@ -85,9 +88,9 @@ func setupSessionTestRouter(ts *TestSuite) *gin.Engine {
 		// 会话管理
 		sessions := admin.Group("/sessions/user")
 		{
-			sessions.GET("/list", userHandler.GetActiveSessions)
-			sessions.POST("/:userId/revoke", userHandler.RevokeUserSession)
-			sessions.POST("/:userId/revoke-all", userHandler.RevokeAllUserSessions)
+			sessions.GET("/list", sessionHandler.ListActiveSessions)
+			sessions.POST("/:userId/revoke", sessionHandler.RevokeSession)
+			sessions.POST("/:userId/revoke-all", sessionHandler.RevokeAllUserSessions)
 		}
 	}
 
@@ -127,10 +130,10 @@ func testSessionManagementAPI(t *testing.T, router *gin.Engine, ts *TestSuite) {
 		Password: "password123",
 	}
 
-	userLoginResp, err := ts.SessionService.Login(context.Background(), userLoginReq, "192.0.2.2", "test-user-agent-2")
+	_, err = ts.SessionService.Login(context.Background(), userLoginReq, "192.0.2.2", "test-user-agent-2")
 	assert.NoError(t, err, "用户登录不应该出错")
 
-	userAccessToken := userLoginResp.AccessToken
+	// userAccessToken := userLoginResp.AccessToken
 	userID := fmt.Sprintf("%d", testUser.ID)
 
 	// 测试获取活跃会话列表

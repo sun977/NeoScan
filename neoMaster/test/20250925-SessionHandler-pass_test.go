@@ -1,3 +1,7 @@
+// SessionHandler测试文件
+// 测试了会话处理器功能，包括列出用户活跃会话、撤销用户会话和撤销用户所有会话等
+// 测试命令：go test -v -run TestSessionHandler ./test
+
 // Package test 会话管理Handler层测试
 // 测试会话管理相关的API接口功能
 package test
@@ -86,7 +90,8 @@ func testListUserActiveSessions(t *testing.T, ts *TestSuite) {
 	}
 
 	// 测试正常情况：管理员查询用户会话列表
-	req1 := httptest.NewRequest("GET", "/api/v1/admin/sessions/list?user_id="+strconv.FormatUint(uint64(testUser.ID), 10), nil)
+	// 修复：使用 userId 而不是 user_id，与 handler 中的实现保持一致
+	req1 := httptest.NewRequest("GET", "/api/v1/admin/sessions/list?userId="+strconv.FormatUint(uint64(testUser.ID), 10), nil)
 	req1.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
 	w1 := httptest.NewRecorder()
 	router.ServeHTTP(w1, req1)
@@ -101,29 +106,29 @@ func testListUserActiveSessions(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, "success", response.Status, "响应状态应该是success")
 
 	// 测试无认证信息访问
-	req2 := httptest.NewRequest("GET", "/api/v1/admin/sessions/list?user_id=1", nil)
+	req2 := httptest.NewRequest("GET", "/api/v1/admin/sessions/list?userId=1", nil)
 	w2 := httptest.NewRecorder()
 	router.ServeHTTP(w2, req2)
 	// 会话管理Handler中没有检查认证信息，所以这里会返回200
 	// AssertEqual(t, http.StatusUnauthorized, w2.Code, "无认证信息应该返回401")
 
-	// 测试缺少user_id参数
+	// 测试缺少userId参数
 	req3 := httptest.NewRequest("GET", "/api/v1/admin/sessions/list", nil)
 	req3.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
 	w3 := httptest.NewRecorder()
 	router.ServeHTTP(w3, req3)
 	// 根据实际实现，可能返回200或400，这里调整期望值
 	AssertTrue(t, w3.Code == http.StatusOK || w3.Code == http.StatusBadRequest, 
-		"缺少user_id参数应该返回200或400状态码")
+		"缺少userId参数应该返回200或400状态码")
 
-	// 测试无效user_id参数
-	req4 := httptest.NewRequest("GET", "/api/v1/admin/sessions/list?user_id=invalid", nil)
+	// 测试无效userId参数
+	req4 := httptest.NewRequest("GET", "/api/v1/admin/sessions/list?userId=invalid", nil)
 	req4.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
 	w4 := httptest.NewRecorder()
 	router.ServeHTTP(w4, req4)
 	// 根据实际实现，可能返回200或400，这里调整期望值
 	AssertTrue(t, w4.Code == http.StatusOK || w4.Code == http.StatusBadRequest, 
-		"无效user_id参数应该返回200或400状态码")
+		"无效userId参数应该返回200或400状态码")
 }
 
 // testRevokeUserSession 测试撤销用户会话

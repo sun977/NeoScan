@@ -1,5 +1,9 @@
-// Package test 测试数据和Mock对象
-// 提供测试用的数据结构、Mock对象和辅助函数
+// DataInitialization测试文件
+// 测试了测试数据的初始化功能，包括创建测试用户、创建测试角色和为用户分配角色等功能
+// 测试命令：无独立测试命令，为基础测试框架文件
+
+// Package test 测试数据初始化
+// 提供测试环境所需的基础数据创建功能
 package test
 
 import (

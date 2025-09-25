@@ -1,3 +1,9 @@
+// ChangePasswordHandler测试文件
+// 测试了用户修改密码功能，包括成功修改、原密码错误、新密码长度不足、参数为空和无用户认证信息等情况
+// 测试命令：go test -v -run TestChangePasswordHandler ./test
+
+// Package test 密码修改处理器测试
+// 测试密码修改相关的API接口功能
 package test
 
 import (
@@ -91,14 +97,14 @@ func TestChangePasswordHandler(t *testing.T) {
 
 		// 解析响应
 		var response model.APIResponse
-		err = json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
+		err2 := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err2)
 		assert.Equal(t, "success", response.Status)
 		assert.Contains(t, response.Message, "密码修改成功")
 
 		// 验证密码确实被修改了
-		updatedUser, err := ts.UserRepo.GetUserByID(context.Background(), testUser.ID)
-		assert.NoError(t, err)
+		updatedUser, err2 := ts.UserRepo.GetUserByID(context.Background(), testUser.ID)
+		assert.NoError(t, err2)
 		assert.NotEqual(t, testUser.Password, updatedUser.Password) // 密码哈希应该不同
 	})
 
@@ -129,8 +135,8 @@ func TestChangePasswordHandler(t *testing.T) {
 
 		// 解析响应
 		var response model.APIResponse
-		err = json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
+		err2 := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)
 		assert.Contains(t, response.Message, "原密码错误")
 	})
@@ -162,8 +168,8 @@ func TestChangePasswordHandler(t *testing.T) {
 
 		// 解析响应
 		var response model.APIResponse
-		err = json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
+		err2 := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)
 		assert.Contains(t, response.Message, "新密码长度至少为8位")
 	})
@@ -195,8 +201,8 @@ func TestChangePasswordHandler(t *testing.T) {
 
 		// 解析响应
 		var response model.APIResponse
-		err = json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
+		err2 := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)
 		assert.Contains(t, response.Message, "原密码不能为空")
 	})
@@ -232,13 +238,13 @@ func TestChangePasswordHandler(t *testing.T) {
 
 		// 解析响应
 		var response model.APIResponse
-		err = json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
+		err2 := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)
 		assert.Contains(t, response.Message, "用户身份验证失败")
 	})
 
 	// 清理测试数据
-	err = ts.UserRepo.DeleteUser(context.Background(), testUser.ID)
-	assert.NoError(t, err)
+	err2 := ts.UserRepo.DeleteUser(context.Background(), testUser.ID)
+	assert.NoError(t, err2)
 }

@@ -1,3 +1,9 @@
+// MySQLConnection测试文件
+// 测试了MySQL数据库连接功能
+// 测试命令：go test -v -run TestMySQLConnection ./test
+
+// Package test MySQL连接测试
+// 测试数据库连接是否正常
 package test
 
 import (

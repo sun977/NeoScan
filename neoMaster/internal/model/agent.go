@@ -8,7 +8,6 @@
 package model
 
 import (
-	"neomaster/internal/pkg/utils"
 	"time"
 )
 
@@ -115,7 +114,7 @@ func (Agent) TableName() string {
 // 2. Agent配置 - 独立管理，支持版本控制
 type AgentConfig struct {
 	ID                  string                 `json:"id" gorm:"primaryKey;autoIncrement"`
-	AgentID             string                 `json:"agent_id" gorm:"index"`
+	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex"` // 唯一索引
 	Version             int                    `json:"version" gorm:"default:1"`
 	HeartbeatInterval   int                    `json:"heartbeat_interval"`             // 心跳间隔
 	TaskPollInterval    int                    `json:"task_poll_interval"`             // 任务轮询间隔
@@ -133,7 +132,7 @@ type AgentConfig struct {
 // 3. Agent负载信息(动态) - 高频更新，独立存储
 type AgentMetrics struct {
 	ID                string                 `json:"id" gorm:"primaryKey;autoIncrement"`
-	AgentID           string                 `json:"agent_id" gorm:"index"`
+	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex"` // 唯一索引, 每个AgentID只能对应一个AgentMetrics
 	CPUUsage          float64                `json:"cpu_usage"`
 	MemoryUsage       float64                `json:"memory_usage"`
 	DiskUsage         float64                `json:"disk_usage"`
@@ -150,6 +149,8 @@ type AgentMetrics struct {
 }
 
 // 统一的度量接口
+// 注意：此接口应该在Agent端实现，用于收集Agent自身的系统指标
+// Master端通过gRPC等通信方式调用Agent端的实现来获取指标数据
 type MetricsCollector interface {
 	GetCPUUsage() float64
 	GetMemoryUsage() float64
@@ -158,21 +159,13 @@ type MetricsCollector interface {
 	GetTaskStats() (running, completed, failed int)
 }
 
-// Agent实现度量收集
-func (a *Agent) CollectAgentMetrics() *AgentMetrics {
-	// 生成UUID [agent_550e8400-e29b-41d4-a716-446655440000]
-	prefix := "agent_"
-	uuid, _ := utils.GenerateUUIDWithPrefix(prefix)
-	if uuid == "" {
-		// 如果生成失败，使用时间戳
-		uuid = time.Now().Format("20060102150405")
-	}
-
-	// TODO 收集Agent的其他指标
+// CreateAgentMetrics 创建一个用于收集Agent指标的Metrics对象
+// 注意：实际的指标数据需要通过gRPC等通信方式从Agent获取并填充,这里只是一个空的Metrics对象
+func (a *Agent) CreateAgentMetrics() *AgentMetrics {
 
 	return &AgentMetrics{
-		AgentID: uuid,
-		// ... 统一的度量收集逻辑
+		ID: a.ID,
+		// AgentID:   a.AgentID,
 		Timestamp: time.Now(),
 	}
 }

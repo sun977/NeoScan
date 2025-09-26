@@ -22,13 +22,21 @@ type Agent struct {
     DiskTotal    int64     `json:"disk_total"`
 
     // 能力和标签
-    Capabilities []string  `json:"capabilities" gorm:"type:json"`
+    Capabilities []string  `json:"capabilities" gorm:"type:json"`  // 表示agent支持的功能模块
     Tags         []string  `json:"tags" gorm:"type:json"`
 
+    // 安全认证字段
+    GRPCToken    string    `json:"grpc_token"`     // 用于gRPC通信的Token
+    TokenExpiry  time.Time `json:"token_expiry"`   // Token过期时间
+
     // 时间戳
+    ResultLatestTime *time.Time `json:"result_latest_time"` // 最新的返回结果时间
     LastHeartbeat time.Time `json:"last_heartbeat"`
     RegisteredAt  time.Time `json:"registered_at"`
     UpdatedAt     time.Time `json:"updated_at"`
+    
+    // 扩展字段
+    Remark           string     `json:"remark"`             // 备注信息
 }
 
 // 2. Agent配置 - 独立管理，支持版本控制
@@ -42,6 +50,8 @@ type AgentConfig struct {
     PluginConfig        map[string]interface{} `json:"plugin_config" gorm:"type:json"` // 插件配置
     LogLevel            string         `json:"log_level"`              // 日志级别
     ScanTimeout         int            `json:"scan_timeout"`           // 扫描超时时间
+    TokenExpiryDuration int            `json:"token_expiry_duration"`  // Token过期时间（秒）
+    TokenNeverExpire    bool           `json:"token_never_expire"`     // Token是否永不过期 true 表示永不过期
     IsActive            bool      `json:"is_active" gorm:"default:true"`
     CreatedAt           time.Time `json:"created_at"`
     UpdatedAt           time.Time `json:"updated_at"`
@@ -60,6 +70,10 @@ type AgentMetrics struct {
     RunningTasks      int       `json:"running_tasks"`
     CompletedTasks    int       `json:"completed_tasks"`
     FailedTasks       int       `json:"failed_tasks"`
+    // 新增字段
+    WorkStatus string    `json:"work_status"` // 工作状态：空闲/工作中/异常
+    ScanStatus string    `json:"scan_status"` // 扫描阶段：空闲/IP探活/快速扫描/端口扫描/漏洞扫描等
+    PluginStatus map[string]interface{} `json:"plugin_status"` // 插件状态信息 key: 插件名称, value: 插件状态详情【第三方工具都可以使用这一个字段】
     Timestamp         time.Time `json:"timestamp" gorm:"index"`
 }
 

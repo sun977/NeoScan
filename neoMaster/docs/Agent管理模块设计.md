@@ -96,16 +96,33 @@ func (a *Agent) CollectMetrics() *AgentMetrics {
     }
 }
 
-// Agent分组
-type AgentGroupMember struct {
+// 4. Agent分组
+type AgentGroup struct {
     ID          string    `json:"id" gorm:"primaryKey"`
     Name        string    `json:"name" gorm:"not null"`
     Description string    `json:"description"`
-    AgentID   string    `json:"agent_id"`
-    GroupID   string    `json:"group_id"`
     Tags        []string  `json:"tags" gorm:"type:json"`
     CreatedAt   time.Time `json:"created_at"`
     UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type AgentGroupMember struct {
+    AgentID   string    `json:"agent_id" gorm:"primaryKey"`
+    GroupID   string    `json:"group_id" gorm:"primaryKey"`
+    JoinedAt  time.Time `json:"joined_at"`
+}
+
+// 4. 添加任务分发记录
+type AgentTaskAssignment struct {
+    ID          string    `json:"id" gorm:"primaryKey"`
+    AgentID     string    `json:"agent_id" gorm:"index"`
+    TaskID      string    `json:"task_id" gorm:"index"`
+    TaskType    string    `json:"task_type"`
+    AssignedAt  time.Time `json:"assigned_at"`
+    StartedAt   *time.Time `json:"started_at"`
+    CompletedAt *time.Time `json:"completed_at"`
+    Status      string    `json:"status"` // assigned, running, completed, failed
+    Result      string    `json:"result" gorm:"type:text"`
 }
 
 // Agent版本信息

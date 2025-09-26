@@ -80,7 +80,7 @@ func TestMySQLConnection(t *testing.T) {
 
 	if tableExists > 0 {
 		fmt.Println("✅ 用户表存在")
-		
+
 		// 查询用户数量
 		var userCount int64
 		err = db.Raw("SELECT COUNT(*) FROM users").Scan(&userCount).Error

@@ -64,64 +64,69 @@ const (
 // 1. Agent基础信息 - 相对静态，注册时确定
 type Agent struct {
 	// 基本信息
-	ID        string      `json:"id" gorm:"primaryKey"`
-	AgentID   string      `json:"agent_id" gorm:"index"`
-	Hostname  string      `json:"hostname"`
-	IPAddress string      `json:"ip_address"`
-	Port      int         `json:"port" gorm:"default:5772"`
-	Version   string      `json:"version"`
-	Status    AgentStatus `json:"status" gorm:"default:offline"` // online, offline, exception, maintenance
+	ID        string      `json:"id" gorm:"primaryKey;size:50;comment:Agent唯一标识ID"`
+	AgentID   string      `json:"agent_id" gorm:"index;size:100;comment:Agent业务ID"`
+	Hostname  string      `json:"hostname" gorm:"size:255;comment:主机名"`
+	IPAddress string      `json:"ip_address" gorm:"size:45;comment:IP地址，支持IPv6"`
+	Port      int         `json:"port" gorm:"default:5772;comment:Agent服务端口"`
+	Version   string      `json:"version" gorm:"size:50;comment:Agent版本号"`
+	Status    AgentStatus `json:"status" gorm:"default:offline;size:20;comment:Agent状态:online-在线,offline-离线,exception-异常,maintenance-维护"`
 
 	// 静态系统信息
-	OS          string `json:"os"`
-	Arch        string `json:"arch"`
-	CPUCores    int    `json:"cpu_cores"`
-	MemoryTotal int64  `json:"memory_total"`
-	DiskTotal   int64  `json:"disk_total"`
+	OS          string `json:"os" gorm:"size:50;comment:操作系统"`
+	Arch        string `json:"arch" gorm:"size:20;comment:系统架构"`
+	CPUCores    int    `json:"cpu_cores" gorm:"comment:CPU核心数"`
+	MemoryTotal int64  `json:"memory_total" gorm:"comment:总内存大小(字节)"`
+	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
 	// 能力和标签
-	Capabilities []string `json:"capabilities" gorm:"type:json"` // 表示agent支持的功能模块
-	Tags         []string `json:"tags" gorm:"type:json"`
+	Capabilities []string `json:"capabilities" gorm:"type:json;comment:Agent支持的功能模块列表"`
+	Tags         []string `json:"tags" gorm:"type:json;comment:Agent标签列表"`
 
 	// 安全认证字段
-	GRPCToken   string    `json:"grpc_token"`   // 用于gRPC通信的Token
-	TokenExpiry time.Time `json:"token_expiry"` // Token过期时间
+	GRPCToken   string    `json:"grpc_token" gorm:"size:500;comment:gRPC通信Token"`
+	TokenExpiry time.Time `json:"token_expiry" gorm:"comment:Token过期时间"`
 
 	// 时间戳
-	ResultLatestTime *time.Time `json:"result_latest_time"` // 最新的返回结果时间
-	LastHeartbeat    time.Time  `json:"last_heartbeat"`
-	RegisteredAt     time.Time  `json:"registered_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ResultLatestTime *time.Time `json:"result_latest_time" gorm:"comment:最新返回结果时间"`
+	LastHeartbeat    time.Time  `json:"last_heartbeat" gorm:"comment:最后心跳时间"`
+	RegisteredAt     time.Time  `json:"registered_at" gorm:"comment:注册时间"`
+	UpdatedAt        time.Time  `json:"updated_at" gorm:"comment:更新时间"`
 
 	// 扩展字段
-	Remark string `json:"remark"` // 备注信息
+	Remark string `json:"remark" gorm:"size:500;comment:备注信息"`
 
 	// 容器相关信息(根据内存优化建议添加)【可选】
-	ContainerID string `json:"container_id"` // 容器ID
-	PID         int    `json:"pid"`          // 进程ID
+	ContainerID string `json:"container_id" gorm:"size:100;comment:容器ID"`
+	PID         int    `json:"pid" gorm:"comment:进程ID"`
 }
 
-// IsActive 检查Agent是否处于在线活跃状态[后面有个单独的IsOnline方法]
+// IsActive 检查Agent是否处于在线活跃状态
+// Agent 结构体的方法 - 检查Agent是否处于在线活跃状态
 func (a *Agent) IsActive() bool {
 	return a.Status == AgentStatusOnline
 }
 
 // IsMaintenance 检查Agent是否处于维护状态
+// Agent 结构体的方法 - 检查Agent是否处于维护状态
 func (a *Agent) IsMaintenance() bool {
 	return a.Status == AgentStatusMaintenance
 }
 
 // SetStatus 设置Agent状态
+// Agent 结构体的方法 - 设置Agent状态
 func (a *Agent) SetStatus(status AgentStatus) {
 	a.Status = status
 }
 
 // GetStatus 获取Agent当前状态
+// Agent 结构体的方法 - 获取Agent当前状态
 func (a *Agent) GetStatus() AgentStatus {
 	return a.Status
 }
 
 // AddCapability 添加能力
+// Agent 结构体的方法 - 添加能力，避免重复添加
 func (a *Agent) AddCapability(capability string) {
 	for _, c := range a.Capabilities {
 		if c == capability {
@@ -132,6 +137,7 @@ func (a *Agent) AddCapability(capability string) {
 }
 
 // RemoveCapability 移除能力
+// Agent 结构体的方法 - 移除指定能力
 func (a *Agent) RemoveCapability(capability string) {
 	for i, c := range a.Capabilities {
 		if c == capability {
@@ -142,6 +148,7 @@ func (a *Agent) RemoveCapability(capability string) {
 }
 
 // HasCapability 检查是否具有指定能力
+// Agent 结构体的方法 - 检查是否具有指定能力
 func (a *Agent) HasCapability(capability string) bool {
 	for _, c := range a.Capabilities {
 		if c == capability {
@@ -152,6 +159,7 @@ func (a *Agent) HasCapability(capability string) bool {
 }
 
 // AddTag 添加标签
+// Agent 结构体的方法 - 添加标签，避免重复添加
 func (a *Agent) AddTag(tag string) {
 	for _, t := range a.Tags {
 		if t == tag {
@@ -162,6 +170,7 @@ func (a *Agent) AddTag(tag string) {
 }
 
 // RemoveTag 移除标签
+// Agent 结构体的方法 - 移除指定标签
 func (a *Agent) RemoveTag(tag string) {
 	for i, t := range a.Tags {
 		if t == tag {
@@ -172,6 +181,7 @@ func (a *Agent) RemoveTag(tag string) {
 }
 
 // HasTag 检查是否具有指定标签
+// Agent 结构体的方法 - 检查是否具有指定标签
 func (a *Agent) HasTag(tag string) bool {
 	for _, t := range a.Tags {
 		if t == tag {
@@ -181,28 +191,27 @@ func (a *Agent) HasTag(tag string) bool {
 	return false
 }
 
-// // getTags 获取标签
-// func (a *Agent) getTags() []string {
-// 	return a.Tags
-// }
-
-// IsTokenValid 检查Token是否有效[?]
+// IsTokenValid 检查Token是否有效
+// Agent 结构体的方法 - 检查Token是否有效
 func (a *Agent) IsTokenValid() bool {
 	return time.Now().Before(a.TokenExpiry)
 }
 
-// UpdateHeartbeat 更新心跳时间[接收到agent响应时更新]
+// UpdateHeartbeat 更新心跳时间
+// Agent 结构体的方法 - 更新心跳时间，接收到agent响应时调用
 func (a *Agent) UpdateHeartbeat() {
 	a.LastHeartbeat = time.Now()
 }
 
 // IsOnline 判断Agent是否在线
+// Agent 结构体的方法 - 判断Agent是否在线，基于状态和心跳时间
 func (a *Agent) IsOnline() bool {
 	return a.Status == AgentStatusOnline &&
 		time.Since(a.LastHeartbeat) < 5*time.Minute
 }
 
 // CanAcceptTask 判断Agent是否可以接受指定类型的任务
+// Agent 结构体的方法 - 判断Agent是否可以接受指定类型的任务
 func (a *Agent) CanAcceptTask(taskType string) bool {
 	if !a.IsOnline() {
 		return false
@@ -216,97 +225,120 @@ func (a *Agent) CanAcceptTask(taskType string) bool {
 }
 
 // TableName 定义Agent的数据库表名
+// Agent 结构体的方法 - 定义Agent的数据库表名
 func (Agent) TableName() string {
 	return "agents"
 }
 
 // Agent版本信息
 type AgentVersion struct {
-	ID          string    `json:"id" gorm:"primaryKey"`
-	Version     string    `json:"version" gorm:"not null"`
-	ReleaseDate time.Time `json:"release_date"`
-	Changelog   string    `json:"changelog"`
-	DownloadURL string    `json:"download_url"`
-	IsActive    bool      `json:"is_active"`
-	IsLatest    bool      `json:"is_latest"`
+	ID          string    `json:"id" gorm:"primaryKey;size:50;comment:版本唯一标识ID"`
+	Version     string    `json:"version" gorm:"not null;size:50;comment:版本号"`
+	ReleaseDate time.Time `json:"release_date" gorm:"comment:发布日期"`
+	Changelog   string    `json:"changelog" gorm:"type:text;comment:版本更新日志"`
+	DownloadURL string    `json:"download_url" gorm:"size:500;comment:下载地址"`
+	IsActive    bool      `json:"is_active" gorm:"default:true;comment:是否激活"`
+	IsLatest    bool      `json:"is_latest" gorm:"default:false;comment:是否为最新版本"`
+	CreatedAt   time.Time `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"comment:更新时间"`
 }
 
 // IsActiveVersion 检查版本是否激活
+// AgentVersion 结构体的方法 - 检查版本是否激活
 func (av *AgentVersion) IsActiveVersion() bool {
 	return av.IsActive
 }
 
 // IsLatestVersion 检查是否为最新版本
+// AgentVersion 结构体的方法 - 检查是否为最新版本
 func (av *AgentVersion) IsLatestVersion() bool {
 	return av.IsLatest
 }
 
+// TableName 定义AgentVersion的数据库表名
+// AgentVersion 结构体的方法 - 定义AgentVersion的数据库表名
+func (AgentVersion) TableName() string {
+	return "agent_versions"
+}
+
 // 2. Agent配置 - 独立管理，支持版本控制
 type AgentConfig struct {
-	ID                  string                 `json:"id" gorm:"primaryKey;autoIncrement"`
-	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex"` // 唯一索引
-	Version             int                    `json:"version" gorm:"default:1"`
-	HeartbeatInterval   int                    `json:"heartbeat_interval"`             // 心跳间隔
-	TaskPollInterval    int                    `json:"task_poll_interval"`             // 任务轮询间隔
-	MaxConcurrentTasks  int                    `json:"max_concurrent_tasks"`           // 最大并发任务数
-	PluginConfig        map[string]interface{} `json:"plugin_config" gorm:"type:json"` // 插件配置
-	LogLevel            string                 `json:"log_level"`                      // 日志级别
-	Timeout             int                    `json:"timeout"`                        // 超时时间
-	TokenExpiryDuration int                    `json:"token_expiry_duration"`          // Token过期时间（秒）
-	TokenNeverExpire    bool                   `json:"token_never_expire"`             // Token是否永不过期 true 表示永不过期
-	IsActive            bool                   `json:"is_active" gorm:"default:true"`  // 是否激活
-	CreatedAt           time.Time              `json:"created_at"`
-	UpdatedAt           time.Time              `json:"updated_at"`
+	ID                  string                 `json:"id" gorm:"primaryKey;size:50;comment:配置唯一标识ID"`
+	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent业务ID，唯一索引"`
+	Version             int                    `json:"version" gorm:"default:1;comment:配置版本号"`
+	HeartbeatInterval   int                    `json:"heartbeat_interval" gorm:"default:30;comment:心跳间隔(秒)"`
+	TaskPollInterval    int                    `json:"task_poll_interval" gorm:"default:10;comment:任务轮询间隔(秒)"`
+	MaxConcurrentTasks  int                    `json:"max_concurrent_tasks" gorm:"default:5;comment:最大并发任务数"`
+	PluginConfig        map[string]interface{} `json:"plugin_config" gorm:"type:json;comment:插件配置信息"`
+	LogLevel            string                 `json:"log_level" gorm:"default:info;size:20;comment:日志级别"`
+	Timeout             int                    `json:"timeout" gorm:"default:300;comment:超时时间(秒)"`
+	TokenExpiryDuration int                    `json:"token_expiry_duration" gorm:"default:86400;comment:Token过期时间(秒)"`
+	TokenNeverExpire    bool                   `json:"token_never_expire" gorm:"default:false;comment:Token是否永不过期"`
+	IsActive            bool                   `json:"is_active" gorm:"default:true;comment:是否激活"`
+	CreatedAt           time.Time              `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt           time.Time              `json:"updated_at" gorm:"comment:更新时间"`
 }
 
 // IsActiveConfig 检查配置是否激活
+// AgentConfig 结构体的方法 - 检查配置是否激活
 func (ac *AgentConfig) IsActiveConfig() bool {
 	return ac.IsActive
 }
 
 // IncrementVersion 增加配置版本号
+// AgentConfig 结构体的方法 - 增加配置版本号并更新时间
 func (ac *AgentConfig) IncrementVersion() {
 	ac.Version++
 	ac.UpdatedAt = time.Now()
 }
 
-// 3. Agent负载信息(动态) - 高频更新，独立存储
-type AgentMetrics struct {
-	ID                string                 `json:"id" gorm:"primaryKey;autoIncrement"`
-	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex"` // 唯一索引, 每个AgentID只能对应一个AgentMetrics
-	CPUUsage          float64                `json:"cpu_usage"`
-	MemoryUsage       float64                `json:"memory_usage"`
-	DiskUsage         float64                `json:"disk_usage"`
-	NetworkBytesSent  int64                  `json:"network_bytes_sent"`
-	NetworkBytesRecv  int64                  `json:"network_bytes_recv"`
-	ActiveConnections int                    `json:"active_connections"` // 活动连接数
-	RunningTasks      int                    `json:"running_tasks"`      // 正在运行的任务数
-	CompletedTasks    int                    `json:"completed_tasks"`    // 已完成任务数
-	FailedTasks       int                    `json:"failed_tasks"`       // 失败任务数
-	WorkStatus        AgentWorkStatus        `json:"work_status"`        // 工作状态：空闲/工作中/异常
-	ScanType          string                 `json:"scan_type"`          // 扫描类型：空闲/IP探活/快速扫描/端口扫描/漏洞扫描等 [使用string为了内置扫描类型和自定义扫描类型的兼容]
-	PluginStatus      map[string]interface{} `json:"plugin_status"`      // 插件状态信息 key: 插件名称, value: 插件状态详情【第三方工具都可以使用这一个字段】
-	Timestamp         time.Time              `json:"timestamp" gorm:"index"`
+// TableName 定义AgentConfig的数据库表名
+// AgentConfig 结构体的方法 - 定义AgentConfig的数据库表名
+func (AgentConfig) TableName() string {
+	return "agent_configs"
 }
 
-// GetLoad 获取Agent负载(基于任务数)
+// 3. Agent负载信息(动态) - 高频更新，独立存储
+type AgentMetrics struct {
+	ID                string                 `json:"id" gorm:"primaryKey;size:50;comment:指标唯一标识ID"`
+	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent业务ID，唯一索引"`
+	CPUUsage          float64                `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
+	MemoryUsage       float64                `json:"memory_usage" gorm:"comment:内存使用率(百分比)"`
+	DiskUsage         float64                `json:"disk_usage" gorm:"comment:磁盘使用率(百分比)"`
+	NetworkBytesSent  int64                  `json:"network_bytes_sent" gorm:"comment:网络发送字节数"`
+	NetworkBytesRecv  int64                  `json:"network_bytes_recv" gorm:"comment:网络接收字节数"`
+	ActiveConnections int                    `json:"active_connections" gorm:"comment:活动连接数"`
+	RunningTasks      int                    `json:"running_tasks" gorm:"comment:正在运行的任务数"`
+	CompletedTasks    int                    `json:"completed_tasks" gorm:"comment:已完成任务数"`
+	FailedTasks       int                    `json:"failed_tasks" gorm:"comment:失败任务数"`
+	WorkStatus        AgentWorkStatus        `json:"work_status" gorm:"size:20;comment:工作状态:idle-空闲,working-工作中,exception-异常"`
+	ScanType          string                 `json:"scan_type" gorm:"size:50;comment:当前扫描类型"`
+	PluginStatus      map[string]interface{} `json:"plugin_status" gorm:"type:json;comment:插件状态信息"`
+	Timestamp         time.Time              `json:"timestamp" gorm:"index;comment:指标时间戳"`
+}
+
+// GetAgentLoad 获取Agent负载
+// AgentMetrics 结构体的方法 - 获取Agent负载，基于CPU和内存使用率计算
 func (am *AgentMetrics) GetAgentLoad() float64 {
 	// 简单的负载计算方式，可以基于CPU使用率、内存使用率和任务数综合计算
 	return (am.CPUUsage + am.MemoryUsage) / 2.0
 }
 
 // IsOverloaded 检查Agent是否过载
+// AgentMetrics 结构体的方法 - 检查Agent是否过载
 func (am *AgentMetrics) IsOverloaded() bool {
 	// 当CPU或内存使用率超过80%时认为过载
 	return am.CPUUsage > 80.0 || am.MemoryUsage > 80.0
 }
 
 // IsWorking 检查Agent是否正在工作中
+// AgentMetrics 结构体的方法 - 检查Agent是否正在工作中
 func (am *AgentMetrics) IsWorking() bool {
 	return am.WorkStatus == AgentWorkStatusWorking
 }
 
 // UpdateTimestamp 更新时间戳
+// AgentMetrics 结构体的方法 - 更新时间戳为当前时间
 func (am *AgentMetrics) UpdateTimestamp() {
 	am.Timestamp = time.Now()
 }
@@ -323,87 +355,102 @@ type MetricsCollector interface {
 }
 
 // CreateAgentMetrics 创建一个用于收集Agent指标的Metrics对象
+// Agent 结构体的方法 - 创建一个用于收集Agent指标的Metrics对象
 // 注意：实际的指标数据需要通过gRPC等通信方式从Agent获取并填充,这里只是一个空的Metrics对象
 func (a *Agent) CreateAgentMetrics() *AgentMetrics {
-
 	return &AgentMetrics{
-		ID: a.ID,
-		// AgentID:   a.AgentID,
+		ID:        a.ID,
+		AgentID:   a.AgentID,
 		Timestamp: time.Now(),
 	}
 }
 
 // TableName 定义AgentMetrics的数据库表名
+// AgentMetrics 结构体的方法 - 定义AgentMetrics的数据库表名
 func (AgentMetrics) TableName() string {
 	return "agent_metrics"
 }
 
 // 4. Agent分组
 type AgentGroup struct {
-	ID          string    `json:"id" gorm:"primaryKey;autoIncrement"`
-	Name        string    `json:"name" gorm:"not null"`
-	Description string    `json:"description"`
-	Tags        []string  `json:"tags" gorm:"type:json"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string    `json:"id" gorm:"primaryKey;size:50;comment:分组唯一标识ID"`
+	Name        string    `json:"name" gorm:"not null;size:100;comment:分组名称"`
+	Description string    `json:"description" gorm:"size:500;comment:分组描述"`
+	Tags        []string  `json:"tags" gorm:"type:json;comment:分组标签列表"`
+	CreatedAt   time.Time `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"comment:更新时间"`
 }
 
 // IsValid 检查分组是否有效
+// AgentGroup 结构体的方法 - 检查分组是否有效
 func (ag *AgentGroup) IsValid() bool {
 	return ag.Name != ""
 }
 
 // UpdateTimestamp 更新时间戳
+// AgentGroup 结构体的方法 - 更新时间戳为当前时间
 func (ag *AgentGroup) UpdateTimestamp() {
 	ag.UpdatedAt = time.Now()
 }
 
+// TableName 定义AgentGroup的数据库表名
+// AgentGroup 结构体的方法 - 定义AgentGroup的数据库表名
+func (AgentGroup) TableName() string {
+	return "agent_groups"
+}
+
 type AgentGroupMember struct {
-	AgentID   string    `json:"agent_id" gorm:"primaryKey"`
-	GroupID   string    `json:"group_id" gorm:"primaryKey"`
-	JoinedAt  time.Time `json:"joined_at"`
-	CreatedAt time.Time `json:"created_at"`
+	AgentID   string    `json:"agent_id" gorm:"primaryKey;size:100;comment:Agent业务ID"`
+	GroupID   string    `json:"group_id" gorm:"primaryKey;size:50;comment:分组ID"`
+	JoinedAt  time.Time `json:"joined_at" gorm:"comment:加入时间"`
+	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
 }
 
 // TableName 指定AgentGroupMember表名
+// AgentGroupMember 结构体的方法 - 指定AgentGroupMember表名
 func (AgentGroupMember) TableName() string {
 	return "agent_group_members"
 }
 
-// 4. 添加任务分发记录
+// 5. 添加任务分发记录
 type AgentTaskAssignment struct {
-	ID          string          `json:"id" gorm:"primaryKey;autoIncrement"`
-	AgentID     string          `json:"agent_id" gorm:"index"`
-	TaskID      string          `json:"task_id" gorm:"index"`
-	TaskType    string          `json:"task_type"`
-	AssignedAt  time.Time       `json:"assigned_at"`  // 任务分配时间
-	StartedAt   *time.Time      `json:"started_at"`   // 任务开始时间
-	CompletedAt *time.Time      `json:"completed_at"` // 任务完成时间
-	Status      AgentTaskStatus `json:"status"`       // assigned, running, completed, failed
-	Result      string          `json:"result" gorm:"type:text"`
+	ID          string          `json:"id" gorm:"primaryKey;size:50;comment:任务分配唯一标识ID"`
+	AgentID     string          `json:"agent_id" gorm:"index;size:100;comment:Agent业务ID"`
+	TaskID      string          `json:"task_id" gorm:"index;size:100;comment:任务ID"`
+	TaskType    string          `json:"task_type" gorm:"size:50;comment:任务类型"`
+	AssignedAt  time.Time       `json:"assigned_at" gorm:"comment:任务分配时间"`
+	StartedAt   *time.Time      `json:"started_at" gorm:"comment:任务开始时间"`
+	CompletedAt *time.Time      `json:"completed_at" gorm:"comment:任务完成时间"`
+	Status      AgentTaskStatus `json:"status" gorm:"size:20;comment:任务状态:assigned-已分配,running-运行中,completed-已完成,failed-已失败"`
+	Result      string          `json:"result" gorm:"type:text;comment:任务执行结果"`
 }
 
-// IsAssigned 检查任务是否已分配(未执行/即将执行任务)
+// IsAssigned 检查任务是否已分配
+// AgentTaskAssignment 结构体的方法 - 检查任务是否已分配(未执行/即将执行任务)
 func (ata *AgentTaskAssignment) IsAssigned() bool {
 	return ata.Status == AgentTaskStatusAssigned
 }
 
 // IsRunning 检查任务是否正在运行
+// AgentTaskAssignment 结构体的方法 - 检查任务是否正在运行
 func (ata *AgentTaskAssignment) IsRunning() bool {
 	return ata.Status == AgentTaskStatusRunning
 }
 
 // IsCompleted 检查任务是否已完成
+// AgentTaskAssignment 结构体的方法 - 检查任务是否已完成
 func (ata *AgentTaskAssignment) IsCompleted() bool {
 	return ata.Status == AgentTaskStatusCompleted
 }
 
 // IsFailed 检查任务是否失败
+// AgentTaskAssignment 结构体的方法 - 检查任务是否失败
 func (ata *AgentTaskAssignment) IsFailed() bool {
 	return ata.Status == AgentTaskStatusFailed
 }
 
 // AssignTask 标记任务已分配
+// AgentTaskAssignment 结构体的方法 - 标记任务已分配
 func (ata *AgentTaskAssignment) AssignTask() {
 	ata.Status = AgentTaskStatusAssigned
 	now := time.Now()
@@ -411,6 +458,7 @@ func (ata *AgentTaskAssignment) AssignTask() {
 }
 
 // StartTask 标记任务开始
+// AgentTaskAssignment 结构体的方法 - 标记任务开始
 func (ata *AgentTaskAssignment) StartTask() {
 	ata.Status = AgentTaskStatusRunning
 	now := time.Now()
@@ -418,6 +466,7 @@ func (ata *AgentTaskAssignment) StartTask() {
 }
 
 // CompleteTask 标记任务完成
+// AgentTaskAssignment 结构体的方法 - 标记任务完成并记录结果
 func (ata *AgentTaskAssignment) CompleteTask(result string) {
 	ata.Status = AgentTaskStatusCompleted
 	now := time.Now()
@@ -426,6 +475,7 @@ func (ata *AgentTaskAssignment) CompleteTask(result string) {
 }
 
 // FailTask 标记任务失败
+// AgentTaskAssignment 结构体的方法 - 标记任务失败并记录错误信息
 func (ata *AgentTaskAssignment) FailTask(result string) {
 	ata.Status = AgentTaskStatusFailed
 	now := time.Now()
@@ -433,25 +483,33 @@ func (ata *AgentTaskAssignment) FailTask(result string) {
 	ata.Result = result
 }
 
+// TableName 定义AgentTaskAssignment的数据库表名
+// AgentTaskAssignment 结构体的方法 - 定义AgentTaskAssignment的数据库表名
+func (AgentTaskAssignment) TableName() string {
+	return "agent_task_assignments"
+}
+
 // 扫描类型结构体 [为自定义扫描类型预留,系统默认内置扫描类型在代码中定义]
 type ScanType struct {
-	ID             string                 `json:"id" gorm:"primaryKey;autoIncrement"`
-	Name           string                 `json:"name" gorm:"unique;not null"`
-	DisplayName    string                 `json:"display_name" gorm:"not null"`
-	Description    string                 `json:"description"`
-	Category       string                 `json:"category"` // 扫描类型分类
-	IsActive       bool                   `json:"is_active" gorm:"default:true"`
-	ConfigTemplate map[string]interface{} `json:"config_template" gorm:"type:json"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ID             string                 `json:"id" gorm:"primaryKey;size:50;comment:扫描类型唯一标识ID"`
+	Name           string                 `json:"name" gorm:"unique;not null;size:100;comment:扫描类型名称，唯一"`
+	DisplayName    string                 `json:"display_name" gorm:"not null;size:100;comment:扫描类型显示名称"`
+	Description    string                 `json:"description" gorm:"size:500;comment:扫描类型描述"`
+	Category       string                 `json:"category" gorm:"size:50;comment:扫描类型分类"`
+	IsActive       bool                   `json:"is_active" gorm:"default:true;comment:是否激活"`
+	ConfigTemplate map[string]interface{} `json:"config_template" gorm:"type:json;comment:配置模板"`
+	CreatedAt      time.Time              `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt      time.Time              `json:"updated_at" gorm:"comment:更新时间"`
 }
 
 // IsActiveType 检查扫描类型是否激活
+// ScanType 结构体的方法 - 检查扫描类型是否激活
 func (st *ScanType) IsActiveType() bool {
 	return st.IsActive
 }
 
 // TableName 定义ScanType的数据库表名
+// ScanType 结构体的方法 - 定义ScanType的数据库表名
 func (ScanType) TableName() string {
 	return "agent_scan_types"
 }

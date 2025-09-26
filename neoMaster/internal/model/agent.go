@@ -64,8 +64,8 @@ const (
 // 1. Agent基础信息 - 相对静态，注册时确定
 type Agent struct {
 	// 基本信息
-	ID        string      `json:"id" gorm:"primaryKey;size:50;comment:Agent唯一标识ID"`
-	AgentID   string      `json:"agent_id" gorm:"index;size:100;comment:Agent业务ID"`
+	ID        uint        `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库Agent标识ID"`
+	AgentID   string      `json:"agent_id" gorm:"uniqueIndex;not null;size:100;comment:Agent唯一标识ID"`
 	Hostname  string      `json:"hostname" gorm:"size:255;comment:主机名"`
 	IPAddress string      `json:"ip_address" gorm:"size:45;comment:IP地址，支持IPv6"`
 	Port      int         `json:"port" gorm:"default:5772;comment:Agent服务端口"`
@@ -232,7 +232,7 @@ func (Agent) TableName() string {
 
 // Agent版本信息
 type AgentVersion struct {
-	ID          string    `json:"id" gorm:"primaryKey;size:50;comment:版本唯一标识ID"`
+	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库版本标识ID"`
 	Version     string    `json:"version" gorm:"not null;size:50;comment:版本号"`
 	ReleaseDate time.Time `json:"release_date" gorm:"comment:发布日期"`
 	Changelog   string    `json:"changelog" gorm:"type:text;comment:版本更新日志"`
@@ -263,8 +263,8 @@ func (AgentVersion) TableName() string {
 
 // 2. Agent配置 - 独立管理，支持版本控制
 type AgentConfig struct {
-	ID                  string                 `json:"id" gorm:"primaryKey;size:50;comment:配置唯一标识ID"`
-	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent业务ID，唯一索引"`
+	ID                  uint                   `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库配置标识ID"`
+	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
 	Version             int                    `json:"version" gorm:"default:1;comment:配置版本号"`
 	HeartbeatInterval   int                    `json:"heartbeat_interval" gorm:"default:30;comment:心跳间隔(秒)"`
 	TaskPollInterval    int                    `json:"task_poll_interval" gorm:"default:10;comment:任务轮询间隔(秒)"`
@@ -300,8 +300,8 @@ func (AgentConfig) TableName() string {
 
 // 3. Agent负载信息(动态) - 高频更新，独立存储
 type AgentMetrics struct {
-	ID                string                 `json:"id" gorm:"primaryKey;size:50;comment:指标唯一标识ID"`
-	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent业务ID，唯一索引"`
+	ID                uint                   `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库指标标识ID"`
+	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
 	CPUUsage          float64                `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
 	MemoryUsage       float64                `json:"memory_usage" gorm:"comment:内存使用率(百分比)"`
 	DiskUsage         float64                `json:"disk_usage" gorm:"comment:磁盘使用率(百分比)"`
@@ -373,7 +373,7 @@ func (AgentMetrics) TableName() string {
 
 // 4. Agent分组
 type AgentGroup struct {
-	ID          string    `json:"id" gorm:"primaryKey;size:50;comment:分组唯一标识ID"`
+	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库分组标识ID，唯一"`
 	Name        string    `json:"name" gorm:"not null;size:100;comment:分组名称"`
 	Description string    `json:"description" gorm:"size:500;comment:分组描述"`
 	Tags        []string  `json:"tags" gorm:"type:json;comment:分组标签列表"`
@@ -414,7 +414,7 @@ func (AgentGroupMember) TableName() string {
 
 // 5. 添加任务分发记录
 type AgentTaskAssignment struct {
-	ID          string          `json:"id" gorm:"primaryKey;size:50;comment:任务分配唯一标识ID"`
+	ID          uint            `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库任务分配标识ID"`
 	AgentID     string          `json:"agent_id" gorm:"index;size:100;comment:Agent业务ID"`
 	TaskID      string          `json:"task_id" gorm:"index;size:100;comment:任务ID"`
 	TaskType    string          `json:"task_type" gorm:"size:50;comment:任务类型"`
@@ -491,7 +491,7 @@ func (AgentTaskAssignment) TableName() string {
 
 // 扫描类型结构体 [为自定义扫描类型预留,系统默认内置扫描类型在代码中定义]
 type ScanType struct {
-	ID             string                 `json:"id" gorm:"primaryKey;size:50;comment:扫描类型唯一标识ID"`
+	ID             uint                   `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库扫描类型标识ID"`
 	Name           string                 `json:"name" gorm:"unique;not null;size:100;comment:扫描类型名称，唯一"`
 	DisplayName    string                 `json:"display_name" gorm:"not null;size:100;comment:扫描类型显示名称"`
 	Description    string                 `json:"description" gorm:"size:500;comment:扫描类型描述"`

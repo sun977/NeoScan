@@ -9,7 +9,7 @@ USE `neoscan_dev`;
 
 -- 1. Agent基础信息表 (agents)
 CREATE TABLE `agents` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库Agent标识ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库Agent标识ID',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent唯一标识ID',
     `hostname` varchar(255) NOT NULL COMMENT '主机名',
     `ip_address` varchar(45) NOT NULL COMMENT 'IP地址，支持IPv6',
@@ -42,7 +42,7 @@ CREATE TABLE `agents` (
 
 -- 2. Agent版本信息表 (agent_versions)
 CREATE TABLE `agent_versions` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库版本标识ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库版本标识ID',
     `version` varchar(50) NOT NULL COMMENT '版本号',
     `release_date` datetime NOT NULL COMMENT '发布日期',
     `changelog` text DEFAULT NULL COMMENT '版本更新日志',
@@ -60,7 +60,7 @@ CREATE TABLE `agent_versions` (
 
 -- 3. Agent配置表 (agent_configs)
 CREATE TABLE `agent_configs` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库配置标识ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库配置标识ID',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
     `version` int NOT NULL DEFAULT '1' COMMENT '配置版本号',
     `heartbeat_interval` int NOT NULL DEFAULT '30' COMMENT '心跳间隔(秒)',
@@ -82,7 +82,7 @@ CREATE TABLE `agent_configs` (
 
 -- 4. Agent指标表 (agent_metrics)
 CREATE TABLE `agent_metrics` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库指标标识ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库指标标识ID',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
     `cpu_usage` double DEFAULT NULL COMMENT 'CPU使用率(百分比)',
     `memory_usage` double DEFAULT NULL COMMENT '内存使用率(百分比)',
@@ -107,7 +107,7 @@ CREATE TABLE `agent_metrics` (
 
 -- 5. Agent分组表 (agent_groups)
 CREATE TABLE `agent_groups` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库分组标识ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库分组标识ID',
     `group_id` varchar(100) NOT NULL COMMENT '分组业务ID，唯一索引',
     `name` varchar(100) NOT NULL COMMENT '分组名称',
     `description` varchar(500) DEFAULT NULL COMMENT '分组描述',
@@ -137,7 +137,7 @@ CREATE TABLE `agent_group_members` (
 
 -- 7. Agent任务分配表 (agent_task_assignments)
 CREATE TABLE `agent_task_assignments` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库任务分配标识ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库任务分配标识ID',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID',
     `task_id` varchar(100) NOT NULL COMMENT '任务ID',
     `task_type` varchar(50) NOT NULL COMMENT '任务类型',
@@ -156,7 +156,7 @@ CREATE TABLE `agent_task_assignments` (
 
 -- 8. Agent扫描类型表 (agent_scan_types)
 CREATE TABLE `agent_scan_types` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库扫描类型标识ID',
+    `id` int unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库扫描类型标识ID',
     `name` varchar(100) NOT NULL COMMENT '扫描类型名称，唯一',
     `display_name` varchar(100) NOT NULL COMMENT '扫描类型显示名称',
     `description` varchar(500) DEFAULT NULL COMMENT '扫描类型描述',

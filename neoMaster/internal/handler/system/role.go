@@ -105,8 +105,18 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	}
 
 	// 调用服务层创建角色(可以添加权限)
+	// 如果创建角色的时候分配权限失败，不影响角色创建，但是会记录日志[典型场景:权限ID不存在，那么这个权限分配就会失败，其他权限会分配成功]
 	role, err := h.roleService.CreateRole(c.Request.Context(), &req)
 	if err != nil {
+		// var message string
+		// errorMsg := err.Error()
+		// switch {
+		// case strings.Contains(errorMsg, "权限分配失败"):
+		// 	message = "创建角色成功: 权限分配失败"
+		// default:
+		// 	message = "创建角色失败: " + err.Error()
+		// }
+
 		logger.LogError(err, XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
 			"operation":  "create_role",
 			"user_id":    userID,
@@ -120,6 +130,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "创建角色失败: " + err.Error(),
+			// Message: message,
 		})
 		return
 	}

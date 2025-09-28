@@ -118,6 +118,7 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 					"permission_id": permissionID,
 					"timestamp":     logger.NowFormatted(),
 				})
+				// return nil, errors.New("权限分配失败")
 			}
 		}
 	}

@@ -13,22 +13,22 @@ import (
 
 // User 用户模型
 type User struct {
-	ID          uint       `json:"id" gorm:"primaryKey;autoIncrement"`                    // 用户唯一标识ID，主键自增
+	ID          uint       `json:"id" gorm:"primaryKey;autoIncrement"`                                            // 用户唯一标识ID，主键自增
 	Username    string     `json:"username" gorm:"uniqueIndex;not null;size:50" validate:"required,min=3,max=50"` // 用户名，唯一索引，3-50字符
-	Email       string     `json:"email" gorm:"uniqueIndex;not null;size:100" validate:"required,email"`        // 邮箱地址，唯一索引，必须符合邮箱格式
-	Password    string     `json:"-" gorm:"not null;size:255"`                            // 用户密码，加密存储，不在JSON中返回
-	PasswordV   int64      `json:"-" gorm:"default:1;comment:密码版本号,用于使旧token失效"`        // 密码版本控制，用于token失效机制
-	Nickname    string     `json:"nickname" gorm:"size:50"`                               // 用户昵称，最大50字符
-	Avatar      string     `json:"avatar" gorm:"size:255"`                                // 用户头像URL，最大255字符
-	Phone       string     `json:"phone" gorm:"size:20"`                                  // 手机号码，最大20字符
-	SocketId    string     `json:"socket_id" gorm:"size:100;comment:WebSocket连接ID"`       // WebSocket连接标识，用于实时通信功能
-	Remark      string     `json:"remark" gorm:"size:500;comment:管理员备注"`                // 管理员对用户的备注说明，最大500字符
-	Status      UserStatus `json:"status" gorm:"default:1;comment:用户状态:0-禁用,1-启用"`       // 用户状态，默认启用
-	LastLoginAt *time.Time `json:"last_login_at" gorm:"comment:最后登录时间"`                 // 最后登录时间，可为空
-	LastLoginIP string     `json:"last_login_ip" gorm:"size:45;comment:最后登录IP"`          // 最后登录IP地址，支持IPv6
-	CreatedAt   time.Time  `json:"created_at"`                                            // 创建时间，自动管理
-	UpdatedAt   time.Time  `json:"updated_at"`                                            // 更新时间，自动管理
-	DeletedAt   *time.Time `json:"-" gorm:"index"`                                        // 软删除时间，不在JSON中返回
+	Email       string     `json:"email" gorm:"uniqueIndex;not null;size:100" validate:"required,email"`          // 邮箱地址，唯一索引，必须符合邮箱格式
+	Password    string     `json:"-" gorm:"not null;size:255"`                                                    // 用户密码，加密存储，不在JSON中返回
+	PasswordV   int64      `json:"-" gorm:"default:1;comment:密码版本号,用于使旧token失效"`                                  // 密码版本控制，用于token失效机制
+	Nickname    string     `json:"nickname" gorm:"size:50"`                                                       // 用户昵称，最大50字符
+	Avatar      string     `json:"avatar" gorm:"size:255"`                                                        // 用户头像URL，最大255字符
+	Phone       string     `json:"phone" gorm:"size:20"`                                                          // 手机号码，最大20字符
+	SocketId    string     `json:"socket_id" gorm:"size:100;comment:WebSocket连接ID"`                               // WebSocket连接标识，用于实时通信功能
+	Remark      string     `json:"remark" gorm:"size:500;comment:管理员备注"`                                          // 管理员对用户的备注说明，最大500字符
+	Status      UserStatus `json:"status" gorm:"default:1;comment:用户状态:0-禁用,1-启用"`                                // 用户状态，默认启用
+	LastLoginAt *time.Time `json:"last_login_at" gorm:"comment:最后登录时间"`                                           // 最后登录时间，可为空
+	LastLoginIP string     `json:"last_login_ip" gorm:"size:45;comment:最后登录IP"`                                   // 最后登录IP地址，支持IPv6
+	CreatedAt   time.Time  `json:"created_at"`                                                                    // 创建时间，自动管理
+	UpdatedAt   time.Time  `json:"updated_at"`                                                                    // 更新时间，自动管理
+	DeletedAt   *time.Time `json:"-" gorm:"index"`                                                                // 软删除时间，不在JSON中返回
 
 	// 关联关系
 	Roles []*Role `json:"roles" gorm:"many2many:user_roles;"` // 用户角色，多对多关系
@@ -42,11 +42,13 @@ const (
 	UserStatusEnabled  UserStatus = 1 // 启用状态
 )
 
-// UserRole 用户角色关联表
+// UserRole 用户角色关联表 [用户和角色的多对多关系,使用关联主键的话就是一对一关系了]
 type UserRole struct {
-	UserID    uint      `json:"user_id" gorm:"primaryKey"` // 用户ID，联合主键
-	RoleID    uint      `json:"role_id" gorm:"primaryKey"` // 角色ID，联合主键
-	CreatedAt time.Time `json:"created_at"`                // 关联创建时间
+	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement"` // 关联表唯一标识ID，主键自增
+	UserID    uint      `json:"user_id" gorm:"not null"`            // 用户ID，外键关联users表
+	RoleID    uint      `json:"role_id" gorm:"not null"`            // 角色ID，外键关联roles表
+	CreatedAt time.Time `json:"created_at"`                         // 关联创建时间
+	UpdatedAt time.Time `json:"updated_at"`                         // 关联更新时间
 }
 
 // TableName 指定用户表名

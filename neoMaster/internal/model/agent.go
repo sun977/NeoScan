@@ -374,6 +374,7 @@ func (AgentMetrics) TableName() string {
 // 4. Agent分组
 type AgentGroup struct {
 	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库分组标识ID，唯一"`
+	GroupID     string    `json:"group_id" gorm:"not null;size:50;comment:分组ID"`
 	Name        string    `json:"name" gorm:"not null;size:100;comment:分组名称"`
 	Description string    `json:"description" gorm:"size:500;comment:分组描述"`
 	Tags        []string  `json:"tags" gorm:"type:json;comment:分组标签列表"`
@@ -399,9 +400,12 @@ func (AgentGroup) TableName() string {
 	return "agent_groups"
 }
 
+// AgentGroupMember 结构体定义Agent分组成员关系[联合分组是一对一关系,不能使用联合分组]
+// 注意：一个Agent可以属于多个分组,一个分组可以包含多个Agent
 type AgentGroupMember struct {
-	AgentID   string    `json:"agent_id" gorm:"primaryKey;size:100;comment:Agent业务ID"`
-	GroupID   string    `json:"group_id" gorm:"primaryKey;size:50;comment:分组ID"`
+	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库任务分配标识ID"`
+	AgentID   string    `json:"agent_id" gorm:"not null;size:100;comment:Agent业务ID"` // Agent业务ID,外键关联agents表
+	GroupID   string    `json:"group_id" gorm:"not null;size:100;comment:分组ID"`      // 分组ID,外键关联agent_groups表
 	JoinedAt  time.Time `json:"joined_at" gorm:"comment:加入时间"`
 	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
 }

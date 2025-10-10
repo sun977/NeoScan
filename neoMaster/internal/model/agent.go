@@ -63,6 +63,8 @@ const (
 
 // 1. Agent基础信息 - 相对静态，注册时确定
 type Agent struct {
+	// // 引用基类 (ID, CreatedAt, UpdatedAt)
+	// BaseModel
 	// 基本信息
 	ID        uint        `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库Agent标识ID"`
 	AgentID   string      `json:"agent_id" gorm:"uniqueIndex;not null;size:100;comment:Agent唯一标识ID"`

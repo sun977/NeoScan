@@ -27,7 +27,7 @@ CREATE TABLE `agents` (
     `token_expiry` datetime DEFAULT NULL COMMENT 'Token过期时间',
     `result_latest_time` datetime DEFAULT NULL COMMENT '最新返回结果时间',
     `last_heartbeat` datetime DEFAULT NULL COMMENT '最后心跳时间',
-    `registered_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `remark` varchar(500) DEFAULT NULL COMMENT '备注信息',
     `container_id` varchar(100) DEFAULT NULL COMMENT '容器ID',
@@ -37,7 +37,7 @@ CREATE TABLE `agents` (
     KEY `idx_agents_status` (`status`),
     KEY `idx_agents_ip_address` (`ip_address`),
     KEY `idx_agents_last_heartbeat` (`last_heartbeat`),
-    KEY `idx_agents_registered_at` (`registered_at`)
+    KEY `idx_agents_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent基础信息表';
 
 -- 2. Agent版本信息表 (agent_versions)
@@ -191,7 +191,7 @@ INSERT INTO `agent_scan_types` (`name`, `display_name`, `description`, `category
 ('web_scan', 'Web扫描', '对Web应用进行安全扫描', 'web', '{"crawl_depth": 3, "timeout": 600, "check_sql_injection": true}');
 
 -- 开发测试Agent数据
-INSERT INTO `agents` (`agent_id`, `hostname`, `ip_address`, `port`, `version`, `status`, `os`, `arch`, `cpu_cores`, `memory_total`, `disk_total`, `capabilities`, `tags`, `grpc_token`, `token_expiry`, `last_heartbeat`, `registered_at`, `remark`) VALUES
+INSERT INTO `agents` (`agent_id`, `hostname`, `ip_address`, `port`, `version`, `status`, `os`, `arch`, `cpu_cores`, `memory_total`, `disk_total`, `capabilities`, `tags`, `grpc_token`, `token_expiry`, `last_heartbeat`, `created_at`, `remark`) VALUES
 ('neoscan-agent-001', 'dev-scanner-01', '192.168.1.100', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 8, 17179869184, 107374182400, '["port_scan", "vuln_scan", "web_scan"]', '["development", "scanner"]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:55:00', '2025-01-20 10:00:00', '开发环境测试Agent'),
 ('neoscan-agent-002', 'prod-scanner-01', '10.0.1.50', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 16, 34359738368, 214748364800, '["port_scan", "vuln_scan", "web_scan", "api_scan"]', '["production", "high-performance"]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:58:00', '2025-01-18 09:30:00', '生产环境高性能Agent'),
 ('neoscan-agent-003', 'test-scanner-01', '172.16.0.10', 5772, 'v1.0.0', 'offline', 'Windows', 'x86_64', 4, 8589934592, 53687091200, '["port_scan", "web_scan"]', '["test", "windows"]', NULL, NULL, '2025-01-26 10:30:00', '2025-01-25 14:20:00', '测试环境Windows Agent');

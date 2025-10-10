@@ -7,6 +7,7 @@ import (
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/app/master/router"
 
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
@@ -14,7 +15,7 @@ import (
 
 // App 应用程序结构体
 type App struct {
-	router *Router
+	router *router.Router
 	db     *gorm.DB
 	redis  *redis.Client
 	config *config.Config
@@ -124,7 +125,7 @@ func NewApp() (*App, error) {
 	}
 
 	// 初始化路由器
-	router := NewRouter(db, redisClient, cfg.JWT.Secret)
+	router := router.NewRouter(db, redisClient, cfg.JWT.Secret)
 
 	// 设置路由
 	router.SetupRoutes()
@@ -138,7 +139,7 @@ func NewApp() (*App, error) {
 }
 
 // GetRouter 获取路由器实例
-func (a *App) GetRouter() *Router {
+func (a *App) GetRouter() *router.Router { // 返回类型使用router包中的Router类型
 	return a.router
 }
 

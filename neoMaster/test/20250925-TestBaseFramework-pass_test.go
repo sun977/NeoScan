@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"neomaster/internal/app/master"
+	"neomaster/internal/app/master/middleware"
 	"neomaster/internal/config"
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
@@ -46,7 +47,7 @@ type TestSuite struct {
 	SessionService    *authService.SessionService  // 会话服务
 	RBACService       *authService.RBACService     // RBAC服务
 	passwordManager   *auth.PasswordManager        // 密码管理器
-	MiddlewareManager *master.MiddlewareManager    // 中间件管理器
+	MiddlewareManager *middleware.MiddlewareManager // 中间件管理器，使用middleware包中的类型
 }
 
 // SetupTestEnvironment 设置测试环境
@@ -148,9 +149,9 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	}
 
 	// 创建中间件管理器 - 只有在所有服务都可用时才创建
-	var middlewareManager *master.MiddlewareManager
+	var middlewareManager *middleware.MiddlewareManager // 使用middleware包中的MiddlewareManager类型
 	if authSvc != nil && rbacService != nil && jwtService != nil {
-		middlewareManager = master.NewMiddlewareManager(authSvc, rbacService, jwtService)
+		middlewareManager = middleware.NewMiddlewareManager(authSvc, rbacService, jwtService) // 使用middleware包中的NewMiddlewareManager函数
 	}
 
 	// 返回完整的测试套件

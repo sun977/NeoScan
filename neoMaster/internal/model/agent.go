@@ -90,7 +90,7 @@ type Agent struct {
 	// 时间戳
 	ResultLatestTime *time.Time `json:"result_latest_time" gorm:"comment:最新返回结果时间"`
 	LastHeartbeat    time.Time  `json:"last_heartbeat" gorm:"comment:最后心跳时间"`
-	RegisteredAt     time.Time  `json:"registered_at" gorm:"comment:注册时间"`
+	CreatedAt        time.Time  `json:"created_at" gorm:"comment:注册时间"`
 	UpdatedAt        time.Time  `json:"updated_at" gorm:"comment:更新时间"`
 
 	// 扩展字段

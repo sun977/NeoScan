@@ -1,4 +1,4 @@
-package master
+package router
 
 import (
 	"net/http"
@@ -11,6 +11,7 @@ import (
 	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	authService "neomaster/internal/service/auth"
+	"neomaster/internal/app/master/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -20,7 +21,7 @@ import (
 // Router 路由管理器
 type Router struct {
 	engine            *gin.Engine
-	middlewareManager *MiddlewareManager
+	middlewareManager *middleware.MiddlewareManager
 	loginHandler      *authHandler.LoginHandler
 	logoutHandler     *authHandler.LogoutHandler
 	refreshHandler    *authHandler.RefreshHandler
@@ -80,7 +81,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	passwordService := authService.NewPasswordService(userService, sessionService, passwordManager, time.Hour*24)
 
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
-	middlewareManager := NewMiddlewareManager(sessionService, rbacService, jwtService)
+	middlewareManager := middleware.NewMiddlewareManager(sessionService, rbacService, jwtService)
 
 	// 初始化处理器(控制器是服务集合,先初始化服务,然后服务装填成控制器)
 	loginHandler := authHandler.NewLoginHandler(sessionService)

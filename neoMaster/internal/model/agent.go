@@ -63,10 +63,10 @@ const (
 
 // 1. Agent基础信息 - 相对静态，注册时确定
 type Agent struct {
-	// // 引用基类 (ID, CreatedAt, UpdatedAt)
-	// BaseModel
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
 	// 基本信息
-	ID        uint        `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库Agent标识ID"`
 	AgentID   string      `json:"agent_id" gorm:"uniqueIndex;not null;size:100;comment:Agent唯一标识ID"`
 	Hostname  string      `json:"hostname" gorm:"size:255;comment:主机名"`
 	IPAddress string      `json:"ip_address" gorm:"size:45;comment:IP地址，支持IPv6"`
@@ -92,8 +92,6 @@ type Agent struct {
 	// 时间戳
 	ResultLatestTime *time.Time `json:"result_latest_time" gorm:"comment:最新返回结果时间"`
 	LastHeartbeat    time.Time  `json:"last_heartbeat" gorm:"comment:最后心跳时间"`
-	CreatedAt        time.Time  `json:"created_at" gorm:"comment:注册时间"`
-	UpdatedAt        time.Time  `json:"updated_at" gorm:"comment:更新时间"`
 
 	// 扩展字段
 	Remark string `json:"remark" gorm:"size:500;comment:备注信息"`
@@ -234,15 +232,15 @@ func (Agent) TableName() string {
 
 // Agent版本信息
 type AgentVersion struct {
-	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库版本标识ID"`
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
 	Version     string    `json:"version" gorm:"not null;size:50;comment:版本号"`
 	ReleaseDate time.Time `json:"release_date" gorm:"comment:发布日期"`
 	Changelog   string    `json:"changelog" gorm:"type:text;comment:版本更新日志"`
 	DownloadURL string    `json:"download_url" gorm:"size:500;comment:下载地址"`
 	IsActive    bool      `json:"is_active" gorm:"default:true;comment:是否激活"`
 	IsLatest    bool      `json:"is_latest" gorm:"default:false;comment:是否为最新版本"`
-	CreatedAt   time.Time `json:"created_at" gorm:"comment:创建时间"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"comment:更新时间"`
 }
 
 // IsActiveVersion 检查版本是否激活
@@ -265,7 +263,9 @@ func (AgentVersion) TableName() string {
 
 // 2. Agent配置 - 独立管理，支持版本控制
 type AgentConfig struct {
-	ID                  uint                   `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库配置标识ID"`
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
 	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
 	Version             int                    `json:"version" gorm:"default:1;comment:配置版本号"`
 	HeartbeatInterval   int                    `json:"heartbeat_interval" gorm:"default:30;comment:心跳间隔(秒)"`
@@ -277,8 +277,6 @@ type AgentConfig struct {
 	TokenExpiryDuration int                    `json:"token_expiry_duration" gorm:"default:86400;comment:Token过期时间(秒)"`
 	TokenNeverExpire    bool                   `json:"token_never_expire" gorm:"default:false;comment:Token是否永不过期"`
 	IsActive            bool                   `json:"is_active" gorm:"default:true;comment:是否激活"`
-	CreatedAt           time.Time              `json:"created_at" gorm:"comment:创建时间"`
-	UpdatedAt           time.Time              `json:"updated_at" gorm:"comment:更新时间"`
 }
 
 // IsActiveConfig 检查配置是否激活
@@ -302,7 +300,9 @@ func (AgentConfig) TableName() string {
 
 // 3. Agent负载信息(动态) - 高频更新，独立存储
 type AgentMetrics struct {
-	ID                uint                   `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库指标标识ID"`
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
 	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
 	CPUUsage          float64                `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
 	MemoryUsage       float64                `json:"memory_usage" gorm:"comment:内存使用率(百分比)"`
@@ -361,8 +361,7 @@ type MetricsCollector interface {
 // 注意：实际的指标数据需要通过gRPC等通信方式从Agent获取并填充,这里只是一个空的Metrics对象
 func (a *Agent) CreateAgentMetrics() *AgentMetrics {
 	return &AgentMetrics{
-		ID:        a.ID,
-		AgentID:   a.AgentID,
+		AgentID:   a.AgentID, // 使用AgentID而不是ID，因为AgentMetrics应该关联到Agent的业务ID
 		Timestamp: time.Now(),
 	}
 }
@@ -375,13 +374,13 @@ func (AgentMetrics) TableName() string {
 
 // 4. Agent分组
 type AgentGroup struct {
-	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库分组标识ID，唯一"`
-	GroupID     string    `json:"group_id" gorm:"not null;size:50;comment:分组ID"`
-	Name        string    `json:"name" gorm:"not null;size:100;comment:分组名称"`
-	Description string    `json:"description" gorm:"size:500;comment:分组描述"`
-	Tags        []string  `json:"tags" gorm:"type:json;comment:分组标签列表"`
-	CreatedAt   time.Time `json:"created_at" gorm:"comment:创建时间"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"comment:更新时间"`
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
+	GroupID     string   `json:"group_id" gorm:"not null;size:100;comment:分组ID"`
+	Name        string   `json:"name" gorm:"not null;size:100;comment:分组名称"`
+	Description string   `json:"description" gorm:"size:500;comment:分组描述"`
+	Tags        []string `json:"tags" gorm:"type:json;comment:分组标签列表"`
 }
 
 // IsValid 检查分组是否有效
@@ -405,11 +404,12 @@ func (AgentGroup) TableName() string {
 // AgentGroupMember 结构体定义Agent分组成员关系[联合分组是一对一关系,不能使用联合分组]
 // 注意：一个Agent可以属于多个分组,一个分组可以包含多个Agent
 type AgentGroupMember struct {
-	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库任务分配标识ID"`
-	AgentID   string    `json:"agent_id" gorm:"not null;size:100;comment:Agent业务ID"` // Agent业务ID,外键关联agents表
-	GroupID   string    `json:"group_id" gorm:"not null;size:100;comment:分组ID"`      // 分组ID,外键关联agent_groups表
-	JoinedAt  time.Time `json:"joined_at" gorm:"comment:加入时间"`
-	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
+	AgentID  string    `json:"agent_id" gorm:"not null;size:100;comment:Agent业务ID"` // Agent业务ID,外键关联agents表
+	GroupID  string    `json:"group_id" gorm:"not null;size:100;comment:分组ID"`      // 分组ID,外键关联agent_groups表
+	JoinedAt time.Time `json:"joined_at" gorm:"comment:加入时间"`
 }
 
 // TableName 指定AgentGroupMember表名
@@ -420,7 +420,9 @@ func (AgentGroupMember) TableName() string {
 
 // 5. 添加任务分发记录
 type AgentTaskAssignment struct {
-	ID          uint            `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库任务分配标识ID"`
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
 	AgentID     string          `json:"agent_id" gorm:"index;size:100;comment:Agent业务ID"`
 	TaskID      string          `json:"task_id" gorm:"index;size:100;comment:任务ID"`
 	TaskType    string          `json:"task_type" gorm:"size:50;comment:任务类型"`
@@ -497,15 +499,15 @@ func (AgentTaskAssignment) TableName() string {
 
 // 扫描类型结构体 [为自定义扫描类型预留,系统默认内置扫描类型在代码中定义]
 type ScanType struct {
-	ID             uint                   `json:"id" gorm:"primaryKey;autoIncrement;comment:数据库扫描类型标识ID"`
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	BaseModel
+
 	Name           string                 `json:"name" gorm:"unique;not null;size:100;comment:扫描类型名称，唯一"`
 	DisplayName    string                 `json:"display_name" gorm:"not null;size:100;comment:扫描类型显示名称"`
 	Description    string                 `json:"description" gorm:"size:500;comment:扫描类型描述"`
 	Category       string                 `json:"category" gorm:"size:50;comment:扫描类型分类"`
 	IsActive       bool                   `json:"is_active" gorm:"default:true;comment:是否激活"`
 	ConfigTemplate map[string]interface{} `json:"config_template" gorm:"type:json;comment:配置模板"`
-	CreatedAt      time.Time              `json:"created_at" gorm:"comment:创建时间"`
-	UpdatedAt      time.Time              `json:"updated_at" gorm:"comment:更新时间"`
 }
 
 // IsActiveType 检查扫描类型是否激活

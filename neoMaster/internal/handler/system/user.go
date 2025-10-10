@@ -1548,5 +1548,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 		"timestamp":  logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "重置密码成功"})
+	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "重置密码成功", Data: map[string]interface{}{
+		"password": "123456",
+	}})
 }

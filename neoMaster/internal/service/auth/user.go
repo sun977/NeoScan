@@ -102,13 +102,13 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 	}
 
 	if exists {
-		logger.LogError(model.ErrUserAlreadyExists, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogError(model.ErrUserOrEmailAlreadyExists, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"username":  req.Username,
 			"email":     req.Email,
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, model.ErrUserAlreadyExists
+		return nil, model.ErrUserOrEmailAlreadyExists
 	}
 
 	// 哈希密码
@@ -2238,7 +2238,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 		return errors.New("用户ID不能为0")
 	}
 
-	// 固定为安全的简单默认密码（满足最小要求）
+	// 固定为安全的简单默认密码（满足最小要求）[后续改成随机数]
 	const defaultPassword = "123456"
 
 	// 获取用户以进行存在性和日志校验

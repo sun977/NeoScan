@@ -16,19 +16,20 @@ var (
 	ErrInvalidEmail    = errors.New("邮箱格式无效")
 	ErrInvalidPassword = errors.New("密码格式无效")
 	ErrInvalidPhone    = errors.New("手机号格式无效")
-	
+
 	// 业务逻辑错误
-	ErrUserAlreadyExists = errors.New("用户已存在")
-	ErrUserNotFound      = errors.New("用户不存在")
-	ErrEmailAlreadyExists = errors.New("邮箱已存在")
-	ErrUsernameAlreadyExists = errors.New("用户名已存在")
-	
+	ErrUserAlreadyExists        = errors.New("用户已存在")
+	ErrUserNotFound             = errors.New("用户不存在")
+	ErrEmailAlreadyExists       = errors.New("邮箱已存在")
+	ErrUsernameAlreadyExists    = errors.New("用户名已存在")
+	ErrUserOrEmailAlreadyExists = errors.New("用户名或邮箱已存在")
+
 	// 认证错误
 	ErrInvalidCredentials = errors.New("用户名或密码错误")
 	ErrUserDisabled       = errors.New("用户已被禁用")
 	ErrTokenExpired       = errors.New("令牌已过期")
 	ErrTokenInvalid       = errors.New("令牌无效")
-	
+
 	// 权限错误
 	ErrPermissionDenied = errors.New("权限不足")
 	ErrUnauthorized     = errors.New("未授权访问")

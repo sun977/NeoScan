@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"neomaster/internal/app/master/middleware"
 	authHandler "neomaster/internal/handler/auth"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
@@ -11,7 +12,6 @@ import (
 	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	authService "neomaster/internal/service/auth"
-	"neomaster/internal/app/master/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -137,7 +137,7 @@ func (r *Router) SetupRoutes() {
 	r.setupHealthRoutes(api)
 }
 
-// setupPublicRoutes 设置公共路由
+// setupPublicRoutes 设置公共路由 - 拆分 public_routes.go
 func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 	// 认证相关公共路由
 	auth := v1.Group("/auth")
@@ -157,7 +157,7 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 	}
 }
 
-// setupAuthRoutes 设置认证路由
+// setupAuthRoutes 设置认证路由 - 拆分 user_routes.go setupUserRoutes
 func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	// 认证相关路由（需要JWT认证和用户激活状态检查）
 	auth := v1.Group("/auth")
@@ -187,7 +187,7 @@ func (r *Router) setupAuthRoutes(v1 *gin.RouterGroup) {
 	}
 }
 
-// setupAdminRoutes 设置管理员路由
+// setupAdminRoutes 设置管理员路由 - 拆分 admin_routes.go
 func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 	// 管理员路由组（需要JWT认证、用户激活状态检查和管理员权限）
 	admin := v1.Group("/admin")

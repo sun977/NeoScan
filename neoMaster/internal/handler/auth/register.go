@@ -143,7 +143,8 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 			"user_agent":  userAgent,
 			"status_code": statusCode,
 			"request_id":  XRequestID,
-			"timestamp":   logger.NowFormatted(),
+			// "Error":       err.Error(),
+			"timestamp": logger.NowFormatted(),
 		})
 		c.JSON(statusCode, model.APIResponse{
 			Code:    statusCode,

@@ -1,15 +1,20 @@
 -- NeoScan Agent模块数据库建表SQL脚本
 -- 数据库: neoscan_dev
 -- 版本: MySQL 8.0
--- 生成时间: 2025-09-26
--- 说明: 根据Agent模型定义生成的建表语句[推荐使用sql文件生成数据表而非go结构体创建(有额外优化设置)]
+-- 生成时间: 2025-10-10 (优化版本)
+-- 说明: 根据使用BaseModel优化后的Agent模型定义生成的建表语句
+-- 优化内容: 
+--   1. 统一ID字段类型为bigint unsigned，对应Go的uint64
+--   2. 确保所有表结构与Go结构体完全匹配
+--   3. 保持外键约束和索引的一致性
 
 -- 使用现有数据库
 USE `neoscan_dev`;
 
 -- 1. Agent基础信息表 (agents)
+-- 对应Go结构体: Agent (使用BaseModel)
 CREATE TABLE `agents` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库Agent标识ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent唯一标识ID',
     `hostname` varchar(255) NOT NULL COMMENT '主机名',
     `ip_address` varchar(45) NOT NULL COMMENT 'IP地址，支持IPv6',
@@ -27,11 +32,11 @@ CREATE TABLE `agents` (
     `token_expiry` datetime DEFAULT NULL COMMENT 'Token过期时间',
     `result_latest_time` datetime DEFAULT NULL COMMENT '最新返回结果时间',
     `last_heartbeat` datetime DEFAULT NULL COMMENT '最后心跳时间',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `remark` varchar(500) DEFAULT NULL COMMENT '备注信息',
     `container_id` varchar(100) DEFAULT NULL COMMENT '容器ID',
     `pid` int DEFAULT NULL COMMENT '进程ID',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_agent_id` (`agent_id`),
     KEY `idx_agents_status` (`status`),
@@ -41,16 +46,17 @@ CREATE TABLE `agents` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent基础信息表';
 
 -- 2. Agent版本信息表 (agent_versions)
+-- 对应Go结构体: AgentVersion (使用BaseModel)
 CREATE TABLE `agent_versions` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库版本标识ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `version` varchar(50) NOT NULL COMMENT '版本号',
     `release_date` datetime NOT NULL COMMENT '发布日期',
     `changelog` text DEFAULT NULL COMMENT '版本更新日志',
     `download_url` varchar(500) DEFAULT NULL COMMENT '下载地址',
     `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否激活',
     `is_latest` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否为最新版本',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_versions_version` (`version`),
     KEY `idx_agent_versions_is_active` (`is_active`),
@@ -59,8 +65,9 @@ CREATE TABLE `agent_versions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent版本信息表';
 
 -- 3. Agent配置表 (agent_configs)
+-- 对应Go结构体: AgentConfig (使用BaseModel)
 CREATE TABLE `agent_configs` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库配置标识ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
     `version` int NOT NULL DEFAULT '1' COMMENT '配置版本号',
     `heartbeat_interval` int NOT NULL DEFAULT '30' COMMENT '心跳间隔(秒)',
@@ -72,8 +79,8 @@ CREATE TABLE `agent_configs` (
     `token_expiry_duration` int NOT NULL DEFAULT '86400' COMMENT 'Token过期时间(秒)',
     `token_never_expire` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Token是否永不过期',
     `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否激活',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_configs_agent_id` (`agent_id`),
     KEY `idx_agent_configs_is_active` (`is_active`),
@@ -81,8 +88,9 @@ CREATE TABLE `agent_configs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent配置表';
 
 -- 4. Agent指标表 (agent_metrics)
+-- 对应Go结构体: AgentMetrics (使用BaseModel)
 CREATE TABLE `agent_metrics` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库指标标识ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
     `cpu_usage` double DEFAULT NULL COMMENT 'CPU使用率(百分比)',
     `memory_usage` double DEFAULT NULL COMMENT '内存使用率(百分比)',
@@ -97,8 +105,8 @@ CREATE TABLE `agent_metrics` (
     `scan_type` varchar(50) DEFAULT NULL COMMENT '当前扫描类型',
     `plugin_status` json DEFAULT NULL COMMENT '插件状态信息',
     `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '指标时间戳',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_metrics_agent_id` (`agent_id`),
     KEY `idx_agent_metrics_timestamp` (`timestamp`),
@@ -108,14 +116,15 @@ CREATE TABLE `agent_metrics` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent指标表';
 
 -- 5. Agent分组表 (agent_groups)
+-- 对应Go结构体: AgentGroup (使用BaseModel)
 CREATE TABLE `agent_groups` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库分组标识ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `group_id` varchar(100) NOT NULL COMMENT '分组业务ID，唯一索引',
     `name` varchar(100) NOT NULL COMMENT '分组名称',
     `description` varchar(500) DEFAULT NULL COMMENT '分组描述',
     `tags` json DEFAULT NULL COMMENT '分组标签列表',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_groups_name` (`name`),
     UNIQUE KEY `idx_agent_groups_group_id` (`group_id`),
@@ -123,13 +132,14 @@ CREATE TABLE `agent_groups` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent分组表';
 
 -- 6. Agent分组成员关联表 (agent_group_members)
+-- 对应Go结构体: AgentGroupMember (使用BaseModel)
 CREATE TABLE `agent_group_members` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '关联唯一标识ID，主键自增',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID',
     `group_id` varchar(100) NOT NULL COMMENT '分组业务ID',
     `joined_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_group_members_agent_id_group_id` (`agent_id`,`group_id`),
     KEY `idx_agent_group_members_group_id` (`group_id`),
@@ -139,8 +149,9 @@ CREATE TABLE `agent_group_members` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent分组成员关联表';
 
 -- 7. Agent任务分配表 (agent_task_assignments)
+-- 对应Go结构体: AgentTaskAssignment (使用BaseModel)
 CREATE TABLE `agent_task_assignments` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库任务分配标识ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID',
     `task_id` varchar(100) NOT NULL COMMENT '任务ID',
     `task_type` varchar(50) NOT NULL COMMENT '任务类型',
@@ -149,8 +160,8 @@ CREATE TABLE `agent_task_assignments` (
     `completed_at` datetime DEFAULT NULL COMMENT '任务完成时间',
     `status` varchar(20) NOT NULL DEFAULT 'assigned' COMMENT '任务状态:assigned-已分配,running-运行中,completed-已完成,failed-已失败',
     `result` text DEFAULT NULL COMMENT '任务执行结果',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     KEY `idx_agent_task_assignments_agent_id` (`agent_id`),
     KEY `idx_agent_task_assignments_task_id` (`task_id`),
@@ -160,16 +171,17 @@ CREATE TABLE `agent_task_assignments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent任务分配表';
 
 -- 8. Agent扫描类型表 (agent_scan_types)
+-- 对应Go结构体: ScanType (使用BaseModel)
 CREATE TABLE `agent_scan_types` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '数据库扫描类型标识ID',
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `name` varchar(100) NOT NULL COMMENT '扫描类型名称，唯一',
     `display_name` varchar(100) NOT NULL COMMENT '扫描类型显示名称',
     `description` varchar(500) DEFAULT NULL COMMENT '扫描类型描述',
     `category` varchar(50) DEFAULT NULL COMMENT '扫描类型分类',
     `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否激活',
     `config_template` json DEFAULT NULL COMMENT '配置模板',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_scan_types_name` (`name`),
     KEY `idx_agent_scan_types_is_active` (`is_active`),
@@ -196,10 +208,10 @@ INSERT INTO `agent_scan_types` (`name`, `display_name`, `description`, `category
 ('web_scan', 'Web扫描', '对Web应用进行安全扫描', 'web', '{"crawl_depth": 3, "timeout": 600, "check_sql_injection": true}');
 
 -- 开发测试Agent数据
-INSERT INTO `agents` (`agent_id`, `hostname`, `ip_address`, `port`, `version`, `status`, `os`, `arch`, `cpu_cores`, `memory_total`, `disk_total`, `capabilities`, `tags`, `grpc_token`, `token_expiry`, `last_heartbeat`, `created_at`, `remark`) VALUES
-('neoscan-agent-001', 'dev-scanner-01', '192.168.1.100', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 8, 17179869184, 107374182400, '["port_scan", "vuln_scan", "web_scan"]', '["development", "scanner"]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:55:00', '2025-01-20 10:00:00', '开发环境测试Agent'),
-('neoscan-agent-002', 'prod-scanner-01', '10.0.1.50', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 16, 34359738368, 214748364800, '["port_scan", "vuln_scan", "web_scan", "api_scan"]', '["production", "high-performance"]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:58:00', '2025-01-18 09:30:00', '生产环境高性能Agent'),
-('neoscan-agent-003', 'test-scanner-01', '172.16.0.10', 5772, 'v1.0.0', 'offline', 'Windows', 'x86_64', 4, 8589934592, 53687091200, '["port_scan", "web_scan"]', '["test", "windows"]', NULL, NULL, '2025-01-26 10:30:00', '2025-01-25 14:20:00', '测试环境Windows Agent');
+INSERT INTO `agents` (`agent_id`, `hostname`, `ip_address`, `port`, `version`, `status`, `os`, `arch`, `cpu_cores`, `memory_total`, `disk_total`, `capabilities`, `tags`, `grpc_token`, `token_expiry`, `last_heartbeat`, `remark`) VALUES
+('neoscan-agent-001', 'dev-scanner-01', '192.168.1.100', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 8, 17179869184, 107374182400, '["port_scan", "vuln_scan", "web_scan"]', '["development", "scanner"]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:55:00', '开发环境测试Agent'),
+('neoscan-agent-002', 'prod-scanner-01', '10.0.1.50', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 16, 34359738368, 214748364800, '["port_scan", "vuln_scan", "web_scan", "api_scan"]', '["production", "high-performance"]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:58:00', '生产环境高性能Agent'),
+('neoscan-agent-003', 'test-scanner-01', '172.16.0.10', 5772, 'v1.0.0', 'offline', 'Windows', 'x86_64', 4, 8589934592, 53687091200, '["port_scan", "web_scan"]', '["test", "windows"]', NULL, NULL, '2025-01-26 10:30:00', '测试环境Windows Agent');
 
 -- Agent配置数据
 INSERT INTO `agent_configs` (`agent_id`, `version`, `heartbeat_interval`, `task_poll_interval`, `max_concurrent_tasks`, `plugin_config`, `log_level`, `timeout`) VALUES
@@ -241,7 +253,8 @@ CREATE INDEX `idx_agent_task_assignments_type_status` ON `agent_task_assignments
 CREATE INDEX `idx_agent_task_assignments_assigned_completed` ON `agent_task_assignments` (`assigned_at`, `completed_at`);
 
 -- 显示建表完成信息
-SELECT 'NeoScan Agent模块数据库表结构创建完成！' as message;
+SELECT 'NeoScan Agent模块数据库表结构创建完成！(优化版本)' as message;
 SELECT 'Tables created: agents, agent_versions, agent_configs, agent_metrics, agent_groups, agent_group_members, agent_task_assignments, agent_scan_types' as tables_info;
+SELECT 'BaseModel integration: All tables now use bigint unsigned ID matching Go uint64 type' as optimization_info;
 SELECT 'Default data inserted: 2 versions, 3 groups, 3 scan types, 3 agents with configs and metrics' as data_info;
 SELECT 'Performance indexes created for optimal query performance' as index_info;

@@ -117,6 +117,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 }
 
 // SetupRoutes 设置路由
+// 在这里配置调用各个路由模块
 func (r *Router) SetupRoutes() {
 	// 设置全局中间件
 	r.engine.Use(r.middlewareManager.GinCORSMiddleware())
@@ -132,7 +133,7 @@ func (r *Router) SetupRoutes() {
 	// 公共路由（不需要认证）
 	r.setupPublicRoutes(v1)
 
-	// 认证路由（需要JWT认证）
+	// 用户认证路由（需要JWT认证）
 	r.setupUserRoutes(v1)
 
 	// 管理员路由（需要管理员权限）

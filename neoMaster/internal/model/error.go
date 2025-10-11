@@ -41,6 +41,13 @@ type ValidationError struct {
 	Message string `json:"message"` // 错误消息
 }
 
+// NewValidationError 创建验证错误
+func NewValidationError(message string) *ValidationError {
+	return &ValidationError{
+		Message: message,
+	}
+}
+
 // Error 实现error接口
 func (e *ValidationError) Error() string {
 	return e.Message

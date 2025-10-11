@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm"
 
 	"neomaster/internal/handler/scan_config"
-	"neomaster/internal/pkg/rule_engine"
+	"neomaster/internal/service/scan_config/rule_engine"
 	"neomaster/internal/app/master/router"
 )
 

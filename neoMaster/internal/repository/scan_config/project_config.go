@@ -66,7 +66,7 @@ func NewProjectConfigRepository(db *gorm.DB) *ProjectConfigRepository {
 func (r *ProjectConfigRepository) CreateProjectConfig(ctx context.Context, config *scan_config.ProjectConfig) error {
 	config.CreatedAt = time.Now()
 	config.UpdatedAt = time.Now()
-	
+
 	err := r.db.WithContext(ctx).Create(config).Error
 	if err != nil {
 		// 记录创建失败日志
@@ -183,14 +183,14 @@ func (r *ProjectConfigRepository) DeleteProjectConfig(ctx context.Context, id ui
 func (r *ProjectConfigRepository) GetProjectConfigList(ctx context.Context, offset, limit int, status *scan_config.ProjectConfigStatus) ([]*scan_config.ProjectConfig, int64, error) {
 	var configs []*scan_config.ProjectConfig
 	var total int64
-	
+
 	query := r.db.WithContext(ctx).Model(&scan_config.ProjectConfig{})
-	
+
 	// 状态过滤
 	if status != nil {
 		query = query.Where("status = ?", *status)
 	}
-	
+
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		logger.LogError(err, "", 0, "", "project_config_list", "GET", map[string]interface{}{
@@ -199,7 +199,7 @@ func (r *ProjectConfigRepository) GetProjectConfigList(ctx context.Context, offs
 		})
 		return nil, 0, err
 	}
-	
+
 	// 获取分页数据
 	err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&configs).Error
 	if err != nil {
@@ -211,7 +211,7 @@ func (r *ProjectConfigRepository) GetProjectConfigList(ctx context.Context, offs
 		})
 		return nil, 0, err
 	}
-	
+
 	return configs, total, nil
 }
 

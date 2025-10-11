@@ -24,7 +24,7 @@ import (
 // RuleEngineHandler 规则引擎处理器
 // 这是一个"好品味"的处理器设计 - 职责单一，专注于规则引擎操作
 type RuleEngineHandler struct {
-	ruleEngine      *rule_engine.RuleEngine           // 规则引擎实例
+	ruleEngine      *rule_engine.RuleEngine            // 规则引擎实例
 	scanRuleService *scanConfigService.ScanRuleService // 扫描规则服务
 }
 
@@ -481,9 +481,9 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 	tempRule := &rule_engine.Rule{
 		ID:         "temp-rule",
 		Name:       "临时验证规则",
-		Severity:   "low",                      // 设置默认严重程度
-		Priority:   50,                         // 设置默认优先级
-		Enabled:    true,                       // 设置为启用状态
+		Severity:   "low",                     // 设置默认严重程度
+		Priority:   50,                        // 设置默认优先级
+		Enabled:    true,                      // 设置为启用状态
 		Conditions: []rule_engine.Condition{}, // 暂时为空，因为req.Conditions是string类型
 		Actions:    make([]rule_engine.Action, len(req.Actions)),
 	}

@@ -1185,7 +1185,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 	}
 
 	// 调用服务层匹配扫描规则
-	rules, err := h.scanRuleService.MatchScanRules(c.Request.Context(), req.TargetData, req.RuleType)
+	rules, err := h.scanRuleService.MatchScanRules(c.Request.Context(), &req)
 	if err != nil {
 		logger.Error("匹配扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/match",
@@ -1498,8 +1498,32 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 		return
 	}
 
+	// 首先获取规则信息
+	rule, err := h.scanRuleService.GetScanRule(c.Request.Context(), uint(id))
+	if err != nil {
+		logger.Error("获取扫描规则失败", map[string]interface{}{
+			"path":       "/api/v1/scan-config/rules/:id/test",
+			"operation":  "test_scan_rule",
+			"option":     "scanRuleService.GetScanRule",
+			"func_name":  "handler.scan_config.scan_rule.TestScanRule",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": requestID,
+			"id":         id,
+			"error":      err.Error(),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusNotFound, model.APIResponse{
+			Code:    http.StatusNotFound,
+			Status:  "error",
+			Message: "扫描规则不存在",
+			Error:   err.Error(),
+		})
+		return
+	}
+
 	// 调用服务层测试扫描规则
-	result, err := h.scanRuleService.TestScanRule(c.Request.Context(), req.RuleID, req.Target)
+	result, err := h.scanRuleService.TestScanRule(c.Request.Context(), rule, req.Target)
 	if err != nil {
 		logger.Error("测试扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/:id/test",

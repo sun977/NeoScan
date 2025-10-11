@@ -15,7 +15,6 @@ import (
 	scanConfigHandler "neomaster/internal/handler/scan_config"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
-	"neomaster/internal/pkg/rule_engine"
 	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	scanConfigRepo "neomaster/internal/repository/scan_config"
@@ -120,15 +119,13 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	scanToolService := scanConfigService.NewScanToolService(scanToolRepo)
 	scanRuleService := scanConfigService.NewScanRuleService(scanRuleRepo)
 
-	// 初始化规则引擎
-	ruleEngine := rule_engine.NewRuleEngine(time.Hour) // 缓存超时时间1小时
-
 	// 初始化扫描配置相关Handler
 	projectConfigHandler := scanConfigHandler.NewProjectConfigHandler(projectConfigService)
 	workflowHandler := scanConfigHandler.NewWorkflowHandler(workflowService)
 	scanToolHandler := scanConfigHandler.NewScanToolHandler(scanToolService)
 	scanRuleHandler := scanConfigHandler.NewScanRuleHandler(*scanRuleService)
-	ruleEngineHandler := scanConfigHandler.NewRuleEngineHandler(ruleEngine, scanRuleService)
+	// 规则引擎Handler现在完全通过ScanRuleService管理规则引擎，不再需要单独的规则引擎实例
+	ruleEngineHandler := scanConfigHandler.NewRuleEngineHandler(nil, scanRuleService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式

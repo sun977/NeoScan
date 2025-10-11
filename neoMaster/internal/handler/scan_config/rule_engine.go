@@ -11,30 +11,28 @@ import (
 	"context"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
-	"neomaster/internal/pkg/rule_engine"
 	scanConfigService "neomaster/internal/service/scan_config"
+	"neomaster/internal/service/scan_config/rule_engine"
 
 	"github.com/gin-gonic/gin"
 )
 
 // RuleEngineHandler 规则引擎处理器
-// 这是一个"好品味"的处理器设计 - 职责单一，专注于规则引擎操作
+// 负责处理规则引擎相关的HTTP请求
+// 现在完全通过ScanRuleService管理规则引擎，不再直接依赖规则引擎实例
 type RuleEngineHandler struct {
-	ruleEngine      *rule_engine.RuleEngine            // 规则引擎实例
 	scanRuleService *scanConfigService.ScanRuleService // 扫描规则服务
 }
 
 // NewRuleEngineHandler 创建规则引擎处理器实例
-// @param ruleEngine 规则引擎实例
+// @param ruleEngine 规则引擎实例（已废弃，传入nil即可）
 // @param scanRuleService 扫描规则服务实例
 // @return *RuleEngineHandler 规则引擎处理器实例
 func NewRuleEngineHandler(ruleEngine *rule_engine.RuleEngine, scanRuleService *scanConfigService.ScanRuleService) *RuleEngineHandler {
 	return &RuleEngineHandler{
-		ruleEngine:      ruleEngine,
 		scanRuleService: scanRuleService,
 	}
 }
@@ -131,8 +129,8 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	}
 
 	// 解析请求体中的规则上下文
-	var context rule_engine.RuleContext
-	if err := c.ShouldBindJSON(&context); err != nil {
+	var context map[string]interface{}
+	if err1 := c.ShouldBindJSON(&context); err1 != nil {
 		logger.Error("解析规则执行上下文失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
@@ -142,69 +140,20 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"user_agent": userAgent,
 			"request_id": requestID,
 			"id":         id,
-			"error":      err.Error(),
+			"error":      err1.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
 		c.JSON(http.StatusBadRequest, model.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的规则执行上下文",
-			Error:   err.Error(),
+			Error:   err1.Error(),
 		})
 		return
 	}
 
-	// 将数据库规则转换为规则引擎规则并添加到引擎中
-	engineRule := &rule_engine.Rule{
-		ID:          strconv.Itoa(int(scanRule.ID)),
-		Name:        scanRule.Name,
-		Description: scanRule.Description,
-		Enabled:     scanRule.IsEnabled(),
-		Priority:    int(scanRule.Priority),
-		Severity:    "low",                     // 设置默认严重程度
-		Conditions:  []rule_engine.Condition{}, // 需要解析Condition字符串为Condition切片
-		Actions:     []rule_engine.Action{},    // 根据需要转换动作
-		CreatedAt:   scanRule.CreatedAt,
-		UpdatedAt:   scanRule.UpdatedAt,
-	}
-
-	// 添加默认条件和动作以通过验证
-	engineRule.Conditions = []rule_engine.Condition{
-		{
-			Field:    "default",
-			Operator: "eq",
-			Value:    "true",
-		},
-	}
-	engineRule.Actions = []rule_engine.Action{
-		{
-			Type:       "log",
-			Parameters: map[string]interface{}{"message": "规则执行"},
-		},
-	}
-
-	// 添加规则到引擎（如果不存在）
-	if err := h.ruleEngine.AddRule(engineRule); err != nil {
-		// 如果规则已存在，这是正常情况，不需要记录错误
-		if !strings.Contains(err.Error(), "规则已存在") {
-			logger.Error("添加规则到引擎失败", map[string]interface{}{
-				"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
-				"operation":  "execute_rule",
-				"option":     "add_rule",
-				"func_name":  "handler.scan_config.rule_engine.ExecuteRule",
-				"client_ip":  clientIP,
-				"user_agent": userAgent,
-				"request_id": requestID,
-				"id":         id,
-				"error":      err.Error(),
-				"timestamp":  logger.NowFormatted(),
-			})
-		}
-	}
-
-	// 执行规则 - 使用与添加规则时相同的ID格式
-	ruleID := strconv.Itoa(int(scanRule.ID))
-	result, err := h.ruleEngine.ExecuteRule(ruleID, &context)
+	// 通过服务层执行规则动作
+	result, err := h.scanRuleService.ExecuteRuleAction(c.Request.Context(), scanRule, context)
 	if err != nil {
 		logger.Error("执行规则失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
@@ -296,8 +245,8 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 		return
 	}
 
-	// 批量执行规则
-	result, err := h.ruleEngine.ExecuteRules(req.Context)
+	// 通过服务层批量执行规则
+	result, err := h.scanRuleService.ExecuteRulesAction(c.Request.Context(), req.RuleIDs, req.Context)
 	if err != nil {
 		logger.Error("批量执行规则失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rule-engine/rules/batch-execute",
@@ -358,8 +307,28 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	requestID := c.GetHeader("X-Request-ID")
 
-	// 获取规则引擎指标
-	metrics := h.ruleEngine.GetMetrics()
+	// 通过服务层获取规则引擎指标
+	metrics, err := h.scanRuleService.GetEngineMetrics(c.Request.Context())
+	if err != nil {
+		logger.Error("获取规则引擎指标失败", map[string]interface{}{
+			"path":       "/api/v1/scan-config/rule-engine/metrics",
+			"operation":  "get_engine_metrics",
+			"option":     "get_metrics",
+			"func_name":  "handler.scan_config.rule_engine.GetEngineMetrics",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": requestID,
+			"error":      err.Error(),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "获取规则引擎指标失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
 	// 记录成功日志
 	logger.Info("获取规则引擎指标成功", map[string]interface{}{
@@ -399,8 +368,28 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	requestID := c.GetHeader("X-Request-ID")
 
-	// 清空缓存
-	h.ruleEngine.ClearCache()
+	// 通过服务层清空缓存
+	err := h.scanRuleService.ClearEngineCache(c.Request.Context())
+	if err != nil {
+		logger.Error("清空规则引擎缓存失败", map[string]interface{}{
+			"path":       "/api/v1/scan-config/rule-engine/cache/clear",
+			"operation":  "clear_cache",
+			"option":     "clear",
+			"func_name":  "handler.scan_config.rule_engine.ClearCache",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": requestID,
+			"error":      err.Error(),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "清空规则引擎缓存失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
 	// 记录成功日志
 	logger.Info("清空规则引擎缓存成功", map[string]interface{}{
@@ -477,76 +466,28 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 		return
 	}
 
-	// 创建临时规则进行验证
-	tempRule := &rule_engine.Rule{
-		ID:         "temp-rule",
-		Name:       "临时验证规则",
-		Severity:   "low",                     // 设置默认严重程度
-		Priority:   50,                        // 设置默认优先级
-		Enabled:    true,                      // 设置为启用状态
-		Conditions: []rule_engine.Condition{}, // 暂时为空，因为req.Conditions是string类型
-		Actions:    make([]rule_engine.Action, len(req.Actions)),
+	// 通过服务层验证规则
+	response, err := h.scanRuleService.ValidateRule(c.Request.Context(), req.Conditions, req.Actions)
+	if err != nil {
+		logger.Error("验证规则失败", map[string]interface{}{
+			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
+			"operation":  "validate_rule",
+			"option":     "validate",
+			"func_name":  "handler.scan_config.rule_engine.ValidateRule",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": requestID,
+			"error":      err.Error(),
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, model.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "验证规则失败",
+			Error:   err.Error(),
+		})
+		return
 	}
-
-	// 添加默认条件以通过验证
-	tempRule.Conditions = []rule_engine.Condition{
-		{
-			Field:    "default",
-			Operator: "eq",
-			Value:    "true",
-		},
-	}
-
-	// 转换动作格式
-	for i, action := range req.Actions {
-		actionType, _ := action["type"].(string)
-		parameters, _ := action["parameters"].(map[string]interface{})
-		if parameters == nil {
-			parameters = make(map[string]interface{})
-		}
-
-		tempRule.Actions[i] = rule_engine.Action{
-			Type:       actionType,
-			Parameters: parameters,
-		}
-	}
-
-	// 验证规则
-	var response ValidateRuleResponse
-	var errors []string
-
-	// 验证条件表达式
-	if err := h.ruleEngine.ValidateRule(tempRule); err != nil {
-		response.ConditionValid = false
-		errors = append(errors, "条件表达式验证失败: "+err.Error())
-	} else {
-		response.ConditionValid = true
-	}
-
-	// 验证动作配置
-	response.ActionValid = true // 默认为true，如果有错误则设为false
-	for i, actionMap := range req.Actions {
-		// 转换为rule_engine.Action类型
-		actionType, _ := actionMap["type"].(string)
-		parameters, _ := actionMap["parameters"].(map[string]interface{})
-		if parameters == nil {
-			parameters = make(map[string]interface{})
-		}
-
-		action := rule_engine.Action{
-			Type:       actionType,
-			Parameters: parameters,
-		}
-
-		if err := h.ruleEngine.ValidateAction(action); err != nil {
-			response.ActionValid = false
-			errors = append(errors, "动作"+strconv.Itoa(i+1)+"验证失败: "+err.Error())
-		}
-	}
-
-	// 设置整体验证结果
-	response.Valid = response.ConditionValid && response.ActionValid
-	response.Errors = errors
 
 	// 记录日志
 	if response.Valid {
@@ -569,7 +510,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
-			"errors":     errors,
+			"errors":     response.Errors,
 			"timestamp":  logger.NowFormatted(),
 		})
 	}
@@ -628,8 +569,8 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 		return
 	}
 
-	// 解析条件表达式
-	condition, err := h.ruleEngine.ParseCondition(c.Request.Context(), req.Expression)
+	// 通过服务层解析条件表达式
+	condition, err := h.scanRuleService.ParseCondition(c.Request.Context(), req.Expression)
 	if err != nil {
 		logger.Error("解析条件表达式失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rule-engine/conditions/parse",

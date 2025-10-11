@@ -38,7 +38,7 @@ import (
 	"neomaster/internal/model/scan_config"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scan_config_service "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/scan_config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -47,12 +47,12 @@ import (
 // ScanToolHandler 扫描工具处理器结构体
 // 负责处理扫描工具相关的HTTP请求
 type ScanToolHandler struct {
-	scanToolService *scan_config_service.ScanToolService // 扫描工具服务
+	scanToolService *scanConfigService.ScanToolService // 扫描工具服务
 }
 
 // NewScanToolHandler 创建扫描工具处理器实例
 // 注入必要的Service依赖，遵循依赖注入原则
-func NewScanToolHandler(scanToolService *scan_config_service.ScanToolService) *ScanToolHandler {
+func NewScanToolHandler(scanToolService *scanConfigService.ScanToolService) *ScanToolHandler {
 	return &ScanToolHandler{
 		scanToolService: scanToolService,
 	}

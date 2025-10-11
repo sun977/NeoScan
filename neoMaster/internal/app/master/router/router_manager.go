@@ -12,11 +12,15 @@ import (
 
 	"neomaster/internal/app/master/middleware"
 	authHandler "neomaster/internal/handler/auth"
+	scanConfigHandler "neomaster/internal/handler/scan_config"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
+	"neomaster/internal/pkg/rule_engine"
 	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
+	scanConfigRepo "neomaster/internal/repository/scan_config"
 	authService "neomaster/internal/service/auth"
+	scanConfigService "neomaster/internal/service/scan_config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -35,6 +39,12 @@ type Router struct {
 	roleHandler       *systemHandler.RoleHandler
 	permissionHandler *systemHandler.PermissionHandler
 	sessionHandler    *systemHandler.SessionHandler
+	// 扫描配置相关Handler
+	projectConfigHandler *scanConfigHandler.ProjectConfigHandler
+	workflowHandler      *scanConfigHandler.WorkflowHandler
+	scanToolHandler      *scanConfigHandler.ScanToolHandler
+	scanRuleHandler      *scanConfigHandler.ScanRuleHandler
+	ruleEngineHandler    *scanConfigHandler.RuleEngineHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -98,6 +108,28 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	permissionHandler := systemHandler.NewPermissionHandler(permissionService)
 	sessionHandler := systemHandler.NewSessionHandler(sessionService)
 
+	// 初始化扫描配置相关Repository
+	projectConfigRepo := scanConfigRepo.NewProjectConfigRepository(db)
+	workflowConfigRepo := scanConfigRepo.NewWorkflowConfigRepository(db)
+	scanToolRepo := scanConfigRepo.NewScanToolRepository(db)
+	scanRuleRepo := scanConfigRepo.NewScanRuleRepository(db)
+
+	// 初始化扫描配置相关Service
+	projectConfigService := scanConfigService.NewProjectConfigService(projectConfigRepo, workflowConfigRepo, scanToolRepo)
+	workflowService := scanConfigService.NewWorkflowService(workflowConfigRepo, projectConfigRepo, scanToolRepo, scanRuleRepo)
+	scanToolService := scanConfigService.NewScanToolService(scanToolRepo)
+	scanRuleService := scanConfigService.NewScanRuleService(scanRuleRepo)
+
+	// 初始化规则引擎
+	ruleEngine := rule_engine.NewRuleEngine(time.Hour) // 缓存超时时间1小时
+
+	// 初始化扫描配置相关Handler
+	projectConfigHandler := scanConfigHandler.NewProjectConfigHandler(projectConfigService)
+	workflowHandler := scanConfigHandler.NewWorkflowHandler(workflowService)
+	scanToolHandler := scanConfigHandler.NewScanToolHandler(scanToolService)
+	scanRuleHandler := scanConfigHandler.NewScanRuleHandler(*scanRuleService)
+	ruleEngineHandler := scanConfigHandler.NewRuleEngineHandler(ruleEngine, scanRuleService)
+
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
 	engine := gin.New()
@@ -113,6 +145,12 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		roleHandler:       roleHandler,
 		permissionHandler: permissionHandler,
 		sessionHandler:    sessionHandler,
+		// 扫描配置相关Handler
+		projectConfigHandler: projectConfigHandler,
+		workflowHandler:      workflowHandler,
+		scanToolHandler:      scanToolHandler,
+		scanRuleHandler:      scanRuleHandler,
+		ruleEngineHandler:    ruleEngineHandler,
 	}
 }
 
@@ -138,6 +176,9 @@ func (r *Router) SetupRoutes() {
 
 	// 管理员路由（需要管理员权限）
 	r.setupAdminRoutes(v1)
+
+	// 扫描配置路由（需要JWT认证）
+	r.setupScanConfigRoutes(v1)
 
 	// 健康检查路由
 	r.setupHealthRoutes(api)

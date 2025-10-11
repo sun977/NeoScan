@@ -41,7 +41,7 @@ import (
 	"neomaster/internal/model/scan_config"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scan_config_service "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/scan_config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -50,12 +50,12 @@ import (
 // WorkflowHandler 工作流处理器结构体
 // 负责处理工作流相关的HTTP请求
 type WorkflowHandler struct {
-	workflowService *scan_config_service.WorkflowService // 工作流服务
+	workflowService *scanConfigService.WorkflowService // 工作流服务
 }
 
 // NewWorkflowHandler 创建工作流处理器实例
 // 注入必要的Service依赖，遵循依赖注入原则
-func NewWorkflowHandler(workflowService *scan_config_service.WorkflowService) *WorkflowHandler {
+func NewWorkflowHandler(workflowService *scanConfigService.WorkflowService) *WorkflowHandler {
 	return &WorkflowHandler{
 		workflowService: workflowService,
 	}

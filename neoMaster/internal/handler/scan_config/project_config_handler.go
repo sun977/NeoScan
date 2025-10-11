@@ -35,7 +35,7 @@ import (
 	"neomaster/internal/model/scan_config"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scan_config_service "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/scan_config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -44,12 +44,12 @@ import (
 // ProjectConfigHandler 项目配置处理器结构体
 // 负责处理项目配置相关的HTTP请求
 type ProjectConfigHandler struct {
-	projectConfigService *scan_config_service.ProjectConfigService // 项目配置服务
+	projectConfigService *scanConfigService.ProjectConfigService // 项目配置服务
 }
 
 // NewProjectConfigHandler 创建项目配置处理器实例
 // 注入必要的Service依赖，遵循依赖注入原则
-func NewProjectConfigHandler(projectConfigService *scan_config_service.ProjectConfigService) *ProjectConfigHandler {
+func NewProjectConfigHandler(projectConfigService *scanConfigService.ProjectConfigService) *ProjectConfigHandler {
 	return &ProjectConfigHandler{
 		projectConfigService: projectConfigService,
 	}

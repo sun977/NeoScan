@@ -8,15 +8,16 @@
 package model
 
 import (
+	"neomaster/internal/model/system"
 	"time"
 )
 
 // LoginResponse 登录响应结构
 type LoginResponse struct {
-	User         *User  `json:"user"`          // 用户信息
-	AccessToken  string `json:"access_token"`  // 访问令牌
-	RefreshToken string `json:"refresh_token"` // 刷新令牌
-	ExpiresIn    int64  `json:"expires_in"`    // 令牌过期时间（秒）
+	User         *system.User `json:"user"`          // 用户信息
+	AccessToken  string       `json:"access_token"`  // 访问令牌
+	RefreshToken string       `json:"refresh_token"` // 刷新令牌
+	ExpiresIn    int64        `json:"expires_in"`    // 令牌过期时间（秒）
 }
 
 // RefreshTokenResponse 刷新令牌响应结构
@@ -38,18 +39,18 @@ type RegisterResponse struct {
 
 // UserInfo 用户信息响应结构
 type UserInfo struct {
-	ID          uint       `json:"id"`                    // 用户ID
-	Username    string     `json:"username"`              // 用户名
-	Email       string     `json:"email"`                 // 邮箱地址
-	Nickname    string     `json:"nickname"`              // 用户昵称
-	Avatar      string     `json:"avatar,omitempty"`      // 用户头像URL
-	Phone       string     `json:"phone"`                 // 手机号码
-	Status      UserStatus `json:"status"`                // 用户状态
-	LastLoginAt *time.Time `json:"last_login_at"`         // 最后登录时间
-	CreatedAt   time.Time  `json:"created_at"`            // 创建时间
-	Roles       []string   `json:"roles,omitempty"`       // 用户角色名称列表
-	Permissions []string   `json:"permissions,omitempty"` // 用户权限名称列表
-	Remark      string     `json:"remark,omitempty"`      // 备注
+	ID          uint              `json:"id"`                    // 用户ID
+	Username    string            `json:"username"`              // 用户名
+	Email       string            `json:"email"`                 // 邮箱地址
+	Nickname    string            `json:"nickname"`              // 用户昵称
+	Avatar      string            `json:"avatar,omitempty"`      // 用户头像URL
+	Phone       string            `json:"phone"`                 // 手机号码
+	Status      system.UserStatus `json:"status"`                // 用户状态
+	LastLoginAt *time.Time        `json:"last_login_at"`         // 最后登录时间
+	CreatedAt   time.Time         `json:"created_at"`            // 创建时间
+	Roles       []string          `json:"roles,omitempty"`       // 用户角色名称列表
+	Permissions []string          `json:"permissions,omitempty"` // 用户权限名称列表
+	Remark      string            `json:"remark,omitempty"`      // 备注
 }
 
 // APIResponse 通用API响应结构

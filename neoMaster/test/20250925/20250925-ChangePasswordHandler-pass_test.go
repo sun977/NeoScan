@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	system2 "neomaster/internal/model/system"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"neomaster/internal/handler/system"
-	"neomaster/internal/model"
 	"neomaster/internal/service/auth"
 )
 
@@ -36,7 +36,7 @@ func TestChangePasswordHandler(t *testing.T) {
 	}
 
 	// 创建测试用户请求
-	createUserReq := &model.CreateUserRequest{
+	createUserReq := &system2.CreateUserRequest{
 		Username: "testuser_changepassword",
 		Email:    "testuser_changepassword@example.com",
 		Password: "oldpassword123",
@@ -72,7 +72,7 @@ func TestChangePasswordHandler(t *testing.T) {
 
 	t.Run("成功修改密码", func(t *testing.T) {
 		// 准备请求数据
-		req := model.ChangePasswordRequest{
+		req := system2.ChangePasswordRequest{
 			OldPassword: "oldpassword123",
 			NewPassword: "newpassword123",
 		}
@@ -96,7 +96,7 @@ func TestChangePasswordHandler(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		// 解析响应
-		var response model.APIResponse
+		var response system2.APIResponse
 		err2 := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err2)
 		assert.Equal(t, "success", response.Status)
@@ -110,7 +110,7 @@ func TestChangePasswordHandler(t *testing.T) {
 
 	t.Run("原密码错误", func(t *testing.T) {
 		// 准备请求数据
-		req := model.ChangePasswordRequest{
+		req := system2.ChangePasswordRequest{
 			OldPassword: "wrongpassword",
 			NewPassword: "newpassword123",
 		}
@@ -134,7 +134,7 @@ func TestChangePasswordHandler(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 
 		// 解析响应
-		var response model.APIResponse
+		var response system2.APIResponse
 		err2 := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)
@@ -143,7 +143,7 @@ func TestChangePasswordHandler(t *testing.T) {
 
 	t.Run("新密码长度不足", func(t *testing.T) {
 		// 准备请求数据
-		req := model.ChangePasswordRequest{
+		req := system2.ChangePasswordRequest{
 			OldPassword: "newpassword123", // 使用之前修改后的密码
 			NewPassword: "123",            // 长度不足
 		}
@@ -167,7 +167,7 @@ func TestChangePasswordHandler(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 
 		// 解析响应
-		var response model.APIResponse
+		var response system2.APIResponse
 		err2 := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)
@@ -176,7 +176,7 @@ func TestChangePasswordHandler(t *testing.T) {
 
 	t.Run("参数为空", func(t *testing.T) {
 		// 准备请求数据 - 原密码为空
-		req := model.ChangePasswordRequest{
+		req := system2.ChangePasswordRequest{
 			OldPassword: "",
 			NewPassword: "newpassword123",
 		}
@@ -200,7 +200,7 @@ func TestChangePasswordHandler(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 
 		// 解析响应
-		var response model.APIResponse
+		var response system2.APIResponse
 		err2 := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)
@@ -213,7 +213,7 @@ func TestChangePasswordHandler(t *testing.T) {
 		router2.PUT("/change-password", userHandler.ChangePassword)
 
 		// 准备请求数据
-		req := model.ChangePasswordRequest{
+		req := system2.ChangePasswordRequest{
 			OldPassword: "newpassword123",
 			NewPassword: "anotherpassword123",
 		}
@@ -237,7 +237,7 @@ func TestChangePasswordHandler(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 
 		// 解析响应
-		var response model.APIResponse
+		var response system2.APIResponse
 		err2 := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err2)
 		assert.Equal(t, "error", response.Status)

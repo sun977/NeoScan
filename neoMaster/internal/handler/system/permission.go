@@ -13,12 +13,12 @@ package system
 
 import (
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
@@ -50,7 +50,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	userID, ok := userIDInterface.(uint)
@@ -63,11 +63,11 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
-	var req model.CreatePermissionRequest
+	var req system.CreatePermissionRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		logger.LogError(bindErr, XRequestID, userID, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
@@ -77,7 +77,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "请求参数无效: " + bindErr.Error()})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "请求参数无效: " + bindErr.Error()})
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "创建权限失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "创建权限失败: " + err.Error()})
 		return
 	}
 
@@ -107,7 +107,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 		"timestamp":  logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusCreated, model.APIResponse{Code: http.StatusCreated, Status: "success", Message: "权限创建成功", Data: permission})
+	c.JSON(http.StatusCreated, system.APIResponse{Code: http.StatusCreated, Status: "success", Message: "权限创建成功", Data: permission})
 }
 
 // GetPermissionList 获取权限列表
@@ -126,7 +126,7 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	userID, ok := userIDInterface.(uint)
@@ -139,7 +139,7 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
@@ -159,19 +159,19 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取权限列表失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取权限列表失败: " + err.Error()})
 		return
 	}
 
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
-	pagination := &model.PaginationResponse{Page: page, PageSize: limit, Total: total, TotalPages: totalPages, HasNext: page < totalPages, HasPrevious: page > 1}
+	pagination := &system.PaginationResponse{Page: page, PageSize: limit, Total: total, TotalPages: totalPages, HasNext: page < totalPages, HasPrevious: page > 1}
 
-	permList := make([]model.Permission, len(permissions))
+	permList := make([]system.Permission, len(permissions))
 	for i, p := range permissions {
 		permList[i] = *p
 	}
 
-	response := model.PermissionListResponse{Permissions: permList, Pagination: pagination}
+	response := system.PermissionListResponse{Permissions: permList, Pagination: pagination}
 
 	logger.LogBusinessOperation("get_permission_list", userID, "", clientIP, XRequestID, "success", "获取权限列表成功", map[string]interface{}{
 		"operation":    "get_permission_list",
@@ -186,7 +186,7 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 		"timestamp":    logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "获取权限列表成功", Data: response})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "获取权限列表成功", Data: response})
 }
 
 // GetPermissionByID 获取单个权限
@@ -205,7 +205,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	userID, ok := userIDInterface.(uint)
@@ -218,7 +218,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
@@ -234,7 +234,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
 		return
 	}
 
@@ -249,7 +249,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取权限信息失败: " + serr.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取权限信息失败: " + serr.Error()})
 		return
 	}
 
@@ -264,7 +264,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 		"timestamp":  logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "获取权限信息成功", Data: permission})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "获取权限信息成功", Data: permission})
 }
 
 // UpdatePermission 更新权限
@@ -283,7 +283,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	userID, ok := userIDInterface.(uint)
@@ -296,7 +296,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
@@ -312,11 +312,11 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
 		return
 	}
 
-	var req model.UpdatePermissionRequest
+	var req system.UpdatePermissionRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		logger.LogError(bindErr, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
@@ -327,7 +327,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "请求参数无效: " + bindErr.Error()})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "请求参数无效: " + bindErr.Error()})
 		return
 	}
 
@@ -342,7 +342,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "更新权限失败: " + uerr.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "更新权限失败: " + uerr.Error()})
 		return
 	}
 
@@ -357,7 +357,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 		"timestamp":  logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "权限更新成功", Data: permission})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "权限更新成功", Data: permission})
 }
 
 // DeletePermission 删除权限
@@ -376,7 +376,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	userID, ok := userIDInterface.(uint)
@@ -389,7 +389,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
@@ -405,7 +405,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的权限ID"})
 		return
 	}
 
@@ -419,7 +419,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "删除权限失败: " + derr.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "删除权限失败: " + derr.Error()})
 		return
 	}
 
@@ -433,5 +433,5 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 		"timestamp":  logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "权限删除成功"})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "权限删除成功"})
 }

@@ -5,10 +5,9 @@
  * @description: 角色数据模型，包含角色基本信息、状态管理和权限关联
  * @func: Role 结构体及相关方法
  */
-package model
+package system
 
 import (
-	"neomaster/internal/model/system"
 	"time"
 )
 
@@ -24,8 +23,8 @@ type Role struct {
 	DeletedAt   *time.Time `json:"-" gorm:"index"`                                               // 软删除时间，不在JSON中返回
 
 	// 关联关系
-	Users       []system.User `json:"-" gorm:"many2many:user_roles;"`                 // 拥有此角色的用户，多对多关系
-	Permissions []Permission  `json:"permissions" gorm:"many2many:role_permissions;"` // 角色拥有的权限，多对多关系
+	Users       []User       `json:"-" gorm:"many2many:user_roles;"`                 // 拥有此角色的用户，多对多关系
+	Permissions []Permission `json:"permissions" gorm:"many2many:role_permissions;"` // 角色拥有的权限，多对多关系
 }
 
 // RoleStatus 角色状态枚举

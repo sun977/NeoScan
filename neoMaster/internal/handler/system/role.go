@@ -17,12 +17,12 @@ package system
 
 import (
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
@@ -59,7 +59,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "未授权访问",
@@ -77,7 +77,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "内部服务器错误",
@@ -86,7 +86,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req model.CreateRoleRequest
+	var req system.CreateRoleRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		logger.LogError(bindErr, XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
 			"operation":  "create_role",
@@ -96,7 +96,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "请求参数无效: " + bindErr.Error(),
@@ -126,7 +126,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "创建角色失败: " + err.Error(),
@@ -148,7 +148,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusCreated, model.APIResponse{
+	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated,
 		Status:  "success",
 		Message: "角色创建成功",
@@ -174,7 +174,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "未授权访问",
@@ -192,7 +192,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "内部服务器错误",
@@ -218,7 +218,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "获取角色列表失败: " + err.Error(),
@@ -228,7 +228,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 
 	// 构造分页响应
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
-	pagination := &model.PaginationResponse{
+	pagination := &system.PaginationResponse{
 		Page:        page,
 		PageSize:    limit,
 		Total:       total,
@@ -238,12 +238,12 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 	}
 
 	// 转换 []*model.Role 为 []model.Role
-	roleList := make([]model.Role, len(roles))
+	roleList := make([]system.Role, len(roles))
 	for i, role := range roles {
 		roleList[i] = *role
 	}
 
-	response := model.RoleListResponse{
+	response := system.RoleListResponse{
 		Roles:      roleList,
 		Pagination: pagination,
 	}
@@ -263,7 +263,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取角色列表成功",
@@ -289,7 +289,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "未授权访问",
@@ -307,7 +307,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "内部服务器错误",
@@ -328,7 +328,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "无效的角色ID",
@@ -349,7 +349,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "获取角色信息失败: " + err.Error(),
@@ -372,7 +372,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取角色信息成功",
@@ -398,7 +398,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "Unauthorized access",
@@ -416,7 +416,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "Internal server error",
@@ -437,7 +437,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "Invalid role ID",
@@ -446,7 +446,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req model.UpdateRoleRequest
+	var req system.UpdateRoleRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		logger.LogError(bindErr, XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
@@ -457,7 +457,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "Invalid request parameters: " + bindErr.Error(),
@@ -477,7 +477,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "Failed to update role: " + err.Error(),
@@ -498,7 +498,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "Role updated successfully",
@@ -524,7 +524,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "未授权访问",
@@ -542,7 +542,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "内部服务器错误",
@@ -563,7 +563,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "无效的角色ID",
@@ -583,7 +583,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "删除角色失败: " + err.Error(),
@@ -603,7 +603,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "角色删除成功",
@@ -628,7 +628,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "未授权访问",
@@ -646,7 +646,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "内部服务器错误",
@@ -667,7 +667,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "无效的角色ID",
@@ -687,7 +687,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "激活角色失败: " + err.Error(),
@@ -707,7 +707,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "角色激活成功",
@@ -732,7 +732,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "未授权访问",
@@ -750,7 +750,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "内部服务器错误",
@@ -771,7 +771,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "无效的角色ID",
@@ -791,7 +791,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "禁用角色失败: " + err.Error(),
@@ -811,7 +811,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "角色禁用成功",

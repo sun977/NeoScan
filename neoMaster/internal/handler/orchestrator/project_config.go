@@ -27,11 +27,11 @@ package orchestrator
 
 import (
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"neomaster/internal/model"
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
@@ -77,7 +77,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -98,7 +98,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 			"project_name": req.Name,
 			"timestamp":    logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数验证失败",
@@ -123,13 +123,13 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "已存在") {
-			c.JSON(http.StatusConflict, model.APIResponse{
+			c.JSON(http.StatusConflict, system.APIResponse{
 				Code:    http.StatusConflict,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "创建项目配置失败",
@@ -153,7 +153,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusCreated, model.APIResponse{
+	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated,
 		Status:  "success",
 		Message: "项目配置创建成功",
@@ -185,7 +185,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的项目配置ID",
@@ -210,13 +210,13 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取项目配置失败",
@@ -240,7 +240,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取项目配置成功",
@@ -272,7 +272,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的项目配置ID",
@@ -294,7 +294,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 			"project_id": id,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -316,7 +316,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 			"project_name": req.Name,
 			"timestamp":    logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数验证失败",
@@ -342,19 +342,19 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else if strings.Contains(err.Error(), "已存在") {
-			c.JSON(http.StatusConflict, model.APIResponse{
+			c.JSON(http.StatusConflict, system.APIResponse{
 				Code:    http.StatusConflict,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "更新项目配置失败",
@@ -378,7 +378,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "项目配置更新成功",
@@ -410,7 +410,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的项目配置ID",
@@ -435,13 +435,13 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "删除项目配置失败",
@@ -464,7 +464,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "项目配置删除成功",
@@ -531,7 +531,7 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 			"status":     status,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取项目配置列表失败",
@@ -565,7 +565,7 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取项目配置列表成功",
@@ -611,7 +611,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的项目配置ID",
@@ -636,13 +636,13 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "热重载项目配置失败",
@@ -665,7 +665,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "项目配置热重载成功",
@@ -696,7 +696,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的项目配置ID",
@@ -721,13 +721,13 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "同步项目配置失败",
@@ -750,7 +750,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "项目配置同步成功",
@@ -779,7 +779,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的项目配置ID",
@@ -811,13 +811,13 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(serviceErr.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: serviceErr.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: message + "失败",
@@ -841,7 +841,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: message + "成功",
@@ -899,7 +899,7 @@ func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取系统扫描配置失败",
@@ -920,7 +920,7 @@ func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取系统扫描配置成功",
@@ -950,7 +950,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -971,7 +971,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "更新系统扫描配置失败",
@@ -992,7 +992,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "更新系统扫描配置成功",

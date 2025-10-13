@@ -11,13 +11,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"neomaster/internal/model/system"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
-
-	"neomaster/internal/model"
 
 	"github.com/gin-gonic/gin"
 )
@@ -134,7 +133,7 @@ func testJWTAuthMiddleware(t *testing.T, ts *TestSuite) {
 	// 测试有效令牌访问
 	t.Run("有效令牌访问", func(t *testing.T) {
 		// 使用SessionService登录获取有效令牌
-		loginReq := &model.LoginRequest{
+		loginReq := &system.LoginRequest{
 			Username: "testuser",
 			Password: "password123",
 		}
@@ -183,7 +182,7 @@ func testUserActiveMiddleware(t *testing.T, ts *TestSuite) {
 
 	// 设置用户为未激活状态
 	if ts.UserRepo != nil {
-		inactiveUser.Status = model.UserStatusDisabled
+		inactiveUser.Status = system.UserStatusDisabled
 		err := ts.UserRepo.UpdateUser(context.Background(), inactiveUser)
 		AssertNoError(t, err, "更新用户激活状态应成功")
 	}
@@ -277,7 +276,7 @@ func testAdminRoleMiddleware(t *testing.T, ts *TestSuite) {
 	}
 
 	// 获取admin角色
-	var adminRole model.Role
+	var adminRole system.Role
 	if err := ts.DB.Where("name = ?", "admin").First(&adminRole).Error; err != nil {
 		t.Fatalf("获取admin角色失败: %v", err)
 	}
@@ -320,7 +319,7 @@ func testAdminRoleMiddleware(t *testing.T, ts *TestSuite) {
 
 	// 测试管理员用户访问
 	t.Run("管理员用户访问", func(t *testing.T) {
-		loginReq := &model.LoginRequest{
+		loginReq := &system.LoginRequest{
 			Username: "adminuser",
 			Password: "password123",
 		}
@@ -352,7 +351,7 @@ func testRequireAnyRoleMiddleware(t *testing.T, ts *TestSuite) {
 	}
 
 	// 获取user角色
-	var userRole model.Role
+	var userRole system.Role
 	if err := ts.DB.Where("name = ?", "user").First(&userRole).Error; err != nil {
 		t.Fatalf("获取user角色失败: %v", err)
 	}
@@ -370,7 +369,7 @@ func testRequireAnyRoleMiddleware(t *testing.T, ts *TestSuite) {
 
 	// 测试有角色用户访问
 	t.Run("有角色用户访问", func(t *testing.T) {
-		loginReq := &model.LoginRequest{
+		loginReq := &system.LoginRequest{
 			Username: "userrole",
 			Password: "password123",
 		}
@@ -454,7 +453,7 @@ func testTokenExtraction(t *testing.T, ts *TestSuite) {
 			return
 		}
 
-		userModel := user.(*model.User)
+		userModel := user.(*system.User)
 		c.JSON(http.StatusOK, gin.H{
 			"user_id":   userModel.ID,
 			"username":  userModel.Username,
@@ -465,7 +464,7 @@ func testTokenExtraction(t *testing.T, ts *TestSuite) {
 
 	// 测试Bearer令牌格式
 	t.Run("Bearer令牌格式", func(t *testing.T) {
-		loginReq := &model.LoginRequest{
+		loginReq := &system.LoginRequest{
 			Username: "tokenuser",
 			Password: "password123",
 		}

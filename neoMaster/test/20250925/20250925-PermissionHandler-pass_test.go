@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	system2 "neomaster/internal/model/system"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -18,7 +19,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	system "neomaster/internal/handler/system"
-	"neomaster/internal/model"
 	mysqlrepo "neomaster/internal/repository/mysql"
 	authsvc "neomaster/internal/service/auth"
 )
@@ -43,7 +43,7 @@ func TestPermissionHandler(t *testing.T) {
 		adminRole := ts.CreateTestRole(t, "admin", "管理员角色")
 		ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
 
-		loginResp, err := ts.SessionService.Login(context.Background(), &model.LoginRequest{Username: "permissionadmin", Password: "password123"}, "127.0.0.1", "test-agent")
+		loginResp, err := ts.SessionService.Login(context.Background(), &system2.LoginRequest{Username: "permissionadmin", Password: "password123"}, "127.0.0.1", "test-agent")
 		AssertNoError(t, err, "管理员登录不应该出错")
 
 		// Router with admin group
@@ -73,10 +73,10 @@ func TestPermissionHandler(t *testing.T) {
 		AssertEqual(t, http.StatusCreated, w.Code, "创建权限应该返回201")
 
 		// Parse created permission id
-		var createResp model.APIResponse
+		var createResp system2.APIResponse
 		AssertNoError(t, json.Unmarshal(w.Body.Bytes(), &createResp), "解析创建响应不应出错")
 		permissionJSON, _ := json.Marshal(createResp.Data)
-		var createdPermission model.Permission
+		var createdPermission system2.Permission
 		_ = json.Unmarshal(permissionJSON, &createdPermission)
 		AssertTrue(t, createdPermission.ID > 0, "创建的权限ID应大于0")
 

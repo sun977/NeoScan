@@ -32,9 +32,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"neomaster/internal/model/system"
 	"time"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/repository/mysql"
 )
@@ -54,7 +54,7 @@ func NewRoleService(roleRepo *mysql.RoleRepository) *RoleService {
 
 // CreateRole 创建角色
 // 处理角色创建的完整流程，包括参数验证、重复检查、权限分配等
-func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleRequest) (*model.Role, error) {
+func (s *RoleService) CreateRole(ctx context.Context, req *system.CreateRoleRequest) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -89,11 +89,11 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 	}
 
 	// 创建角色模型
-	role := &model.Role{
+	role := &system.Role{
 		Name:        req.Name,
 		DisplayName: req.DisplayName,
 		Description: req.Description,
-		Status:      model.RoleStatusEnabled, // 默认启用状态
+		Status:      system.RoleStatusEnabled, // 默认启用状态
 	}
 
 	// 存储到数据库
@@ -138,7 +138,7 @@ func (s *RoleService) CreateRole(ctx context.Context, req *model.CreateRoleReque
 
 // GetRoleByID 根据角色ID获取角色
 // 完整的业务逻辑包括：参数验证、上下文检查、数据获取、状态验证、日志记录
-func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*model.Role, error) {
+func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -195,7 +195,7 @@ func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*model.Role
 }
 
 // GetRoleByName 根据角色名获取角色
-func (s *RoleService) GetRoleByName(ctx context.Context, name string) (*model.Role, error) {
+func (s *RoleService) GetRoleByName(ctx context.Context, name string) (*system.Role, error) {
 	if name == "" {
 		return nil, errors.New("角色名称不能为空")
 	}
@@ -213,7 +213,7 @@ func (s *RoleService) GetRoleByName(ctx context.Context, name string) (*model.Ro
 
 // GetRoleList 获取角色列表
 // 提供分页查询功能，包含完整的参数验证和错误处理
-func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*model.Role, int64, error) {
+func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*system.Role, int64, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -274,7 +274,7 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*mo
 
 	// 数据完整性检查
 	if roles == nil {
-		roles = make([]*model.Role, 0) // 确保返回空切片而不是nil
+		roles = make([]*system.Role, 0) // 确保返回空切片而不是nil
 	}
 
 	// 记录成功操作日志
@@ -292,7 +292,7 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*mo
 
 // UpdateRoleByID 更新角色信息
 // 处理角色更新的完整流程，包括参数验证、重复检查、权限更新、事务处理等
-func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) (*model.Role, error) {
+func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *system.UpdateRoleRequest) (*system.Role, error) {
 	// 第一层：参数验证层
 	if err := s.validateUpdateRoleParams(ctx, roleID, req); err != nil {
 		// roleID 不能为0
@@ -317,7 +317,7 @@ func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *mode
 }
 
 // validateUpdateRoleParams 验证更新角色的参数
-func (s *RoleService) validateUpdateRoleParams(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) error {
+func (s *RoleService) validateUpdateRoleParams(ctx context.Context, roleID uint, req *system.UpdateRoleRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -360,7 +360,7 @@ func (s *RoleService) validateUpdateRoleParams(ctx context.Context, roleID uint,
 }
 
 // validateRoleForUpdate 验证角色是否可以更新
-func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, req *model.UpdateRoleRequest) (*model.Role, error) {
+func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, req *system.UpdateRoleRequest) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -462,7 +462,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 }
 
 // executeRoleUpdate 执行角色更新操作（包含事务处理）
-func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, req *model.UpdateRoleRequest) (*model.Role, error) {
+func (s *RoleService) executeRoleUpdate(ctx context.Context, role *system.Role, req *system.UpdateRoleRequest) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -512,9 +512,9 @@ func (s *RoleService) executeRoleUpdate(ctx context.Context, role *model.Role, r
 	// 更新权限（如果有指定）
 	if req.PermissionIDs != nil {
 		// 获取请求中权限信息到角色结构体 (不能直接将req的[]uint 赋给role的[]model.Permission，需要转换)
-		permissions := make([]model.Permission, len(req.PermissionIDs))
+		permissions := make([]system.Permission, len(req.PermissionIDs))
 		for i, id := range req.PermissionIDs {
-			permissions[i] = model.Permission{ID: id}
+			permissions[i] = system.Permission{ID: id}
 		}
 		// 手动创建permission对象(结构体)，并将req.PermissionIDs中的uint转换为Permission结构体，最后赋值给role.Permissions
 		role.Permissions = permissions
@@ -622,7 +622,7 @@ func (s *RoleService) validateDeleteRoleParams(ctx context.Context, roleID uint)
 }
 
 // validateRoleForDeletion 验证角色是否可以删除
-func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) (*model.Role, error) {
+func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -675,7 +675,7 @@ func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) 
 }
 
 // executeRoleDeletion 执行角色删除操作（包含事务处理）
-func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role) error {
+func (s *RoleService) executeRoleDeletion(ctx context.Context, role *system.Role) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -753,7 +753,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *model.Role)
 
 // UpdateRoleStatus 更新角色状态 - 通用状态管理函数
 // 将指定角色的状态设置为启用或禁用状态，消除重复代码，体现"好品味"原则
-func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status model.RoleStatus) error {
+func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status system.RoleStatus) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -769,7 +769,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 	}
 
 	// 验证状态值有效性 - 严格的参数检查
-	if status != model.RoleStatusEnabled && status != model.RoleStatusDisabled {
+	if status != system.RoleStatusEnabled && status != system.RoleStatusDisabled {
 		logger.LogError(errors.New("invalid status value"), "", 0, clientIP, "update_role_status", "SERVICE", map[string]interface{}{
 			"operation": "update_role_status",
 			"error":     "invalid_status_value",
@@ -805,7 +805,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 	// 幂等性检查 - 避免无意义操作
 	if role.Status == status {
 		statusText := "禁用"
-		if status == model.RoleStatusEnabled {
+		if status == system.RoleStatusEnabled {
 			statusText = "启用"
 		}
 
@@ -831,7 +831,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 	err = s.roleRepo.UpdateRoleFields(ctx, roleID, updateFields)
 	if err != nil {
 		statusText := "禁用"
-		if status == model.RoleStatusEnabled {
+		if status == system.RoleStatusEnabled {
 			statusText = "启用"
 		}
 
@@ -848,7 +848,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 	// 审计日志层 - 记录成功操作
 	statusText := "禁用"
 	statusTextOpposite := "启用"
-	if status == model.RoleStatusEnabled {
+	if status == system.RoleStatusEnabled {
 		statusText = "启用"
 		statusTextOpposite = "禁用"
 	}
@@ -871,7 +871,7 @@ func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status 
 // 将指定角色的状态设置为启用状态
 func (s *RoleService) ActivateRole(ctx context.Context, roleID uint) error {
 	// 调用通用状态更新函数，体现"好品味"原则：消除特殊情况
-	return s.UpdateRoleStatus(ctx, roleID, model.RoleStatusEnabled)
+	return s.UpdateRoleStatus(ctx, roleID, system.RoleStatusEnabled)
 }
 
 // DeactivateRole 禁用角色 - 语义化包装函数
@@ -884,11 +884,11 @@ func (s *RoleService) DeactivateRole(ctx context.Context, roleID uint) error {
 		return errors.New("系统角色禁止禁用")
 	}
 
-	return s.UpdateRoleStatus(ctx, roleID, model.RoleStatusDisabled)
+	return s.UpdateRoleStatus(ctx, roleID, system.RoleStatusDisabled)
 }
 
 // GetRoleWithPermissions 获取角色及其权限
-func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (*model.Role, error) {
+func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -923,7 +923,7 @@ func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (
 }
 
 // GetRolePermissions 获取角色权限
-func (s *RoleService) GetRolePermissions(ctx context.Context, roleID uint) ([]*model.Permission, error) {
+func (s *RoleService) GetRolePermissions(ctx context.Context, roleID uint) ([]*system.Permission, error) {
 	if roleID == 0 {
 		return nil, errors.New("角色ID不能为0")
 	}

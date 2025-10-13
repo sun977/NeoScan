@@ -33,11 +33,11 @@ package orchestrator
 
 import (
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"neomaster/internal/model"
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
@@ -83,7 +83,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -104,7 +104,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 			"workflow_name": req.Name,
 			"timestamp":     logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数验证失败",
@@ -129,13 +129,13 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "已存在") {
-			c.JSON(http.StatusConflict, model.APIResponse{
+			c.JSON(http.StatusConflict, system.APIResponse{
 				Code:    http.StatusConflict,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "创建工作流配置失败",
@@ -159,7 +159,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusCreated, model.APIResponse{
+	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated,
 		Status:  "success",
 		Message: "工作流配置创建成功",
@@ -191,7 +191,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -216,13 +216,13 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取工作流配置失败",
@@ -246,7 +246,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取工作流配置成功",
@@ -278,7 +278,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -300,7 +300,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 			"workflow_id": id,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -322,7 +322,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 			"workflow_name": req.Name,
 			"timestamp":     logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数验证失败",
@@ -348,19 +348,19 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else if strings.Contains(err.Error(), "已存在") {
-			c.JSON(http.StatusConflict, model.APIResponse{
+			c.JSON(http.StatusConflict, system.APIResponse{
 				Code:    http.StatusConflict,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "更新工作流配置失败",
@@ -384,7 +384,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "工作流配置更新成功",
@@ -416,7 +416,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -441,13 +441,13 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "删除工作流配置失败",
@@ -470,7 +470,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "工作流配置删除成功",
@@ -557,7 +557,7 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 			"trigger_type": triggerType,
 			"timestamp":    logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取工作流配置列表失败",
@@ -591,7 +591,7 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取工作流配置列表成功",
@@ -672,7 +672,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -697,13 +697,13 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取工作流状态失败",
@@ -727,7 +727,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取工作流状态成功",
@@ -759,7 +759,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -800,13 +800,13 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取工作流日志失败",
@@ -840,7 +840,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取工作流日志成功",
@@ -872,7 +872,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -897,13 +897,13 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取工作流指标失败",
@@ -926,7 +926,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取工作流指标成功",
@@ -957,7 +957,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 			"action":     action,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -1000,13 +1000,13 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(serviceErr.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: serviceErr.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: message + "失败",
@@ -1030,7 +1030,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 	})
 
 	// 构建响应
-	response := model.APIResponse{
+	response := system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: message + "成功",
@@ -1066,7 +1066,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的工作流配置ID",
@@ -1098,13 +1098,13 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(serviceErr.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: serviceErr.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: message + "失败",
@@ -1128,7 +1128,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: message + "成功",
@@ -1241,7 +1241,7 @@ func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取系统扫描统计信息失败",
@@ -1262,7 +1262,7 @@ func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取系统扫描统计信息成功",
@@ -1292,7 +1292,7 @@ func (h *WorkflowHandler) GetSystemPerformance(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取系统性能信息失败",
@@ -1313,7 +1313,7 @@ func (h *WorkflowHandler) GetSystemPerformance(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取系统性能信息成功",

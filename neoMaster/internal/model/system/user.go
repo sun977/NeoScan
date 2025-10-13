@@ -5,7 +5,7 @@
  * @description: 用户数据模型，包含用户基本信息、状态管理和关联关系
  * @func: User 结构体及相关方法
  */
-package model
+package system
 
 import (
 	"time"

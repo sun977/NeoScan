@@ -15,9 +15,9 @@ package mysql
 import (
 	"context"
 	"fmt"
+	"neomaster/internal/model/system"
 	"time"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
@@ -37,14 +37,14 @@ func NewPermissionRepository(db *gorm.DB) *PermissionRepository {
 
 // CreatePermission 创建权限（纯数据访问）
 // 直接将权限数据插入数据库，不包含业务逻辑验证
-func (r *PermissionRepository) CreatePermission(ctx context.Context, permission *model.Permission) error {
+func (r *PermissionRepository) CreatePermission(ctx context.Context, permission *system.Permission) error {
 	result := r.db.WithContext(ctx).Create(permission)
 	return result.Error
 }
 
 // GetPermissionByID 根据ID获取权限
-func (r *PermissionRepository) GetPermissionByID(ctx context.Context, id uint) (*model.Permission, error) {
-	var permission model.Permission
+func (r *PermissionRepository) GetPermissionByID(ctx context.Context, id uint) (*system.Permission, error) {
+	var permission system.Permission
 	err := r.db.WithContext(ctx).First(&permission, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -64,8 +64,8 @@ func (r *PermissionRepository) GetPermissionByID(ctx context.Context, id uint) (
 }
 
 // GetPermissionByName 根据名称获取权限
-func (r *PermissionRepository) GetPermissionByName(ctx context.Context, name string) (*model.Permission, error) {
-	var permission model.Permission
+func (r *PermissionRepository) GetPermissionByName(ctx context.Context, name string) (*system.Permission, error) {
+	var permission system.Permission
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&permission).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -87,7 +87,7 @@ func (r *PermissionRepository) GetPermissionByName(ctx context.Context, name str
 }
 
 // UpdatePermission 更新权限信息
-func (r *PermissionRepository) UpdatePermission(ctx context.Context, permission *model.Permission) error {
+func (r *PermissionRepository) UpdatePermission(ctx context.Context, permission *system.Permission) error {
 	permission.UpdatedAt = time.Now()
 	if err := r.db.WithContext(ctx).Save(permission).Error; err != nil {
 		logger.LogError(err, "", uint(permission.ID), "", "permission_update", "PUT", map[string]interface{}{
@@ -102,12 +102,12 @@ func (r *PermissionRepository) UpdatePermission(ctx context.Context, permission 
 
 // UpdatePermissionFields 使用 map 更新权限特定字段
 func (r *PermissionRepository) UpdatePermissionFields(ctx context.Context, permissionID uint, fields map[string]interface{}) error {
-	return r.db.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", permissionID).Updates(fields).Error
+	return r.db.WithContext(ctx).Model(&system.Permission{}).Where("id = ?", permissionID).Updates(fields).Error
 }
 
 // DeletePermission 删除权限
 func (r *PermissionRepository) DeletePermission(ctx context.Context, permissionID uint) error {
-	result := r.db.WithContext(ctx).Delete(&model.Permission{}, permissionID)
+	result := r.db.WithContext(ctx).Delete(&system.Permission{}, permissionID)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", uint(permissionID), "", "permission_delete", "DELETE", map[string]interface{}{
 			"operation": "delete_permission",
@@ -119,11 +119,11 @@ func (r *PermissionRepository) DeletePermission(ctx context.Context, permissionI
 }
 
 // GetPermissionList 获取权限列表
-func (r *PermissionRepository) GetPermissionList(ctx context.Context, offset, limit int) ([]*model.Permission, int64, error) {
-	var permissions []*model.Permission
+func (r *PermissionRepository) GetPermissionList(ctx context.Context, offset, limit int) ([]*system.Permission, int64, error) {
+	var permissions []*system.Permission
 	var total int64
 
-	if err := r.db.WithContext(ctx).Model(&model.Permission{}).Count(&total).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&system.Permission{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -136,7 +136,7 @@ func (r *PermissionRepository) GetPermissionList(ctx context.Context, offset, li
 // PermissionExists 检查权限是否存在
 func (r *PermissionRepository) PermissionExists(ctx context.Context, name string) (bool, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).Model(&model.Permission{}).Where("name = ?", name).Count(&count).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&system.Permission{}).Where("name = ?", name).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count > 0, nil
@@ -145,7 +145,7 @@ func (r *PermissionRepository) PermissionExists(ctx context.Context, name string
 // PermissionExistsByID 检查权限是否存在
 func (r *PermissionRepository) PermissionExistsByID(ctx context.Context, id uint) (bool, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", id).Count(&count).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&system.Permission{}).Where("id = ?", id).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count > 0, nil
@@ -158,7 +158,7 @@ func (r *PermissionRepository) BeginTx(ctx context.Context) *gorm.DB {
 
 // DeleteRolePermissionsByPermissionID 删除与指定权限关联的角色关系（事务版）
 func (r *PermissionRepository) DeleteRolePermissionsByPermissionID(ctx context.Context, tx *gorm.DB, permissionID uint) error {
-	result := tx.WithContext(ctx).Where("permission_id = ?", permissionID).Delete(&model.RolePermission{})
+	result := tx.WithContext(ctx).Where("permission_id = ?", permissionID).Delete(&system.RolePermission{})
 	if result.Error != nil {
 		logger.LogError(result.Error, "", permissionID, "", "delete_role_permissions_by_permission", "DELETE", map[string]interface{}{
 			"operation":     "delete_role_permissions_by_permission_id",
@@ -171,8 +171,8 @@ func (r *PermissionRepository) DeleteRolePermissionsByPermissionID(ctx context.C
 }
 
 // GetPermissionWithRoles 获取权限及其关联角色
-func (r *PermissionRepository) GetPermissionWithRoles(ctx context.Context, permissionID uint) (*model.Permission, error) {
-	var permission model.Permission
+func (r *PermissionRepository) GetPermissionWithRoles(ctx context.Context, permissionID uint) (*system.Permission, error) {
+	var permission system.Permission
 	if err := r.db.WithContext(ctx).Preload("Roles").First(&permission, permissionID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -183,12 +183,12 @@ func (r *PermissionRepository) GetPermissionWithRoles(ctx context.Context, permi
 }
 
 // GetPermissionRoles 获取权限关联的角色
-func (r *PermissionRepository) GetPermissionRoles(ctx context.Context, permissionID uint) ([]*model.Role, error) {
-	var permission model.Permission
+func (r *PermissionRepository) GetPermissionRoles(ctx context.Context, permissionID uint) ([]*system.Role, error) {
+	var permission system.Permission
 	if err := r.db.WithContext(ctx).Preload("Roles").First(&permission, permissionID).Error; err != nil {
 		return nil, err
 	}
-	roles := make([]*model.Role, len(permission.Roles))
+	roles := make([]*system.Role, len(permission.Roles))
 	for i := range permission.Roles {
 		roles[i] = &permission.Roles[i]
 	}

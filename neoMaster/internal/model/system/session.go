@@ -5,7 +5,7 @@
  * @description: 会话和令牌数据模型，包含用户会话信息和令牌管理
  * @func: SessionData、TokenData 结构体定义
  */
-package model
+package system
 
 import (
 	"time"

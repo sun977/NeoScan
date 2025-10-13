@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 
 	"neomaster/internal/model"
@@ -25,7 +26,7 @@ func NewRegisterHandler(userService *auth.UserService) *RegisterHandler {
 }
 
 // validateRegisterRequest 验证注册请求参数
-func (h *RegisterHandler) validateRegisterRequest(req *model.RegisterRequest) error {
+func (h *RegisterHandler) validateRegisterRequest(req *system.RegisterRequest) error {
 	if req.Username == "" {
 		return model.ErrInvalidUsername
 	}
@@ -73,7 +74,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "Content-Type header is required",
@@ -83,7 +84,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req model.RegisterRequest
+	var req system.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// 记录请求体解析失败错误日志
 		logger.LogError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
@@ -96,7 +97,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 			"content_type": contentType,
 			"timestamp":    logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "invalid request body",
@@ -119,7 +120,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "validation failed",
@@ -146,7 +147,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 			// "Error":       err.Error(),
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
 			Message: "registration failed",
@@ -173,7 +174,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 			"role_name":   "user",
 			"assign_type": "default",
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "role assignment failed",
@@ -196,7 +197,7 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusCreated, model.APIResponse{
+	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated, // 201 Created 表示资源创建成功
 		Status:  "success",
 		Message: "registration successful",

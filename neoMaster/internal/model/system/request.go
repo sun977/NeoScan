@@ -5,7 +5,7 @@
  * @description: API请求数据模型，包含各种业务操作的请求结构体
  * @func: 各种Request结构体定义
  */
-package model
+package system
 
 // LoginRequest 登录请求结构
 type LoginRequest struct {

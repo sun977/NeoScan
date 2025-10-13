@@ -4,8 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"neomaster/internal/model"
+	"neomaster/internal/model/system"
 )
 
 // RBACService 基于角色的访问控制服务
@@ -141,7 +140,7 @@ func (s *RBACService) CheckAllRoles(ctx context.Context, userID uint, roleNames 
 }
 
 // GetUserPermissions 获取用户的所有权限
-func (s *RBACService) GetUserPermissions(ctx context.Context, userID uint) ([]*model.Permission, error) {
+func (s *RBACService) GetUserPermissions(ctx context.Context, userID uint) ([]*system.Permission, error) {
 	if userID == 0 {
 		return nil, errors.New("invalid user ID")
 	}
@@ -150,7 +149,7 @@ func (s *RBACService) GetUserPermissions(ctx context.Context, userID uint) ([]*m
 }
 
 // GetUserRoles 获取用户的所有角色
-func (s *RBACService) GetUserRoles(ctx context.Context, userID uint) ([]*model.Role, error) {
+func (s *RBACService) GetUserRoles(ctx context.Context, userID uint) ([]*system.Role, error) {
 	if userID == 0 {
 		return nil, errors.New("invalid user ID")
 	}
@@ -220,7 +219,7 @@ func (s *RBACService) ValidateResourceAccess(ctx context.Context, userID uint, r
 }
 
 // matchPermission 匹配权限
-func (s *RBACService) matchPermission(permission *model.Permission, resource, action string) bool {
+func (s *RBACService) matchPermission(permission *system.Permission, resource, action string) bool {
 	// 精确匹配
 	if permission.Resource == resource && permission.Action == action {
 		return true
@@ -243,7 +242,7 @@ func (s *RBACService) matchPermission(permission *model.Permission, resource, ac
 }
 
 // GetPermissionString 获取权限字符串表示
-func (s *RBACService) GetPermissionString(permission *model.Permission) string {
+func (s *RBACService) GetPermissionString(permission *system.Permission) string {
 	return fmt.Sprintf("%s:%s", permission.Resource, permission.Action)
 }
 

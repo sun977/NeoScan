@@ -11,17 +11,17 @@
  */
 
 //  核心HTTP接口:
-//  	POST   /api/v1/scan-config/projects - 创建项目配置
-//  	GET    /api/v1/scan-config/projects/:id - 获取项目配置详情
-//  	PUT    /api/v1/scan-config/projects/:id - 更新项目配置
-//  	DELETE /api/v1/scan-config/projects/:id - 删除项目配置
-//  	GET    /api/v1/scan-config/projects - 获取项目配置列表
+//  	POST   /api/v1/orchestrator/projects - 创建项目配置
+//  	GET    /api/v1/orchestrator/projects/:id - 获取项目配置详情
+//  	PUT    /api/v1/orchestrator/projects/:id - 更新项目配置
+//  	DELETE /api/v1/orchestrator/projects/:id - 删除项目配置
+//  	GET    /api/v1/orchestrator/projects - 获取项目配置列表
 //  状态管理接口:
-//  	POST   /api/v1/scan-config/projects/:id/enable - 启用项目配置
-//  	POST   /api/v1/scan-config/projects/:id/disable - 禁用项目配置
+//  	POST   /api/v1/orchestrator/projects/:id/enable - 启用项目配置
+//  	POST   /api/v1/orchestrator/projects/:id/disable - 禁用项目配置
 //  配置管理接口:
-//  	POST   /api/v1/scan-config/projects/:id/reload - 热重载项目配置
-//  	POST   /api/v1/scan-config/projects/:id/sync - 同步项目配置
+//  	POST   /api/v1/orchestrator/projects/:id/reload - 热重载项目配置
+//  	POST   /api/v1/orchestrator/projects/:id/sync - 同步项目配置
 
 package orchestrator
 
@@ -56,7 +56,7 @@ func NewProjectConfigHandler(projectConfigService *scanConfigService.ProjectConf
 }
 
 // CreateProjectConfig 创建项目配置
-// @route POST /api/v1/scan-config/projects
+// @route POST /api/v1/orchestrator/projects
 // @param c Gin上下文
 func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	// 获取请求上下文信息 - Linus式：统一处理，消除重复
@@ -162,7 +162,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 }
 
 // GetProjectConfig 获取项目配置详情
-// @route GET /api/v1/scan-config/projects/:id
+// @route GET /api/v1/orchestrator/projects/:id
 // @param c Gin上下文
 func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 	// 获取请求上下文信息
@@ -249,7 +249,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 }
 
 // UpdateProjectConfig 更新项目配置
-// @route PUT /api/v1/scan-config/projects/:id
+// @route PUT /api/v1/orchestrator/projects/:id
 // @param c Gin上下文
 func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	// 获取请求上下文信息
@@ -387,7 +387,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 }
 
 // DeleteProjectConfig 删除项目配置
-// @route DELETE /api/v1/scan-config/projects/:id
+// @route DELETE /api/v1/orchestrator/projects/:id
 // @param c Gin上下文
 func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 	// 获取请求上下文信息
@@ -472,7 +472,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 }
 
 // ListProjectConfigs 获取项目配置列表
-// @route GET /api/v1/scan-config/projects
+// @route GET /api/v1/orchestrator/projects
 // @param c Gin上下文
 func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 	// 获取请求上下文信息
@@ -574,21 +574,21 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 }
 
 // EnableProjectConfig 启用项目配置
-// @route POST /api/v1/scan-config/projects/:id/enable
+// @route POST /api/v1/orchestrator/projects/:id/enable
 // @param c Gin上下文
 func (h *ProjectConfigHandler) EnableProjectConfig(c *gin.Context) {
 	h.updateProjectConfigStatus(c, orchestrator.ProjectConfigStatusActive, "enable_project_config", "启用项目配置")
 }
 
 // DisableProjectConfig 禁用项目配置
-// @route POST /api/v1/scan-config/projects/:id/disable
+// @route POST /api/v1/orchestrator/projects/:id/disable
 // @param c Gin上下文
 func (h *ProjectConfigHandler) DisableProjectConfig(c *gin.Context) {
 	h.updateProjectConfigStatus(c, orchestrator.ProjectConfigStatusInactive, "disable_project_config", "禁用项目配置")
 }
 
 // ReloadProjectConfig 热重载项目配置
-// @route POST /api/v1/scan-config/projects/:id/reload
+// @route POST /api/v1/orchestrator/projects/:id/reload
 // @param c Gin上下文
 func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 	// 获取请求上下文信息
@@ -673,7 +673,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 }
 
 // SyncProjectConfig 同步项目配置
-// @route POST /api/v1/scan-config/projects/:id/sync
+// @route POST /api/v1/orchestrator/projects/:id/sync
 // @param c Gin上下文
 func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 	// 获取请求上下文信息
@@ -878,7 +878,7 @@ func (h *ProjectConfigHandler) validateProjectConfigRequest(req *orchestrator.Pr
 }
 
 // GetSystemScanConfig 获取系统扫描配置
-// @route GET /api/v1/scan-config/system
+// @route GET /api/v1/orchestrator/system
 // @param c Gin上下文
 func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 	// 获取请求上下文信息
@@ -929,7 +929,7 @@ func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 }
 
 // UpdateSystemScanConfig 更新系统扫描配置
-// @route PUT /api/v1/scan-config/system
+// @route PUT /api/v1/orchestrator/system
 // @param c Gin上下文
 func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 	// 获取请求上下文信息

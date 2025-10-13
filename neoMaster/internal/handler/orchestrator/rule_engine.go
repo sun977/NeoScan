@@ -429,18 +429,10 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 	requestID := c.GetHeader("X-Request-ID")
 
-	// 定义验证请求和响应结构
+	// 定义验证请求结构
 	type ValidateRuleRequest struct {
 		Conditions string                   `json:"conditions" binding:"required" example:"file_type == 'go' && severity > 3"`
 		Actions    []map[string]interface{} `json:"actions" binding:"required"`
-	}
-
-	type ValidateRuleResponse struct {
-		Valid          bool     `json:"valid"`
-		ConditionValid bool     `json:"condition_valid"`
-		ActionValid    bool     `json:"action_valid"`
-		Errors         []string `json:"errors,omitempty"`
-		Warnings       []string `json:"warnings,omitempty"`
 	}
 
 	// 解析请求体

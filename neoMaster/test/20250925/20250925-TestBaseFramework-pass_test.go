@@ -9,16 +9,15 @@ package test
 import (
 	"context"
 	"fmt"
+	"neomaster/internal/model/system"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
-	"neomaster/internal/app/master"
 	"neomaster/internal/app/master/middleware"
 	"neomaster/internal/config"
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/repository/mysql"
@@ -235,11 +234,11 @@ func (tc *TestConfig) createDefaultRoles(t *testing.T) {
 	ctx := context.Background()
 	
 	// 创建管理员角色 (ID: 1)
-	adminRole := &model.Role{
+	adminRole := &system.Role{
 		Name:        "admin",
 		DisplayName: "系统管理员",
 		Description: "系统管理员角色，拥有所有权限",
-		Status:      model.RoleStatusEnabled,
+		Status:      system.RoleStatusEnabled,
 	}
 	
 	// 设置ID为1
@@ -249,11 +248,11 @@ func (tc *TestConfig) createDefaultRoles(t *testing.T) {
 	}
 	
 	// 创建普通用户角色 (ID: 2)
-	userRole := &model.Role{
+	userRole := &system.Role{
 		Name:        "user",
 		DisplayName: "普通用户",
 		Description: "普通用户角色",
-		Status:      model.RoleStatusEnabled,
+		Status:      system.RoleStatusEnabled,
 	}
 	
 	// 设置ID为2
@@ -266,11 +265,11 @@ func (tc *TestConfig) createDefaultRoles(t *testing.T) {
 func (tc *TestConfig) migrateTestDatabase() error {
 	// 自动迁移所有模型
 	return tc.DB.AutoMigrate(
-		&model.User{},
-		&model.Role{},
-		&model.Permission{},
-		&model.UserRole{},
-		&model.RolePermission{},
+		&system.User{},
+		&system.Role{},
+		&system.Permission{},
+		&system.UserRole{},
+		&system.RolePermission{},
 	)
 }
 
@@ -359,7 +358,7 @@ func (ts *TestSuite) TeardownTestEnvironment(t *testing.T) {
 
 // CreateTestUser 创建测试用户
 // 返回创建的用户实例，用于测试
-func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password string) *model.User {
+func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password string) *system.User {
 	// 如果数据库连接不可用，返回nil
 	if ts.UserRepo == nil {
 		t.Skip("跳过创建测试用户：数据库连接不可用")
@@ -375,11 +374,11 @@ func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password stri
 	}
 
 	// 创建测试用户
-	user := &model.User{
+	user := &system.User{
 		Username:  username,
 		Email:     email,
 		Password:  hashedPassword, // 使用哈希后的密码
-		Status:    model.UserStatusEnabled,
+		Status:    system.UserStatusEnabled,
 		PasswordV: 1,
 	}
 
@@ -394,7 +393,7 @@ func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password stri
 }
 
 // CreateTestRole 创建测试角色，如果角色已存在则返回已存在的角色
-func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *model.Role {
+func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *system.Role {
 	// 如果数据库连接不可用，返回nil
 	if ts.UserRepo == nil {
 		t.Skip("跳过创建测试角色：数据库连接不可用")
@@ -404,7 +403,7 @@ func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *mod
 	ctx := context.Background()
 
 	// 首先检查角色是否已存在
-	var existingRole model.Role
+	var existingRole system.Role
 	err := ts.DB.WithContext(ctx).Where("name = ?", name).First(&existingRole).Error
 	if err == nil {
 		// 角色已存在，返回已存在的角色
@@ -413,10 +412,10 @@ func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *mod
 	}
 
 	// 角色不存在，创建新角色
-	role := &model.Role{
+	role := &system.Role{
 		Name:        name,
 		Description: description,
-		Status:      model.RoleStatusEnabled,
+		Status:      system.RoleStatusEnabled,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}

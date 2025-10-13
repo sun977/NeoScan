@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"neomaster/internal/model/system"
 	"net/http"
 	"strings"
 
@@ -62,7 +63,7 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 			"authorization_header": authorization != "",
 			"timestamp":            logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "missing or invalid authorization header",
@@ -87,7 +88,7 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 		})
 
 		statusCode := h.getErrorStatusCode(err)
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
 			Message: "logout failed",
@@ -105,7 +106,7 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "logout successful",
@@ -135,7 +136,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 			"authorization_header": authorization != "",
 			"timestamp":            logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "missing or invalid authorization header",
@@ -158,7 +159,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 			"has_token":  accessToken != "",
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "failed",
 			Message: "invalid token",
@@ -182,7 +183,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
 			Message: "logout all failed",
@@ -201,7 +202,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "logout all successful",

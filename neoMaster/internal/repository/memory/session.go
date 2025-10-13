@@ -12,10 +12,9 @@ package memory
 import (
 	"context"
 	"fmt"
+	"neomaster/internal/model/system"
 	"sync"
 	"time"
-
-	"neomaster/internal/model"
 )
 
 // SessionRepository 内存会话存储库
@@ -29,13 +28,13 @@ type SessionRepository struct {
 
 // sessionEntry 会话条目
 type sessionEntry struct {
-	data       *model.SessionData
+	data       *system.SessionData
 	expiration time.Time
 }
 
 // tokenEntry 令牌条目
 type tokenEntry struct {
-	data       *model.TokenData
+	data       *system.TokenData
 	expiration time.Time
 }
 
@@ -96,7 +95,7 @@ func (r *SessionRepository) cleanupExpired() {
 }
 
 // StoreSession 存储用户会话信息
-func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, sessionData *model.SessionData, expiration time.Duration) error {
+func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, sessionData *system.SessionData, expiration time.Duration) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -109,7 +108,7 @@ func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, ses
 }
 
 // GetSession 获取用户会话信息
-func (r *SessionRepository) GetSession(ctx context.Context, userID uint64) (*model.SessionData, error) {
+func (r *SessionRepository) GetSession(ctx context.Context, userID uint64) (*system.SessionData, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -150,7 +149,7 @@ func (r *SessionRepository) UpdateSessionExpiry(ctx context.Context, userID uint
 }
 
 // StoreToken 存储令牌信息
-func (r *SessionRepository) StoreToken(ctx context.Context, tokenID string, tokenData *model.TokenData, expiration time.Duration) error {
+func (r *SessionRepository) StoreToken(ctx context.Context, tokenID string, tokenData *system.TokenData, expiration time.Duration) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -163,7 +162,7 @@ func (r *SessionRepository) StoreToken(ctx context.Context, tokenID string, toke
 }
 
 // GetToken 获取令牌信息
-func (r *SessionRepository) GetToken(ctx context.Context, tokenID string) (*model.TokenData, error) {
+func (r *SessionRepository) GetToken(ctx context.Context, tokenID string) (*system.TokenData, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -186,7 +185,7 @@ func (r *SessionRepository) RevokeToken(ctx context.Context, tokenID string, exp
 	defer r.mutex.Unlock()
 
 	r.revokedTokens[tokenID] = &tokenEntry{
-		data:       &model.TokenData{}, // 只需要记录撤销状态
+		data:       &system.TokenData{}, // 只需要记录撤销状态
 		expiration: time.Now().Add(expiration),
 	}
 
@@ -221,22 +220,22 @@ func (r *SessionRepository) DeleteToken(ctx context.Context, tokenID string) err
 }
 
 // GetUserSessions 获取用户的所有会话
-func (r *SessionRepository) GetUserSessions(ctx context.Context, userID uint64) ([]*model.SessionData, error) {
+func (r *SessionRepository) GetUserSessions(ctx context.Context, userID uint64) ([]*system.SessionData, error) {
 	// 对于内存存储，我们假设每个用户只有一个会话
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
 	entry, exists := r.sessions[userID]
 	if !exists {
-		return []*model.SessionData{}, nil
+		return []*system.SessionData{}, nil
 	}
 
 	if time.Now().After(entry.expiration) {
 		delete(r.sessions, userID)
-		return []*model.SessionData{}, nil
+		return []*system.SessionData{}, nil
 	}
 
-	return []*model.SessionData{entry.data}, nil
+	return []*system.SessionData{entry.data}, nil
 }
 
 // DeleteAllUserSessions 删除用户的所有会话

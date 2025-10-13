@@ -5,7 +5,7 @@
  * @description: 权限数据模型，包含权限基本信息、资源操作定义和角色关联
  * @func: Permission 结构体及相关方法
  */
-package model
+package system
 
 import (
 	"time"

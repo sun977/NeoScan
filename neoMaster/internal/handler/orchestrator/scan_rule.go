@@ -10,6 +10,7 @@ package orchestrator
 import (
 	"encoding/json"
 	"fmt"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 
@@ -60,7 +61,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -82,7 +83,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数验证失败",
@@ -129,7 +130,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 				"error":      err.Error(),
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "规则配置格式错误",
@@ -154,7 +155,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 				"error":      err.Error(),
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "规则条件格式错误",
@@ -179,7 +180,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 				"error":      err.Error(),
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "规则动作格式错误",
@@ -205,7 +206,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "创建扫描规则失败",
@@ -229,7 +230,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusCreated, model.APIResponse{
+	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated,
 		Status:  "success",
 		Message: "创建扫描规则成功",
@@ -262,7 +263,7 @@ func (h *ScanRuleHandler) GetScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -286,7 +287,7 @@ func (h *ScanRuleHandler) GetScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取扫描规则失败",
@@ -310,7 +311,7 @@ func (h *ScanRuleHandler) GetScanRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取扫描规则成功",
@@ -373,7 +374,7 @@ func (h *ScanRuleHandler) BatchImportScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -396,7 +397,7 @@ func (h *ScanRuleHandler) BatchImportScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "批量导入扫描规则失败",
@@ -418,7 +419,7 @@ func (h *ScanRuleHandler) BatchImportScanRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "批量导入扫描规则成功",
@@ -459,7 +460,7 @@ func (h *ScanRuleHandler) BatchEnableScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -483,7 +484,7 @@ func (h *ScanRuleHandler) BatchEnableScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "批量启用扫描规则失败",
@@ -506,7 +507,7 @@ func (h *ScanRuleHandler) BatchEnableScanRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "批量启用扫描规则成功",
@@ -547,7 +548,7 @@ func (h *ScanRuleHandler) BatchDisableScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -571,7 +572,7 @@ func (h *ScanRuleHandler) BatchDisableScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "批量禁用扫描规则失败",
@@ -594,7 +595,7 @@ func (h *ScanRuleHandler) BatchDisableScanRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "批量禁用扫描规则成功",
@@ -627,7 +628,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -651,7 +652,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 			"error":      err1.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -702,7 +703,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 				"error":      err2.Error(),
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "规则配置格式错误",
@@ -728,7 +729,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 				"error":      err3.Error(),
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "规则条件格式错误",
@@ -754,7 +755,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 				"error":      err4.Error(),
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "规则动作格式错误",
@@ -780,7 +781,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "更新扫描规则失败",
@@ -805,7 +806,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "更新扫描规则成功",
@@ -838,7 +839,7 @@ func (h *ScanRuleHandler) DeleteScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -862,7 +863,7 @@ func (h *ScanRuleHandler) DeleteScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "删除扫描规则失败",
@@ -885,7 +886,7 @@ func (h *ScanRuleHandler) DeleteScanRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "删除扫描规则成功",
@@ -915,7 +916,7 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "查询参数格式错误",
@@ -961,7 +962,7 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取扫描规则列表失败",
@@ -985,7 +986,7 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取扫描规则列表成功",
@@ -1021,7 +1022,7 @@ func (h *ScanRuleHandler) EnableScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -1045,7 +1046,7 @@ func (h *ScanRuleHandler) EnableScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "启用扫描规则失败",
@@ -1068,7 +1069,7 @@ func (h *ScanRuleHandler) EnableScanRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "启用扫描规则成功",
@@ -1100,7 +1101,7 @@ func (h *ScanRuleHandler) DisableScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -1124,7 +1125,7 @@ func (h *ScanRuleHandler) DisableScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "禁用扫描规则失败",
@@ -1147,7 +1148,7 @@ func (h *ScanRuleHandler) DisableScanRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "禁用扫描规则成功",
@@ -1175,7 +1176,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 			"request_id": c.GetHeader("X-Request-ID"),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -1198,7 +1199,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "匹配扫描规则失败",
@@ -1221,7 +1222,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "匹配扫描规则成功",
@@ -1252,7 +1253,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -1277,7 +1278,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 				"error":      err.Error(),
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "JSON格式数据解析失败",
@@ -1294,7 +1295,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 			"format":    req.Format,
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "不支持的导入格式",
@@ -1317,7 +1318,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "导入扫描规则失败",
@@ -1339,7 +1340,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "导入扫描规则成功",
@@ -1370,7 +1371,7 @@ func (h *ScanRuleHandler) ExportScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "查询参数格式错误",
@@ -1393,7 +1394,7 @@ func (h *ScanRuleHandler) ExportScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "导出扫描规则失败",
@@ -1431,7 +1432,7 @@ func (h *ScanRuleHandler) ExportScanRules(c *gin.Context) {
 		// 这里需要将rules转换为XML格式
 		c.JSON(http.StatusOK, rules) // 临时使用JSON格式
 	default:
-		c.JSON(http.StatusOK, model.APIResponse{
+		c.JSON(http.StatusOK, system.APIResponse{
 			Code:    http.StatusOK,
 			Status:  "success",
 			Message: "导出扫描规则成功",
@@ -1465,7 +1466,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -1489,7 +1490,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 			"error":      err1.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -1513,7 +1514,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusNotFound, model.APIResponse{
+		c.JSON(http.StatusNotFound, system.APIResponse{
 			Code:    http.StatusNotFound,
 			Status:  "error",
 			Message: "扫描规则不存在",
@@ -1537,7 +1538,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "测试扫描规则失败",
@@ -1560,7 +1561,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "测试扫描规则成功",
@@ -1590,7 +1591,7 @@ func (h *ScanRuleHandler) GetScanRulesByType(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "扫描规则类型不能为空",
@@ -1613,7 +1614,7 @@ func (h *ScanRuleHandler) GetScanRulesByType(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "按类型获取扫描规则失败",
@@ -1637,7 +1638,7 @@ func (h *ScanRuleHandler) GetScanRulesByType(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "按类型获取扫描规则成功",
@@ -1667,7 +1668,7 @@ func (h *ScanRuleHandler) GetScanRulesBySeverity(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "扫描规则严重程度不能为空",
@@ -1690,7 +1691,7 @@ func (h *ScanRuleHandler) GetScanRulesBySeverity(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "按严重程度获取扫描规则失败",
@@ -1714,7 +1715,7 @@ func (h *ScanRuleHandler) GetScanRulesBySeverity(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "按严重程度获取扫描规则成功",
@@ -1745,7 +1746,7 @@ func (h *ScanRuleHandler) GetActiveScanRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取活跃扫描规则失败",
@@ -1768,7 +1769,7 @@ func (h *ScanRuleHandler) GetActiveScanRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取活跃扫描规则成功",
@@ -1801,7 +1802,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -1825,7 +1826,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取扫描规则指标失败",
@@ -1848,7 +1849,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取扫描规则指标成功",
@@ -1916,7 +1917,7 @@ func (h *ScanRuleHandler) GetScanRuleByID(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描规则ID",
@@ -1940,7 +1941,7 @@ func (h *ScanRuleHandler) GetScanRuleByID(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取扫描规则失败",
@@ -1964,7 +1965,7 @@ func (h *ScanRuleHandler) GetScanRuleByID(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取扫描规则成功",

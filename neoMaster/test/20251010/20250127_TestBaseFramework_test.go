@@ -9,21 +9,21 @@ package test
 
 import (
 	"context"
+	"neomaster/internal/model/system"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	"neomaster/internal/app/master/middleware"
+	"neomaster/internal/app/master/router"
 	"neomaster/internal/config"
-	"neomaster/internal/model"
 	pkgAuth "neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	authService "neomaster/internal/service/auth"
-	"neomaster/internal/app/master/middleware"
-	"neomaster/internal/app/master/router"
 
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
@@ -230,14 +230,14 @@ func (tc *TestConfig) createDefaultRoles(t *testing.T) {
 	}
 
 	// 创建默认角色
-	roles := []model.Role{
+	roles := []system.Role{
 		{Name: "admin", Description: "系统管理员"},
 		{Name: "user", Description: "普通用户"},
 		{Name: "guest", Description: "访客用户"},
 	}
 
 	for _, role := range roles {
-		var existingRole model.Role
+		var existingRole system.Role
 		if err := tc.DB.Where("name = ?", role.Name).First(&existingRole).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				if err := tc.DB.Create(&role).Error; err != nil {
@@ -251,9 +251,9 @@ func (tc *TestConfig) createDefaultRoles(t *testing.T) {
 // migrateTestDatabase 执行数据库迁移
 func (tc *TestConfig) migrateTestDatabase() error {
 	return tc.DB.AutoMigrate(
-		&model.User{},
-		&model.Role{},
-		&model.Permission{},
+		&system.User{},
+		&system.Role{},
+		&system.Permission{},
 	)
 }
 
@@ -275,12 +275,12 @@ func (tc *TestConfig) CleanupTestDatabase(t *testing.T) {
 	}
 
 	// 清理用户表（保留默认角色）
-	if err := tc.DB.Where("id > 0").Delete(&model.User{}).Error; err != nil {
+	if err := tc.DB.Where("id > 0").Delete(&system.User{}).Error; err != nil {
 		t.Logf("清理用户表失败: %v", err)
 	}
 
 	// 清理权限表
-	if err := tc.DB.Where("id > 0").Delete(&model.Permission{}).Error; err != nil {
+	if err := tc.DB.Where("id > 0").Delete(&system.Permission{}).Error; err != nil {
 		t.Logf("清理权限表失败: %v", err)
 	}
 
@@ -343,7 +343,7 @@ func (ts *TestSuite) TeardownTestEnvironment(t *testing.T) {
 
 // CreateTestUser 创建测试用户
 // 用于测试环境中快速创建用户，跳过复杂的业务逻辑验证
-func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password string) *model.User {
+func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password string) *system.User {
 	// 如果数据库连接不可用，返回nil
 	if ts.UserRepo == nil {
 		t.Skip("跳过创建测试用户：数据库连接不可用")
@@ -359,11 +359,11 @@ func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password stri
 	}
 
 	// 创建测试用户
-	user := &model.User{
+	user := &system.User{
 		Username:  username,
 		Email:     email,
 		Password:  hashedPassword, // 使用哈希后的密码
-		Status:    model.UserStatusEnabled,
+		Status:    system.UserStatusEnabled,
 		PasswordV: 1,
 	}
 
@@ -398,13 +398,13 @@ func (ts *TestSuite) CreateTestUser(t *testing.T, username, email, password stri
 
 // CreateTestRole 创建测试角色
 // 用于测试中需要角色数据的场景
-func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *model.Role {
+func (ts *TestSuite) CreateTestRole(t *testing.T, name, description string) *system.Role {
 	if ts.DB == nil {
 		t.Skip("跳过角色创建：数据库连接不可用")
 		return nil
 	}
 
-	role := &model.Role{
+	role := &system.Role{
 		Name:        name,
 		Description: description,
 	}

@@ -9,15 +9,14 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"neomaster/internal/model/system"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	authHandler "neomaster/internal/handler/auth"
-	"neomaster/internal/model"
-
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	authHandler "neomaster/internal/handler/auth"
 )
 
 // TestDeprecatedAPI 测试已弃用的API接口
@@ -79,7 +78,7 @@ func setupDeprecatedTestRouter(ts *TestSuite) *gin.Engine {
 func testDeprecatedLogoutAPI(t *testing.T, router *gin.Engine, ts *TestSuite) {
 	// 创建测试用户并登录
 	_ = ts.CreateTestUser(t, "deprecateduser", "deprecated@example.com", "password123")
-	loginReq := &model.LoginRequest{
+	loginReq := &system.LoginRequest{
 		Username: "deprecateduser",
 		Password: "password123",
 	}

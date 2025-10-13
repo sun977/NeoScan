@@ -15,6 +15,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strings"
 
@@ -43,7 +44,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		// 从请求头中提取访问令牌
 		accessToken, err := m.extractTokenFromGinHeader(c)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, model.APIResponse{
+			c.JSON(http.StatusUnauthorized, system.APIResponse{
 				Code:    http.StatusUnauthorized,
 				Status:  "failed",
 				Message: "missing or invalid authorization header",
@@ -65,7 +66,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 				"X-Request-ID": XRequestID,
 				"timestamp":    logger.NowFormatted(),
 			})
-			c.JSON(http.StatusUnauthorized, model.APIResponse{
+			c.JSON(http.StatusUnauthorized, system.APIResponse{
 				Code:    http.StatusUnauthorized,
 				Status:  "failed",
 				Message: "invalid or expired token",
@@ -141,7 +142,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 				"X-Request-ID": XRequestID,
 				"timestamp":    logger.NowFormatted(),
 			})
-			c.JSON(http.StatusUnauthorized, model.APIResponse{
+			c.JSON(http.StatusUnauthorized, system.APIResponse{
 				Code:    http.StatusUnauthorized,
 				Status:  "failed",
 				Message: "token version mismatch, please login again",
@@ -175,7 +176,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 		// 从上下文获取用户ID
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, model.APIResponse{
+			c.JSON(http.StatusUnauthorized, system.APIResponse{
 				Code:    http.StatusUnauthorized,
 				Status:  "failed",
 				Message: "user not authenticated",
@@ -188,7 +189,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 		// 修复类型转换问题：JWT中间件设置的user_id是uint类型
 		userIDUint, ok := userID.(uint)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "failed",
 				Message: "invalid user ID type",
@@ -198,7 +199,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 		}
 		isActive, err := m.rbacService.IsUserActive(c.Request.Context(), userIDUint)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "failed",
 				Message: "failed to check user status",
@@ -209,7 +210,7 @@ func (m *MiddlewareManager) GinUserActiveMiddleware() gin.HandlerFunc {
 		}
 
 		if !isActive {
-			c.JSON(http.StatusForbidden, model.APIResponse{
+			c.JSON(http.StatusForbidden, system.APIResponse{
 				Code:    http.StatusForbidden,
 				Status:  "failed",
 				Message: "user account is inactive",
@@ -235,7 +236,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 		// 从上下文获取用户ID
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, model.APIResponse{
+			c.JSON(http.StatusUnauthorized, system.APIResponse{
 				Code:    http.StatusUnauthorized,
 				Status:  "failed",
 				Message: "user not authenticated",
@@ -248,7 +249,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 		// 修复类型转换问题：JWT中间件设置的user_id是uint类型
 		userIDUint, ok := userID.(uint)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "failed",
 				Message: "invalid user ID type",
@@ -258,7 +259,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 		}
 		hasRole, err := m.rbacService.CheckRole(c.Request.Context(), userIDUint, "admin")
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "failed",
 				Message: "failed to check role",
@@ -269,7 +270,7 @@ func (m *MiddlewareManager) GinAdminRoleMiddleware() gin.HandlerFunc {
 		}
 
 		if !hasRole {
-			c.JSON(http.StatusForbidden, model.APIResponse{
+			c.JSON(http.StatusForbidden, system.APIResponse{
 				Code:    http.StatusForbidden,
 				Status:  "failed",
 				Message: "admin role required",
@@ -292,7 +293,7 @@ func (m *MiddlewareManager) GinRequireAnyRole(roles ...string) gin.HandlerFunc {
 		// 从上下文获取用户ID
 		userID, exists := c.Get("user_id")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, model.APIResponse{
+			c.JSON(http.StatusUnauthorized, system.APIResponse{
 				Code:    http.StatusUnauthorized,
 				Status:  "failed",
 				Message: "user not authenticated",
@@ -305,7 +306,7 @@ func (m *MiddlewareManager) GinRequireAnyRole(roles ...string) gin.HandlerFunc {
 		// 修复类型转换问题：JWT中间件设置的user_id是uint类型
 		userIDUint, ok := userID.(uint)
 		if !ok {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "failed",
 				Message: "invalid user ID type",
@@ -315,7 +316,7 @@ func (m *MiddlewareManager) GinRequireAnyRole(roles ...string) gin.HandlerFunc {
 		}
 		hasAnyRole, err := m.rbacService.CheckAnyRole(c.Request.Context(), userIDUint, roles)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "failed",
 				Message: "failed to check role",
@@ -326,7 +327,7 @@ func (m *MiddlewareManager) GinRequireAnyRole(roles ...string) gin.HandlerFunc {
 		}
 
 		if !hasAnyRole {
-			c.JSON(http.StatusForbidden, model.APIResponse{
+			c.JSON(http.StatusForbidden, system.APIResponse{
 				Code:    http.StatusForbidden,
 				Status:  "failed",
 				Message: "insufficient role privileges",

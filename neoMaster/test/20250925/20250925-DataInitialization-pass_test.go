@@ -9,50 +9,50 @@ package test
 import (
 	"context"
 	"fmt"
+	"neomaster/internal/model/system"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 )
 
 // TestData 测试数据结构
 type TestData struct {
 	// 用户测试数据
-	Users    []*model.User
-	Roles    []*model.Role
-	UserRoles []*model.UserRole
+	Users    []*system.User
+	Roles    []*system.Role
+	UserRoles []*system.UserRole
 
 	// JWT测试数据
-	TokenData []*model.TokenData
+	TokenData []*system.TokenData
 	Claims    []*auth.JWTClaims
 
 	// 会话测试数据
-	Sessions []*model.SessionData
+	Sessions []*system.SessionData
 }
 
 // NewTestData 创建新的测试数据实例
 func NewTestData() *TestData {
 	return &TestData{
-		Users:      make([]*model.User, 0),
-		Roles:      make([]*model.Role, 0),
-		UserRoles:  make([]*model.UserRole, 0),
-		TokenData: make([]*model.TokenData, 0),
+		Users:      make([]*system.User, 0),
+		Roles:      make([]*system.Role, 0),
+		UserRoles:  make([]*system.UserRole, 0),
+		TokenData: make([]*system.TokenData, 0),
 		Claims:    make([]*auth.JWTClaims, 0),
-		Sessions:  make([]*model.SessionData, 0),
+		Sessions:  make([]*system.SessionData, 0),
 	}
 }
 
 // CreateTestUser 创建测试用户数据
-func (td *TestData) CreateTestUser(username, email, password string) *model.User {
+func (td *TestData) CreateTestUser(username, email, password string) *system.User {
 	passwordManager := auth.NewPasswordManager(nil)
 	hashedPassword, _ := passwordManager.HashPassword(password)
-	user := &model.User{
+	user := &system.User{
 		ID:        uint(len(td.Users) + 1),
 		Username:  username,
 		Email:     email,
 		Password:  hashedPassword,
-		Status:    model.UserStatusEnabled,
+		Status:    system.UserStatusEnabled,
 		PasswordV: 1,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -62,8 +62,8 @@ func (td *TestData) CreateTestUser(username, email, password string) *model.User
 }
 
 // CreateTestRole 创建测试角色数据
-func (td *TestData) CreateTestRole(name, description string) *model.Role {
-	role := &model.Role{
+func (td *TestData) CreateTestRole(name, description string) *system.Role {
+	role := &system.Role{
 		ID:          uint(len(td.Roles) + 1),
 		Name:        name,
 		Description: description,
@@ -75,8 +75,8 @@ func (td *TestData) CreateTestRole(name, description string) *model.Role {
 }
 
 // AssignRoleToUser 为用户分配角色
-func (td *TestData) AssignRoleToUser(userID, roleID uint) *model.UserRole {
-	userRole := &model.UserRole{
+func (td *TestData) AssignRoleToUser(userID, roleID uint) *system.UserRole {
+	userRole := &system.UserRole{
 		UserID:    userID,
 		RoleID:    roleID,
 		CreatedAt: time.Now(),
@@ -86,8 +86,8 @@ func (td *TestData) AssignRoleToUser(userID, roleID uint) *model.UserRole {
 }
 
 // CreateTestTokenData 创建测试令牌数据
-func (td *TestData) CreateTestTokenData(accessToken, refreshToken string, expiresAt time.Time) *model.TokenData {
-	tokenData := &model.TokenData{
+func (td *TestData) CreateTestTokenData(accessToken, refreshToken string, expiresAt time.Time) *system.TokenData {
+	tokenData := &system.TokenData{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresAt:    expiresAt,
@@ -118,8 +118,8 @@ func (td *TestData) CreateTestClaims(userID uint, username, email string, roles 
 }
 
 // CreateTestSession 创建测试会话
-func (td *TestData) CreateTestSession(userID uint, username, email string) *model.SessionData {
-	session := &model.SessionData{
+func (td *TestData) CreateTestSession(userID uint, username, email string) *system.SessionData {
+	session := &system.SessionData{
 		UserID:     userID,
 		Username:   username,
 		Email:      email,
@@ -134,7 +134,7 @@ func (td *TestData) CreateTestSession(userID uint, username, email string) *mode
 }
 
 // GetUserByID 根据ID获取用户
-func (td *TestData) GetUserByID(id uint) *model.User {
+func (td *TestData) GetUserByID(id uint) *system.User {
 	for _, user := range td.Users {
 		if user.ID == id {
 			return user
@@ -144,7 +144,7 @@ func (td *TestData) GetUserByID(id uint) *model.User {
 }
 
 // GetUserByUsername 根据用户名获取用户
-func (td *TestData) GetUserByUsername(username string) *model.User {
+func (td *TestData) GetUserByUsername(username string) *system.User {
 	for _, user := range td.Users {
 		if user.Username == username {
 			return user
@@ -154,7 +154,7 @@ func (td *TestData) GetUserByUsername(username string) *model.User {
 }
 
 // GetUserByEmail 根据邮箱获取用户
-func (td *TestData) GetUserByEmail(email string) *model.User {
+func (td *TestData) GetUserByEmail(email string) *system.User {
 	for _, user := range td.Users {
 		if user.Email == email {
 			return user
@@ -164,7 +164,7 @@ func (td *TestData) GetUserByEmail(email string) *model.User {
 }
 
 // GetRoleByName 根据名称获取角色
-func (td *TestData) GetRoleByName(name string) *model.Role {
+func (td *TestData) GetRoleByName(name string) *system.Role {
 	for _, role := range td.Roles {
 		if role.Name == name {
 			return role
@@ -174,8 +174,8 @@ func (td *TestData) GetRoleByName(name string) *model.Role {
 }
 
 // GetUserRoles 获取用户的所有角色
-func (td *TestData) GetUserRoles(userID uint) []*model.Role {
-	var roles []*model.Role
+func (td *TestData) GetUserRoles(userID uint) []*system.Role {
+	var roles []*system.Role
 	for _, userRole := range td.UserRoles {
 		if userRole.UserID == userID {
 			for _, role := range td.Roles {
@@ -200,7 +200,7 @@ func NewMockUserRepository(data *TestData) *MockUserRepository {
 }
 
 // CreateUser 创建用户
-func (m *MockUserRepository) CreateUser(ctx context.Context, user *model.User) error {
+func (m *MockUserRepository) CreateUser(ctx context.Context, user *system.User) error {
 	if m.data.GetUserByUsername(user.Username) != nil {
 		return fmt.Errorf("用户名已存在")
 	}
@@ -216,7 +216,7 @@ func (m *MockUserRepository) CreateUser(ctx context.Context, user *model.User) e
 }
 
 // GetUserByID 根据ID获取用户
-func (m *MockUserRepository) GetUserByID(ctx context.Context, id uint) (*model.User, error) {
+func (m *MockUserRepository) GetUserByID(ctx context.Context, id uint) (*system.User, error) {
 	user := m.data.GetUserByID(id)
 	if user == nil {
 		return nil, fmt.Errorf("用户不存在")
@@ -225,7 +225,7 @@ func (m *MockUserRepository) GetUserByID(ctx context.Context, id uint) (*model.U
 }
 
 // GetUserByUsername 根据用户名获取用户
-func (m *MockUserRepository) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
+func (m *MockUserRepository) GetUserByUsername(ctx context.Context, username string) (*system.User, error) {
 	user := m.data.GetUserByUsername(username)
 	if user == nil {
 		return nil, fmt.Errorf("用户不存在")
@@ -234,7 +234,7 @@ func (m *MockUserRepository) GetUserByUsername(ctx context.Context, username str
 }
 
 // GetUserByEmail 根据邮箱获取用户
-func (m *MockUserRepository) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+func (m *MockUserRepository) GetUserByEmail(ctx context.Context, email string) (*system.User, error) {
 	user := m.data.GetUserByEmail(email)
 	if user == nil {
 		return nil, fmt.Errorf("用户不存在")
@@ -243,7 +243,7 @@ func (m *MockUserRepository) GetUserByEmail(ctx context.Context, email string) (
 }
 
 // UpdateUser 更新用户
-func (m *MockUserRepository) UpdateUser(ctx context.Context, user *model.User) (*model.User, error) {
+func (m *MockUserRepository) UpdateUser(ctx context.Context, user *system.User) (*system.User, error) {
 	for i, u := range m.data.Users {
 		if u.ID == user.ID {
 			user.UpdatedAt = time.Now()
@@ -266,7 +266,7 @@ func (m *MockUserRepository) DeleteUser(ctx context.Context, id uint) error {
 }
 
 // GetUserWithRolesAndPermissions 获取用户及其角色权限信息
-func (m *MockUserRepository) GetUserWithRolesAndPermissions(ctx context.Context, userID uint) (*model.User, error) {
+func (m *MockUserRepository) GetUserWithRolesAndPermissions(ctx context.Context, userID uint) (*system.User, error) {
 	user := m.data.GetUserByID(userID)
 	if user == nil {
 		return nil, fmt.Errorf("用户不存在")
@@ -280,10 +280,10 @@ func (m *MockUserRepository) GetUserWithRolesAndPermissions(ctx context.Context,
 }
 
 // ListUsers 列出用户
-func (m *MockUserRepository) ListUsers(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
+func (m *MockUserRepository) ListUsers(ctx context.Context, offset, limit int) ([]*system.User, int64, error) {
 	total := int64(len(m.data.Users))
 	if offset >= len(m.data.Users) {
-		return []*model.User{}, total, nil
+		return []*system.User{}, total, nil
 	}
 
 	end := offset + limit
@@ -305,7 +305,7 @@ func NewMockRoleRepository(data *TestData) *MockRoleRepository {
 }
 
 // CreateRole 创建角色
-func (m *MockRoleRepository) CreateRole(ctx context.Context, role *model.Role) (*model.Role, error) {
+func (m *MockRoleRepository) CreateRole(ctx context.Context, role *system.Role) (*system.Role, error) {
 	if m.data.GetRoleByName(role.Name) != nil {
 		return nil, fmt.Errorf("角色名已存在")
 	}
@@ -318,7 +318,7 @@ func (m *MockRoleRepository) CreateRole(ctx context.Context, role *model.Role) (
 }
 
 // GetRoleByID 根据ID获取角色
-func (m *MockRoleRepository) GetRoleByID(ctx context.Context, id uint) (*model.Role, error) {
+func (m *MockRoleRepository) GetRoleByID(ctx context.Context, id uint) (*system.Role, error) {
 	for _, role := range m.data.Roles {
 		if role.ID == id {
 			return role, nil
@@ -328,7 +328,7 @@ func (m *MockRoleRepository) GetRoleByID(ctx context.Context, id uint) (*model.R
 }
 
 // GetRoleByName 根据名称获取角色
-func (m *MockRoleRepository) GetRoleByName(ctx context.Context, name string) (*model.Role, error) {
+func (m *MockRoleRepository) GetRoleByName(ctx context.Context, name string) (*system.Role, error) {
 	role := m.data.GetRoleByName(name)
 	if role == nil {
 		return nil, fmt.Errorf("角色不存在")
@@ -388,7 +388,7 @@ func NewMockSessionRepository(data *TestData) *MockSessionRepository {
 }
 
 // CreateSession 创建会话
-func (m *MockSessionRepository) CreateSession(ctx context.Context, session *model.SessionData) (*model.SessionData, error) {
+func (m *MockSessionRepository) CreateSession(ctx context.Context, session *system.SessionData) (*system.SessionData, error) {
 	session.LoginTime = time.Now()
 	session.LastActive = time.Now()
 	m.data.Sessions = append(m.data.Sessions, session)
@@ -396,7 +396,7 @@ func (m *MockSessionRepository) CreateSession(ctx context.Context, session *mode
 }
 
 // GetSessionByUserID 根据用户ID获取会话
-func (m *MockSessionRepository) GetSessionByUserID(ctx context.Context, userID uint) (*model.SessionData, error) {
+func (m *MockSessionRepository) GetSessionByUserID(ctx context.Context, userID uint) (*system.SessionData, error) {
 	for _, session := range m.data.Sessions {
 		if session.UserID == userID {
 			return session, nil
@@ -406,7 +406,7 @@ func (m *MockSessionRepository) GetSessionByUserID(ctx context.Context, userID u
 }
 
 // UpdateSession 更新会话
-func (m *MockSessionRepository) UpdateSession(ctx context.Context, session *model.SessionData) (*model.SessionData, error) {
+func (m *MockSessionRepository) UpdateSession(ctx context.Context, session *system.SessionData) (*system.SessionData, error) {
 	for i, s := range m.data.Sessions {
 		if s.UserID == session.UserID {
 			session.LastActive = time.Now()
@@ -466,25 +466,25 @@ func NewTestDataBuilder() *TestDataBuilder {
 }
 
 // WithUsers 添加用户数据
-func (b *TestDataBuilder) WithUsers(users ...*model.User) *TestDataBuilder {
+func (b *TestDataBuilder) WithUsers(users ...*system.User) *TestDataBuilder {
 	b.data.Users = append(b.data.Users, users...)
 	return b
 }
 
 // WithRoles 添加角色数据
-func (b *TestDataBuilder) WithRoles(roles ...*model.Role) *TestDataBuilder {
+func (b *TestDataBuilder) WithRoles(roles ...*system.Role) *TestDataBuilder {
 	b.data.Roles = append(b.data.Roles, roles...)
 	return b
 }
 
 // WithUserRoles 添加用户角色关系数据
-func (b *TestDataBuilder) WithUserRoles(userRoles ...*model.UserRole) *TestDataBuilder {
+func (b *TestDataBuilder) WithUserRoles(userRoles ...*system.UserRole) *TestDataBuilder {
 	b.data.UserRoles = append(b.data.UserRoles, userRoles...)
 	return b
 }
 
 // WithSessions 添加会话数据
-func (b *TestDataBuilder) WithSessions(sessions ...*model.SessionData) *TestDataBuilder {
+func (b *TestDataBuilder) WithSessions(sessions ...*system.SessionData) *TestDataBuilder {
 	b.data.Sessions = append(b.data.Sessions, sessions...)
 	return b
 }

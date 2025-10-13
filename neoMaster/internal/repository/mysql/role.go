@@ -37,9 +37,9 @@ package mysql
 import (
 	"context"
 	"fmt"
+	"neomaster/internal/model/system"
 	"time"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
@@ -61,14 +61,14 @@ func NewRoleRepository(db *gorm.DB) *RoleRepository {
 
 // CreateRole 创建角色（纯数据访问）
 // 直接将角色数据插入数据库，不包含业务逻辑验证
-func (r *RoleRepository) CreateRole(ctx context.Context, role *model.Role) error {
+func (r *RoleRepository) CreateRole(ctx context.Context, role *system.Role) error {
 	result := r.db.WithContext(ctx).Create(role)
 	return result.Error
 }
 
 // GetRoleByID 根据ID获取角色
-func (r *RoleRepository) GetRoleByID(ctx context.Context, id uint) (*model.Role, error) {
-	var role model.Role
+func (r *RoleRepository) GetRoleByID(ctx context.Context, id uint) (*system.Role, error) {
+	var role system.Role
 	err := r.db.WithContext(ctx).First(&role, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -90,8 +90,8 @@ func (r *RoleRepository) GetRoleByID(ctx context.Context, id uint) (*model.Role,
 }
 
 // GetRoleByName 根据角色名获取角色
-func (r *RoleRepository) GetRoleByName(ctx context.Context, name string) (*model.Role, error) {
-	var role model.Role
+func (r *RoleRepository) GetRoleByName(ctx context.Context, name string) (*system.Role, error) {
+	var role system.Role
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&role).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -115,7 +115,7 @@ func (r *RoleRepository) GetRoleByName(ctx context.Context, name string) (*model
 }
 
 // UpdateRole 更新角色信息
-func (r *RoleRepository) UpdateRole(ctx context.Context, role *model.Role) error {
+func (r *RoleRepository) UpdateRole(ctx context.Context, role *system.Role) error {
 	role.UpdatedAt = time.Now()
 	err := r.db.WithContext(ctx).Save(role).Error
 	if err != nil {
@@ -133,14 +133,14 @@ func (r *RoleRepository) UpdateRole(ctx context.Context, role *model.Role) error
 // UpdateRoleFields 使用 map 更新角色特定字段
 // 主要用于原子更新操作，如状态变更
 func (r *RoleRepository) UpdateRoleFields(ctx context.Context, roleID uint, fields map[string]interface{}) error {
-	return r.db.WithContext(ctx).Model(&model.Role{}).
+	return r.db.WithContext(ctx).Model(&system.Role{}).
 		Where("id = ?", roleID).
 		Updates(fields).Error
 }
 
 // DeleteRole 软删除角色
 func (r *RoleRepository) DeleteRole(ctx context.Context, roleID uint) error {
-	result := r.db.WithContext(ctx).Delete(&model.Role{}, roleID)
+	result := r.db.WithContext(ctx).Delete(&system.Role{}, roleID)
 	if result.Error != nil {
 		// 记录数据库错误日志
 		logger.LogError(result.Error, "", uint(roleID), "", "role_delete", "DELETE", map[string]interface{}{
@@ -155,8 +155,8 @@ func (r *RoleRepository) DeleteRole(ctx context.Context, roleID uint) error {
 }
 
 // GetRoleWithPermissions 获取角色及其权限
-func (r *RoleRepository) GetRoleWithPermissions(ctx context.Context, roleID uint) (*model.Role, error) {
-	var role model.Role
+func (r *RoleRepository) GetRoleWithPermissions(ctx context.Context, roleID uint) (*system.Role, error) {
+	var role system.Role
 	err := r.db.WithContext(ctx).Preload("Permissions").First(&role, roleID).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -168,11 +168,11 @@ func (r *RoleRepository) GetRoleWithPermissions(ctx context.Context, roleID uint
 }
 
 // GetRoleList 获取角色列表
-func (r *RoleRepository) GetRoleList(ctx context.Context, offset, limit int) ([]*model.Role, int64, error) {
-	var roles []*model.Role
+func (r *RoleRepository) GetRoleList(ctx context.Context, offset, limit int) ([]*system.Role, int64, error) {
+	var roles []*system.Role
 	var total int64
 
-	if err := r.db.WithContext(ctx).Model(&model.Role{}).Count(&total).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&system.Role{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -183,21 +183,21 @@ func (r *RoleRepository) GetRoleList(ctx context.Context, offset, limit int) ([]
 // RoleExistsByName 检查角色是否存在
 func (r *RoleRepository) RoleExistsByName(ctx context.Context, name string) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Role{}).Where("name = ?", name).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&system.Role{}).Where("name = ?", name).Count(&count).Error
 	return count > 0, err
 }
 
 // RoleExistsByID 根据ID判断角色是否存在
 func (r *RoleRepository) RoleExistsByID(ctx context.Context, id uint) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Role{}).Where("id = ?", id).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&system.Role{}).Where("id = ?", id).Count(&count).Error
 	return count > 0, err
 }
 
 // RolePermissionExists 根据权限ID检查权限是否存在(本应该是permission.go中的函数,写在这个里为了方便,主要用于判定角色的权限是否存在)
 func (r *RoleRepository) RolePermissionExists(ctx context.Context, id uint) (bool, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", id).Count(&count).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&system.Permission{}).Where("id = ?", id).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count > 0, nil
@@ -211,7 +211,7 @@ func (r *RoleRepository) BeginTx(ctx context.Context) *gorm.DB {
 // DeleteRolePermissionsByRoleID 删除角色的所有权限关联（事务版本）
 func (r *RoleRepository) DeleteRolePermissionsByRoleID(ctx context.Context, tx *gorm.DB, roleID uint) error {
 	// SQL:DELETE FROM role_permissions WHERE role_id = ?;
-	result := tx.WithContext(ctx).Where("role_id = ?", roleID).Delete(&model.RolePermission{})
+	result := tx.WithContext(ctx).Where("role_id = ?", roleID).Delete(&system.RolePermission{})
 	if result.Error != nil {
 		logger.LogError(result.Error, "", roleID, "", "delete_role_permissions", "DELETE", map[string]interface{}{
 			"operation": "delete_role_permissions_by_role_id",
@@ -226,7 +226,7 @@ func (r *RoleRepository) DeleteRolePermissionsByRoleID(ctx context.Context, tx *
 // DeleteRoleWithTx 使用事务硬删除角色
 func (r *RoleRepository) DeleteRoleWithTx(ctx context.Context, tx *gorm.DB, roleID uint) error {
 	// DELETE FROM roles WHERE id = ?;
-	result := tx.WithContext(ctx).Delete(&model.Role{}, roleID)
+	result := tx.WithContext(ctx).Delete(&system.Role{}, roleID)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", roleID, "", "delete_role_with_tx", "DELETE", map[string]interface{}{
 			"operation": "delete_role_with_transaction",
@@ -243,7 +243,7 @@ func (r *RoleRepository) DeleteRoleWithTx(ctx context.Context, tx *gorm.DB, role
 // @param tx 事务对象
 // @param role 角色对象
 // @return 错误信息
-func (r *RoleRepository) UpdateRoleWithTx(ctx context.Context, tx *gorm.DB, role *model.Role) error {
+func (r *RoleRepository) UpdateRoleWithTx(ctx context.Context, tx *gorm.DB, role *system.Role) error {
 	role.UpdatedAt = time.Now()
 	err := tx.WithContext(ctx).Save(role).Error
 	if err != nil {
@@ -261,12 +261,12 @@ func (r *RoleRepository) UpdateRoleWithTx(ctx context.Context, tx *gorm.DB, role
 
 // AssignPermissionToRole 为角色分配权限
 func (r *RoleRepository) AssignPermissionToRole(ctx context.Context, roleID, permissionID uint) error {
-	var role model.Role
+	var role system.Role
 	if err := r.db.WithContext(ctx).First(&role, roleID).Error; err != nil {
 		return err
 	}
 
-	var permission model.Permission
+	var permission system.Permission
 	if err := r.db.WithContext(ctx).First(&permission, permissionID).Error; err != nil {
 		return err
 	}
@@ -276,12 +276,12 @@ func (r *RoleRepository) AssignPermissionToRole(ctx context.Context, roleID, per
 
 // RemovePermissionFromRole 移除角色权限
 func (r *RoleRepository) RemovePermissionFromRole(ctx context.Context, roleID, permissionID uint) error {
-	var role model.Role
+	var role system.Role
 	if err := r.db.WithContext(ctx).First(&role, roleID).Error; err != nil {
 		return err
 	}
 
-	var permission model.Permission
+	var permission system.Permission
 	if err := r.db.WithContext(ctx).First(&permission, permissionID).Error; err != nil {
 		return err
 	}
@@ -291,15 +291,15 @@ func (r *RoleRepository) RemovePermissionFromRole(ctx context.Context, roleID, p
 
 // GetRolePermissions 获取角色权限
 // 根据角色ID查询该角色所拥有的所有权限列表
-func (r *RoleRepository) GetRolePermissions(ctx context.Context, roleID uint) ([]*model.Permission, error) {
-	var role model.Role
+func (r *RoleRepository) GetRolePermissions(ctx context.Context, roleID uint) ([]*system.Permission, error) {
+	var role system.Role
 	err := r.db.WithContext(ctx).Preload("Permissions").First(&role, roleID).Error
 	if err != nil {
 		return nil, err
 	}
 
 	// 转换 []model.Permission 为 []*model.Permission
-	permissions := make([]*model.Permission, len(role.Permissions))
+	permissions := make([]*system.Permission, len(role.Permissions))
 	for i := range role.Permissions {
 		permissions[i] = &role.Permissions[i]
 	}

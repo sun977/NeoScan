@@ -16,13 +16,13 @@ package system
 
 import (
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
-	"neomaster/internal/model"
 	pkgAuth "neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
@@ -101,7 +101,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "user context not found",
@@ -120,7 +120,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "invalid user context",
@@ -129,7 +129,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req model.CreateUserRequest
+	var req system.CreateUserRequest
 	if parseErr := c.ShouldBindJSON(&req); parseErr != nil {
 		// 记录请求参数解析失败错误日志
 		logger.LogError(parseErr, XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
@@ -140,7 +140,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "invalid request body",
@@ -163,7 +163,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 			"request_id":      XRequestID,
 			"timestamp":       logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "failed to create user",
@@ -200,7 +200,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	// 返回创建成功响应
-	c.JSON(http.StatusCreated, model.APIResponse{
+	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated,
 		Status:  "success",
 		Message: "user created successfully",
@@ -220,7 +220,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	// 从url中获取用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "user id is required",
@@ -236,7 +236,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "invalid user id format",
@@ -256,7 +256,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "failed to get user details",
@@ -293,7 +293,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	}
 
 	// 返回用户信息
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user information retrieved successfully",
@@ -322,7 +322,7 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 			"page":  page,
 			"limit": limit,
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "failed to get user list",
@@ -331,7 +331,7 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	}
 
 	// 直接构造响应 - 消除不必要的数据转换
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user list retrieved successfully",
@@ -365,7 +365,7 @@ func (h *UserHandler) GetUserInfoByIDforUser(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "user_id not found in context",
@@ -384,7 +384,7 @@ func (h *UserHandler) GetUserInfoByIDforUser(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "invalid user_id type",
@@ -397,13 +397,13 @@ func (h *UserHandler) GetUserInfoByIDforUser(c *gin.Context) {
 	if err != nil {
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "用户不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: "用户不存在",
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取用户信息失败",
@@ -414,7 +414,7 @@ func (h *UserHandler) GetUserInfoByIDforUser(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取用户信息成功",
@@ -433,7 +433,7 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	// 从url中获取用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "user id is required",
@@ -449,7 +449,7 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "invalid user id format",
@@ -462,13 +462,13 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	if err != nil {
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "用户不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: "用户不存在",
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取用户信息失败",
@@ -479,7 +479,7 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取用户信息成功",
@@ -506,7 +506,7 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "failed to extract token",
@@ -527,7 +527,7 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 			"has_token":  accessToken != "",
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "failed to get user info",
@@ -546,7 +546,7 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 	})
 
 	// 返回用户信息
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user info retrieved successfully",
@@ -572,7 +572,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "user_id not found in context",
@@ -591,7 +591,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "invalid user_id type",
@@ -611,7 +611,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "failed to get user permissions",
@@ -637,7 +637,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	}
 
 	// 返回用户权限信息
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user permissions retrieved successfully",
@@ -663,7 +663,7 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "user_id not found in context",
@@ -682,7 +682,7 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "invalid user_id type",
@@ -702,7 +702,7 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "failed to get user roles",
@@ -728,7 +728,7 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	}
 
 	// 返回用户角色信息
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user roles retrieved successfully",
@@ -747,7 +747,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	// 从URL路径参数获取用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "user id is required",
@@ -763,7 +763,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "invalid user id format",
@@ -772,14 +772,14 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	}
 
 	// 解析请求体中的更新数据
-	var req model.UpdateUserRequest
+	var req system.UpdateUserRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		// 记录请求参数解析失败日志
 		logger.LogError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
 			"user_id": userID,
 			"error":   "request_parse_failed",
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "invalid request format",
@@ -836,7 +836,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			statusCode = http.StatusInternalServerError
 			message = errorMsg // 其他错误返回原始错误信息
 		}
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
 			Message: message,
@@ -845,7 +845,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	}
 
 	// 构造响应数据，隐藏敏感信息
-	userInfo := model.UserInfo{
+	userInfo := system.UserInfo{
 		ID:          updatedUser.ID,
 		Username:    updatedUser.Username,
 		Email:       updatedUser.Email,
@@ -866,7 +866,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	})
 
 	// 返回更新成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user updated successfully",
@@ -892,7 +892,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "user_id not found in context",
@@ -911,7 +911,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
 			Message: "invalid user_id type",
@@ -920,14 +920,14 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	}
 
 	// 解析请求体中的更新数据
-	var req model.UpdateUserRequest
+	var req system.UpdateUserRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		// 记录请求参数解析失败日志
 		logger.LogError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
 			"user_id": userID,
 			"error":   "request_parse_failed",
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "invalid request format",
@@ -977,7 +977,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			statusCode = http.StatusInternalServerError
 			message = errorMsg // 其他错误返回原始错误信息
 		}
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
 			Message: message,
@@ -986,7 +986,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	}
 
 	// 构造响应数据，隐藏敏感信息
-	userInfo := model.UserInfo{
+	userInfo := system.UserInfo{
 		ID:          updatedUser.ID,
 		Username:    updatedUser.Username,
 		Email:       updatedUser.Email,
@@ -1007,7 +1007,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	})
 
 	// 返回更新成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "user info updated success",
@@ -1032,7 +1032,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	// 第一层：参数解析和验证 从URL路径参数获取用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "用户ID不能为空",
@@ -1043,7 +1043,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	// 转换用户ID为uint类型
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "用户ID格式无效",
@@ -1058,26 +1058,26 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		// 根据错误类型返回不同的HTTP状态码
 		switch {
 		case strings.Contains(err.Error(), "用户ID不能为0"):
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		case strings.Contains(err.Error(), "用户不存在"):
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		case strings.Contains(err.Error(), "用户已被删除") || strings.Contains(err.Error(), "不能删除系统管理员账户"):
-			c.JSON(http.StatusForbidden, model.APIResponse{
+			c.JSON(http.StatusForbidden, system.APIResponse{
 				Code:    http.StatusForbidden,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		default:
 			// 数据库错误或其他系统错误
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "删除用户失败，请稍后重试",
@@ -1087,7 +1087,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	// 第三层：返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "用户删除成功",
@@ -1110,7 +1110,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 			"error":     "user_id_missing",
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "用户身份验证失败",
@@ -1126,7 +1126,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 			"error":     "invalid_user_id_type",
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "服务器内部错误",
@@ -1135,14 +1135,14 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req model.ChangePasswordRequest
+	var req system.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogError(err, XRequestID, userIDUint, clientIP, "change_password", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"error":     "invalid_request_body",
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -1152,7 +1152,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 
 	// 参数验证
 	if strings.TrimSpace(req.OldPassword) == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "原密码不能为空",
@@ -1161,7 +1161,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if strings.TrimSpace(req.NewPassword) == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "新密码不能为空",
@@ -1193,7 +1193,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 			message = "密码修改失败，请稍后重试"
 		}
 
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "error",
 			Message: message,
@@ -1208,7 +1208,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "密码修改成功，请重新登录",
@@ -1225,7 +1225,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "用户ID不能为空",
@@ -1242,7 +1242,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 			"user_id":   userIDStr,
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "用户ID格式无效",
@@ -1259,7 +1259,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 			"target_user_id": userID,
 			"timestamp":      logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "未授权访问",
@@ -1277,7 +1277,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 			"user_id_value":  currentUserIDInterface,
 			"timestamp":      logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "服务器内部错误",
@@ -1299,19 +1299,19 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else if strings.Contains(err.Error(), "不能为0") || strings.Contains(err.Error(), "格式") {
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "激活用户失败",
@@ -1329,7 +1329,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "用户激活成功",
@@ -1350,7 +1350,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "用户ID不能为空",
@@ -1367,7 +1367,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 			"user_id":   userIDStr,
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "用户ID格式无效",
@@ -1384,7 +1384,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 			"target_user_id": userID,
 			"timestamp":      logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "未授权访问",
@@ -1402,7 +1402,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 			"user_id_value":  currentUserIDInterface,
 			"timestamp":      logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "服务器内部错误",
@@ -1424,19 +1424,19 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else if strings.Contains(err.Error(), "不能为0") || strings.Contains(err.Error(), "格式") {
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "禁用用户失败",
@@ -1454,7 +1454,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "用户禁用成功",
@@ -1481,7 +1481,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 
@@ -1495,7 +1495,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
@@ -1507,7 +1507,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "缺少用户ID"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "缺少用户ID"})
 		return
 	}
 
@@ -1521,7 +1521,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
 		return
 	}
 
@@ -1535,7 +1535,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "重置密码失败: " + rerr.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "重置密码失败: " + rerr.Error()})
 		return
 	}
 
@@ -1548,7 +1548,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 		"timestamp":  logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "重置密码成功", Data: map[string]interface{}{
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "重置密码成功", Data: map[string]interface{}{
 		"password": "123456",
 	}})
 }

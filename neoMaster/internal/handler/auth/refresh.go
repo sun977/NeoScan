@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"neomaster/internal/model/system"
 	"net/http"
 	"strings"
 
@@ -23,7 +24,7 @@ func NewRefreshHandler(sessionService *auth.SessionService) *RefreshHandler {
 }
 
 // validateRefreshRequest 验证刷新令牌请求参数
-func (h *RefreshHandler) validateRefreshRequest(req *model.RefreshTokenRequest) error {
+func (h *RefreshHandler) validateRefreshRequest(req *system.RefreshTokenRequest) error {
 	if req.RefreshToken == "" {
 		return &model.ValidationError{Field: "refresh_token", Message: "refresh token cannot be empty"}
 	}
@@ -56,9 +57,9 @@ func (h *RefreshHandler) getErrorStatusCode(err error) int {
 // RefreshToken 刷新访问令牌接口
 func (h *RefreshHandler) RefreshToken(c *gin.Context) {
 	// 解析请求体
-	var req model.RefreshTokenRequest
+	var req system.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "invalid request body",
@@ -69,7 +70,7 @@ func (h *RefreshHandler) RefreshToken(c *gin.Context) {
 
 	// 验证请求参数
 	if err := h.validateRefreshRequest(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "validation failed",
@@ -83,7 +84,7 @@ func (h *RefreshHandler) RefreshToken(c *gin.Context) {
 	if err != nil {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "error",
 			Message: "refresh token failed",
@@ -93,7 +94,7 @@ func (h *RefreshHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "refresh token successful",
@@ -106,7 +107,7 @@ func (h *RefreshHandler) RefreshTokenFromHeader(c *gin.Context) {
 	// 从请求头中获取刷新令牌
 	refreshToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "missing or invalid authorization header",
@@ -116,7 +117,7 @@ func (h *RefreshHandler) RefreshTokenFromHeader(c *gin.Context) {
 	}
 
 	// 构造刷新请求
-	req := &model.RefreshTokenRequest{
+	req := &system.RefreshTokenRequest{
 		RefreshToken: refreshToken,
 	}
 
@@ -125,7 +126,7 @@ func (h *RefreshHandler) RefreshTokenFromHeader(c *gin.Context) {
 	if err != nil {
 		// 根据错误类型返回不同的状态码
 		statusCode := h.getErrorStatusCode(err)
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "error",
 			Message: "refresh token failed",
@@ -135,7 +136,7 @@ func (h *RefreshHandler) RefreshTokenFromHeader(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "refresh token successful",
@@ -148,7 +149,7 @@ func (h *RefreshHandler) CheckTokenExpiry(c *gin.Context) {
 	// 从请求头中获取访问令牌
 	accessToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, model.APIResponse{
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
 			Code:    http.StatusUnauthorized,
 			Status:  "error",
 			Message: "missing or invalid authorization header",
@@ -161,7 +162,7 @@ func (h *RefreshHandler) CheckTokenExpiry(c *gin.Context) {
 	remainingTime, err := h.sessionService.GetTokenRemainingTime(accessToken)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "error",
 			Message: "check token expiry failed",
@@ -178,7 +179,7 @@ func (h *RefreshHandler) CheckTokenExpiry(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "check token expiry successful",

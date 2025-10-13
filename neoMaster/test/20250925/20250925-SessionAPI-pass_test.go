@@ -10,13 +10,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	system2 "neomaster/internal/model/system"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	authHandler "neomaster/internal/handler/auth"
 	"neomaster/internal/handler/system"
-	"neomaster/internal/model"
 	authService "neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +41,7 @@ func TestSessionAPI(t *testing.T) {
 		t.Run("会话管理接口", func(t *testing.T) {
 			// 创建测试用户并登录
 			ts.CreateTestUser(t, "sessionapiuser", "sessionapi@example.com", "password123")
-			loginReq := &model.LoginRequest{
+			loginReq := &system2.LoginRequest{
 				Username: "sessionapiuser",
 				Password: "password123",
 			}
@@ -124,7 +124,7 @@ func testSessionManagementAPI(t *testing.T, router *gin.Engine, ts *TestSuite) {
 	ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
 
 	// 管理员登录获取访问令牌
-	loginReq := &model.LoginRequest{
+	loginReq := &system2.LoginRequest{
 		Username: "sessionadmin",
 		Password: "password123",
 	}
@@ -139,7 +139,7 @@ func testSessionManagementAPI(t *testing.T, router *gin.Engine, ts *TestSuite) {
 	testUser := ts.CreateTestUser(t, "sessionuser", "sessionuser@example.com", "password123")
 
 	// 普通用户登录以创建会话
-	userLoginReq := &model.LoginRequest{
+	userLoginReq := &system2.LoginRequest{
 		Username: "sessionuser",
 		Password: "password123",
 	}
@@ -216,7 +216,7 @@ func testSessionManagementAPI(t *testing.T, router *gin.Engine, ts *TestSuite) {
 		normalUser := ts.CreateTestUser(t, "normaluser", "normal@example.com", "password123")
 
 		// 普通用户登录
-		normalLoginReq := &model.LoginRequest{
+		normalLoginReq := &system2.LoginRequest{
 			Username: "normaluser",
 			Password: "password123",
 		}
@@ -240,7 +240,7 @@ func testSessionManagementAPI(t *testing.T, router *gin.Engine, ts *TestSuite) {
 	// 测试普通用户访问会话管理接口
 	t.Run("普通用户访问会话管理接口", func(t *testing.T) {
 		// 用户登录
-		loginReq := &model.LoginRequest{
+		loginReq := &system2.LoginRequest{
 			Username: "sessionuser",
 			Password: "password123",
 		}

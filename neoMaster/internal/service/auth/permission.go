@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"neomaster/internal/model/system"
 	"time"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/repository/mysql"
 )
@@ -23,7 +23,7 @@ func NewPermissionService(permissionRepo *mysql.PermissionRepository) *Permissio
 }
 
 // CreatePermission 创建权限
-func (s *PermissionService) CreatePermission(ctx context.Context, req *model.CreatePermissionRequest) (*model.Permission, error) {
+func (s *PermissionService) CreatePermission(ctx context.Context, req *system.CreatePermissionRequest) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -55,11 +55,11 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *model.Cre
 		return nil, errors.New("权限名称已存在")
 	}
 
-	permission := &model.Permission{
+	permission := &system.Permission{
 		Name:        req.Name,
 		DisplayName: req.DisplayName,
 		Description: req.Description,
-		Status:      model.PermissionStatusEnabled,
+		Status:      system.PermissionStatusEnabled,
 		Resource:    req.Resource,
 		Action:      req.Action,
 	}
@@ -85,7 +85,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *model.Cre
 }
 
 // GetPermissionByID 根据ID获取权限
-func (s *PermissionService) GetPermissionByID(ctx context.Context, permissionID uint) (*model.Permission, error) {
+func (s *PermissionService) GetPermissionByID(ctx context.Context, permissionID uint) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -134,7 +134,7 @@ func (s *PermissionService) GetPermissionByID(ctx context.Context, permissionID 
 }
 
 // GetPermissionByName 根据名称获取权限
-func (s *PermissionService) GetPermissionByName(ctx context.Context, name string) (*model.Permission, error) {
+func (s *PermissionService) GetPermissionByName(ctx context.Context, name string) (*system.Permission, error) {
 	if name == "" {
 		return nil, errors.New("权限名称不能为空")
 	}
@@ -149,7 +149,7 @@ func (s *PermissionService) GetPermissionByName(ctx context.Context, name string
 }
 
 // GetPermissionList 获取权限列表（分页）
-func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit int) ([]*model.Permission, int64, error) {
+func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit int) ([]*system.Permission, int64, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -198,7 +198,7 @@ func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit
 		return nil, 0, fmt.Errorf("failed to get permission list from repository: %w", err)
 	}
 	if permissions == nil {
-		permissions = make([]*model.Permission, 0)
+		permissions = make([]*system.Permission, 0)
 	}
 
 	logger.LogBusinessOperation("get_permission_list", 0, "system", clientIP, "", "success", "获取权限列表成功", map[string]interface{}{
@@ -214,7 +214,7 @@ func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit
 }
 
 // UpdatePermissionByID 更新权限
-func (s *PermissionService) UpdatePermissionByID(ctx context.Context, permissionID uint, req *model.UpdatePermissionRequest) (*model.Permission, error) {
+func (s *PermissionService) UpdatePermissionByID(ctx context.Context, permissionID uint, req *system.UpdatePermissionRequest) (*system.Permission, error) {
 	if err := s.validateUpdatePermissionParams(ctx, permissionID, req); err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (s *PermissionService) UpdatePermissionByID(ctx context.Context, permission
 	return s.executePermissionUpdate(ctx, permission, req)
 }
 
-func (s *PermissionService) validateUpdatePermissionParams(ctx context.Context, permissionID uint, req *model.UpdatePermissionRequest) error {
+func (s *PermissionService) validateUpdatePermissionParams(ctx context.Context, permissionID uint, req *system.UpdatePermissionRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -251,7 +251,7 @@ func (s *PermissionService) validateUpdatePermissionParams(ctx context.Context, 
 	return nil
 }
 
-func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, permissionID uint, req *model.UpdatePermissionRequest) (*model.Permission, error) {
+func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, permissionID uint, req *system.UpdatePermissionRequest) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -315,7 +315,7 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 	return permission, nil
 }
 
-func (s *PermissionService) executePermissionUpdate(ctx context.Context, permission *model.Permission, req *model.UpdatePermissionRequest) (*model.Permission, error) {
+func (s *PermissionService) executePermissionUpdate(ctx context.Context, permission *system.Permission, req *system.UpdatePermissionRequest) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -407,7 +407,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	// 不再调用 permissionRepo.PermissionExistsByID 方法
 	// 改用事务内的查询来检查权限是否存在
 	var count int64
-	if err := tx.WithContext(ctx).Model(&model.Permission{}).Where("id = ?", permissionID).Count(&count).Error; err != nil {
+	if err := tx.WithContext(ctx).Model(&system.Permission{}).Where("id = ?", permissionID).Count(&count).Error; err != nil {
 		tx.Rollback()
 		logger.LogError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "permission_existence_check",
@@ -441,7 +441,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	}
 
 	// 3. 再删除权限记录 - permissions（父表）- 使用事务内的删除操作
-	if err := tx.WithContext(ctx).Delete(&model.Permission{}, permissionID).Error; err != nil {
+	if err := tx.WithContext(ctx).Delete(&system.Permission{}, permissionID).Error; err != nil {
 		tx.Rollback()
 		logger.LogError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "delete_permission",
@@ -474,7 +474,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 }
 
 // GetPermissionWithRoles 获取权限及其关联角色（只读）
-func (s *PermissionService) GetPermissionWithRoles(ctx context.Context, permissionID uint) (*model.Permission, error) {
+func (s *PermissionService) GetPermissionWithRoles(ctx context.Context, permissionID uint) (*system.Permission, error) {
 	if permissionID == 0 {
 		return nil, errors.New("权限ID不能为0")
 	}
@@ -482,7 +482,7 @@ func (s *PermissionService) GetPermissionWithRoles(ctx context.Context, permissi
 }
 
 // GetPermissionRoles 获取权限关联的角色（只读）
-func (s *PermissionService) GetPermissionRoles(ctx context.Context, permissionID uint) ([]*model.Role, error) {
+func (s *PermissionService) GetPermissionRoles(ctx context.Context, permissionID uint) ([]*system.Role, error) {
 	if permissionID == 0 {
 		return nil, errors.New("权限ID不能为0")
 	}

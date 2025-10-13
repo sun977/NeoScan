@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	system2 "neomaster/internal/model/system"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"neomaster/internal/handler/system"
-	"neomaster/internal/model"
 )
 
 // TestSessionHandler 测试会话管理Handler
@@ -70,7 +70,7 @@ func testListUserActiveSessions(t *testing.T, ts *TestSuite) {
 	ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
 
 	// 登录获取管理员令牌
-	loginReq := &model.LoginRequest{
+	loginReq := &system2.LoginRequest{
 		Username: "sessionadmin",
 		Password: "password123",
 	}
@@ -100,7 +100,7 @@ func testListUserActiveSessions(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, http.StatusOK, w1.Code, "查询用户会话列表应该成功")
 
 	// 解析响应
-	var response model.APIResponse
+	var response system2.APIResponse
 	err = json.Unmarshal(w1.Body.Bytes(), &response)
 	AssertNoError(t, err, "解析响应不应该出错")
 	AssertEqual(t, "success", response.Status, "响应状态应该是success")
@@ -144,7 +144,7 @@ func testRevokeUserSession(t *testing.T, ts *TestSuite) {
 	ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
 
 	// 登录获取管理员令牌
-	loginReq := &model.LoginRequest{
+	loginReq := &system2.LoginRequest{
 		Username: "revokeadmin",
 		Password: "password123",
 	}
@@ -173,7 +173,7 @@ func testRevokeUserSession(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, http.StatusOK, w1.Code, "撤销用户会话应该成功")
 
 	// 解析响应
-	var response model.APIResponse
+	var response system2.APIResponse
 	err = json.Unmarshal(w1.Body.Bytes(), &response)
 	AssertNoError(t, err, "解析响应不应该出错")
 	AssertEqual(t, "success", response.Status, "响应状态应该是success")
@@ -207,7 +207,7 @@ func testRevokeAllUserSessions(t *testing.T, ts *TestSuite) {
 	ts.AssignRoleToUser(t, adminUser.ID, adminRole.ID)
 
 	// 登录获取管理员令牌
-	loginReq := &model.LoginRequest{
+	loginReq := &system2.LoginRequest{
 		Username: "revokealladmin",
 		Password: "password123",
 	}
@@ -236,7 +236,7 @@ func testRevokeAllUserSessions(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, http.StatusOK, w1.Code, "撤销用户所有会话应该成功")
 
 	// 解析响应
-	var response model.APIResponse
+	var response system2.APIResponse
 	err = json.Unmarshal(w1.Body.Bytes(), &response)
 	AssertNoError(t, err, "解析响应不应该出错")
 	AssertEqual(t, "success", response.Status, "响应状态应该是success")

@@ -8,10 +8,10 @@ package test
 
 import (
 	"context"
+	"neomaster/internal/model/system"
 	"testing"
 	"time"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 )
 
@@ -63,11 +63,11 @@ func testCreateUser(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "密码哈希应该成功")
 
 	// 创建用户对象
-	user := &model.User{
+	user := &system.User{
 		Username:  username,
 		Email:     email,
 		Password:  hashedPassword,
-		Status:    model.UserStatusEnabled,
+		Status:    system.UserStatusEnabled,
 		PasswordV: 1,
 	}
 
@@ -77,7 +77,7 @@ func testCreateUser(t *testing.T, ts *TestSuite) {
 	AssertNotEqual(t, uint(0), user.ID, "用户ID应该被设置")
 	AssertEqual(t, username, user.Username, "用户名应该匹配")
 	AssertEqual(t, email, user.Email, "邮箱应该匹配")
-	AssertEqual(t, model.UserStatusEnabled, user.Status, "用户应该是启用状态")
+	AssertEqual(t, system.UserStatusEnabled, user.Status, "用户应该是启用状态")
 	AssertEqual(t, int64(1), user.PasswordV, "密码版本应该是1")
 
 	// 验证密码已被哈希
@@ -112,11 +112,11 @@ func testUserPasswordValidation(t *testing.T, ts *TestSuite) {
 	AssertNoError(t, err, "密码哈希应该成功")
 	
 	// 创建用户对象
-	user := &model.User{
+	user := &system.User{
 		Username:  "passwordtest",
 		Email:     "password@test.com",
 		Password:  hashedPassword,
-		Status:    model.UserStatusEnabled,
+		Status:    system.UserStatusEnabled,
 		PasswordV: 1,
 	}
 	
@@ -172,21 +172,21 @@ func testUserModelStatusManagement(t *testing.T, ts *TestSuite) {
 
 	// 创建激活用户
 	activeUser := ts.CreateTestUser(t, "activeuser", "active@test.com", "password123")
-	AssertEqual(t, model.UserStatusEnabled, activeUser.Status, "用户应该是启用状态")
+	AssertEqual(t, system.UserStatusEnabled, activeUser.Status, "用户应该是启用状态")
 	AssertTrue(t, activeUser.IsActive(), "IsActive方法应该返回true")
 
 	// 禁用用户
-	activeUser.Status = model.UserStatusDisabled
+	activeUser.Status = system.UserStatusDisabled
 	err := ts.UserRepo.UpdateUser(ctx, activeUser)
 	AssertNoError(t, err, "更新用户状态不应该出错")
-	AssertEqual(t, model.UserStatusDisabled, activeUser.Status, "用户应该是禁用状态")
+	AssertEqual(t, system.UserStatusDisabled, activeUser.Status, "用户应该是禁用状态")
 	AssertFalse(t, activeUser.IsActive(), "IsActive方法应该返回false")
 
 	// 重新激活用户
-	activeUser.Status = model.UserStatusEnabled
+	activeUser.Status = system.UserStatusEnabled
 	err = ts.UserRepo.UpdateUser(ctx, activeUser)
 	AssertNoError(t, err, "重新激活用户不应该出错")
-	AssertEqual(t, model.UserStatusEnabled, activeUser.Status, "用户应该重新激活")
+	AssertEqual(t, system.UserStatusEnabled, activeUser.Status, "用户应该重新激活")
 	AssertTrue(t, activeUser.IsActive(), "IsActive方法应该返回true")
 }
 
@@ -319,11 +319,11 @@ func testCreateUserRepository(t *testing.T, ts *TestSuite) {
 	ctx := context.Background()
 
 	// 测试创建用户
-	user := &model.User{
+	user := &system.User{
 		Username: "repotest",
 		Email:    "repo@test.com",
 		Password: "password123",
-		Status:   model.UserStatusEnabled,
+		Status:   system.UserStatusEnabled,
 	}
 
 	err := ts.UserRepo.CreateUserDirect(ctx, user)
@@ -331,22 +331,22 @@ func testCreateUserRepository(t *testing.T, ts *TestSuite) {
 	AssertNotEqual(t, uint(0), user.ID, "用户ID应该被设置")
 
 	// 测试重复用户名
-	duplicateUser := &model.User{
+	duplicateUser := &system.User{
 		Username: "repotest", // 相同用户名
 		Email:    "another@test.com",
 		Password: "password123",
-		Status:   model.UserStatusEnabled,
+		Status:   system.UserStatusEnabled,
 	}
 
 	err = ts.UserRepo.CreateUserDirect(ctx, duplicateUser)
 	AssertError(t, err, "创建重复用户名应该出错")
 
 	// 测试重复邮箱
-	duplicateEmailUser := &model.User{
+	duplicateEmailUser := &system.User{
 		Username: "anotheruser",
 		Email:    "repo@test.com", // 相同邮箱
 		Password: "password123",
-		Status:   model.UserStatusEnabled,
+		Status:   system.UserStatusEnabled,
 	}
 
 	err = ts.UserRepo.CreateUserDirect(ctx, duplicateEmailUser)
@@ -433,12 +433,12 @@ func testUpdateUserRepository(t *testing.T, ts *TestSuite) {
 
 	// 更新用户信息
 	user.Email = "updated@test.com"
-	user.Status = model.UserStatusDisabled
+	user.Status = system.UserStatusDisabled
 
 	err := ts.UserRepo.UpdateUser(ctx, user)
 	AssertNoError(t, err, "更新用户不应该出错")
 	AssertEqual(t, "updated@test.com", user.Email, "邮箱应该被更新")
-	AssertEqual(t, model.UserStatusDisabled, user.Status, "用户状态应该被更新")
+	AssertEqual(t, system.UserStatusDisabled, user.Status, "用户状态应该被更新")
 	AssertTrue(t, user.UpdatedAt.After(originalUpdatedAt), "更新时间应该改变")
 }
 
@@ -545,7 +545,7 @@ func testCreateUserService(t *testing.T, ts *TestSuite) {
 	ctx := context.Background()
 
 	// 测试创建用户
-	createReq := &model.CreateUserRequest{
+	createReq := &system.CreateUserRequest{
 		Username: "servicecreateuser",
 		Email:    "servicecreate@test.com",
 		Password: "password123",
@@ -558,7 +558,7 @@ func testCreateUserService(t *testing.T, ts *TestSuite) {
 	AssertEqual(t, createReq.Username, createdUser.Username, "用户名应该匹配")
 	AssertEqual(t, createReq.Email, createdUser.Email, "邮箱应该匹配")
 	AssertEqual(t, createReq.Nickname, createdUser.Nickname, "昵称应该匹配")
-	AssertEqual(t, model.UserStatusEnabled, createdUser.Status, "用户默认应该是启用状态")
+	AssertEqual(t, system.UserStatusEnabled, createdUser.Status, "用户默认应该是启用状态")
 	AssertNotEqual(t, uint(0), createdUser.ID, "用户ID应该被设置")
 }
 
@@ -597,7 +597,7 @@ func testUpdateUserService(t *testing.T, ts *TestSuite) {
 	testUser := ts.CreateTestUser(t, "serviceupdateuser", "serviceupdate@test.com", "password123")
 
 	// 测试更新用户
-	updateReq := &model.UpdateUserRequest{
+	updateReq := &system.UpdateUserRequest{
 		Username: "updatedserviceuser",
 		Email:    "updatedservice@test.com",
 		Nickname: "Updated Service User",

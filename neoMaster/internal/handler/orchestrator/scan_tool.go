@@ -30,11 +30,11 @@ package orchestrator
 import (
 	"errors"
 	"fmt"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"neomaster/internal/model"
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
@@ -80,7 +80,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -101,7 +101,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 			"tool_name":  req.Name,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数验证失败",
@@ -126,13 +126,13 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "已存在") {
-			c.JSON(http.StatusConflict, model.APIResponse{
+			c.JSON(http.StatusConflict, system.APIResponse{
 				Code:    http.StatusConflict,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "创建扫描工具失败",
@@ -156,7 +156,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusCreated, model.APIResponse{
+	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated,
 		Status:  "success",
 		Message: "扫描工具创建成功",
@@ -188,7 +188,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描工具ID",
@@ -213,13 +213,13 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取扫描工具失败",
@@ -243,7 +243,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取扫描工具成功",
@@ -275,7 +275,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描工具ID",
@@ -297,7 +297,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 			"tool_id":    id,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -319,7 +319,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 			"tool_name":  req.Name,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数验证失败",
@@ -345,19 +345,19 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else if strings.Contains(err.Error(), "已存在") {
-			c.JSON(http.StatusConflict, model.APIResponse{
+			c.JSON(http.StatusConflict, system.APIResponse{
 				Code:    http.StatusConflict,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "更新扫描工具失败",
@@ -381,7 +381,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "扫描工具更新成功",
@@ -413,7 +413,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描工具ID",
@@ -438,13 +438,13 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "删除扫描工具失败",
@@ -467,7 +467,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "扫描工具删除成功",
@@ -543,7 +543,7 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 			"type":       toolType,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取扫描工具列表失败",
@@ -578,7 +578,7 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	}
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取扫描工具列表成功",
@@ -624,7 +624,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描工具ID",
@@ -649,13 +649,13 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "扫描工具健康检查失败",
@@ -679,7 +679,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "扫描工具健康检查成功",
@@ -725,7 +725,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描工具ID",
@@ -750,13 +750,13 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(err.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: err.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: "获取扫描工具指标失败",
@@ -779,7 +779,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取扫描工具指标成功",
@@ -809,7 +809,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrat
 			"id_param":   idStr,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描工具ID",
@@ -841,13 +841,13 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrat
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(serviceErr.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: serviceErr.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: message + "失败",
@@ -871,7 +871,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrat
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: message + "成功",
@@ -901,7 +901,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 			"action":     action,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的扫描工具ID",
@@ -937,13 +937,13 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 
 		// 根据错误类型返回不同的HTTP状态码
 		if strings.Contains(serviceErr.Error(), "不存在") {
-			c.JSON(http.StatusNotFound, model.APIResponse{
+			c.JSON(http.StatusNotFound, system.APIResponse{
 				Code:    http.StatusNotFound,
 				Status:  "error",
 				Message: serviceErr.Error(),
 			})
 		} else {
-			c.JSON(http.StatusInternalServerError, model.APIResponse{
+			c.JSON(http.StatusInternalServerError, system.APIResponse{
 				Code:    http.StatusInternalServerError,
 				Status:  "error",
 				Message: message + "失败",
@@ -967,7 +967,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 	})
 
 	// 构建响应
-	response := model.APIResponse{
+	response := system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: message + "成功",
@@ -1070,7 +1070,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -1094,7 +1094,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 				"invalid_id": idStr,
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "工具ID格式错误",
@@ -1117,7 +1117,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "批量安装扫描工具失败",
@@ -1138,7 +1138,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "批量安装扫描工具成功",
@@ -1168,7 +1168,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "请求参数格式错误",
@@ -1192,7 +1192,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 				"invalid_id": idStr,
 				"timestamp":  logger.NowFormatted(),
 			})
-			c.JSON(http.StatusBadRequest, model.APIResponse{
+			c.JSON(http.StatusBadRequest, system.APIResponse{
 				Code:    http.StatusBadRequest,
 				Status:  "error",
 				Message: "工具ID格式错误",
@@ -1215,7 +1215,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "批量卸载扫描工具失败",
@@ -1236,7 +1236,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "批量卸载扫描工具成功",
@@ -1266,7 +1266,7 @@ func (h *ScanToolHandler) GetSystemToolStatus(c *gin.Context) {
 			"request_id": requestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取系统工具状态失败",
@@ -1287,7 +1287,7 @@ func (h *ScanToolHandler) GetSystemToolStatus(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取系统工具状态成功",

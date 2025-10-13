@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"neomaster/internal/model/system"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,7 +25,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"neomaster/internal/model"
 	"neomaster/internal/model/orchestrator"
 )
 
@@ -94,11 +94,11 @@ func getTestRedisAddr() string {
 func initTestData(t *testing.T, db *gorm.DB) {
 	// 自动迁移测试表结构
 	err := db.AutoMigrate(
-		&model.User{},
-		&model.Role{},
-		&model.Permission{},
-		&model.UserRole{},
-		&model.RolePermission{},
+		&system.User{},
+		&system.Role{},
+		&system.Permission{},
+		&system.UserRole{},
+		&system.RolePermission{},
 		&orchestrator.ScanRule{},
 		&orchestrator.ProjectConfig{},
 		&orchestrator.WorkflowConfig{},
@@ -118,24 +118,24 @@ func initTestData(t *testing.T, db *gorm.DB) {
 
 // createTestUsers 创建测试用户
 func createTestUsers(t *testing.T, db *gorm.DB) {
-	testUsers := []model.User{
+	testUsers := []system.User{
 		{
 			Username: "admin",
 			Email:    "admin@test.com",
 			Password: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password
-			Status:   model.UserStatusEnabled,
+			Status:   system.UserStatusEnabled,
 		},
 		{
 			Username: "testuser",
 			Email:    "testuser@test.com",
 			Password: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password
-			Status:   model.UserStatusEnabled,
+			Status:   system.UserStatusEnabled,
 		},
 	}
 
 	for _, user := range testUsers {
 		// 检查用户是否已存在
-		var existingUser model.User
+		var existingUser system.User
 		result := db.Where("username = ?", user.Username).First(&existingUser)
 		if result.Error == gorm.ErrRecordNotFound {
 			err := db.Create(&user).Error
@@ -147,7 +147,7 @@ func createTestUsers(t *testing.T, db *gorm.DB) {
 // createTestRolesAndPermissions 创建测试角色和权限
 func createTestRolesAndPermissions(t *testing.T, db *gorm.DB) {
 	// 创建测试角色
-	testRoles := []model.Role{
+	testRoles := []system.Role{
 		{
 			Name:        "admin",
 			Description: "管理员角色",
@@ -163,7 +163,7 @@ func createTestRolesAndPermissions(t *testing.T, db *gorm.DB) {
 	}
 
 	for _, role := range testRoles {
-		var existingRole model.Role
+		var existingRole system.Role
 		result := db.Where("name = ?", role.Name).First(&existingRole)
 		if result.Error == gorm.ErrRecordNotFound {
 			err := db.Create(&role).Error
@@ -172,7 +172,7 @@ func createTestRolesAndPermissions(t *testing.T, db *gorm.DB) {
 	}
 
 	// 创建测试权限
-	testPermissions := []model.Permission{
+	testPermissions := []system.Permission{
 		{
 			Name:        "rule_engine:execute",
 			Description: "执行规则引擎",
@@ -188,7 +188,7 @@ func createTestRolesAndPermissions(t *testing.T, db *gorm.DB) {
 	}
 
 	for _, permission := range testPermissions {
-		var existingPermission model.Permission
+		var existingPermission system.Permission
 		result := db.Where("name = ?", permission.Name).First(&existingPermission)
 		if result.Error == gorm.ErrRecordNotFound {
 			err := db.Create(&permission).Error

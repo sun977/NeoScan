@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"neomaster/internal/model/system"
 	"strings"
 	"time"
 
@@ -53,7 +54,7 @@ func NewUserService(
 // Register 用户注册
 // 处理用户注册请求，包括参数验证、用户名/邮箱唯一性检查、密码哈希等
 // 增加注册源头IP
-func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, clientIP string) (*model.RegisterResponse, error) {
+func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest, clientIP string) (*system.RegisterResponse, error) {
 	// 参数验证
 	if req == nil {
 		logger.LogError(errors.New("register request is nil"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
@@ -124,13 +125,13 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 	}
 
 	// 创建用户对象
-	user := &model.User{
+	user := &system.User{
 		Username:    req.Username,
 		Email:       req.Email,
 		Nickname:    req.Nickname,
 		Password:    hashedPassword, // 使用哈希后的密码
 		Phone:       req.Phone,
-		Status:      model.UserStatusEnabled,
+		Status:      system.UserStatusEnabled,
 		PasswordV:   1,        // 设置密码版本
 		LastLoginIP: clientIP, // 注册时记录注册IP到 LastLoginIP 字段
 	}
@@ -157,14 +158,14 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 	})
 
 	// 构造用户信息
-	userInfo := &model.UserInfo{
+	userInfo := &system.UserInfo{
 		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
 		Nickname:  user.Nickname,
 		Avatar:    user.Avatar,
 		Phone:     user.Phone,
-		Status:    model.UserStatus(user.Status),
+		Status:    system.UserStatus(user.Status),
 		CreatedAt: user.CreatedAt,
 		// Roles:       []string{}, // 新注册用户暂无角色
 		// Permissions: []string{}, // 新注册用户暂无权限
@@ -172,7 +173,7 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 	}
 
 	// 构造响应
-	response := &model.RegisterResponse{
+	response := &system.RegisterResponse{
 		User:    userInfo,
 		Message: "registration successful",
 	}
@@ -182,7 +183,7 @@ func (s *UserService) Register(ctx context.Context, req *model.RegisterRequest, 
 
 // CreateUser 创建用户
 // 处理用户创建的完整流程，包括参数验证、重复检查、密码哈希等
-func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserRequest) (*model.User, error) {
+func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -263,12 +264,12 @@ func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserReque
 	}
 
 	// 创建用户模型
-	user := &model.User{
+	user := &system.User{
 		Username:  req.Username,
 		Email:     req.Email,
 		Nickname:  req.Nickname,
 		Password:  hashedPassword, // 使用哈希后的密码
-		Status:    model.UserStatusEnabled,
+		Status:    system.UserStatusEnabled,
 		PasswordV: 1, // 设置密码版本
 		Phone:     req.Phone,
 		Remark:    req.Remark,
@@ -284,9 +285,9 @@ func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserReque
 
 	// 处理角色关联(将角色ID转换为角色对象切片)
 	if req.RoleIDs != nil {
-		roles := make([]*model.Role, len(req.RoleIDs))
+		roles := make([]*system.Role, len(req.RoleIDs))
 		for i, id := range req.RoleIDs {
-			roles[i] = &model.Role{ID: id}
+			roles[i] = &system.Role{ID: id}
 		}
 		user.Roles = roles
 	}
@@ -360,7 +361,7 @@ func (s *UserService) GetUserIDFromToken(ctx context.Context, accessToken string
 
 // GetCurrentUserInfo 获取当前用户信息（从访问令牌获取用户ID）
 // 通过访问令牌获取当前登录用户的详细信息
-func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string) (*model.UserInfo, error) {
+func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string) (*system.UserInfo, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -460,14 +461,14 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	}
 
 	// 构造用户信息响应
-	userInfo := &model.UserInfo{
+	userInfo := &system.UserInfo{
 		ID:          user.ID,
 		Username:    user.Username,
 		Email:       user.Email,
 		Nickname:    user.Nickname,
 		Avatar:      user.Avatar,
 		Phone:       user.Phone,
-		Status:      model.UserStatus(user.Status),
+		Status:      system.UserStatus(user.Status),
 		LastLoginAt: user.LastLoginAt,
 		CreatedAt:   user.CreatedAt,
 		Roles:       roleNames,
@@ -488,7 +489,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 // GetUserInfoByID 根据用户ID获取用户完整信息（包含角色和权限）
 // 直接通过用户ID获取用户详细信息，跳过会话验证
 // 用于已通过中间件验证的场景
-func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*model.UserInfo, error) {
+func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*system.UserInfo, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -564,14 +565,14 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*model.
 	}
 
 	// 构造用户信息响应
-	userInfo := &model.UserInfo{
+	userInfo := &system.UserInfo{
 		ID:          user.ID,
 		Username:    user.Username,
 		Email:       user.Email,
 		Nickname:    user.Nickname,
 		Avatar:      user.Avatar,
 		Phone:       user.Phone,
-		Status:      model.UserStatus(user.Status),
+		Status:      system.UserStatus(user.Status),
 		LastLoginAt: user.LastLoginAt,
 		CreatedAt:   user.CreatedAt,
 		Roles:       roleNames,
@@ -595,7 +596,7 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*model.
 // @param userID 用户ID
 // @param req 更新用户请求（管理员使用）
 // @return 更新后的用户信息和错误
-func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *system.UpdateUserRequest) (*system.User, error) {
 	// 第一层：参数验证层
 	if err := s.validateUpdateUserParams(ctx, userID, req); err != nil {
 		// userID 不为 0
@@ -623,7 +624,7 @@ func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *mode
 }
 
 // validateUpdateUserParams 验证更新用户的参数
-func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint, req *model.UpdateUserRequest) error {
+func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint, req *system.UpdateUserRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -692,7 +693,7 @@ func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint,
 }
 
 // validateUserForUpdate 验证用户是否可以更新
-func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -831,7 +832,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 }
 
 // executeUserUpdate 执行用户更新操作（包含事务处理）
-func (s *UserService) executeUserUpdate(ctx context.Context, user *model.User, req *model.UpdateUserRequest) (*model.User, error) {
+func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -915,9 +916,9 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *model.User, r
 	// 更新用户角色信息(如果有指定角色ID)
 	if req.RoleIDs != nil {
 		// 获取用户角色信息封装到结构体中
-		roles := make([]*model.Role, len(req.RoleIDs))
+		roles := make([]*system.Role, len(req.RoleIDs))
 		for i, id := range req.RoleIDs {
-			roles[i] = &model.Role{ID: id}
+			roles[i] = &system.Role{ID: id}
 		}
 		user.Roles = roles
 
@@ -998,7 +999,7 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *model.User, r
 // @param userID 用户ID
 // @param req 更新用户请求（用户专用）
 // @return 更新后的用户信息和错误
-func (s *UserService) UserUpdateInfoByID(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+func (s *UserService) UserUpdateInfoByID(ctx context.Context, userID uint, req *system.UpdateUserRequest) (*system.User, error) {
 	// 第一层：参数验证层
 	if err := s.validateUserUpdateInfoParams(ctx, userID, req); err != nil {
 		// userID 不为 0
@@ -1026,7 +1027,7 @@ func (s *UserService) UserUpdateInfoByID(ctx context.Context, userID uint, req *
 }
 
 // validateUpdateUserParams 验证更新用户的参数
-func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID uint, req *model.UpdateUserRequest) error {
+func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID uint, req *system.UpdateUserRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1095,7 +1096,7 @@ func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID u
 }
 
 // validateUserForUpdate 验证用户是否可以更新
-func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, req *model.UpdateUserRequest) (*model.User, error) {
+func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1206,7 +1207,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 }
 
 // executeUserUpdate 执行用户更新操作（包含事务处理）
-func (s *UserService) executeUserUpdateInfo(ctx context.Context, user *model.User, req *model.UpdateUserRequest) (*model.User, error) {
+func (s *UserService) executeUserUpdateInfo(ctx context.Context, user *system.User, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1397,7 +1398,7 @@ func (s *UserService) validateDeleteUserParams(ctx context.Context, userID uint)
 }
 
 // validateUserForDeletion 验证用户是否可以删除
-func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) (*model.User, error) {
+func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1449,7 +1450,7 @@ func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) 
 }
 
 // executeUserDeletion 执行用户删除操作（包含事务处理）
-func (s *UserService) executeUserDeletion(ctx context.Context, user *model.User) error {
+func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1528,7 +1529,7 @@ func (s *UserService) executeUserDeletion(ctx context.Context, user *model.User)
 
 // GetUserByID 根据用户ID获取用户
 // 完整的业务逻辑包括：参数验证、上下文检查、数据获取、状态验证、日志记录
-func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*model.User, error) {
+func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1585,7 +1586,7 @@ func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*model.User
 }
 
 // GetUserByUsername 根据用户名获取用户
-func (s *UserService) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
+func (s *UserService) GetUserByUsername(ctx context.Context, username string) (*system.User, error) {
 	if username == "" {
 		return nil, errors.New("用户名不能为空")
 	}
@@ -1602,7 +1603,7 @@ func (s *UserService) GetUserByUsername(ctx context.Context, username string) (*
 }
 
 // GetUserByEmail 根据邮箱获取用户
-func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*system.User, error) {
 	if email == "" {
 		return nil, errors.New("邮箱不能为空")
 	}
@@ -1629,7 +1630,7 @@ func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*model.
 //   - []*model.User: 用户列表
 //   - int64: 总记录数
 //   - error: 错误信息
-func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*model.User, int64, error) {
+func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*system.User, int64, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1690,7 +1691,7 @@ func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*mo
 
 	// 数据完整性检查
 	if users == nil {
-		users = make([]*model.User, 0) // 确保返回空切片而不是nil
+		users = make([]*system.User, 0) // 确保返回空切片而不是nil
 	}
 
 	// 记录成功操作日志
@@ -1716,7 +1717,7 @@ func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*mo
 // 返回:
 //   - []*model.Permission: 用户权限列表，已去重
 //   - error: 错误信息，包含参数验证、用户存在性检查和数据库操作错误
-func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*model.Permission, error) {
+func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1759,7 +1760,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*m
 	}
 
 	// 检查用户状态是否有效（只有启用状态的用户才能获取权限）
-	if user.Status != model.UserStatusEnabled {
+	if user.Status != system.UserStatusEnabled {
 		logger.LogError(errors.New("user status invalid"), "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
 			"operation":   "check_user_status",
 			"user_id":     userID,
@@ -1810,7 +1811,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*m
 // 返回:
 //   - []*model.Role: 用户角色列表，包含角色的完整信息
 //   - error: 错误信息，包含参数验证、用户存在性检查和数据库操作错误
-func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*model.Role, error) {
+func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -1853,7 +1854,7 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*model.R
 	}
 
 	// 检查用户状态是否有效（只有启用状态的用户才能获取角色）
-	if user.Status != model.UserStatusEnabled {
+	if user.Status != system.UserStatusEnabled {
 		logger.LogError(errors.New("user status invalid"), "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
 			"operation":   "check_user_status",
 			"user_id":     userID,
@@ -2024,7 +2025,7 @@ func (s *UserService) UpdateUserPasswordVersion(ctx context.Context, userID uint
 }
 
 // GetUserWithRolesAndPermissions 获取用户及其角色和权限
-func (s *UserService) GetUserWithRolesAndPermissions(ctx context.Context, userID uint) (*model.User, error) {
+func (s *UserService) GetUserWithRolesAndPermissions(ctx context.Context, userID uint) (*system.User, error) {
 	if userID == 0 {
 		return nil, errors.New("用户ID不能为0")
 	}
@@ -2077,7 +2078,7 @@ func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint, clientIP
 // @param userID 用户ID
 // @param status 目标状态 (1: 启用, 0: 禁用) 【禁止禁用userID=1的管理员】
 // @return 错误信息
-func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status model.UserStatus) error {
+func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status system.UserStatus) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
@@ -2093,7 +2094,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	}
 
 	// 验证状态值有效性 - 严格的参数检查
-	if status != model.UserStatusEnabled && status != model.UserStatusDisabled {
+	if status != system.UserStatusEnabled && status != system.UserStatusDisabled {
 		logger.LogError(errors.New("invalid status value"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "update_user_status",
 			"error":     "invalid_status_value",
@@ -2129,7 +2130,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	// 幂等性检查 - 避免无意义操作
 	if user.Status == status {
 		statusText := "禁用"
-		if status == model.UserStatusEnabled {
+		if status == system.UserStatusEnabled {
 			statusText = "启用"
 		}
 
@@ -2146,7 +2147,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	}
 
 	// 业务规则：系统管理员保护机制
-	if userID == 1 && status == model.UserStatusDisabled {
+	if userID == 1 && status == system.UserStatusDisabled {
 		logger.LogError(errors.New("cannot disable system admin"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "business_rule_check",
 			"user_id":   userID,
@@ -2167,7 +2168,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	err = s.userRepo.UpdateUserFields(ctx, userID, updateFields)
 	if err != nil {
 		statusText := "禁用"
-		if status == model.UserStatusEnabled {
+		if status == system.UserStatusEnabled {
 			statusText = "启用"
 		}
 
@@ -2184,7 +2185,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	// 审计日志层 - 记录成功操作
 	statusText := "禁用"
 	statusTextOpposite := "启用"
-	if status == model.UserStatusEnabled {
+	if status == system.UserStatusEnabled {
 		statusText = "启用"
 		statusTextOpposite = "禁用"
 	}
@@ -2210,7 +2211,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 // @return 错误信息
 func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
 	// 调用通用状态更新函数，体现"好品味"原则：消除特殊情况
-	return s.UpdateUserStatus(ctx, userID, model.UserStatusEnabled)
+	return s.UpdateUserStatus(ctx, userID, system.UserStatusEnabled)
 }
 
 // DeactivateUser 禁用用户 - 语义化包装函数
@@ -2220,7 +2221,7 @@ func (s *UserService) ActivateUser(ctx context.Context, userID uint) error {
 // @return 错误信息
 func (s *UserService) DeactivateUser(ctx context.Context, userID uint) error {
 	// 调用通用状态更新函数，体现"好品味"原则：消除特殊情况
-	return s.UpdateUserStatus(ctx, userID, model.UserStatusDisabled)
+	return s.UpdateUserStatus(ctx, userID, system.UserStatusDisabled)
 }
 
 // 重置用户密码(管理员操作)

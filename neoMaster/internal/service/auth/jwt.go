@@ -6,9 +6,9 @@ import (
 	"context" // 用于传递请求上下文，支持超时控制和取消操作
 	"errors"  // 用于创建和处理错误信息
 	"fmt"     // 用于格式化字符串和错误信息
-	"time"    // 用于处理时间相关操作，如令牌过期时间计算
+	"neomaster/internal/model/system"
+	"time" // 用于处理时间相关操作，如令牌过期时间计算
 
-	"neomaster/internal/model"            // 导入数据模型定义
 	"neomaster/internal/pkg/auth"         // 导入JWT工具包，提供底层JWT操作
 	"neomaster/internal/pkg/logger"       // 导入日志管理器
 	"neomaster/internal/repository/redis" // 导入Redis会话仓库，用于缓存用户密码版本
@@ -66,7 +66,7 @@ func NewJWTService(
 //   - user: 用户模型实例，包含用户基本信息
 //
 // 返回: TokenPair指针（包含access_token和refresh_token）和错误信息
-func (s *JWTService) GenerateTokens(ctx context.Context, user *model.User) (*auth.TokenPair, error) {
+func (s *JWTService) GenerateTokens(ctx context.Context, user *system.User) (*auth.TokenPair, error) {
 	// 参数验证：确保用户对象不为空
 	// 这是防御性编程的体现，避免空指针异常
 	if user == nil {

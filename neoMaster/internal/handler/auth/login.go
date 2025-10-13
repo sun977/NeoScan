@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"neomaster/internal/model/system"
 	"net/http"
 	"strings"
 
@@ -25,7 +26,7 @@ func NewLoginHandler(sessionService *auth.SessionService) *LoginHandler {
 }
 
 // validateLoginRequest 验证登录请求参数
-func (h *LoginHandler) validateLoginRequest(req *model.LoginRequest) error {
+func (h *LoginHandler) validateLoginRequest(req *system.LoginRequest) error {
 	if req.Username == "" {
 		return &model.ValidationError{Field: "username", Message: "username cannot be empty"}
 	}
@@ -70,7 +71,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	urlPath := c.Request.URL.String()
 
 	// 解析请求体
-	var req model.LoginRequest // 创建一个LoginRequest结构体变量
+	var req system.LoginRequest // 创建一个LoginRequest结构体变量
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// 使用Gin的ShouldBindJSON方法解析并绑定请求体到req结构体中
 		// 如果解析失败，返回400 Bad Request错误
@@ -84,7 +85,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest, // 400
 			Status:  "failed",
 			Message: "invalid request body",
@@ -106,7 +107,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest, // 400
 			Status:  "failed",
 			Message: "validation failed",
@@ -132,7 +133,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(statusCode, model.APIResponse{
+		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
 			Message: "login failed",
@@ -155,7 +156,7 @@ func (h *LoginHandler) Login(c *gin.Context) { // c 是 *gin.Context 类型，�
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "login successful",

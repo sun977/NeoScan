@@ -9,10 +9,10 @@ package orchestrator
 
 import (
 	"context"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	scanConfigService "neomaster/internal/service/orchestrator"
 	"neomaster/internal/service/orchestrator/rule_engine"
@@ -72,7 +72,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的规则ID",
@@ -97,7 +97,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusNotFound, model.APIResponse{
+		c.JSON(http.StatusNotFound, system.APIResponse{
 			Code:    http.StatusNotFound,
 			Status:  "error",
 			Message: "规则不存在",
@@ -120,7 +120,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"rule_name":  scanRule.Name,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "规则已禁用",
@@ -143,7 +143,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"error":      err1.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的规则执行上下文",
@@ -167,7 +167,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "执行规则失败",
@@ -191,7 +191,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "执行规则成功",
@@ -236,7 +236,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的批量执行规则请求",
@@ -260,7 +260,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "批量执行规则失败",
@@ -284,7 +284,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "批量执行规则成功",
@@ -321,7 +321,7 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "获取规则引擎指标失败",
@@ -345,7 +345,7 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "获取规则引擎指标成功",
@@ -382,7 +382,7 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "清空规则引擎缓存失败",
@@ -404,7 +404,7 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "清空规则引擎缓存成功",
@@ -449,7 +449,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的规则验证请求",
@@ -472,7 +472,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "error",
 			Message: "验证规则失败",
@@ -508,7 +508,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 	}
 
 	// 返回验证结果
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "规则验证完成",
@@ -552,7 +552,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "无效的条件解析请求",
@@ -576,7 +576,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 			"error":      err.Error(),
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{
+		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "error",
 			Message: "解析条件表达式失败",
@@ -599,7 +599,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 	})
 
 	// 返回成功响应
-	c.JSON(http.StatusOK, model.APIResponse{
+	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "解析条件表达式成功",

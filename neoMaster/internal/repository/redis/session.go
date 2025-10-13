@@ -12,9 +12,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"neomaster/internal/model/system"
 	"time"
 
-	"neomaster/internal/model"
 	// "neomaster/internal/pkg/utils"
 
 	"github.com/go-redis/redis/v8"
@@ -42,7 +42,7 @@ func NewSessionRepository(client *redis.Client) *SessionRepository {
 // }
 
 // StoreSession 存储用户会话信息
-func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, sessionData *model.SessionData, expiration time.Duration) error {
+func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, sessionData *system.SessionData, expiration time.Duration) error {
 	// 序列化会话数据
 	data, err := json.Marshal(sessionData)
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *SessionRepository) StoreSession(ctx context.Context, userID uint64, ses
 }
 
 // GetSession 获取用户会话信息
-func (r *SessionRepository) GetSession(ctx context.Context, userID uint64) (*model.SessionData, error) {
+func (r *SessionRepository) GetSession(ctx context.Context, userID uint64) (*system.SessionData, error) {
 	// 生成会话键
 	sessionKey := r.getSessionKey(userID)
 
@@ -85,7 +85,7 @@ func (r *SessionRepository) GetSession(ctx context.Context, userID uint64) (*mod
 	}
 
 	// 反序列化会话数据
-	var sessionData model.SessionData
+	var sessionData system.SessionData
 	err = json.Unmarshal([]byte(data), &sessionData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal session data: %w", err)
@@ -123,7 +123,7 @@ func (r *SessionRepository) UpdateSessionExpiry(ctx context.Context, userID uint
 }
 
 // StoreToken 存储令牌信息（用于令牌黑名单或白名单）
-func (r *SessionRepository) StoreToken(ctx context.Context, tokenID string, tokenData *model.TokenData, expiration time.Duration) error {
+func (r *SessionRepository) StoreToken(ctx context.Context, tokenID string, tokenData *system.TokenData, expiration time.Duration) error {
 	// 序列化令牌数据
 	data, err := json.Marshal(tokenData)
 	if err != nil {
@@ -143,7 +143,7 @@ func (r *SessionRepository) StoreToken(ctx context.Context, tokenID string, toke
 }
 
 // GetToken 获取令牌信息
-func (r *SessionRepository) GetToken(ctx context.Context, tokenID string) (*model.TokenData, error) {
+func (r *SessionRepository) GetToken(ctx context.Context, tokenID string) (*system.TokenData, error) {
 	// 生成令牌键
 	tokenKey := r.getTokenKey(tokenID)
 
@@ -157,7 +157,7 @@ func (r *SessionRepository) GetToken(ctx context.Context, tokenID string) (*mode
 	}
 
 	// 反序列化令牌数据
-	var tokenData model.TokenData
+	var tokenData system.TokenData
 	err = json.Unmarshal([]byte(data), &tokenData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal token data: %w", err)
@@ -211,7 +211,7 @@ func (r *SessionRepository) DeleteToken(ctx context.Context, tokenID string) err
 }
 
 // GetUserSessions 获取用户的所有会话（用于多设备登录管理）
-func (r *SessionRepository) GetUserSessions(ctx context.Context, userID uint64) ([]*model.SessionData, error) {
+func (r *SessionRepository) GetUserSessions(ctx context.Context, userID uint64) ([]*system.SessionData, error) {
 	// 生成用户会话模式键 (使用通配符匹配所有会话) ["session:user:1:*"]
 	pattern := r.getUserSessionPattern(userID)
 	// pattern := r.getSessionKey(userID)
@@ -223,7 +223,7 @@ func (r *SessionRepository) GetUserSessions(ctx context.Context, userID uint64) 
 	}
 
 	if len(keys) == 0 {
-		return []*model.SessionData{}, nil
+		return []*system.SessionData{}, nil
 	}
 
 	// 批量获取会话数据
@@ -232,13 +232,13 @@ func (r *SessionRepository) GetUserSessions(ctx context.Context, userID uint64) 
 		return nil, fmt.Errorf("failed to get user sessions: %w", err)
 	}
 
-	var sessions []*model.SessionData
+	var sessions []*system.SessionData
 	for _, value := range values {
 		if value == nil {
 			continue
 		}
 
-		var sessionData model.SessionData
+		var sessionData system.SessionData
 		err = json.Unmarshal([]byte(value.(string)), &sessionData)
 		if err != nil {
 			continue // 跳过无效数据

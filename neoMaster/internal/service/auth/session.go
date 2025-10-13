@@ -15,9 +15,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"neomaster/internal/model/system"
 	"time"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
@@ -26,7 +26,7 @@ import (
 
 // TokenGenerator 令牌生成器接口 - 解耦JWTService依赖
 type TokenGenerator interface {
-	GenerateTokens(ctx context.Context, user *model.User) (*auth.TokenPair, error)
+	GenerateTokens(ctx context.Context, user *system.User) (*auth.TokenPair, error)
 	ValidateAccessToken(tokenString string) (*auth.JWTClaims, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (*auth.TokenPair, error)
 	CheckTokenExpiry(tokenString string, threshold time.Duration) (bool, error)
@@ -67,7 +67,7 @@ func (s *SessionService) SetTokenGenerator(tokenGenerator TokenGenerator) {
 // Login 用户登录
 // clientIP: 客户端IP地址，从HTTP请求中获取
 // userAgent: 用户代理信息，从HTTP请求头中获取
-func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, clientIP, userAgent string) (*model.LoginResponse, error) {
+func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, clientIP, userAgent string) (*system.LoginResponse, error) {
 	if req == nil {
 		logger.LogError(errors.New("login request cannot be nil"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
@@ -105,7 +105,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	}
 
 	// 根据用户名或邮箱查找用户
-	var user *model.User
+	var user *system.User
 	var err error
 
 	// 尝试通过用户名查找
@@ -258,7 +258,7 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 	}
 
 	// 存储会话信息到Redis
-	sessionData := &model.SessionData{
+	sessionData := &system.SessionData{
 		UserID:      user.ID,
 		Username:    user.Username,
 		Email:       user.Email,
@@ -304,11 +304,11 @@ func (s *SessionService) Login(ctx context.Context, req *model.LoginRequest, cli
 		"timestamp":  logger.NowFormatted(),
 	})
 
-	return &model.LoginResponse{
+	return &system.LoginResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    tokenPair.ExpiresIn,
-		User: &model.User{
+		User: &system.User{
 			ID:          user.ID,
 			Username:    user.Username,
 			Email:       user.Email,
@@ -446,7 +446,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 }
 
 // RefreshToken 刷新令牌
-func (s *SessionService) RefreshToken(ctx context.Context, req *model.RefreshTokenRequest) (*model.RefreshTokenResponse, error) {
+func (s *SessionService) RefreshToken(ctx context.Context, req *system.RefreshTokenRequest) (*system.RefreshTokenResponse, error) {
 	if req == nil {
 		return nil, errors.New("refresh token request cannot be nil")
 	}
@@ -461,7 +461,7 @@ func (s *SessionService) RefreshToken(ctx context.Context, req *model.RefreshTok
 		return nil, fmt.Errorf("failed to refresh tokens: %w", err)
 	}
 
-	return &model.RefreshTokenResponse{
+	return &system.RefreshTokenResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    tokenPair.ExpiresIn,
@@ -470,7 +470,7 @@ func (s *SessionService) RefreshToken(ctx context.Context, req *model.RefreshTok
 }
 
 // ValidateSession 验证会话
-func (s *SessionService) ValidateSession(ctx context.Context, accessToken string) (*model.User, error) {
+func (s *SessionService) ValidateSession(ctx context.Context, accessToken string) (*system.User, error) {
 	// 验证令牌是否为空
 	if accessToken == "" {
 		return nil, errors.New("access token cannot be empty")
@@ -650,7 +650,7 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 }
 
 // GetUserSessions 获取指定用户的所有会话
-func (s *SessionService) GetUserSessions(ctx context.Context, userID uint) ([]*model.SessionData, error) {
+func (s *SessionService) GetUserSessions(ctx context.Context, userID uint) ([]*system.SessionData, error) {
 	if userID == 0 {
 		return nil, errors.New("userID cannot be zero")
 	}

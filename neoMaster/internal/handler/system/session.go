@@ -2,12 +2,12 @@ package system
 
 import (
 	"errors"
+	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
@@ -40,7 +40,7 @@ func (h *SessionHandler) ListActiveSessions(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	userID, ok := userIDInterface.(uint)
@@ -53,19 +53,19 @@ func (h *SessionHandler) ListActiveSessions(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
 	// 管理入口：通过查询参数指定要查看的用户ID Query 参数
 	queryUserIDStr := c.Query("userId")
 	if queryUserIDStr == "" {
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "缺少 user_id 参数"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "缺少 user_id 参数"})
 		return
 	}
 	queryUserID64, err := strconv.ParseUint(queryUserIDStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的 user_id 参数"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的 user_id 参数"})
 		return
 	}
 
@@ -79,11 +79,11 @@ func (h *SessionHandler) ListActiveSessions(c *gin.Context) {
 			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取活跃会话失败: " + serr.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "获取活跃会话失败: " + serr.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "获取活跃会话成功", Data: sessions})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "获取活跃会话成功", Data: sessions})
 }
 
 // RevokeSession 撤销某个用户当前会话
@@ -103,7 +103,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	adminID, ok := adminIDInterface.(uint)
@@ -116,7 +116,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "撤销会话失败: " + derr.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "撤销会话失败: " + derr.Error()})
 		return
 	}
 
@@ -160,7 +160,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 		"timestamp":   logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "撤销会话成功"})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "撤销会话成功"})
 }
 
 // RevokeAllUserSessions 撤销某个用户的所有会话
@@ -180,7 +180,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusUnauthorized, model.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{Code: http.StatusUnauthorized, Status: "error", Message: "未授权访问"})
 		return
 	}
 	adminID, ok := adminIDInterface.(uint)
@@ -193,7 +193,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 			"request_id": XRequestID,
 			"timestamp":  logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "内部服务器错误"})
 		return
 	}
 
@@ -209,7 +209,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(http.StatusBadRequest, model.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "error", Message: "无效的用户ID"})
 		return
 	}
 
@@ -223,7 +223,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 			"request_id":  XRequestID,
 			"timestamp":   logger.NowFormatted(),
 		})
-		c.JSON(http.StatusInternalServerError, model.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "撤销用户所有会话失败: " + derr.Error()})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{Code: http.StatusInternalServerError, Status: "error", Message: "撤销用户所有会话失败: " + derr.Error()})
 		return
 	}
 
@@ -236,5 +236,5 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 		"timestamp":   logger.NowFormatted(),
 	})
 
-	c.JSON(http.StatusOK, model.APIResponse{Code: http.StatusOK, Status: "success", Message: "撤销用户所有会话成功"})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "撤销用户所有会话成功"})
 }

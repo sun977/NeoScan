@@ -1858,16 +1858,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 
 // ==================== 私有辅助方法 ====================
 
-// updateScanRuleStatus 更新扫描规则状态
-// @param ctx 上下文
-// @param id 扫描规则ID
-// @param status 新状态
-// @return error 错误信息
-func (h *ScanRuleHandler) updateScanRuleStatus(ctx *gin.Context, id uint, status string) error {
-	// 这里应该调用服务层的状态更新方法
-	// 为了保持代码简洁，这里只是一个占位符
-	return h.scanRuleService.UpdateScanRuleStatus(ctx.Request.Context(), id, status)
-}
+
 
 // validateScanRuleRequest 验证扫描规则请求参数
 // @param req 请求参数

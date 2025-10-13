@@ -1,5 +1,5 @@
 /**
- * 路由:扫描配置路由
+ * 路由:扫描编排器配置路由
  * @author: Linus Torvalds (AI Assistant)
  * @date: 2025.10.11
  * @description: 扫描配置模块路由，包含项目配置、工作流、扫描工具、扫描规则的路由定义

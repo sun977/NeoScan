@@ -11,19 +11,19 @@
  */
 
 //  核心HTTP接口:
-//  	POST   /api/v1/scan-config/tools - 创建扫描工具
-//  	GET    /api/v1/scan-config/tools/:id - 获取扫描工具详情
-//  	PUT    /api/v1/scan-config/tools/:id - 更新扫描工具
-//  	DELETE /api/v1/scan-config/tools/:id - 删除扫描工具
-//  	GET    /api/v1/scan-config/tools - 获取扫描工具列表
+//  	POST   /api/v1/orchestrator/tools - 创建扫描工具
+//  	GET    /api/v1/orchestrator/tools/:id - 获取扫描工具详情
+//  	PUT    /api/v1/orchestrator/tools/:id - 更新扫描工具
+//  	DELETE /api/v1/orchestrator/tools/:id - 删除扫描工具
+//  	GET    /api/v1/orchestrator/tools - 获取扫描工具列表
 //  状态管理接口:
-//  	POST   /api/v1/scan-config/tools/:id/enable - 启用扫描工具
-//  	POST   /api/v1/scan-config/tools/:id/disable - 禁用扫描工具
-//  	GET    /api/v1/scan-config/tools/:id/health - 健康检查
+//  	POST   /api/v1/orchestrator/tools/:id/enable - 启用扫描工具
+//  	POST   /api/v1/orchestrator/tools/:id/disable - 禁用扫描工具
+//  	GET    /api/v1/orchestrator/tools/:id/health - 健康检查
 //  工具管理接口:
-//  	POST   /api/v1/scan-config/tools/:id/install - 安装扫描工具
-//  	POST   /api/v1/scan-config/tools/:id/uninstall - 卸载扫描工具
-//  	GET    /api/v1/scan-config/tools/:id/metrics - 获取工具指标
+//  	POST   /api/v1/orchestrator/tools/:id/install - 安装扫描工具
+//  	POST   /api/v1/orchestrator/tools/:id/uninstall - 卸载扫描工具
+//  	GET    /api/v1/orchestrator/tools/:id/metrics - 获取工具指标
 
 package orchestrator
 
@@ -59,7 +59,7 @@ func NewScanToolHandler(scanToolService *scanConfigService.ScanToolService) *Sca
 }
 
 // CreateScanTool 创建扫描工具
-// @route POST /api/v1/scan-config/tools
+// @route POST /api/v1/orchestrator/tools
 // @param c Gin上下文
 func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	// 获取请求上下文信息 - Linus式：统一处理，消除重复
@@ -165,7 +165,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 }
 
 // GetScanTool 获取扫描工具详情
-// @route GET /api/v1/scan-config/tools/:id
+// @route GET /api/v1/orchestrator/tools/:id
 // @param c Gin上下文
 func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 	// 获取请求上下文信息
@@ -252,7 +252,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 }
 
 // UpdateScanTool 更新扫描工具
-// @route PUT /api/v1/scan-config/tools/:id
+// @route PUT /api/v1/orchestrator/tools/:id
 // @param c Gin上下文
 func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	// 获取请求上下文信息
@@ -390,7 +390,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 }
 
 // DeleteScanTool 删除扫描工具
-// @route DELETE /api/v1/scan-config/tools/:id
+// @route DELETE /api/v1/orchestrator/tools/:id
 // @param c Gin上下文
 func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 	// 获取请求上下文信息
@@ -475,7 +475,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 }
 
 // ListScanTools 获取扫描工具列表
-// @route GET /api/v1/scan-config/tools
+// @route GET /api/v1/orchestrator/tools
 // @param c Gin上下文
 func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	// 获取请求上下文信息
@@ -587,21 +587,21 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 }
 
 // EnableScanTool 启用扫描工具
-// @route POST /api/v1/scan-config/tools/:id/enable
+// @route POST /api/v1/orchestrator/tools/:id/enable
 // @param c Gin上下文
 func (h *ScanToolHandler) EnableScanTool(c *gin.Context) {
 	h.updateScanToolStatus(c, orchestrator.ScanToolStatusEnabled, "enable_scan_tool", "启用扫描工具")
 }
 
 // DisableScanTool 禁用扫描工具
-// @route POST /api/v1/scan-config/tools/:id/disable
+// @route POST /api/v1/orchestrator/tools/:id/disable
 // @param c Gin上下文
 func (h *ScanToolHandler) DisableScanTool(c *gin.Context) {
 	h.updateScanToolStatus(c, orchestrator.ScanToolStatusDisabled, "disable_scan_tool", "禁用扫描工具")
 }
 
 // HealthCheckScanTool 扫描工具健康检查
-// @route GET /api/v1/scan-config/tools/:id/health
+// @route GET /api/v1/orchestrator/tools/:id/health
 // @param c Gin上下文
 func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 	// 获取请求上下文信息
@@ -688,21 +688,21 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 }
 
 // InstallScanTool 安装扫描工具
-// @route POST /api/v1/scan-config/tools/:id/install
+// @route POST /api/v1/orchestrator/tools/:id/install
 // @param c Gin上下文
 func (h *ScanToolHandler) InstallScanTool(c *gin.Context) {
 	h.manageScanTool(c, "install", "安装扫描工具")
 }
 
 // UninstallScanTool 卸载扫描工具
-// @route POST /api/v1/scan-config/tools/:id/uninstall
+// @route POST /api/v1/orchestrator/tools/:id/uninstall
 // @param c Gin上下文
 func (h *ScanToolHandler) UninstallScanTool(c *gin.Context) {
 	h.manageScanTool(c, "uninstall", "卸载扫描工具")
 }
 
 // GetScanToolMetrics 获取扫描工具指标
-// @route GET /api/v1/scan-config/tools/:id/metrics
+// @route GET /api/v1/orchestrator/tools/:id/metrics
 // @param c Gin上下文
 func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 	// 获取请求上下文信息
@@ -1024,7 +1024,7 @@ func (h *ScanToolHandler) GetAvailableScanTools(c *gin.Context) {
 	tools, err := h.scanToolService.GetAvailableScanTools(c.Request.Context())
 	if err != nil {
 		logger.Error("获取可用扫描工具失败", map[string]interface{}{
-			"path":      "/api/v1/scan-config/tools/available",
+			"path":      "/api/v1/orchestrator/tools/available",
 			"operation": "get_available_scan_tools",
 			"option":    "scanToolService.GetAvailableScanTools",
 			"func_name": "handler.orchestrator.scan_tool.GetAvailableScanTools",
@@ -1035,7 +1035,7 @@ func (h *ScanToolHandler) GetAvailableScanTools(c *gin.Context) {
 	}
 
 	logger.Info("获取可用扫描工具成功", map[string]interface{}{
-		"path":      "/api/v1/scan-config/tools/available",
+		"path":      "/api/v1/orchestrator/tools/available",
 		"operation": "get_available_scan_tools",
 		"option":    "success",
 		"func_name": "handler.orchestrator.scan_tool.GetAvailableScanTools",
@@ -1049,7 +1049,7 @@ func (h *ScanToolHandler) GetAvailableScanTools(c *gin.Context) {
 }
 
 // BatchInstallScanTools 批量安装扫描工具
-// @route POST /api/v1/scan-config/tools/batch-install
+// @route POST /api/v1/orchestrator/tools/batch-install
 // @param c Gin上下文
 func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 	// 获取请求上下文信息
@@ -1147,7 +1147,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 }
 
 // BatchUninstallScanTools 批量卸载扫描工具
-// @route POST /api/v1/scan-config/tools/batch-uninstall
+// @route POST /api/v1/orchestrator/tools/batch-uninstall
 // @param c Gin上下文
 func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 	// 获取请求上下文信息
@@ -1245,7 +1245,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 }
 
 // GetSystemToolStatus 获取系统工具状态
-// @route GET /api/v1/scan-config/tools/system-status
+// @route GET /api/v1/orchestrator/tools/system-status
 // @param c Gin上下文
 func (h *ScanToolHandler) GetSystemToolStatus(c *gin.Context) {
 	// 获取请求上下文信息
@@ -1300,7 +1300,7 @@ func (h *ScanToolHandler) GetScanToolsByType(c *gin.Context) {
 	toolType := c.Param("type")
 	if toolType == "" {
 		logger.Error("工具类型不能为空", map[string]interface{}{
-			"path":      "/api/v1/scan-config/tools/type/:type",
+			"path":      "/api/v1/orchestrator/tools/type/:type",
 			"operation": "get_scan_tools_by_type",
 			"option":    "validate_type",
 			"func_name": "handler.orchestrator.scan_tool.GetScanToolsByType",
@@ -1312,7 +1312,7 @@ func (h *ScanToolHandler) GetScanToolsByType(c *gin.Context) {
 	tools, err := h.scanToolService.GetScanToolsByType(c.Request.Context(), orchestrator.ScanToolType(toolType))
 	if err != nil {
 		logger.Error("按类型获取扫描工具失败", map[string]interface{}{
-			"path":      "/api/v1/scan-config/tools/type/:type",
+			"path":      "/api/v1/orchestrator/tools/type/:type",
 			"operation": "get_scan_tools_by_type",
 			"option":    "scanToolService.GetScanToolsByType",
 			"func_name": "handler.orchestrator.scan_tool.GetScanToolsByType",
@@ -1324,7 +1324,7 @@ func (h *ScanToolHandler) GetScanToolsByType(c *gin.Context) {
 	}
 
 	logger.Info("按类型获取扫描工具成功", map[string]interface{}{
-		"path":      "/api/v1/scan-config/tools/type/:type",
+		"path":      "/api/v1/orchestrator/tools/type/:type",
 		"operation": "get_scan_tools_by_type",
 		"option":    "success",
 		"func_name": "handler.orchestrator.scan_tool.GetScanToolsByType",

@@ -11,23 +11,23 @@
  */
 
 //  核心HTTP接口:
-//  	POST   /api/v1/scan-config/workflows - 创建工作流配置
-//  	GET    /api/v1/scan-config/workflows/:id - 获取工作流配置详情
-//  	PUT    /api/v1/scan-config/workflows/:id - 更新工作流配置
-//  	DELETE /api/v1/scan-config/workflows/:id - 删除工作流配置
-//  	GET    /api/v1/scan-config/workflows - 获取工作流配置列表
+//  	POST   /api/v1/orchestrator/workflows - 创建工作流配置
+//  	GET    /api/v1/orchestrator/workflows/:id - 获取工作流配置详情
+//  	PUT    /api/v1/orchestrator/workflows/:id - 更新工作流配置
+//  	DELETE /api/v1/orchestrator/workflows/:id - 删除工作流配置
+//  	GET    /api/v1/orchestrator/workflows - 获取工作流配置列表
 //  执行控制接口:
-//  	POST   /api/v1/scan-config/workflows/:id/execute - 执行工作流
-//  	POST   /api/v1/scan-config/workflows/:id/stop - 停止工作流
-//  	POST   /api/v1/scan-config/workflows/:id/pause - 暂停工作流
-//  	POST   /api/v1/scan-config/workflows/:id/resume - 恢复工作流
-//  	POST   /api/v1/scan-config/workflows/:id/retry - 重试工作流
+//  	POST   /api/v1/orchestrator/workflows/:id/execute - 执行工作流
+//  	POST   /api/v1/orchestrator/workflows/:id/stop - 停止工作流
+//  	POST   /api/v1/orchestrator/workflows/:id/pause - 暂停工作流
+//  	POST   /api/v1/orchestrator/workflows/:id/resume - 恢复工作流
+//  	POST   /api/v1/orchestrator/workflows/:id/retry - 重试工作流
 //  状态管理接口:
-//  	POST   /api/v1/scan-config/workflows/:id/enable - 启用工作流
-//  	POST   /api/v1/scan-config/workflows/:id/disable - 禁用工作流
-//  	GET    /api/v1/scan-config/workflows/:id/status - 获取工作流状态
-//  	GET    /api/v1/scan-config/workflows/:id/logs - 获取工作流日志
-//  	GET    /api/v1/scan-config/workflows/:id/metrics - 获取工作流指标
+//  	POST   /api/v1/orchestrator/workflows/:id/enable - 启用工作流
+//  	POST   /api/v1/orchestrator/workflows/:id/disable - 禁用工作流
+//  	GET    /api/v1/orchestrator/workflows/:id/status - 获取工作流状态
+//  	GET    /api/v1/orchestrator/workflows/:id/logs - 获取工作流日志
+//  	GET    /api/v1/orchestrator/workflows/:id/metrics - 获取工作流指标
 
 package orchestrator
 
@@ -62,7 +62,7 @@ func NewWorkflowHandler(workflowService *scanConfigService.WorkflowService) *Wor
 }
 
 // CreateWorkflow 创建工作流配置
-// @route POST /api/v1/scan-config/workflows
+// @route POST /api/v1/orchestrator/workflows
 // @param c Gin上下文
 func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	// 获取请求上下文信息 - Linus式：统一处理，消除重复
@@ -168,7 +168,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 }
 
 // GetWorkflow 获取工作流配置详情
-// @route GET /api/v1/scan-config/workflows/:id
+// @route GET /api/v1/orchestrator/workflows/:id
 // @param c Gin上下文
 func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 	// 获取请求上下文信息
@@ -255,7 +255,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 }
 
 // UpdateWorkflow 更新工作流配置
-// @route PUT /api/v1/scan-config/workflows/:id
+// @route PUT /api/v1/orchestrator/workflows/:id
 // @param c Gin上下文
 func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	// 获取请求上下文信息
@@ -393,7 +393,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 }
 
 // DeleteWorkflow 删除工作流配置
-// @route DELETE /api/v1/scan-config/workflows/:id
+// @route DELETE /api/v1/orchestrator/workflows/:id
 // @param c Gin上下文
 func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	// 获取请求上下文信息
@@ -478,7 +478,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 }
 
 // ListWorkflows 获取工作流配置列表
-// @route GET /api/v1/scan-config/workflows
+// @route GET /api/v1/orchestrator/workflows
 // @param c Gin上下文
 func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	// 获取请求上下文信息
@@ -600,56 +600,56 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 }
 
 // ExecuteWorkflow 执行工作流
-// @route POST /api/v1/scan-config/workflows/:id/execute
+// @route POST /api/v1/orchestrator/workflows/:id/execute
 // @param c Gin上下文
 func (h *WorkflowHandler) ExecuteWorkflow(c *gin.Context) {
 	h.controlWorkflow(c, "execute", "执行工作流")
 }
 
 // StopWorkflow 停止工作流
-// @route POST /api/v1/scan-config/workflows/:id/stop
+// @route POST /api/v1/orchestrator/workflows/:id/stop
 // @param c Gin上下文
 func (h *WorkflowHandler) StopWorkflow(c *gin.Context) {
 	h.controlWorkflow(c, "stop", "停止工作流")
 }
 
 // PauseWorkflow 暂停工作流
-// @route POST /api/v1/scan-config/workflows/:id/pause
+// @route POST /api/v1/orchestrator/workflows/:id/pause
 // @param c Gin上下文
 func (h *WorkflowHandler) PauseWorkflow(c *gin.Context) {
 	h.controlWorkflow(c, "pause", "暂停工作流")
 }
 
 // ResumeWorkflow 恢复工作流
-// @route POST /api/v1/scan-config/workflows/:id/resume
+// @route POST /api/v1/orchestrator/workflows/:id/resume
 // @param c Gin上下文
 func (h *WorkflowHandler) ResumeWorkflow(c *gin.Context) {
 	h.controlWorkflow(c, "resume", "恢复工作流")
 }
 
 // RetryWorkflow 重试工作流
-// @route POST /api/v1/scan-config/workflows/:id/retry
+// @route POST /api/v1/orchestrator/workflows/:id/retry
 // @param c Gin上下文
 func (h *WorkflowHandler) RetryWorkflow(c *gin.Context) {
 	h.controlWorkflow(c, "retry", "重试工作流")
 }
 
 // EnableWorkflow 启用工作流
-// @route POST /api/v1/scan-config/workflows/:id/enable
+// @route POST /api/v1/orchestrator/workflows/:id/enable
 // @param c Gin上下文
 func (h *WorkflowHandler) EnableWorkflow(c *gin.Context) {
 	h.updateWorkflowStatus(c, orchestrator.WorkflowStatusActive, "enable_workflow", "启用工作流")
 }
 
 // DisableWorkflow 禁用工作流
-// @route POST /api/v1/scan-config/workflows/:id/disable
+// @route POST /api/v1/orchestrator/workflows/:id/disable
 // @param c Gin上下文
 func (h *WorkflowHandler) DisableWorkflow(c *gin.Context) {
 	h.updateWorkflowStatus(c, orchestrator.WorkflowStatusInactive, "disable_workflow", "禁用工作流")
 }
 
 // GetWorkflowStatus 获取工作流状态
-// @route GET /api/v1/scan-config/workflows/:id/status
+// @route GET /api/v1/orchestrator/workflows/:id/status
 // @param c Gin上下文
 func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 	// 获取请求上下文信息
@@ -736,7 +736,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 }
 
 // GetWorkflowLogs 获取工作流日志
-// @route GET /api/v1/scan-config/workflows/:id/logs
+// @route GET /api/v1/orchestrator/workflows/:id/logs
 // @param c Gin上下文
 func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 	// 获取请求上下文信息
@@ -849,7 +849,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 }
 
 // GetWorkflowMetrics 获取工作流指标
-// @route GET /api/v1/scan-config/workflows/:id/metrics
+// @route GET /api/v1/orchestrator/workflows/:id/metrics
 // @param c Gin上下文
 func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 	// 获取请求上下文信息
@@ -1180,7 +1180,7 @@ func (h *WorkflowHandler) GetWorkflowsByProject(c *gin.Context) {
 	projectID, err := strconv.ParseUint(projectIDStr, 10, 32)
 	if err != nil {
 		logger.Error("项目ID格式错误", map[string]interface{}{
-			"path":      "/api/v1/scan-config/workflows/project/:project_id",
+			"path":      "/api/v1/orchestrator/workflows/project/:project_id",
 			"operation": "get_workflows_by_project",
 			"option":    "parse_project_id",
 			"func_name": "handler.orchestrator.workflow.GetWorkflowsByProject",
@@ -1193,7 +1193,7 @@ func (h *WorkflowHandler) GetWorkflowsByProject(c *gin.Context) {
 	workflows, err := h.workflowService.GetWorkflowsByProject(c.Request.Context(), uint(projectID))
 	if err != nil {
 		logger.Error("获取项目工作流失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/workflows/project/:project_id",
+			"path":       "/api/v1/orchestrator/workflows/project/:project_id",
 			"operation":  "get_workflows_by_project",
 			"option":     "workflowService.GetWorkflowsByProject",
 			"func_name":  "handler.orchestrator.workflow.GetWorkflowsByProject",
@@ -1205,7 +1205,7 @@ func (h *WorkflowHandler) GetWorkflowsByProject(c *gin.Context) {
 	}
 
 	logger.Info("获取项目工作流成功", map[string]interface{}{
-		"path":       "/api/v1/scan-config/workflows/project/:project_id",
+		"path":       "/api/v1/orchestrator/workflows/project/:project_id",
 		"operation":  "get_workflows_by_project",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.workflow.GetWorkflowsByProject",
@@ -1220,7 +1220,7 @@ func (h *WorkflowHandler) GetWorkflowsByProject(c *gin.Context) {
 }
 
 // GetSystemScanStatistics 获取系统扫描统计信息
-// @route GET /api/v1/scan-config/workflows/system-statistics
+// @route GET /api/v1/orchestrator/workflows/system-statistics
 // @param c Gin上下文
 func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 	// 获取请求上下文信息
@@ -1271,7 +1271,7 @@ func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 }
 
 // GetSystemPerformance 获取系统性能信息
-// @route GET /api/v1/scan-config/workflows/system-performance
+// @route GET /api/v1/orchestrator/workflows/system-performance
 // @param c Gin上下文
 func (h *WorkflowHandler) GetSystemPerformance(c *gin.Context) {
 	// 获取请求上下文信息

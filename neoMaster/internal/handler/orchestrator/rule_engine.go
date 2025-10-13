@@ -49,7 +49,7 @@ func NewRuleEngineHandler(ruleEngine *rule_engine.RuleEngine, scanRuleService *s
 // @Failure 400 {object} model.APIResponse "请求参数错误"
 // @Failure 404 {object} model.APIResponse "规则不存在"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
-// @Router /api/v1/scan-config/rule-engine/rules/{id}/execute [post]
+// @Router /api/v1/orchestrator/rule-engine/rules/{id}/execute [post]
 func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	// 获取请求信息
 	clientIP := c.ClientIP()
@@ -61,7 +61,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		logger.Error("解析规则ID失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "parse_id",
 			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
@@ -86,7 +86,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	scanRule, err := h.scanRuleService.GetScanRule(ctx, uint(id))
 	if err != nil {
 		logger.Error("获取扫描规则失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "get_rule",
 			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
@@ -109,7 +109,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	// 检查规则是否启用
 	if !scanRule.IsEnabled() {
 		logger.Warn("规则已禁用", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "rule_disabled",
 			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
@@ -132,7 +132,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	var context map[string]interface{}
 	if err1 := c.ShouldBindJSON(&context); err1 != nil {
 		logger.Error("解析规则执行上下文失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "parse_context",
 			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
@@ -156,7 +156,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 	result, err := h.scanRuleService.ExecuteRuleAction(c.Request.Context(), scanRule, context)
 	if err != nil {
 		logger.Error("执行规则失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "execute",
 			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
@@ -178,7 +178,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 
 	// 记录成功日志
 	logger.Info("执行规则成功", map[string]interface{}{
-		"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
+		"path":       "/api/v1/orchestrator/rule-engine/rules/:id/execute",
 		"operation":  "execute_rule",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
@@ -209,7 +209,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 // @Success 200 {object} model.APIResponse{data=rule_engine.BatchRuleResult} "执行成功"
 // @Failure 400 {object} model.APIResponse "请求参数错误"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
-// @Router /api/v1/scan-config/rule-engine/rules/batch-execute [post]
+// @Router /api/v1/orchestrator/rule-engine/rules/batch-execute [post]
 func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 	// 获取请求信息
 	clientIP := c.ClientIP()
@@ -226,7 +226,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 	var req BatchExecuteRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("解析批量执行规则请求失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/batch-execute",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/batch-execute",
 			"operation":  "execute_rules",
 			"option":     "parse_request",
 			"func_name":  "handler.orchestrator.rule_engine.ExecuteRules",
@@ -249,7 +249,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 	result, err := h.scanRuleService.ExecuteRulesAction(c.Request.Context(), req.RuleIDs, req.Context)
 	if err != nil {
 		logger.Error("批量执行规则失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/batch-execute",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/batch-execute",
 			"operation":  "execute_rules",
 			"option":     "execute",
 			"func_name":  "handler.orchestrator.rule_engine.ExecuteRules",
@@ -271,7 +271,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 
 	// 记录成功日志
 	logger.Info("批量执行规则成功", map[string]interface{}{
-		"path":          "/api/v1/scan-config/rule-engine/rules/batch-execute",
+		"path":          "/api/v1/orchestrator/rule-engine/rules/batch-execute",
 		"operation":     "execute_rules",
 		"option":        "success",
 		"func_name":     "handler.orchestrator.rule_engine.ExecuteRules",
@@ -300,7 +300,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 // @Produce json
 // @Success 200 {object} model.APIResponse{data=rule_engine.RuleEngineMetrics} "获取成功"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
-// @Router /api/v1/scan-config/rule-engine/metrics [get]
+// @Router /api/v1/orchestrator/rule-engine/metrics [get]
 func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 	// 获取请求信息
 	clientIP := c.ClientIP()
@@ -311,7 +311,7 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 	metrics, err := h.scanRuleService.GetEngineMetrics(c.Request.Context())
 	if err != nil {
 		logger.Error("获取规则引擎指标失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/metrics",
+			"path":       "/api/v1/orchestrator/rule-engine/metrics",
 			"operation":  "get_engine_metrics",
 			"option":     "get_metrics",
 			"func_name":  "handler.orchestrator.rule_engine.GetEngineMetrics",
@@ -332,7 +332,7 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 
 	// 记录成功日志
 	logger.Info("获取规则引擎指标成功", map[string]interface{}{
-		"path":          "/api/v1/scan-config/rule-engine/metrics",
+		"path":          "/api/v1/orchestrator/rule-engine/metrics",
 		"operation":     "get_engine_metrics",
 		"option":        "success",
 		"func_name":     "handler.orchestrator.rule_engine.GetEngineMetrics",
@@ -361,7 +361,7 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 // @Produce json
 // @Success 200 {object} model.APIResponse "清空成功"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
-// @Router /api/v1/scan-config/rule-engine/cache/clear [post]
+// @Router /api/v1/orchestrator/rule-engine/cache/clear [post]
 func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 	// 获取请求信息
 	clientIP := c.ClientIP()
@@ -372,7 +372,7 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 	err := h.scanRuleService.ClearEngineCache(c.Request.Context())
 	if err != nil {
 		logger.Error("清空规则引擎缓存失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/cache/clear",
+			"path":       "/api/v1/orchestrator/rule-engine/cache/clear",
 			"operation":  "clear_cache",
 			"option":     "clear",
 			"func_name":  "handler.orchestrator.rule_engine.ClearCache",
@@ -393,7 +393,7 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 
 	// 记录成功日志
 	logger.Info("清空规则引擎缓存成功", map[string]interface{}{
-		"path":       "/api/v1/scan-config/rule-engine/cache/clear",
+		"path":       "/api/v1/orchestrator/rule-engine/cache/clear",
 		"operation":  "clear_cache",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.rule_engine.ClearCache",
@@ -422,7 +422,7 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 // @Success 200 {object} model.APIResponse{data=ValidateRuleResponse} "验证成功"
 // @Failure 400 {object} model.APIResponse "请求参数错误"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
-// @Router /api/v1/scan-config/rule-engine/rules/validate [post]
+// @Router /api/v1/orchestrator/rule-engine/rules/validate [post]
 func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 	// 获取请求信息
 	clientIP := c.ClientIP()
@@ -447,7 +447,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 	var req ValidateRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("解析规则验证请求失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "parse_request",
 			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
@@ -470,7 +470,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 	response, err := h.scanRuleService.ValidateRule(c.Request.Context(), req.Conditions, req.Actions)
 	if err != nil {
 		logger.Error("验证规则失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "validate",
 			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
@@ -492,7 +492,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 	// 记录日志
 	if response.Valid {
 		logger.Info("规则验证成功", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "success",
 			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
@@ -503,7 +503,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 		})
 	} else {
 		logger.Warn("规则验证失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
+			"path":       "/api/v1/orchestrator/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "validation_failed",
 			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
@@ -534,7 +534,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 // @Success 200 {object} model.APIResponse{data=rule_engine.Condition} "解析成功"
 // @Failure 400 {object} model.APIResponse "请求参数错误"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
-// @Router /api/v1/scan-config/rule-engine/conditions/parse [post]
+// @Router /api/v1/orchestrator/rule-engine/conditions/parse [post]
 func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 	// 获取请求信息
 	clientIP := c.ClientIP()
@@ -550,7 +550,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 	var req ParseConditionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("解析条件表达式请求失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/conditions/parse",
+			"path":       "/api/v1/orchestrator/rule-engine/conditions/parse",
 			"operation":  "parse_condition",
 			"option":     "parse_request",
 			"func_name":  "handler.orchestrator.rule_engine.ParseCondition",
@@ -573,7 +573,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 	condition, err := h.scanRuleService.ParseCondition(c.Request.Context(), req.Expression)
 	if err != nil {
 		logger.Error("解析条件表达式失败", map[string]interface{}{
-			"path":       "/api/v1/scan-config/rule-engine/conditions/parse",
+			"path":       "/api/v1/orchestrator/rule-engine/conditions/parse",
 			"operation":  "parse_condition",
 			"option":     "parse",
 			"func_name":  "handler.orchestrator.rule_engine.ParseCondition",
@@ -595,7 +595,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 
 	// 记录成功日志
 	logger.Info("解析条件表达式成功", map[string]interface{}{
-		"path":       "/api/v1/scan-config/rule-engine/conditions/parse",
+		"path":       "/api/v1/orchestrator/rule-engine/conditions/parse",
 		"operation":  "parse_condition",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.rule_engine.ParseCondition",

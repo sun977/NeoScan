@@ -1,0 +1,462 @@
+openapi: 3.0.3
+info:
+  title: NeoScan Orchestrator API
+  description: |
+    NeoScan 扫描工作流编排模块 API 接口文档
+    
+    ## 功能概述
+    Orchestrator 模块是 NeoScan 的核心编排引擎，负责管理扫描项目配置、工作流、扫描工具和扫描规则。
+    
+    ## 核心功能
+    - **项目配置管理**: 创建和管理扫描项目的配置信息
+    - **扫描工具管理**: 管理第三方扫描工具的配置和生命周期
+    - **扫描规则管理**: 管理扫描规则和规则引擎
+    - **工作流管理**: 编排和执行复杂的扫描工作流
+    
+    ## 认证方式
+    所有 API 接口都需要 JWT Bearer Token 认证。
+  version: 1.0.0
+  contact:
+    name: NeoScan 开发团队
+    email: dev@neoscan.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8123
+    description: 本地开发服务器
+  - url: https://api.neoscan.com
+    description: 生产环境服务器
+
+security:
+  - bearerAuth: []
+
+paths:
+  # 项目配置管理 API
+  /api/v1/orchestrator/projects:
+    get:
+      tags:
+        - 项目配置管理
+      summary: 获取项目配置列表
+      description: 获取项目配置列表，支持分页和过滤
+      parameters:
+        - name: page
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: name
+          in: query
+          description: 项目名称过滤
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: 项目状态过滤
+          schema:
+            type: string
+            enum: [active, inactive, pending]
+      responses:
+        '200':
+          description: 成功获取项目配置列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - 项目配置管理
+      summary: 创建项目配置
+      description: 创建新的扫描项目配置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: 项目配置创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/projects/{id}:
+    get:
+      tags:
+        - 项目配置管理
+      summary: 获取项目配置详情
+      description: 获取指定项目配置的详细信息
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 项目配置ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功获取项目配置详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - 项目配置管理
+      summary: 更新项目配置
+      description: 更新指定项目配置
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 项目配置ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: 项目配置更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - 项目配置管理
+      summary: 删除项目配置
+      description: 删除指定项目配置
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 项目配置ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 项目配置删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # 通用响应模型
+    SuccessResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "操作成功"
+        data:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "请求参数错误"
+        error:
+          type: string
+          example: "validation_error"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        pages:
+          type: integer
+          example: 10
+
+    # 项目配置相关模型
+    ProjectConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "Web应用安全扫描项目"
+        description:
+          type: string
+          example: "针对Web应用的综合安全扫描配置"
+        target_url:
+          type: string
+          example: "https://example.com"
+        scan_type:
+          type: string
+          enum: [web, api, mobile, network]
+          example: "web"
+        config:
+          type: object
+          additionalProperties: true
+          example:
+            timeout: 300
+            max_depth: 5
+            exclude_paths: ["/admin", "/test"]
+        status:
+          type: string
+          enum: [active, inactive, pending]
+          example: "active"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+        - target_url
+        - scan_type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Web应用安全扫描项目"
+        description:
+          type: string
+          maxLength: 500
+          example: "针对Web应用的综合安全扫描配置"
+        target_url:
+          type: string
+          format: uri
+          example: "https://example.com"
+        scan_type:
+          type: string
+          enum: [web, api, mobile, network]
+          example: "web"
+        config:
+          type: object
+          additionalProperties: true
+          example:
+            timeout: 300
+            max_depth: 5
+            exclude_paths: ["/admin", "/test"]
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Web应用安全扫描项目"
+        description:
+          type: string
+          maxLength: 500
+          example: "针对Web应用的综合安全扫描配置"
+        target_url:
+          type: string
+          format: uri
+          example: "https://example.com"
+        scan_type:
+          type: string
+          enum: [web, api, mobile, network]
+          example: "web"
+        config:
+          type: object
+          additionalProperties: true
+          example:
+            timeout: 300
+            max_depth: 5
+            exclude_paths: ["/admin", "/test"]
+        status:
+          type: string
+          enum: [active, inactive, pending]
+          example: "active"
+
+    ProjectResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ProjectConfig'
+
+    ProjectListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ProjectConfig'
+                pagination:
+                  $ref: '#/components/schemas/PaginationInfo'
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 400
+            message: "请求参数错误"
+            error: "validation_error"
+            timestamp: "2024-01-01T12:00:00Z"
+
+    Unauthorized:
+      description: 未授权访问
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 401
+            message: "未授权访问"
+            error: "unauthorized"
+            timestamp: "2024-01-01T12:00:00Z"
+
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 404
+            message: "资源不存在"
+            error: "not_found"
+            timestamp: "2024-01-01T12:00:00Z"
+
+    Conflict:
+      description: 资源冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 409
+            message: "资源已存在"
+            error: "conflict"
+            timestamp: "2024-01-01T12:00:00Z"
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 500
+            message: "服务器内部错误"
+            error: "internal_server_error"
+            timestamp: "2024-01-01T12:00:00Z"
+
+tags:
+  - name: 项目配置管理
+    description: 扫描项目配置的创建、查询、更新和删除操作
+  - name: 扫描工具管理
+    description: 扫描工具的配置、安装、卸载和状态管理
+  - name: 扫描规则管理
+    description: 扫描规则的创建、更新、匹配和执行管理
+  - name: 工作流管理
+    description: 扫描工作流的编排、执行和状态监控
+  - name: 规则引擎
+    description: 规则引擎的执行、指标和缓存管理

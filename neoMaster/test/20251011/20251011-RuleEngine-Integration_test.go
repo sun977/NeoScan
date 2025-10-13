@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 规则引擎集成测试
  * @author: Linus Torvalds (AI Assistant)
  * @date: 2025.10.11
@@ -24,8 +24,8 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 
-	"neomaster/internal/handler/scan_config"
-	"neomaster/internal/service/scan_config/rule_engine"
+	"neomaster/internal/handler/orchestrator"
+	"neomaster/internal/service/orchestrator/rule_engine"
 	"neomaster/internal/app/master/router"
 )
 
@@ -34,7 +34,7 @@ type RuleEngineIntegrationTestSuite struct {
 	suite.Suite
 	engine          *gin.Engine
 	ruleEngine      *rule_engine.RuleEngine
-	handler         *scan_config.RuleEngineHandler
+	handler         *orchestrator.RuleEngineHandler
 	testToken       string
 	testRuleIDs     []uint
 	db              *gorm.DB
@@ -221,7 +221,7 @@ func (suite *RuleEngineIntegrationTestSuite) testRuleEngineAPIRoutes() {
 
 		body, _ := json.Marshal(context)
 		// 使用正确的API路径，包含规则ID作为路径参数
-		url := fmt.Sprintf("/api/v1/scan-config/rule-engine/rules/%d/execute", suite.testRuleIDs[0])
+		url := fmt.Sprintf("/api/v1/orchestrator/rule-engine/rules/%d/execute", suite.testRuleIDs[0])
 		req := httptest.NewRequest("POST", url, bytes.NewBuffer(body))
 		req.Header.Set("Authorization", "Bearer "+suite.testToken)
 		req.Header.Set("Content-Type", "application/json")
@@ -245,7 +245,7 @@ func (suite *RuleEngineIntegrationTestSuite) testRuleEngineAPIRoutes() {
 		}
 
 		body, _ := json.Marshal(requestBody)
-		req := httptest.NewRequest("POST", "/api/v1/scan-config/rule-engine/rules/batch-execute", bytes.NewBuffer(body))
+		req := httptest.NewRequest("POST", "/api/v1/orchestrator/rule-engine/rules/batch-execute", bytes.NewBuffer(body))
 		req.Header.Set("Authorization", "Bearer "+suite.testToken)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -317,7 +317,7 @@ func (suite *RuleEngineIntegrationTestSuite) testRuleValidation() {
 		}
 
 		body, _ := json.Marshal(requestBody)
-		req := httptest.NewRequest("POST", "/api/v1/scan-config/rule-engine/rules/validate", bytes.NewBuffer(body))
+		req := httptest.NewRequest("POST", "/api/v1/orchestrator/rule-engine/rules/validate", bytes.NewBuffer(body))
 		req.Header.Set("Authorization", "Bearer "+suite.testToken)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -348,7 +348,7 @@ func (suite *RuleEngineIntegrationTestSuite) testRuleValidation() {
 		}
 
 		body, _ := json.Marshal(requestBody)
-		req := httptest.NewRequest("POST", "/api/v1/scan-config/rule-engine/rules/validate", bytes.NewBuffer(body))
+		req := httptest.NewRequest("POST", "/api/v1/orchestrator/rule-engine/rules/validate", bytes.NewBuffer(body))
 		req.Header.Set("Authorization", "Bearer "+suite.testToken)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -406,7 +406,7 @@ func (suite *RuleEngineIntegrationTestSuite) testCacheManagement() {
 func (suite *RuleEngineIntegrationTestSuite) testEngineMetrics() {
 	// 测试获取引擎指标
 	suite.T().Run("GetEngineMetrics", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/v1/scan-config/rule-engine/metrics", nil)
+		req := httptest.NewRequest("GET", "/api/v1/orchestrator/rule-engine/metrics", nil)
 		req.Header.Set("Authorization", "Bearer "+suite.testToken)
 
 		w := httptest.NewRecorder()
@@ -501,7 +501,7 @@ func (suite *RuleEngineIntegrationTestSuite) testErrorHandling() {
 		}
 
 		body, _ := json.Marshal(requestBody)
-		req := httptest.NewRequest("POST", "/api/v1/scan-config/rule-engine/execute", bytes.NewBuffer(body))
+		req := httptest.NewRequest("POST", "/api/v1/orchestrator/rule-engine/execute", bytes.NewBuffer(body))
 		req.Header.Set("Authorization", "Bearer "+suite.testToken)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -514,7 +514,7 @@ func (suite *RuleEngineIntegrationTestSuite) testErrorHandling() {
 
 	// 测试无效的请求格式
 	suite.T().Run("InvalidRequestFormat", func(t *testing.T) {
-		req := httptest.NewRequest("POST", "/api/v1/scan-config/rule-engine/rules/validate", bytes.NewBuffer([]byte("invalid json")))
+		req := httptest.NewRequest("POST", "/api/v1/orchestrator/rule-engine/rules/validate", bytes.NewBuffer([]byte("invalid json")))
 		req.Header.Set("Authorization", "Bearer "+suite.testToken)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -533,7 +533,7 @@ func (suite *RuleEngineIntegrationTestSuite) testErrorHandling() {
 		}
 
 		body, _ := json.Marshal(requestBody)
-		req := httptest.NewRequest("POST", "/api/v1/scan-config/rule-engine/rules/batch-execute", bytes.NewBuffer(body))
+		req := httptest.NewRequest("POST", "/api/v1/orchestrator/rule-engine/rules/batch-execute", bytes.NewBuffer(body))
 		// 不设置Authorization头
 		req.Header.Set("Content-Type", "application/json")
 

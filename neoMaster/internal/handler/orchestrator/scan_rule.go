@@ -5,7 +5,7 @@
  * @description: 扫描规则管理处理器，提供扫描规则的CRUD操作、状态管理、规则测试等功能
  * @func: 处理扫描规则相关的HTTP请求
  */
-package scan_config
+package orchestrator
 
 import (
 	"encoding/json"
@@ -16,10 +16,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"neomaster/internal/model"
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/orchestrator"
 )
 
 // ScanRuleHandler 扫描规则处理器
@@ -47,13 +47,13 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求参数
-	var req scan_config.CreateScanRuleRequest
+	var req orchestrator.CreateScanRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("创建扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules",
 			"operation":  "create_scan_rule",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_rule.CreateScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.CreateScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -75,7 +75,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules",
 			"operation":  "create_scan_rule",
 			"option":     "validateScanRuleRequest",
-			"func_name":  "handler.scan_config.scan_rule.CreateScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.CreateScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -92,12 +92,12 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 	}
 
 	// 转换请求结构体为实体结构体
-	rule := &scan_config.ScanRule{
+	rule := &orchestrator.ScanRule{
 		Name:        req.Name,
 		Description: req.Description,
 		Type:        req.Type,
 		Category:    req.Category,
-		Severity:    scan_config.ScanRuleSeverity(req.Severity),
+		Severity:    orchestrator.ScanRuleSeverity(req.Severity),
 		Priority:    req.Priority,
 		Status:      req.Status,
 		IsBuiltIn:   req.IsBuiltIn,
@@ -107,9 +107,9 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 	if req.Config != nil {
 		if enabled, exists := req.Config["enabled"]; exists {
 			if enabledBool, ok := enabled.(bool); ok && enabledBool {
-				rule.Status = scan_config.ScanRuleStatusEnabled
+				rule.Status = orchestrator.ScanRuleStatusEnabled
 			} else {
-				rule.Status = scan_config.ScanRuleStatusDisabled
+				rule.Status = orchestrator.ScanRuleStatusDisabled
 			}
 		}
 	}
@@ -122,7 +122,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 				"path":       "/api/v1/scan-config/rules",
 				"operation":  "create_scan_rule",
 				"option":     "marshal_config",
-				"func_name":  "handler.scan_config.scan_rule.CreateScanRule",
+				"func_name":  "handler.orchestrator.scan_rule.CreateScanRule",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -147,7 +147,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 				"path":       "/api/v1/scan-config/rules",
 				"operation":  "create_scan_rule",
 				"option":     "marshal_conditions",
-				"func_name":  "handler.scan_config.scan_rule.CreateScanRule",
+				"func_name":  "handler.orchestrator.scan_rule.CreateScanRule",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -172,7 +172,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 				"path":       "/api/v1/scan-config/rules",
 				"operation":  "create_scan_rule",
 				"option":     "marshal_actions",
-				"func_name":  "handler.scan_config.scan_rule.CreateScanRule",
+				"func_name":  "handler.orchestrator.scan_rule.CreateScanRule",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -197,7 +197,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules",
 			"operation":  "create_scan_rule",
 			"option":     "scanRuleService.CreateScanRule",
-			"func_name":  "handler.scan_config.scan_rule.CreateScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.CreateScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -219,7 +219,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules",
 		"operation":  "create_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.CreateScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.CreateScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -254,7 +254,7 @@ func (h *ScanRuleHandler) GetScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "get_scan_rule",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -278,7 +278,7 @@ func (h *ScanRuleHandler) GetScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "get_scan_rule",
 			"option":     "scanRuleService.GetScanRule",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -300,7 +300,7 @@ func (h *ScanRuleHandler) GetScanRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id",
 		"operation":  "get_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.GetScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.GetScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -333,7 +333,7 @@ func (h *ScanRuleHandler) GetScanRule(c *gin.Context) {
 // @Param keyword query string false "关键词搜索"
 // @Param is_built_in query bool false "是否内置规则"
 // @Param created_by query uint false "创建者ID"
-// @Success 200 {object} model.APIResponse{data=model.PaginatedResponse{items=[]scan_config.ScanRule}} "获取成功"
+// @Success 200 {object} model.APIResponse{data=model.PaginatedResponse{items=[]orchestrator.ScanRule}} "获取成功"
 // @Failure 400 {object} model.APIResponse "请求参数错误"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
 // @Router /api/v1/scan-config/rules [get]
@@ -348,7 +348,7 @@ func (h *ScanRuleHandler) GetScanRuleList(c *gin.Context) {
 // @Tags 扫描规则管理
 // @Accept json
 // @Produce json
-// @Param request body scan_config.ImportScanRulesRequest true "导入请求参数"
+// @Param request body orchestrator.ImportScanRulesRequest true "导入请求参数"
 // @Success 200 {object} model.APIResponse{data=map[string]interface{}} "导入成功"
 // @Failure 400 {object} model.APIResponse "请求参数错误"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
@@ -360,13 +360,13 @@ func (h *ScanRuleHandler) BatchImportScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求参数
-	var req scan_config.ImportScanRulesRequest
+	var req orchestrator.ImportScanRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("解析批量导入扫描规则请求参数失败", map[string]interface{}{
 			"path":       "/api/v1/admin/scan-config/rules/batch-import",
 			"operation":  "batch_import_scan_rules",
 			"option":     "parse_request",
-			"func_name":  "handler.scan_config.scan_rule.BatchImportScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.BatchImportScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -389,7 +389,7 @@ func (h *ScanRuleHandler) BatchImportScanRules(c *gin.Context) {
 			"path":       "/api/v1/admin/scan-config/rules/batch-import",
 			"operation":  "batch_import_scan_rules",
 			"option":     "scanRuleService.BatchImportScanRules",
-			"func_name":  "handler.scan_config.scan_rule.BatchImportScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.BatchImportScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -410,7 +410,7 @@ func (h *ScanRuleHandler) BatchImportScanRules(c *gin.Context) {
 		"path":       "/api/v1/admin/scan-config/rules/batch-import",
 		"operation":  "batch_import_scan_rules",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.BatchImportScanRules",
+		"func_name":  "handler.orchestrator.scan_rule.BatchImportScanRules",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -452,7 +452,7 @@ func (h *ScanRuleHandler) BatchEnableScanRules(c *gin.Context) {
 			"path":       "/api/v1/admin/scan-config/rules/batch-enable",
 			"operation":  "batch_enable_scan_rules",
 			"option":     "parse_request",
-			"func_name":  "handler.scan_config.scan_rule.BatchEnableScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.BatchEnableScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -469,13 +469,13 @@ func (h *ScanRuleHandler) BatchEnableScanRules(c *gin.Context) {
 	}
 
 	// 调用服务层批量启用规则
-	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, scan_config.ScanRuleStatusEnabled)
+	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, orchestrator.ScanRuleStatusEnabled)
 	if err != nil {
 		logger.Error("批量启用扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/admin/scan-config/rules/batch-enable",
 			"operation":  "batch_enable_scan_rules",
 			"option":     "scanRuleService.BatchUpdateScanRuleStatus",
-			"func_name":  "handler.scan_config.scan_rule.BatchEnableScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.BatchEnableScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -497,7 +497,7 @@ func (h *ScanRuleHandler) BatchEnableScanRules(c *gin.Context) {
 		"path":       "/api/v1/admin/scan-config/rules/batch-enable",
 		"operation":  "batch_enable_scan_rules",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.BatchEnableScanRules",
+		"func_name":  "handler.orchestrator.scan_rule.BatchEnableScanRules",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -540,7 +540,7 @@ func (h *ScanRuleHandler) BatchDisableScanRules(c *gin.Context) {
 			"path":       "/api/v1/admin/scan-config/rules/batch-disable",
 			"operation":  "batch_disable_scan_rules",
 			"option":     "parse_request",
-			"func_name":  "handler.scan_config.scan_rule.BatchDisableScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.BatchDisableScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -557,13 +557,13 @@ func (h *ScanRuleHandler) BatchDisableScanRules(c *gin.Context) {
 	}
 
 	// 调用服务层批量禁用规则
-	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, scan_config.ScanRuleStatusDisabled)
+	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, orchestrator.ScanRuleStatusDisabled)
 	if err != nil {
 		logger.Error("批量禁用扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/admin/scan-config/rules/batch-disable",
 			"operation":  "batch_disable_scan_rules",
 			"option":     "scanRuleService.BatchUpdateScanRuleStatus",
-			"func_name":  "handler.scan_config.scan_rule.BatchDisableScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.BatchDisableScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -585,7 +585,7 @@ func (h *ScanRuleHandler) BatchDisableScanRules(c *gin.Context) {
 		"path":       "/api/v1/admin/scan-config/rules/batch-disable",
 		"operation":  "batch_disable_scan_rules",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.BatchDisableScanRules",
+		"func_name":  "handler.orchestrator.scan_rule.BatchDisableScanRules",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -619,7 +619,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "update_scan_rule",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_rule.UpdateScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.UpdateScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -637,13 +637,13 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req scan_config.UpdateScanRuleRequest
+	var req orchestrator.UpdateScanRuleRequest
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.Error("更新扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "update_scan_rule",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_rule.UpdateScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.UpdateScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -661,7 +661,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 	}
 
 	// 转换请求结构体为实体结构体
-	rule := &scan_config.ScanRule{}
+	rule := &orchestrator.ScanRule{}
 
 	// 只更新非空字段
 	if req.Name != nil {
@@ -677,7 +677,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 		rule.Category = *req.Category
 	}
 	if req.Severity != nil {
-		rule.Severity = scan_config.ScanRuleSeverity(*req.Severity)
+		rule.Severity = orchestrator.ScanRuleSeverity(*req.Severity)
 	}
 	if req.Priority != nil {
 		rule.Priority = *req.Priority
@@ -694,7 +694,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 				"path":       "/api/v1/scan-config/rules/:id",
 				"operation":  "update_scan_rule",
 				"option":     "marshal_config",
-				"func_name":  "handler.scan_config.scan_rule.UpdateScanRule",
+				"func_name":  "handler.orchestrator.scan_rule.UpdateScanRule",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -720,7 +720,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 				"path":       "/api/v1/scan-config/rules/:id",
 				"operation":  "update_scan_rule",
 				"option":     "marshal_conditions",
-				"func_name":  "handler.scan_config.scan_rule.UpdateScanRule",
+				"func_name":  "handler.orchestrator.scan_rule.UpdateScanRule",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -746,7 +746,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 				"path":       "/api/v1/scan-config/rules/:id",
 				"operation":  "update_scan_rule",
 				"option":     "marshal_actions",
-				"func_name":  "handler.scan_config.scan_rule.UpdateScanRule",
+				"func_name":  "handler.orchestrator.scan_rule.UpdateScanRule",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -772,7 +772,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "update_scan_rule",
 			"option":     "scanRuleService.UpdateScanRule",
-			"func_name":  "handler.scan_config.scan_rule.UpdateScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.UpdateScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -794,7 +794,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id",
 		"operation":  "update_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.UpdateScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.UpdateScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -830,7 +830,7 @@ func (h *ScanRuleHandler) DeleteScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "delete_scan_rule",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_rule.DeleteScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.DeleteScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -854,7 +854,7 @@ func (h *ScanRuleHandler) DeleteScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "delete_scan_rule",
 			"option":     "scanRuleService.DeleteScanRule",
-			"func_name":  "handler.scan_config.scan_rule.DeleteScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.DeleteScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -876,7 +876,7 @@ func (h *ScanRuleHandler) DeleteScanRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id",
 		"operation":  "delete_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.DeleteScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.DeleteScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -902,13 +902,13 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析查询参数
-	var req scan_config.ListScanRulesRequest
+	var req orchestrator.ListScanRulesRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		logger.Error("获取扫描规则列表查询参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules",
 			"operation":  "list_scan_rules",
 			"option":     "ShouldBindQuery",
-			"func_name":  "handler.scan_config.scan_rule.ListScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.ListScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -929,20 +929,20 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 	limit := req.PageSize
 
 	// 转换Severity字符串为ScanRuleSeverity类型
-	var severity *scan_config.ScanRuleSeverity
+	var severity *orchestrator.ScanRuleSeverity
 	if req.Severity != nil {
 		switch *req.Severity {
 		case "low":
-			s := scan_config.ScanRuleSeverityLow
+			s := orchestrator.ScanRuleSeverityLow
 			severity = &s
 		case "medium":
-			s := scan_config.ScanRuleSeverityMedium
+			s := orchestrator.ScanRuleSeverityMedium
 			severity = &s
 		case "high":
-			s := scan_config.ScanRuleSeverityHigh
+			s := orchestrator.ScanRuleSeverityHigh
 			severity = &s
 		case "critical":
-			s := scan_config.ScanRuleSeverityCritical
+			s := orchestrator.ScanRuleSeverityCritical
 			severity = &s
 		}
 	}
@@ -954,7 +954,7 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules",
 			"operation":  "list_scan_rules",
 			"option":     "scanRuleService.ListScanRules",
-			"func_name":  "handler.scan_config.scan_rule.ListScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.ListScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -975,7 +975,7 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules",
 		"operation":  "list_scan_rules",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.ListScanRules",
+		"func_name":  "handler.orchestrator.scan_rule.ListScanRules",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1013,7 +1013,7 @@ func (h *ScanRuleHandler) EnableScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/enable",
 			"operation":  "enable_scan_rule",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_rule.EnableScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.EnableScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1037,7 +1037,7 @@ func (h *ScanRuleHandler) EnableScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/enable",
 			"operation":  "enable_scan_rule",
 			"option":     "scanRuleService.EnableScanRule",
-			"func_name":  "handler.scan_config.scan_rule.EnableScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.EnableScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1059,7 +1059,7 @@ func (h *ScanRuleHandler) EnableScanRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id/enable",
 		"operation":  "enable_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.EnableScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.EnableScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1092,7 +1092,7 @@ func (h *ScanRuleHandler) DisableScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/disable",
 			"operation":  "disable_scan_rule",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_rule.DisableScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.DisableScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1116,7 +1116,7 @@ func (h *ScanRuleHandler) DisableScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/disable",
 			"operation":  "disable_scan_rule",
 			"option":     "scanRuleService.DisableScanRule",
-			"func_name":  "handler.scan_config.scan_rule.DisableScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.DisableScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1138,7 +1138,7 @@ func (h *ScanRuleHandler) DisableScanRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id/disable",
 		"operation":  "disable_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.DisableScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.DisableScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1164,10 +1164,10 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求体
-	var req scan_config.MatchScanRulesRequest
+	var req orchestrator.MatchScanRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogError(err, c.Request.RequestURI, 0, "", "match_scan_rules", "HANDLER", map[string]interface{}{
-			"func_name":  "handler.scan_config.scan_rule_handler.MatchScanRules",
+			"func_name":  "handler.orchestrator.scan_rule_handler.MatchScanRules",
 			"operation":  "match_scan_rules",
 			"option":     "bind_request",
 			"client_ip":  c.ClientIP(),
@@ -1191,7 +1191,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/match",
 			"operation":  "match_scan_rule",
 			"option":     "scanRuleService.MatchScanRule",
-			"func_name":  "handler.scan_config.scan_rule.MatchScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.MatchScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1212,7 +1212,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/match",
 		"operation":  "match_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.MatchScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.MatchScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1239,13 +1239,13 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求体
-	var req scan_config.ImportScanRulesRequest
+	var req orchestrator.ImportScanRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("导入扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/import",
 			"operation":  "import_scan_rules",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_rule.ImportScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.ImportScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1262,7 +1262,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 	}
 
 	// 解析导入数据
-	var rules []*scan_config.ScanRule
+	var rules []*orchestrator.ScanRule
 	switch req.Format {
 	case "json":
 		if err := json.Unmarshal([]byte(req.Data), &rules); err != nil {
@@ -1270,7 +1270,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 				"path":       "/api/v1/scan-config/rules/import",
 				"operation":  "import_scan_rules",
 				"option":     "json.Unmarshal",
-				"func_name":  "handler.scan_config.scan_rule.ImportScanRules",
+				"func_name":  "handler.orchestrator.scan_rule.ImportScanRules",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -1290,7 +1290,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 			"path":      "/api/v1/scan-config/rules/import",
 			"operation": "import_scan_rules",
 			"option":    "unsupported_format",
-			"func_name": "handler.scan_config.scan_rule.ImportScanRules",
+			"func_name": "handler.orchestrator.scan_rule.ImportScanRules",
 			"format":    req.Format,
 			"timestamp": logger.NowFormatted(),
 		})
@@ -1310,7 +1310,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/import",
 			"operation":  "import_scan_rules",
 			"option":     "scanRuleService.ImportScanRules",
-			"func_name":  "handler.scan_config.scan_rule.ImportScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.ImportScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1331,7 +1331,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/import",
 		"operation":  "import_scan_rules",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.ImportScanRules",
+		"func_name":  "handler.orchestrator.scan_rule.ImportScanRules",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1357,13 +1357,13 @@ func (h *ScanRuleHandler) ExportScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析查询参数
-	var req scan_config.ExportScanRulesRequest
+	var req orchestrator.ExportScanRulesRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		logger.Error("导出扫描规则查询参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/export",
 			"operation":  "export_scan_rules",
 			"option":     "ShouldBindQuery",
-			"func_name":  "handler.scan_config.scan_rule.ExportScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.ExportScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1386,7 +1386,7 @@ func (h *ScanRuleHandler) ExportScanRules(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/export",
 			"operation":  "export_scan_rules",
 			"option":     "scanRuleService.ExportScanRules",
-			"func_name":  "handler.scan_config.scan_rule.ExportScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.ExportScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1407,7 +1407,7 @@ func (h *ScanRuleHandler) ExportScanRules(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/export",
 		"operation":  "export_scan_rules",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.ExportScanRules",
+		"func_name":  "handler.orchestrator.scan_rule.ExportScanRules",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1457,7 +1457,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/test",
 			"operation":  "test_scan_rule",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_rule.TestScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.TestScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1475,13 +1475,13 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req scan_config.TestScanRuleRequest
+	var req orchestrator.TestScanRuleRequest
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.Error("测试扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/:id/test",
 			"operation":  "test_scan_rule",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_rule.TestScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.TestScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1505,7 +1505,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/test",
 			"operation":  "test_scan_rule",
 			"option":     "scanRuleService.GetScanRule",
-			"func_name":  "handler.scan_config.scan_rule.TestScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.TestScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1529,7 +1529,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/test",
 			"operation":  "test_scan_rule",
 			"option":     "scanRuleService.TestScanRule",
-			"func_name":  "handler.scan_config.scan_rule.TestScanRule",
+			"func_name":  "handler.orchestrator.scan_rule.TestScanRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1551,7 +1551,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id/test",
 		"operation":  "test_scan_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.TestScanRule",
+		"func_name":  "handler.orchestrator.scan_rule.TestScanRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1584,7 +1584,7 @@ func (h *ScanRuleHandler) GetScanRulesByType(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/type/:type",
 			"operation":  "get_scan_rules_by_type",
 			"option":     "param_validation",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRulesByType",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRulesByType",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1599,13 +1599,13 @@ func (h *ScanRuleHandler) GetScanRulesByType(c *gin.Context) {
 	}
 
 	// 调用服务层按类型获取扫描规则
-	rules, err := h.scanRuleService.GetScanRulesByType(c.Request.Context(), scan_config.ScanRuleType(ruleType))
+	rules, err := h.scanRuleService.GetScanRulesByType(c.Request.Context(), orchestrator.ScanRuleType(ruleType))
 	if err != nil {
 		logger.Error("按类型获取扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/type/:type",
 			"operation":  "get_scan_rules_by_type",
 			"option":     "scanRuleService.GetScanRulesByType",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRulesByType",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRulesByType",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1627,7 +1627,7 @@ func (h *ScanRuleHandler) GetScanRulesByType(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/type/:type",
 		"operation":  "get_scan_rules_by_type",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.GetScanRulesByType",
+		"func_name":  "handler.orchestrator.scan_rule.GetScanRulesByType",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1661,7 +1661,7 @@ func (h *ScanRuleHandler) GetScanRulesBySeverity(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/severity/:severity",
 			"operation":  "get_scan_rules_by_severity",
 			"option":     "param_validation",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRulesBySeverity",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRulesBySeverity",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1676,13 +1676,13 @@ func (h *ScanRuleHandler) GetScanRulesBySeverity(c *gin.Context) {
 	}
 
 	// 调用服务层按严重程度获取扫描规则
-	rules, err := h.scanRuleService.GetScanRulesBySeverity(c.Request.Context(), scan_config.ScanRuleSeverity(severity))
+	rules, err := h.scanRuleService.GetScanRulesBySeverity(c.Request.Context(), orchestrator.ScanRuleSeverity(severity))
 	if err != nil {
 		logger.Error("按严重程度获取扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/scan-config/rules/severity/:severity",
 			"operation":  "get_scan_rules_by_severity",
 			"option":     "scanRuleService.GetScanRulesBySeverity",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRulesBySeverity",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRulesBySeverity",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1704,7 +1704,7 @@ func (h *ScanRuleHandler) GetScanRulesBySeverity(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/severity/:severity",
 		"operation":  "get_scan_rules_by_severity",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.GetScanRulesBySeverity",
+		"func_name":  "handler.orchestrator.scan_rule.GetScanRulesBySeverity",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1738,7 +1738,7 @@ func (h *ScanRuleHandler) GetActiveScanRules(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/active",
 			"operation":  "get_active_scan_rules",
 			"option":     "scanRuleService.GetActiveScanRules",
-			"func_name":  "handler.scan_config.scan_rule.GetActiveScanRules",
+			"func_name":  "handler.orchestrator.scan_rule.GetActiveScanRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1759,7 +1759,7 @@ func (h *ScanRuleHandler) GetActiveScanRules(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/active",
 		"operation":  "get_active_scan_rules",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.GetActiveScanRules",
+		"func_name":  "handler.orchestrator.scan_rule.GetActiveScanRules",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1793,7 +1793,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/metrics",
 			"operation":  "get_scan_rule_metrics",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRuleMetrics",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRuleMetrics",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1817,7 +1817,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id/metrics",
 			"operation":  "get_scan_rule_metrics",
 			"option":     "scanRuleService.GetScanRuleMetrics",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRuleMetrics",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRuleMetrics",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1839,7 +1839,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id/metrics",
 		"operation":  "get_scan_rule_metrics",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.GetScanRuleMetrics",
+		"func_name":  "handler.orchestrator.scan_rule.GetScanRuleMetrics",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1872,7 +1872,7 @@ func (h *ScanRuleHandler) updateScanRuleStatus(ctx *gin.Context, id uint, status
 // validateScanRuleRequest 验证扫描规则请求参数
 // @param req 请求参数
 // @return error 验证错误
-func (h *ScanRuleHandler) validateScanRuleRequest(req *scan_config.CreateScanRuleRequest) error {
+func (h *ScanRuleHandler) validateScanRuleRequest(req *orchestrator.CreateScanRuleRequest) error {
 	// 验证规则名称
 	if req.Name == "" {
 		return model.NewValidationError("扫描规则名称不能为空")
@@ -1898,7 +1898,7 @@ func (h *ScanRuleHandler) validateScanRuleRequest(req *scan_config.CreateScanRul
 // @Accept json
 // @Produce json
 // @Param id path uint true "规则ID"
-// @Success 200 {object} model.APIResponse{data=scan_config.ScanRule} "获取成功"
+// @Success 200 {object} model.APIResponse{data=orchestrator.ScanRule} "获取成功"
 // @Failure 400 {object} model.APIResponse "请求参数错误"
 // @Failure 404 {object} model.APIResponse "规则不存在"
 // @Failure 500 {object} model.APIResponse "服务器内部错误"
@@ -1917,7 +1917,7 @@ func (h *ScanRuleHandler) GetScanRuleByID(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "get_scan_rule_by_id",
 			"option":     "parse_id",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRuleByID",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRuleByID",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1941,7 +1941,7 @@ func (h *ScanRuleHandler) GetScanRuleByID(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rules/:id",
 			"operation":  "get_scan_rule_by_id",
 			"option":     "scanRuleService.GetScanRule",
-			"func_name":  "handler.scan_config.scan_rule.GetScanRuleByID",
+			"func_name":  "handler.orchestrator.scan_rule.GetScanRuleByID",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1963,7 +1963,7 @@ func (h *ScanRuleHandler) GetScanRuleByID(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rules/:id",
 		"operation":  "get_scan_rule_by_id",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_rule.GetScanRuleByID",
+		"func_name":  "handler.orchestrator.scan_rule.GetScanRuleByID",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,

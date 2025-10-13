@@ -135,7 +135,7 @@ type AgentTaskConfig struct {
     AgentID  string `json:"agent_id"`
     
     // 新增扫描配置字段
-    ScanConfig *ProjectConfig `json:"scan_config,omitempty"`
+    ScanConfig *ProjectConfig `json:"orchestrator,omitempty"`
 }
 ```
 
@@ -406,7 +406,7 @@ func (p *AsyncProcessor) ProcessConfigUpdate(config *ProjectConfig) {
 ### 1. 权限控制
 ```go
 type Permission struct {
-    Resource string `json:"resource"` // scan_config
+    Resource string `json:"resource"` // orchestrator
     Action   string `json:"action"`   // create/read/update/delete
     Scope    string `json:"scope"`    // project/workflow/tool/rule
 }

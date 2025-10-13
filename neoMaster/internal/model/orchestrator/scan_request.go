@@ -5,7 +5,7 @@
  * @description: 扫描配置相关的请求结构体，遵循"Never break userspace"原则
  * @func: 扫描规则、扫描工具、项目配置等请求模型
  */
-package scan_config
+package orchestrator
 
 // CreateScanRuleRequest 创建扫描规则请求结构
 type CreateScanRuleRequest struct {

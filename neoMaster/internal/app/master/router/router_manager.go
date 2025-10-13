@@ -12,14 +12,14 @@ import (
 
 	"neomaster/internal/app/master/middleware"
 	authHandler "neomaster/internal/handler/auth"
-	scanConfigHandler "neomaster/internal/handler/scan_config"
+	scanConfigHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
 	"neomaster/internal/repository/mysql"
+	scanConfigRepo "neomaster/internal/repository/orchestrator"
 	redisRepo "neomaster/internal/repository/redis"
-	scanConfigRepo "neomaster/internal/repository/scan_config"
 	authService "neomaster/internal/service/auth"
-	scanConfigService "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -174,8 +174,8 @@ func (r *Router) SetupRoutes() {
 	// 管理员路由（需要管理员权限）
 	r.setupAdminRoutes(v1)
 
-	// 扫描配置路由（需要JWT认证）
-	r.setupScanConfigRoutes(v1)
+	// 扫描编排器配置路由（需要JWT认证）
+	r.setupOrchestratorRoutes(v1)
 
 	// 健康检查路由
 	r.setupHealthRoutes(api)

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 
 	"github.com/sirupsen/logrus"
@@ -60,7 +60,7 @@ func (e *MasscanExecutor) IsToolSupported(toolName string) bool {
 }
 
 // ValidateConfig 验证工具配置是否正确
-func (e *MasscanExecutor) ValidateConfig(tool *scan_config.ScanTool) error {
+func (e *MasscanExecutor) ValidateConfig(tool *orchestrator.ScanTool) error {
 	if tool == nil {
 		return fmt.Errorf("scan tool cannot be nil")
 	}

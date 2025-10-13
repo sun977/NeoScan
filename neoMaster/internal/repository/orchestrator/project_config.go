@@ -32,14 +32,14 @@
 //  字段更新:
 //  	UpdateProjectConfigFields - 使用map更新特定字段
 
-package scan_config
+package orchestrator
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
@@ -63,7 +63,7 @@ func NewProjectConfigRepository(db *gorm.DB) *ProjectConfigRepository {
 // @param ctx 上下文
 // @param config 项目配置对象
 // @return 错误信息
-func (r *ProjectConfigRepository) CreateProjectConfig(ctx context.Context, config *scan_config.ProjectConfig) error {
+func (r *ProjectConfigRepository) CreateProjectConfig(ctx context.Context, config *orchestrator.ProjectConfig) error {
 	config.CreatedAt = time.Now()
 	config.UpdatedAt = time.Now()
 
@@ -84,8 +84,8 @@ func (r *ProjectConfigRepository) CreateProjectConfig(ctx context.Context, confi
 // @param ctx 上下文
 // @param id 项目配置ID
 // @return 项目配置对象和错误信息
-func (r *ProjectConfigRepository) GetProjectConfigByID(ctx context.Context, id uint) (*scan_config.ProjectConfig, error) {
-	var config scan_config.ProjectConfig
+func (r *ProjectConfigRepository) GetProjectConfigByID(ctx context.Context, id uint) (*orchestrator.ProjectConfig, error) {
+	var config orchestrator.ProjectConfig
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&config).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -112,8 +112,8 @@ func (r *ProjectConfigRepository) GetProjectConfigByID(ctx context.Context, id u
 // @param ctx 上下文
 // @param name 项目名称
 // @return 项目配置对象和错误信息
-func (r *ProjectConfigRepository) GetProjectConfigByName(ctx context.Context, name string) (*scan_config.ProjectConfig, error) {
-	var config scan_config.ProjectConfig
+func (r *ProjectConfigRepository) GetProjectConfigByName(ctx context.Context, name string) (*orchestrator.ProjectConfig, error) {
+	var config orchestrator.ProjectConfig
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&config).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -140,7 +140,7 @@ func (r *ProjectConfigRepository) GetProjectConfigByName(ctx context.Context, na
 // @param ctx 上下文
 // @param config 项目配置对象
 // @return 错误信息
-func (r *ProjectConfigRepository) UpdateProjectConfig(ctx context.Context, config *scan_config.ProjectConfig) error {
+func (r *ProjectConfigRepository) UpdateProjectConfig(ctx context.Context, config *orchestrator.ProjectConfig) error {
 	config.UpdatedAt = time.Now()
 	err := r.db.WithContext(ctx).Save(config).Error
 	if err != nil {
@@ -161,7 +161,7 @@ func (r *ProjectConfigRepository) UpdateProjectConfig(ctx context.Context, confi
 // @param id 项目配置ID
 // @return 错误信息
 func (r *ProjectConfigRepository) DeleteProjectConfig(ctx context.Context, id uint) error {
-	err := r.db.WithContext(ctx).Delete(&scan_config.ProjectConfig{}, id).Error
+	err := r.db.WithContext(ctx).Delete(&orchestrator.ProjectConfig{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "project_config_delete", "DELETE", map[string]interface{}{
@@ -180,11 +180,11 @@ func (r *ProjectConfigRepository) DeleteProjectConfig(ctx context.Context, id ui
 // @param limit 限制数量
 // @param status 状态过滤（可选）
 // @return 项目配置列表、总数和错误信息
-func (r *ProjectConfigRepository) GetProjectConfigList(ctx context.Context, offset, limit int, status *scan_config.ProjectConfigStatus) ([]*scan_config.ProjectConfig, int64, error) {
-	var configs []*scan_config.ProjectConfig
+func (r *ProjectConfigRepository) GetProjectConfigList(ctx context.Context, offset, limit int, status *orchestrator.ProjectConfigStatus) ([]*orchestrator.ProjectConfig, int64, error) {
+	var configs []*orchestrator.ProjectConfig
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&scan_config.ProjectConfig{})
+	query := r.db.WithContext(ctx).Model(&orchestrator.ProjectConfig{})
 
 	// 状态过滤
 	if status != nil {
@@ -219,8 +219,8 @@ func (r *ProjectConfigRepository) GetProjectConfigList(ctx context.Context, offs
 // @param ctx 上下文
 // @param id 项目配置ID
 // @return 项目配置对象和错误信息
-func (r *ProjectConfigRepository) GetProjectConfigWithWorkflows(ctx context.Context, id uint) (*scan_config.ProjectConfig, error) {
-	var config scan_config.ProjectConfig
+func (r *ProjectConfigRepository) GetProjectConfigWithWorkflows(ctx context.Context, id uint) (*orchestrator.ProjectConfig, error) {
+	var config orchestrator.ProjectConfig
 	err := r.db.WithContext(ctx).Preload("WorkflowConfigs").First(&config, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -242,7 +242,7 @@ func (r *ProjectConfigRepository) GetProjectConfigWithWorkflows(ctx context.Cont
 // @return 是否存在和错误信息
 func (r *ProjectConfigRepository) ProjectConfigExists(ctx context.Context, name string) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&scan_config.ProjectConfig{}).Where("name = ?", name).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator.ProjectConfig{}).Where("name = ?", name).Count(&count).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "project_config_exists", "GET", map[string]interface{}{
 			"operation":    "project_config_exists",
@@ -257,9 +257,9 @@ func (r *ProjectConfigRepository) ProjectConfigExists(ctx context.Context, name 
 // GetActiveProjectConfigs 获取活跃的项目配置
 // @param ctx 上下文
 // @return 项目配置列表和错误信息
-func (r *ProjectConfigRepository) GetActiveProjectConfigs(ctx context.Context) ([]*scan_config.ProjectConfig, error) {
-	var configs []*scan_config.ProjectConfig
-	err := r.db.WithContext(ctx).Where("status = ?", scan_config.ProjectConfigStatusActive).Find(&configs).Error
+func (r *ProjectConfigRepository) GetActiveProjectConfigs(ctx context.Context) ([]*orchestrator.ProjectConfig, error) {
+	var configs []*orchestrator.ProjectConfig
+	err := r.db.WithContext(ctx).Where("status = ?", orchestrator.ProjectConfigStatusActive).Find(&configs).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "project_config_list", "GET", map[string]interface{}{
 			"operation": "get_active_project_configs",
@@ -275,8 +275,8 @@ func (r *ProjectConfigRepository) GetActiveProjectConfigs(ctx context.Context) (
 // @param id 项目配置ID
 // @param status 新状态
 // @return 错误信息
-func (r *ProjectConfigRepository) UpdateProjectConfigStatus(ctx context.Context, id uint, status scan_config.ProjectConfigStatus) error {
-	err := r.db.WithContext(ctx).Model(&scan_config.ProjectConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
+func (r *ProjectConfigRepository) UpdateProjectConfigStatus(ctx context.Context, id uint, status orchestrator.ProjectConfigStatus) error {
+	err := r.db.WithContext(ctx).Model(&orchestrator.ProjectConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":     status,
 		"updated_at": time.Now(),
 	}).Error
@@ -297,7 +297,7 @@ func (r *ProjectConfigRepository) UpdateProjectConfigStatus(ctx context.Context,
 // @param id 项目配置ID
 // @return 错误信息
 func (r *ProjectConfigRepository) EnableProjectConfig(ctx context.Context, id uint) error {
-	return r.UpdateProjectConfigStatus(ctx, id, scan_config.ProjectConfigStatusActive)
+	return r.UpdateProjectConfigStatus(ctx, id, orchestrator.ProjectConfigStatusActive)
 }
 
 // DisableProjectConfig 禁用项目配置
@@ -305,7 +305,7 @@ func (r *ProjectConfigRepository) EnableProjectConfig(ctx context.Context, id ui
 // @param id 项目配置ID
 // @return 错误信息
 func (r *ProjectConfigRepository) DisableProjectConfig(ctx context.Context, id uint) error {
-	return r.UpdateProjectConfigStatus(ctx, id, scan_config.ProjectConfigStatusInactive)
+	return r.UpdateProjectConfigStatus(ctx, id, orchestrator.ProjectConfigStatusInactive)
 }
 
 // BeginTx 开始事务
@@ -327,7 +327,7 @@ func (r *ProjectConfigRepository) BeginTx() (*gorm.DB, error) {
 // @param tx 事务对象
 // @param config 项目配置对象
 // @return 错误信息
-func (r *ProjectConfigRepository) UpdateProjectConfigWithTx(ctx context.Context, tx *gorm.DB, config *scan_config.ProjectConfig) error {
+func (r *ProjectConfigRepository) UpdateProjectConfigWithTx(ctx context.Context, tx *gorm.DB, config *orchestrator.ProjectConfig) error {
 	config.UpdatedAt = time.Now()
 	err := tx.WithContext(ctx).Save(config).Error
 	if err != nil {
@@ -349,7 +349,7 @@ func (r *ProjectConfigRepository) UpdateProjectConfigWithTx(ctx context.Context,
 // @param id 项目配置ID
 // @return 错误信息
 func (r *ProjectConfigRepository) DeleteProjectConfigWithTx(ctx context.Context, tx *gorm.DB, id uint) error {
-	err := tx.WithContext(ctx).Delete(&scan_config.ProjectConfig{}, id).Error
+	err := tx.WithContext(ctx).Delete(&orchestrator.ProjectConfig{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "project_config_delete_with_tx", "DELETE", map[string]interface{}{
@@ -369,7 +369,7 @@ func (r *ProjectConfigRepository) DeleteProjectConfigWithTx(ctx context.Context,
 // @return 错误信息
 func (r *ProjectConfigRepository) UpdateProjectConfigFields(ctx context.Context, id uint, fields map[string]interface{}) error {
 	fields["updated_at"] = time.Now()
-	err := r.db.WithContext(ctx).Model(&scan_config.ProjectConfig{}).Where("id = ?", id).Updates(fields).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator.ProjectConfig{}).Where("id = ?", id).Updates(fields).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "project_config_update", "PUT", map[string]interface{}{
 			"operation": "update_project_config_fields",

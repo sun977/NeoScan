@@ -32,7 +32,7 @@
 //  	GetProjectConfigStats - 获取项目配置统计信息
 //  	GetProjectConfigUsage - 获取项目配置使用情况
 
-package scan_config
+package orchestrator
 
 import (
 	"context"
@@ -42,9 +42,9 @@ import (
 	"strings"
 	"time"
 
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-	scanConfigRepo "neomaster/internal/repository/scan_config"
+	scanConfigRepo "neomaster/internal/repository/orchestrator"
 )
 
 // ProjectConfigService 项目配置服务结构体
@@ -73,7 +73,7 @@ func NewProjectConfigService(
 // @param ctx 上下文
 // @param config 项目配置对象
 // @return 创建的项目配置和错误信息
-func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *scan_config.ProjectConfig) (*scan_config.ProjectConfig, error) {
+func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *orchestrator.ProjectConfig) (*orchestrator.ProjectConfig, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if config == nil {
 		logger.LogError(errors.New("project config is nil"), "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
@@ -148,7 +148,7 @@ func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *
 // @param id 项目配置ID
 // @param config 更新的项目配置对象
 // @return 更新后的项目配置和错误信息
-func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint, config *scan_config.ProjectConfig) (*scan_config.ProjectConfig, error) {
+func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint, config *orchestrator.ProjectConfig) (*orchestrator.ProjectConfig, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogError(errors.New("invalid project config ID"), "", 0, "", "update_project_config", "SERVICE", map[string]interface{}{
@@ -262,7 +262,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 // @param ctx 上下文
 // @param id 项目配置ID
 // @return 项目配置对象和错误信息
-func (s *ProjectConfigService) GetProjectConfig(ctx context.Context, id uint) (*scan_config.ProjectConfig, error) {
+func (s *ProjectConfigService) GetProjectConfig(ctx context.Context, id uint) (*orchestrator.ProjectConfig, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogError(errors.New("invalid project config ID"), "", 0, "", "get_project_config", "SERVICE", map[string]interface{}{
@@ -306,7 +306,7 @@ func (s *ProjectConfigService) GetProjectConfig(ctx context.Context, id uint) (*
 // @param status 状态过滤（可选）
 // @param userID 用户ID过滤（可选）
 // @return 项目配置列表、总数和错误信息
-func (s *ProjectConfigService) ListProjectConfigs(ctx context.Context, offset, limit int, status *scan_config.ProjectConfigStatus, userID *uint) ([]*scan_config.ProjectConfig, int64, error) {
+func (s *ProjectConfigService) ListProjectConfigs(ctx context.Context, offset, limit int, status *orchestrator.ProjectConfigStatus, userID *uint) ([]*orchestrator.ProjectConfig, int64, error) {
 	// 参数验证
 	if offset < 0 {
 		offset = 0
@@ -419,7 +419,7 @@ func (s *ProjectConfigService) DeleteProjectConfig(ctx context.Context, id uint)
 // @param ctx 上下文
 // @param config 项目配置对象
 // @return 错误信息
-func (s *ProjectConfigService) ValidateProjectConfig(ctx context.Context, config *scan_config.ProjectConfig) error {
+func (s *ProjectConfigService) ValidateProjectConfig(ctx context.Context, config *orchestrator.ProjectConfig) error {
 	// 基础字段验证
 	if strings.TrimSpace(config.Name) == "" {
 		return errors.New("项目名称不能为空")
@@ -449,7 +449,7 @@ func (s *ProjectConfigService) ValidateProjectConfig(ctx context.Context, config
 // @param id 项目配置ID
 // @return 错误信息
 func (s *ProjectConfigService) EnableProjectConfig(ctx context.Context, id uint) error {
-	return s.updateProjectConfigStatus(ctx, id, scan_config.ProjectConfigStatusActive, "enable_project_config")
+	return s.updateProjectConfigStatus(ctx, id, orchestrator.ProjectConfigStatusActive, "enable_project_config")
 }
 
 // DisableProjectConfig 禁用项目配置
@@ -457,7 +457,7 @@ func (s *ProjectConfigService) EnableProjectConfig(ctx context.Context, id uint)
 // @param id 项目配置ID
 // @return 错误信息
 func (s *ProjectConfigService) DisableProjectConfig(ctx context.Context, id uint) error {
-	return s.updateProjectConfigStatus(ctx, id, scan_config.ProjectConfigStatusInactive, "disable_project_config")
+	return s.updateProjectConfigStatus(ctx, id, orchestrator.ProjectConfigStatusInactive, "disable_project_config")
 }
 
 // ReloadProjectConfig 重新加载项目配置
@@ -536,7 +536,7 @@ func (s *ProjectConfigService) SyncProjectConfig(ctx context.Context, id uint) e
 // GetActiveProjectConfigs 获取活跃的项目配置
 // @param ctx 上下文
 // @return 项目配置列表和错误信息
-func (s *ProjectConfigService) GetActiveProjectConfigs(ctx context.Context) ([]*scan_config.ProjectConfig, error) {
+func (s *ProjectConfigService) GetActiveProjectConfigs(ctx context.Context) ([]*orchestrator.ProjectConfig, error) {
 	configs, err := s.projectRepo.GetActiveProjectConfigs(ctx)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "get_active_project_configs", "SERVICE", map[string]interface{}{
@@ -554,7 +554,7 @@ func (s *ProjectConfigService) GetActiveProjectConfigs(ctx context.Context) ([]*
 // @param ctx 上下文
 // @param userID 用户ID
 // @return 项目配置列表和错误信息
-func (s *ProjectConfigService) GetProjectConfigsByUser(ctx context.Context, userID uint) ([]*scan_config.ProjectConfig, error) {
+func (s *ProjectConfigService) GetProjectConfigsByUser(ctx context.Context, userID uint) ([]*orchestrator.ProjectConfig, error) {
 	if userID == 0 {
 		return nil, errors.New("用户ID不能为0")
 	}
@@ -580,7 +580,7 @@ func (s *ProjectConfigService) GetProjectConfigsByUser(ctx context.Context, user
 // @param offset 偏移量
 // @param limit 限制数量
 // @return 项目配置列表、总数和错误信息
-func (s *ProjectConfigService) SearchProjectConfigs(ctx context.Context, keyword string, offset, limit int) ([]*scan_config.ProjectConfig, int64, error) {
+func (s *ProjectConfigService) SearchProjectConfigs(ctx context.Context, keyword string, offset, limit int) ([]*orchestrator.ProjectConfig, int64, error) {
 	if strings.TrimSpace(keyword) == "" {
 		return nil, 0, errors.New("搜索关键词不能为空")
 	}
@@ -603,7 +603,7 @@ func (s *ProjectConfigService) SearchProjectConfigs(ctx context.Context, keyword
 // @param ctx 上下文
 // @param id 项目配置ID
 // @return 项目配置对象和错误信息
-func (s *ProjectConfigService) GetProjectConfigWithWorkflows(ctx context.Context, id uint) (*scan_config.ProjectConfig, error) {
+func (s *ProjectConfigService) GetProjectConfigWithWorkflows(ctx context.Context, id uint) (*orchestrator.ProjectConfig, error) {
 	config, err := s.projectRepo.GetProjectConfigWithWorkflows(ctx, id)
 	if err != nil {
 		logger.LogError(err, "", id, "", "get_project_config_with_workflows", "SERVICE", map[string]interface{}{
@@ -658,7 +658,7 @@ func (s *ProjectConfigService) GetProjectConfigUsage(ctx context.Context, id uin
 }
 
 // 私有方法：更新项目配置状态
-func (s *ProjectConfigService) updateProjectConfigStatus(ctx context.Context, id uint, status scan_config.ProjectConfigStatus, operation string) error {
+func (s *ProjectConfigService) updateProjectConfigStatus(ctx context.Context, id uint, status orchestrator.ProjectConfigStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
 		logger.LogError(errors.New("invalid project config ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
@@ -718,10 +718,10 @@ func (s *ProjectConfigService) updateProjectConfigStatus(ctx context.Context, id
 }
 
 // 私有方法：设置默认值
-func (s *ProjectConfigService) setDefaultValues(config *scan_config.ProjectConfig) {
+func (s *ProjectConfigService) setDefaultValues(config *orchestrator.ProjectConfig) {
 	// 设置默认状态
 	if config.Status == 0 {
-		config.Status = scan_config.ProjectConfigStatusInactive
+		config.Status = orchestrator.ProjectConfigStatusInactive
 	}
 
 	if config.Metadata == "" {

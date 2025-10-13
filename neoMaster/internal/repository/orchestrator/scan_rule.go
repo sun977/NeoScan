@@ -38,14 +38,14 @@
 //  字段更新:
 //  	UpdateScanRuleFields - 使用map更新特定字段
 
-package scan_config
+package orchestrator
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
@@ -69,7 +69,7 @@ func NewScanRuleRepository(db *gorm.DB) *ScanRuleRepository {
 // @param ctx 上下文
 // @param rule 扫描规则对象
 // @return 错误信息
-func (r *ScanRuleRepository) CreateScanRule(ctx context.Context, rule *scan_config.ScanRule) error {
+func (r *ScanRuleRepository) CreateScanRule(ctx context.Context, rule *orchestrator.ScanRule) error {
 	rule.CreatedAt = time.Now()
 	rule.UpdatedAt = time.Now()
 
@@ -92,8 +92,8 @@ func (r *ScanRuleRepository) CreateScanRule(ctx context.Context, rule *scan_conf
 // @param ctx 上下文
 // @param id 扫描规则ID
 // @return 扫描规则对象和错误信息
-func (r *ScanRuleRepository) GetScanRuleByID(ctx context.Context, id uint) (*scan_config.ScanRule, error) {
-	var rule scan_config.ScanRule
+func (r *ScanRuleRepository) GetScanRuleByID(ctx context.Context, id uint) (*orchestrator.ScanRule, error) {
+	var rule orchestrator.ScanRule
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&rule).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -120,8 +120,8 @@ func (r *ScanRuleRepository) GetScanRuleByID(ctx context.Context, id uint) (*sca
 // @param ctx 上下文
 // @param name 规则名称
 // @return 扫描规则对象和错误信息
-func (r *ScanRuleRepository) GetScanRuleByName(ctx context.Context, name string) (*scan_config.ScanRule, error) {
-	var rule scan_config.ScanRule
+func (r *ScanRuleRepository) GetScanRuleByName(ctx context.Context, name string) (*orchestrator.ScanRule, error) {
+	var rule orchestrator.ScanRule
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&rule).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -148,7 +148,7 @@ func (r *ScanRuleRepository) GetScanRuleByName(ctx context.Context, name string)
 // @param ctx 上下文
 // @param rule 扫描规则对象
 // @return 错误信息
-func (r *ScanRuleRepository) UpdateScanRule(ctx context.Context, rule *scan_config.ScanRule) error {
+func (r *ScanRuleRepository) UpdateScanRule(ctx context.Context, rule *orchestrator.ScanRule) error {
 	rule.UpdatedAt = time.Now()
 	err := r.db.WithContext(ctx).Save(rule).Error
 	if err != nil {
@@ -169,7 +169,7 @@ func (r *ScanRuleRepository) UpdateScanRule(ctx context.Context, rule *scan_conf
 // @param id 扫描规则ID
 // @return 错误信息
 func (r *ScanRuleRepository) DeleteScanRule(ctx context.Context, id uint) error {
-	err := r.db.WithContext(ctx).Delete(&scan_config.ScanRule{}, id).Error
+	err := r.db.WithContext(ctx).Delete(&orchestrator.ScanRule{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "scan_rule_delete", "DELETE", map[string]interface{}{
@@ -190,11 +190,11 @@ func (r *ScanRuleRepository) DeleteScanRule(ctx context.Context, id uint) error 
 // @param severity 严重程度过滤（可选）
 // @param status 状态过滤（可选）
 // @return 扫描规则列表、总数和错误信息
-func (r *ScanRuleRepository) GetScanRuleList(ctx context.Context, offset, limit int, ruleType *scan_config.ScanRuleType, severity *scan_config.ScanRuleSeverity, status *scan_config.ScanRuleStatus) ([]*scan_config.ScanRule, int64, error) {
-	var rules []*scan_config.ScanRule
+func (r *ScanRuleRepository) GetScanRuleList(ctx context.Context, offset, limit int, ruleType *orchestrator.ScanRuleType, severity *orchestrator.ScanRuleSeverity, status *orchestrator.ScanRuleStatus) ([]*orchestrator.ScanRule, int64, error) {
+	var rules []*orchestrator.ScanRule
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&scan_config.ScanRule{})
+	query := r.db.WithContext(ctx).Model(&orchestrator.ScanRule{})
 
 	// 规则类型过滤
 	if ruleType != nil {
@@ -239,9 +239,9 @@ func (r *ScanRuleRepository) GetScanRuleList(ctx context.Context, offset, limit 
 // @param ctx 上下文
 // @param ruleType 规则类型
 // @return 扫描规则列表和错误信息
-func (r *ScanRuleRepository) GetScanRulesByType(ctx context.Context, ruleType scan_config.ScanRuleType) ([]*scan_config.ScanRule, error) {
-	var rules []*scan_config.ScanRule
-	err := r.db.WithContext(ctx).Where("type = ? AND status = ?", ruleType, scan_config.ScanRuleStatusEnabled).Find(&rules).Error
+func (r *ScanRuleRepository) GetScanRulesByType(ctx context.Context, ruleType orchestrator.ScanRuleType) ([]*orchestrator.ScanRule, error) {
+	var rules []*orchestrator.ScanRule
+	err := r.db.WithContext(ctx).Where("type = ? AND status = ?", ruleType, orchestrator.ScanRuleStatusEnabled).Find(&rules).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_rule_list", "GET", map[string]interface{}{
 			"operation": "get_scan_rules_by_type",
@@ -257,9 +257,9 @@ func (r *ScanRuleRepository) GetScanRulesByType(ctx context.Context, ruleType sc
 // @param ctx 上下文
 // @param severity 严重程度
 // @return 扫描规则列表和错误信息
-func (r *ScanRuleRepository) GetScanRulesBySeverity(ctx context.Context, severity scan_config.ScanRuleSeverity) ([]*scan_config.ScanRule, error) {
-	var rules []*scan_config.ScanRule
-	err := r.db.WithContext(ctx).Where("severity = ? AND status = ?", severity, scan_config.ScanRuleStatusEnabled).Find(&rules).Error
+func (r *ScanRuleRepository) GetScanRulesBySeverity(ctx context.Context, severity orchestrator.ScanRuleSeverity) ([]*orchestrator.ScanRule, error) {
+	var rules []*orchestrator.ScanRule
+	err := r.db.WithContext(ctx).Where("severity = ? AND status = ?", severity, orchestrator.ScanRuleStatusEnabled).Find(&rules).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_rule_list", "GET", map[string]interface{}{
 			"operation": "get_scan_rules_by_severity",
@@ -275,9 +275,9 @@ func (r *ScanRuleRepository) GetScanRulesBySeverity(ctx context.Context, severit
 // @param ctx 上下文
 // @param ruleType 规则类型过滤（可选）
 // @return 扫描规则列表和错误信息
-func (r *ScanRuleRepository) GetActiveRules(ctx context.Context, ruleType *scan_config.ScanRuleType) ([]*scan_config.ScanRule, error) {
-	var rules []*scan_config.ScanRule
-	query := r.db.WithContext(ctx).Where("status = ?", scan_config.ScanRuleStatusEnabled)
+func (r *ScanRuleRepository) GetActiveRules(ctx context.Context, ruleType *orchestrator.ScanRuleType) ([]*orchestrator.ScanRule, error) {
+	var rules []*orchestrator.ScanRule
+	query := r.db.WithContext(ctx).Where("status = ?", orchestrator.ScanRuleStatusEnabled)
 	
 	// 类型过滤
 	if ruleType != nil {
@@ -302,7 +302,7 @@ func (r *ScanRuleRepository) GetActiveRules(ctx context.Context, ruleType *scan_
 // @return 是否存在和错误信息
 func (r *ScanRuleRepository) ScanRuleExists(ctx context.Context, name string) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanRule{}).Where("name = ?", name).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanRule{}).Where("name = ?", name).Count(&count).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_rule_exists", "GET", map[string]interface{}{
 			"operation": "scan_rule_exists",
@@ -318,9 +318,9 @@ func (r *ScanRuleRepository) ScanRuleExists(ctx context.Context, name string) (b
 // @param ctx 上下文
 // @param scope 适用范围（JSON字符串匹配）
 // @return 扫描规则列表和错误信息
-func (r *ScanRuleRepository) GetScanRulesByScope(ctx context.Context, scope string) ([]*scan_config.ScanRule, error) {
-	var rules []*scan_config.ScanRule
-	err := r.db.WithContext(ctx).Where("JSON_CONTAINS(applicable_scope, ?) AND status = ?", scope, scan_config.ScanRuleStatusEnabled).Find(&rules).Error
+func (r *ScanRuleRepository) GetScanRulesByScope(ctx context.Context, scope string) ([]*orchestrator.ScanRule, error) {
+	var rules []*orchestrator.ScanRule
+	err := r.db.WithContext(ctx).Where("JSON_CONTAINS(applicable_scope, ?) AND status = ?", scope, orchestrator.ScanRuleStatusEnabled).Find(&rules).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_rule_list", "GET", map[string]interface{}{
 			"operation": "get_scan_rules_by_scope",
@@ -337,8 +337,8 @@ func (r *ScanRuleRepository) GetScanRulesByScope(ctx context.Context, scope stri
 // @param id 扫描规则ID
 // @param status 新状态
 // @return 错误信息
-func (r *ScanRuleRepository) UpdateScanRuleStatus(ctx context.Context, id uint, status scan_config.ScanRuleStatus) error {
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
+func (r *ScanRuleRepository) UpdateScanRuleStatus(ctx context.Context, id uint, status orchestrator.ScanRuleStatus) error {
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":     status,
 		"updated_at": time.Now(),
 	}).Error
@@ -359,7 +359,7 @@ func (r *ScanRuleRepository) UpdateScanRuleStatus(ctx context.Context, id uint, 
 // @param id 扫描规则ID
 // @return 错误信息
 func (r *ScanRuleRepository) EnableScanRule(ctx context.Context, id uint) error {
-	return r.UpdateScanRuleStatus(ctx, id, scan_config.ScanRuleStatusEnabled)
+	return r.UpdateScanRuleStatus(ctx, id, orchestrator.ScanRuleStatusEnabled)
 }
 
 // DisableScanRule 禁用扫描规则
@@ -367,7 +367,7 @@ func (r *ScanRuleRepository) EnableScanRule(ctx context.Context, id uint) error 
 // @param id 扫描规则ID
 // @return 错误信息
 func (r *ScanRuleRepository) DisableScanRule(ctx context.Context, id uint) error {
-	return r.UpdateScanRuleStatus(ctx, id, scan_config.ScanRuleStatusDisabled)
+	return r.UpdateScanRuleStatus(ctx, id, orchestrator.ScanRuleStatusDisabled)
 }
 
 // UpdateScanRuleStats 更新扫描规则统计信息
@@ -378,7 +378,7 @@ func (r *ScanRuleRepository) DisableScanRule(ctx context.Context, id uint) error
 // @param lastExecutionTime 最后执行时间
 // @return 错误信息
 func (r *ScanRuleRepository) UpdateScanRuleStats(ctx context.Context, id uint, executionCount, matchCount int, lastExecutionTime time.Time) error {
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"execution_count":     executionCount,
 		"match_count":         matchCount,
 		"last_execution_time": lastExecutionTime,
@@ -403,7 +403,7 @@ func (r *ScanRuleRepository) UpdateScanRuleStats(ctx context.Context, id uint, e
 // @param id 扫描规则ID
 // @return 错误信息
 func (r *ScanRuleRepository) IncrementExecutionCount(ctx context.Context, id uint) error {
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"execution_count":     gorm.Expr("execution_count + 1"),
 		"last_execution_time": time.Now(),
 		"updated_at":          time.Now(),
@@ -424,7 +424,7 @@ func (r *ScanRuleRepository) IncrementExecutionCount(ctx context.Context, id uin
 // @param id 扫描规则ID
 // @return 错误信息
 func (r *ScanRuleRepository) IncrementMatchCount(ctx context.Context, id uint) error {
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanRule{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"match_count": gorm.Expr("match_count + 1"),
 		"updated_at":  time.Now(),
 	}).Error
@@ -458,7 +458,7 @@ func (r *ScanRuleRepository) BeginTx() (*gorm.DB, error) {
 // @param tx 事务对象
 // @param rule 扫描规则对象
 // @return 错误信息
-func (r *ScanRuleRepository) UpdateScanRuleWithTx(ctx context.Context, tx *gorm.DB, rule *scan_config.ScanRule) error {
+func (r *ScanRuleRepository) UpdateScanRuleWithTx(ctx context.Context, tx *gorm.DB, rule *orchestrator.ScanRule) error {
 	rule.UpdatedAt = time.Now()
 	err := tx.WithContext(ctx).Save(rule).Error
 	if err != nil {
@@ -480,7 +480,7 @@ func (r *ScanRuleRepository) UpdateScanRuleWithTx(ctx context.Context, tx *gorm.
 // @param id 扫描规则ID
 // @return 错误信息
 func (r *ScanRuleRepository) DeleteScanRuleWithTx(ctx context.Context, tx *gorm.DB, id uint) error {
-	err := tx.WithContext(ctx).Delete(&scan_config.ScanRule{}, id).Error
+	err := tx.WithContext(ctx).Delete(&orchestrator.ScanRule{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "scan_rule_delete_with_tx", "DELETE", map[string]interface{}{
@@ -500,7 +500,7 @@ func (r *ScanRuleRepository) DeleteScanRuleWithTx(ctx context.Context, tx *gorm.
 // @return 错误信息
 func (r *ScanRuleRepository) UpdateScanRuleFields(ctx context.Context, id uint, fields map[string]interface{}) error {
 	fields["updated_at"] = time.Now()
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanRule{}).Where("id = ?", id).Updates(fields).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanRule{}).Where("id = ?", id).Updates(fields).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "scan_rule_update", "PUT", map[string]interface{}{
 			"operation": "update_scan_rule_fields",

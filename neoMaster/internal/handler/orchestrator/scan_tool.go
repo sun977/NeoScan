@@ -25,7 +25,7 @@
 //  	POST   /api/v1/scan-config/tools/:id/uninstall - 卸载扫描工具
 //  	GET    /api/v1/scan-config/tools/:id/metrics - 获取工具指标
 
-package scan_config
+package orchestrator
 
 import (
 	"errors"
@@ -35,10 +35,10 @@ import (
 	"strings"
 
 	"neomaster/internal/model"
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -69,12 +69,12 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	urlPath := c.Request.URL.String()
 
 	// 解析请求体
-	var req scan_config.ScanTool
+	var req orchestrator.ScanTool
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_scan_tool",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_tool.CreateScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -94,7 +94,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_scan_tool",
 			"option":     "validateScanToolRequest",
-			"func_name":  "handler.scan_config.scan_tool.CreateScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -116,7 +116,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_scan_tool",
 			"option":     "scanToolService.CreateScanTool",
-			"func_name":  "handler.scan_config.scan_tool.CreateScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -146,7 +146,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "create_scan_tool", "创建扫描工具成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "create_scan_tool",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.CreateScanTool",
+		"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -181,7 +181,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_tool.GetScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.GetScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -203,7 +203,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool",
 			"option":     "scanToolService.GetScanTool",
-			"func_name":  "handler.scan_config.scan_tool.GetScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.GetScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -233,7 +233,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "get_scan_tool", "获取扫描工具成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "get_scan_tool",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.GetScanTool",
+		"func_name":  "handler.orchestrator.scan_tool.GetScanTool",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -268,7 +268,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_tool.UpdateScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -285,12 +285,12 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req scan_config.ScanTool
+	var req orchestrator.ScanTool
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.LogError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_tool.UpdateScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -311,7 +311,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 		logger.LogError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "validateScanToolRequest",
-			"func_name":  "handler.scan_config.scan_tool.UpdateScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -334,7 +334,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "scanToolService.UpdateScanTool",
-			"func_name":  "handler.scan_config.scan_tool.UpdateScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -371,7 +371,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "update_scan_tool", "更新扫描工具成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "update_scan_tool",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.UpdateScanTool",
+		"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -406,7 +406,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_scan_tool",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_tool.DeleteScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.DeleteScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -428,7 +428,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_scan_tool",
 			"option":     "scanToolService.DeleteScanTool",
-			"func_name":  "handler.scan_config.scan_tool.DeleteScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.DeleteScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -458,7 +458,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "delete_scan_tool", "删除扫描工具成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "delete_scan_tool",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.DeleteScanTool",
+		"func_name":  "handler.orchestrator.scan_tool.DeleteScanTool",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -501,16 +501,16 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	}
 
 	// 解析状态过滤参数
-	var statusFilter *scan_config.ScanToolStatus
+	var statusFilter *orchestrator.ScanToolStatus
 	if status != "" {
-		var s scan_config.ScanToolStatus
+		var s orchestrator.ScanToolStatus
 		switch status {
 		case "disabled", "0":
-			s = scan_config.ScanToolStatusDisabled
+			s = orchestrator.ScanToolStatusDisabled
 		case "enabled", "1":
-			s = scan_config.ScanToolStatusEnabled
+			s = orchestrator.ScanToolStatusEnabled
 		case "testing", "2":
-			s = scan_config.ScanToolStatusTesting
+			s = orchestrator.ScanToolStatusTesting
 		default:
 			// 无效状态，忽略过滤
 			statusFilter = nil
@@ -521,9 +521,9 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	}
 
 	// 解析工具类型过滤参数
-	var typeFilter *scan_config.ScanToolType
+	var typeFilter *orchestrator.ScanToolType
 	if toolType != "" {
-		t := scan_config.ScanToolType(toolType)
+		t := orchestrator.ScanToolType(toolType)
 		typeFilter = &t
 	}
 
@@ -533,7 +533,7 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "list_scan_tools",
 			"option":     "scanToolService.ListScanTools",
-			"func_name":  "handler.scan_config.scan_tool.ListScanTools",
+			"func_name":  "handler.orchestrator.scan_tool.ListScanTools",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -556,7 +556,7 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "list_scan_tools", "获取扫描工具列表成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "list_scan_tools",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.ListScanTools",
+		"func_name":  "handler.orchestrator.scan_tool.ListScanTools",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -590,14 +590,14 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 // @route POST /api/v1/scan-config/tools/:id/enable
 // @param c Gin上下文
 func (h *ScanToolHandler) EnableScanTool(c *gin.Context) {
-	h.updateScanToolStatus(c, scan_config.ScanToolStatusEnabled, "enable_scan_tool", "启用扫描工具")
+	h.updateScanToolStatus(c, orchestrator.ScanToolStatusEnabled, "enable_scan_tool", "启用扫描工具")
 }
 
 // DisableScanTool 禁用扫描工具
 // @route POST /api/v1/scan-config/tools/:id/disable
 // @param c Gin上下文
 func (h *ScanToolHandler) DisableScanTool(c *gin.Context) {
-	h.updateScanToolStatus(c, scan_config.ScanToolStatusDisabled, "disable_scan_tool", "禁用扫描工具")
+	h.updateScanToolStatus(c, orchestrator.ScanToolStatusDisabled, "disable_scan_tool", "禁用扫描工具")
 }
 
 // HealthCheckScanTool 扫描工具健康检查
@@ -617,7 +617,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "health_check_scan_tool",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_tool.HealthCheckScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.HealthCheckScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -639,7 +639,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "health_check_scan_tool",
 			"option":     "scanToolService.CheckScanToolHealth",
-			"func_name":  "handler.scan_config.scan_tool.HealthCheckScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.HealthCheckScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -669,7 +669,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "health_check_scan_tool", "扫描工具健康检查成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":     "health_check_scan_tool",
 		"option":        "success",
-		"func_name":     "handler.scan_config.scan_tool.HealthCheckScanTool",
+		"func_name":     "handler.orchestrator.scan_tool.HealthCheckScanTool",
 		"client_ip":     clientIP,
 		"user_agent":    userAgent,
 		"request_id":    requestID,
@@ -718,7 +718,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool_metrics",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_tool.GetScanToolMetrics",
+			"func_name":  "handler.orchestrator.scan_tool.GetScanToolMetrics",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -740,7 +740,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool_metrics",
 			"option":     "scanToolService.GetPerformanceMetrics",
-			"func_name":  "handler.scan_config.scan_tool.GetScanToolMetrics",
+			"func_name":  "handler.orchestrator.scan_tool.GetScanToolMetrics",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -770,7 +770,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "get_scan_tool_metrics", "获取扫描工具指标成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "get_scan_tool_metrics",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.GetScanToolMetrics",
+		"func_name":  "handler.orchestrator.scan_tool.GetScanToolMetrics",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -788,7 +788,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 }
 
 // 私有方法：更新扫描工具状态
-func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status scan_config.ScanToolStatus, operation, message string) {
+func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrator.ScanToolStatus, operation, message string) {
 	// 获取请求上下文信息
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
@@ -802,7 +802,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status scan_confi
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_tool.updateScanToolStatus",
+			"func_name":  "handler.orchestrator.scan_tool.updateScanToolStatus",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -820,7 +820,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status scan_confi
 
 	// 调用Service层更新状态
 	var serviceErr error
-	if status == scan_config.ScanToolStatusEnabled {
+	if status == orchestrator.ScanToolStatusEnabled {
 		serviceErr = h.scanToolService.EnableScanTool(c.Request.Context(), uint(id))
 	} else {
 		serviceErr = h.scanToolService.DisableScanTool(c.Request.Context(), uint(id))
@@ -830,7 +830,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status scan_confi
 		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "scanToolService.UpdateStatus",
-			"func_name":  "handler.scan_config.scan_tool.updateScanToolStatus",
+			"func_name":  "handler.orchestrator.scan_tool.updateScanToolStatus",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -861,7 +861,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status scan_confi
 	logger.LogSystemEvent("scan_tool_handler", operation, message+"成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  operation,
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.updateScanToolStatus",
+		"func_name":  "handler.orchestrator.scan_tool.updateScanToolStatus",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -893,7 +893,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  action + "_scan_tool",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.scan_tool.manageScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.manageScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -926,7 +926,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  action + "_scan_tool",
 			"option":     "scanToolService." + strings.Title(action) + "ScanTool",
-			"func_name":  "handler.scan_config.scan_tool.manageScanTool",
+			"func_name":  "handler.orchestrator.scan_tool.manageScanTool",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -957,7 +957,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 	logger.LogSystemEvent("scan_tool_handler", action+"_scan_tool", message+"成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  action + "_scan_tool",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.manageScanTool",
+		"func_name":  "handler.orchestrator.scan_tool.manageScanTool",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -978,7 +978,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 }
 
 // 私有方法：验证扫描工具请求参数
-func (h *ScanToolHandler) validateScanToolRequest(req *scan_config.ScanTool) error {
+func (h *ScanToolHandler) validateScanToolRequest(req *orchestrator.ScanTool) error {
 	// 基础字段验证
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("扫描工具名称不能为空")
@@ -1027,7 +1027,7 @@ func (h *ScanToolHandler) GetAvailableScanTools(c *gin.Context) {
 			"path":      "/api/v1/scan-config/tools/available",
 			"operation": "get_available_scan_tools",
 			"option":    "scanToolService.GetAvailableScanTools",
-			"func_name": "handler.scan_config.scan_tool.GetAvailableScanTools",
+			"func_name": "handler.orchestrator.scan_tool.GetAvailableScanTools",
 			"error":     err.Error(),
 		})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取可用扫描工具失败"})
@@ -1038,7 +1038,7 @@ func (h *ScanToolHandler) GetAvailableScanTools(c *gin.Context) {
 		"path":      "/api/v1/scan-config/tools/available",
 		"operation": "get_available_scan_tools",
 		"option":    "success",
-		"func_name": "handler.scan_config.scan_tool.GetAvailableScanTools",
+		"func_name": "handler.orchestrator.scan_tool.GetAvailableScanTools",
 		"count":     len(tools),
 	})
 
@@ -1064,7 +1064,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_install_scan_tools",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_tool.BatchInstallScanTools",
+			"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1087,7 +1087,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 			logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 				"operation":  "batch_install_scan_tools",
 				"option":     "ParseUint",
-				"func_name":  "handler.scan_config.scan_tool.BatchInstallScanTools",
+				"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -1111,7 +1111,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_install_scan_tools",
 			"option":     "scanToolService.BatchInstallScanTools",
-			"func_name":  "handler.scan_config.scan_tool.BatchInstallScanTools",
+			"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1130,7 +1130,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "batch_install_scan_tools", "批量安装扫描工具成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "batch_install_scan_tools",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.BatchInstallScanTools",
+		"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1162,7 +1162,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_uninstall_scan_tools",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.scan_tool.BatchUninstallScanTools",
+			"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1185,7 +1185,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 			logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 				"operation":  "batch_uninstall_scan_tools",
 				"option":     "ParseUint",
-				"func_name":  "handler.scan_config.scan_tool.BatchUninstallScanTools",
+				"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
 				"client_ip":  clientIP,
 				"user_agent": userAgent,
 				"request_id": requestID,
@@ -1209,7 +1209,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_uninstall_scan_tools",
 			"option":     "scanToolService.BatchUninstallScanTools",
-			"func_name":  "handler.scan_config.scan_tool.BatchUninstallScanTools",
+			"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1228,7 +1228,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "batch_uninstall_scan_tools", "批量卸载扫描工具成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "batch_uninstall_scan_tools",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.BatchUninstallScanTools",
+		"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1260,7 +1260,7 @@ func (h *ScanToolHandler) GetSystemToolStatus(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_tool_status",
 			"option":     "scanToolService.GetSystemToolStatus",
-			"func_name":  "handler.scan_config.scan_tool.GetSystemToolStatus",
+			"func_name":  "handler.orchestrator.scan_tool.GetSystemToolStatus",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1279,7 +1279,7 @@ func (h *ScanToolHandler) GetSystemToolStatus(c *gin.Context) {
 	logger.LogSystemEvent("scan_tool_handler", "get_system_tool_status", "获取系统工具状态成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_tool_status",
 		"option":     "success",
-		"func_name":  "handler.scan_config.scan_tool.GetSystemToolStatus",
+		"func_name":  "handler.orchestrator.scan_tool.GetSystemToolStatus",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1303,19 +1303,19 @@ func (h *ScanToolHandler) GetScanToolsByType(c *gin.Context) {
 			"path":      "/api/v1/scan-config/tools/type/:type",
 			"operation": "get_scan_tools_by_type",
 			"option":    "validate_type",
-			"func_name": "handler.scan_config.scan_tool.GetScanToolsByType",
+			"func_name": "handler.orchestrator.scan_tool.GetScanToolsByType",
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": "工具类型不能为空"})
 		return
 	}
 
-	tools, err := h.scanToolService.GetScanToolsByType(c.Request.Context(), scan_config.ScanToolType(toolType))
+	tools, err := h.scanToolService.GetScanToolsByType(c.Request.Context(), orchestrator.ScanToolType(toolType))
 	if err != nil {
 		logger.Error("按类型获取扫描工具失败", map[string]interface{}{
 			"path":      "/api/v1/scan-config/tools/type/:type",
 			"operation": "get_scan_tools_by_type",
 			"option":    "scanToolService.GetScanToolsByType",
-			"func_name": "handler.scan_config.scan_tool.GetScanToolsByType",
+			"func_name": "handler.orchestrator.scan_tool.GetScanToolsByType",
 			"type":      toolType,
 			"error":     err.Error(),
 		})
@@ -1327,7 +1327,7 @@ func (h *ScanToolHandler) GetScanToolsByType(c *gin.Context) {
 		"path":      "/api/v1/scan-config/tools/type/:type",
 		"operation": "get_scan_tools_by_type",
 		"option":    "success",
-		"func_name": "handler.scan_config.scan_tool.GetScanToolsByType",
+		"func_name": "handler.orchestrator.scan_tool.GetScanToolsByType",
 		"type":      toolType,
 		"count":     len(tools),
 	})

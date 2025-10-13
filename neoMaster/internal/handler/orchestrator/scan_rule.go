@@ -1859,8 +1859,6 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 
 // ==================== 私有辅助方法 ====================
 
-
-
 // validateScanRuleRequest 验证扫描规则请求参数
 // @param req 请求参数
 // @return error 验证错误

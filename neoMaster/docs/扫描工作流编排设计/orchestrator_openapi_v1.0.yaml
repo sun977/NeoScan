@@ -33,7 +33,7 @@ security:
   - bearerAuth: []
 
 paths:
-  # 项目配置管理 API
+  # ==================== 项目配置管理 API ====================
   /api/v1/orchestrator/projects:
     get:
       tags:
@@ -56,17 +56,17 @@ paths:
             default: 10
             minimum: 1
             maximum: 100
-        - name: name
-          in: query
-          description: 项目名称过滤
-          schema:
-            type: string
         - name: status
           in: query
           description: 项目状态过滤
           schema:
             type: string
-            enum: [active, inactive, pending]
+            enum: [inactive, active, archived]
+        - name: keyword
+          in: query
+          description: 关键词搜索
+          schema:
+            type: string
       responses:
         '200':
           description: 成功获取项目配置列表
@@ -202,6 +202,1505 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/v1/orchestrator/projects/{id}/enable:
+    post:
+      tags:
+        - 项目配置管理
+      summary: 启用项目配置
+      description: 启用指定项目配置
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 项目配置ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/projects/{id}/disable:
+    post:
+      tags:
+        - 项目配置管理
+      summary: 禁用项目配置
+      description: 禁用指定项目配置
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 项目配置ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/system:
+    get:
+      tags:
+        - 项目配置管理
+      summary: 获取系统配置
+      description: 获取系统级配置信息
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - 项目配置管理
+      summary: 更新系统配置
+      description: 更新系统级配置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== 扫描工具管理 API ====================
+  /api/v1/orchestrator/tools:
+    get:
+      tags:
+        - 扫描工具管理
+      summary: 获取扫描工具列表
+      description: 获取扫描工具列表，支持分页和过滤
+      parameters:
+        - name: page
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: type
+          in: query
+          description: 工具类型过滤
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: 状态过滤
+          schema:
+            type: string
+            enum: [enabled, disabled, installing, error]
+        - name: keyword
+          in: query
+          description: 关键词搜索
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取扫描工具列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - 扫描工具管理
+      summary: 创建扫描工具
+      description: 创建新的扫描工具配置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateToolRequest'
+      responses:
+        '201':
+          description: 扫描工具创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/{id}:
+    get:
+      tags:
+        - 扫描工具管理
+      summary: 获取扫描工具详情
+      description: 获取指定扫描工具的详细信息
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功获取扫描工具详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - 扫描工具管理
+      summary: 更新扫描工具
+      description: 更新指定扫描工具配置
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateToolRequest'
+      responses:
+        '200':
+          description: 扫描工具更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - 扫描工具管理
+      summary: 删除扫描工具
+      description: 删除指定扫描工具
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/{id}/enable:
+    post:
+      tags:
+        - 扫描工具管理
+      summary: 启用扫描工具
+      description: 启用指定扫描工具
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/{id}/disable:
+    post:
+      tags:
+        - 扫描工具管理
+      summary: 禁用扫描工具
+      description: 禁用指定扫描工具
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/{id}/health:
+    get:
+      tags:
+        - 扫描工具管理
+      summary: 扫描工具健康检查
+      description: 检查指定扫描工具的健康状态
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/{id}/install:
+    post:
+      tags:
+        - 扫描工具管理
+      summary: 安装扫描工具
+      description: 安装指定扫描工具到执行节点
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/{id}/uninstall:
+    post:
+      tags:
+        - 扫描工具管理
+      summary: 卸载扫描工具
+      description: 从执行节点卸载指定扫描工具
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/{id}/metrics:
+    get:
+      tags:
+        - 扫描工具管理
+      summary: 获取工具指标
+      description: 获取指定扫描工具的性能指标
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描工具ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/available:
+    get:
+      tags:
+        - 扫描工具管理
+      summary: 获取可用工具列表
+      description: 获取系统中可用的扫描工具列表
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/batch-install:
+    post:
+      tags:
+        - 扫描工具管理
+      summary: 批量安装工具
+      description: 批量安装多个扫描工具
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tool_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/batch-uninstall:
+    post:
+      tags:
+        - 扫描工具管理
+      summary: 批量卸载工具
+      description: 批量卸载多个扫描工具
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tool_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/system-status:
+    get:
+      tags:
+        - 扫描工具管理
+      summary: 获取系统状态
+      description: 获取扫描工具系统整体状态
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/tools/type/{type}:
+    get:
+      tags:
+        - 扫描工具管理
+      summary: 按类型获取工具
+      description: 获取指定类型的扫描工具列表
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: 工具类型
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== 扫描规则管理 API ====================
+  /api/v1/orchestrator/rules:
+    get:
+      tags:
+        - 扫描规则管理
+      summary: 获取扫描规则列表
+      description: 获取扫描规则列表，支持分页和过滤
+      parameters:
+        - name: page
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: type
+          in: query
+          description: 规则类型过滤
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: 规则分类过滤
+          schema:
+            type: string
+        - name: severity
+          in: query
+          description: 严重程度过滤
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+        - name: status
+          in: query
+          description: 状态过滤
+          schema:
+            type: string
+            enum: [enabled, disabled, testing]
+        - name: keyword
+          in: query
+          description: 关键词搜索
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取扫描规则列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - 扫描规则管理
+      summary: 创建扫描规则
+      description: 创建新的扫描规则
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleRequest'
+      responses:
+        '201':
+          description: 扫描规则创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rules/{id}:
+    get:
+      tags:
+        - 扫描规则管理
+      summary: 获取扫描规则详情
+      description: 获取指定扫描规则的详细信息
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描规则ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功获取扫描规则详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - 扫描规则管理
+      summary: 更新扫描规则
+      description: 更新指定扫描规则
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描规则ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRuleRequest'
+      responses:
+        '200':
+          description: 扫描规则更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - 扫描规则管理
+      summary: 删除扫描规则
+      description: 删除指定扫描规则
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描规则ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rules/{id}/enable:
+    post:
+      tags:
+        - 扫描规则管理
+      summary: 启用扫描规则
+      description: 启用指定扫描规则
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描规则ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rules/{id}/disable:
+    post:
+      tags:
+        - 扫描规则管理
+      summary: 禁用扫描规则
+      description: 禁用指定扫描规则
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描规则ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rules/match:
+    post:
+      tags:
+        - 扫描规则管理
+      summary: 匹配扫描规则
+      description: 根据条件匹配适用的扫描规则
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleMatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rules/import:
+    post:
+      tags:
+        - 扫描规则管理
+      summary: 导入扫描规则
+      description: 批量导入扫描规则
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rules:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CreateRuleRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rules/export:
+    get:
+      tags:
+        - 扫描规则管理
+      summary: 导出扫描规则
+      description: 导出扫描规则配置
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rules/{id}/test:
+    post:
+      tags:
+        - 扫描规则管理
+      summary: 测试扫描规则
+      description: 测试指定扫描规则的执行效果
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 扫描规则ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                test_data:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== 工作流管理 API ====================
+  /api/v1/orchestrator/workflows:
+    get:
+      tags:
+        - 工作流管理
+      summary: 获取工作流列表
+      description: 获取工作流列表，支持分页和过滤
+      parameters:
+        - name: page
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: project_id
+          in: query
+          description: 项目ID过滤
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: 状态过滤
+          schema:
+            type: string
+            enum: [draft, active, inactive, archived]
+        - name: keyword
+          in: query
+          description: 关键词搜索
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取工作流列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - 工作流管理
+      summary: 创建工作流
+      description: 创建新的扫描工作流
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkflowRequest'
+      responses:
+        '201':
+          description: 工作流创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}:
+    get:
+      tags:
+        - 工作流管理
+      summary: 获取工作流详情
+      description: 获取指定工作流的详细信息
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 成功获取工作流详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - 工作流管理
+      summary: 更新工作流
+      description: 更新指定工作流配置
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkflowRequest'
+      responses:
+        '200':
+          description: 工作流更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - 工作流管理
+      summary: 删除工作流
+      description: 删除指定工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/execute:
+    post:
+      tags:
+        - 工作流管理
+      summary: 执行工作流
+      description: 执行指定工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/stop:
+    post:
+      tags:
+        - 工作流管理
+      summary: 停止工作流
+      description: 停止正在执行的工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/pause:
+    post:
+      tags:
+        - 工作流管理
+      summary: 暂停工作流
+      description: 暂停正在执行的工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/resume:
+    post:
+      tags:
+        - 工作流管理
+      summary: 恢复工作流
+      description: 恢复暂停的工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/retry:
+    post:
+      tags:
+        - 工作流管理
+      summary: 重试工作流
+      description: 重试失败的工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/enable:
+    post:
+      tags:
+        - 工作流管理
+      summary: 启用工作流
+      description: 启用指定工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/disable:
+    post:
+      tags:
+        - 工作流管理
+      summary: 禁用工作流
+      description: 禁用指定工作流
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/status:
+    get:
+      tags:
+        - 工作流管理
+      summary: 获取工作流状态
+      description: 获取指定工作流的执行状态
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/logs:
+    get:
+      tags:
+        - 工作流管理
+      summary: 获取工作流日志
+      description: 获取指定工作流的执行日志
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: 日志条数限制
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/{id}/metrics:
+    get:
+      tags:
+        - 工作流管理
+      summary: 获取工作流指标
+      description: 获取指定工作流的性能指标
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 工作流ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/project/{project_id}:
+    get:
+      tags:
+        - 工作流管理
+      summary: 按项目获取工作流
+      description: 获取指定项目的工作流列表
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          description: 项目ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/system-statistics:
+    get:
+      tags:
+        - 工作流管理
+      summary: 获取系统统计
+      description: 获取工作流系统统计信息
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/workflows/system-performance:
+    get:
+      tags:
+        - 工作流管理
+      summary: 获取系统性能
+      description: 获取工作流系统性能指标
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== 规则引擎 API ====================
+  /api/v1/orchestrator/rule-engine/rules/{id}/execute:
+    post:
+      tags:
+        - 规则引擎
+      summary: 执行规则
+      description: 执行指定扫描规则
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 规则ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleExecuteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rule-engine/rules/batch-execute:
+    post:
+      tags:
+        - 规则引擎
+      summary: 批量执行规则
+      description: 批量执行多个扫描规则
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rule_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2, 3]
+                target_data:
+                  type: object
+                  additionalProperties: true
+                context:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rule-engine/metrics:
+    get:
+      tags:
+        - 规则引擎
+      summary: 获取规则引擎指标
+      description: 获取规则引擎的性能指标
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rule-engine/cache/clear:
+    post:
+      tags:
+        - 规则引擎
+      summary: 清除规则缓存
+      description: 清除规则引擎缓存
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rule-engine/rules/validate:
+    post:
+      tags:
+        - 规则引擎
+      summary: 验证规则
+      description: 验证规则配置的正确性
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/orchestrator/rule-engine/conditions/parse:
+    post:
+      tags:
+        - 规则引擎
+      summary: 解析条件
+      description: 解析和验证规则条件表达式
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RuleCondition'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -210,13 +1709,16 @@ components:
       bearerFormat: JWT
 
   schemas:
-    # 通用响应模型
+    # ==================== 通用响应模型 ====================
     SuccessResponse:
       type: object
       properties:
         code:
           type: integer
           example: 200
+        status:
+          type: string
+          example: "success"
         message:
           type: string
           example: "操作成功"
@@ -233,6 +1735,9 @@ components:
         code:
           type: integer
           example: 400
+        status:
+          type: string
+          example: "error"
         message:
           type: string
           example: "请求参数错误"
@@ -260,7 +1765,7 @@ components:
           type: integer
           example: 10
 
-    # 项目配置相关模型
+    # ==================== 项目配置相关模型 ====================
     ProjectConfig:
       type: object
       properties:
@@ -270,68 +1775,129 @@ components:
           example: 1
         name:
           type: string
-          example: "Web应用安全扫描项目"
+          example: "项目名称"
+        display_name:
+          type: string
+          example: "项目显示名称"
         description:
           type: string
-          example: "针对Web应用的综合安全扫描配置"
-        target_url:
+          example: "项目描述"
+        target_scope:
           type: string
-          example: "https://example.com"
-        scan_type:
+          example: "192.168.1.0/24,example.com"
+        exclude_list:
           type: string
-          enum: [web, api, mobile, network]
-          example: "web"
-        config:
-          type: object
-          additionalProperties: true
-          example:
-            timeout: 300
-            max_depth: 5
-            exclude_paths: ["/admin", "/test"]
+          example: "192.168.1.1,admin.example.com"
+        scan_frequency:
+          type: integer
+          example: 24
+        max_concurrent:
+          type: integer
+          example: 10
+        timeout_second:
+          type: integer
+          example: 300
+        priority:
+          type: integer
+          example: 5
+        notify_on_success:
+          type: boolean
+          example: false
+        notify_on_failure:
+          type: boolean
+          example: true
+        notify_emails:
+          type: string
+          example: "admin@example.com,security@example.com"
         status:
+          type: integer
+          enum: [0, 1, 2]
+          example: 1
+        is_enabled:
+          type: boolean
+          example: true
+        tags:
           type: string
-          enum: [active, inactive, pending]
-          example: "active"
+          example: "web,security,production"
+        metadata:
+          type: string
+          example: "{\"department\":\"security\",\"owner\":\"admin\"}"
+        created_by:
+          type: integer
+          example: 1
+        updated_by:
+          type: integer
+          example: 1
+        last_scan:
+          type: string
+          format: date-time
+          example: "2025-01-11T09:00:00Z"
         created_at:
           type: string
           format: date-time
-          example: "2024-01-01T12:00:00Z"
+          example: "2025-01-11T08:00:00Z"
         updated_at:
           type: string
           format: date-time
-          example: "2024-01-01T12:00:00Z"
+          example: "2025-01-11T10:00:00Z"
 
     CreateProjectRequest:
       type: object
       required:
         - name
-        - target_url
-        - scan_type
+        - target_scope
       properties:
         name:
           type: string
           minLength: 1
           maxLength: 100
-          example: "Web应用安全扫描项目"
+          example: "项目名称"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "项目显示名称"
         description:
           type: string
           maxLength: 500
-          example: "针对Web应用的综合安全扫描配置"
-        target_url:
+          example: "项目描述"
+        target_scope:
           type: string
-          format: uri
-          example: "https://example.com"
-        scan_type:
+          example: "192.168.1.0/24,example.com"
+        exclude_list:
           type: string
-          enum: [web, api, mobile, network]
-          example: "web"
-        config:
-          type: object
-          additionalProperties: true
-          example:
-            timeout: 300
-            max_depth: 5
-            exclude_paths: ["/admin", "/test"]
+          example: "192.168.1.1,admin.example.com"
+        scan_frequency:
+          type: integer
+          minimum: 1
+          example: 24
+        max_concurrent:
+          type: integer
+          minimum: 1
+          example: 10
+        timeout_second:
+          type: integer
+          minimum: 1
+          example: 300
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 5
+        notify_on_success:
+          type: boolean
+          example: false
+        notify_on_failure:
+          type: boolean
+          example: true
+        notify_emails:
+          type: string
+          example: "admin@example.com,security@example.com"
+        tags:
+          type: string
+          example: "web,security,production"
+        metadata:
+          type: string
+          example: "{\"department\":\"security\",\"owner\":\"admin\"}"
 
     UpdateProjectRequest:
       type: object
@@ -340,30 +1906,53 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-          example: "Web应用安全扫描项目"
+          example: "更新的项目名称"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "更新的项目显示名称"
         description:
           type: string
           maxLength: 500
-          example: "针对Web应用的综合安全扫描配置"
-        target_url:
+          example: "更新的项目描述"
+        target_scope:
           type: string
-          format: uri
-          example: "https://example.com"
-        scan_type:
+          example: "192.168.2.0/24,newexample.com"
+        exclude_list:
           type: string
-          enum: [web, api, mobile, network]
-          example: "web"
-        config:
-          type: object
-          additionalProperties: true
-          example:
-            timeout: 300
-            max_depth: 5
-            exclude_paths: ["/admin", "/test"]
-        status:
+          example: "192.168.2.1"
+        scan_frequency:
+          type: integer
+          minimum: 1
+          example: 12
+        max_concurrent:
+          type: integer
+          minimum: 1
+          example: 20
+        timeout_second:
+          type: integer
+          minimum: 1
+          example: 600
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 8
+        notify_on_success:
+          type: boolean
+          example: true
+        notify_on_failure:
+          type: boolean
+          example: true
+        notify_emails:
           type: string
-          enum: [active, inactive, pending]
-          example: "active"
+          example: "admin@example.com"
+        tags:
+          type: string
+          example: "web,security,staging"
+        metadata:
+          type: string
+          example: "{\"department\":\"devops\",\"owner\":\"admin\"}"
 
     ProjectResponse:
       allOf:
@@ -388,7 +1977,729 @@ components:
                 pagination:
                   $ref: '#/components/schemas/PaginationInfo'
 
+    # ==================== 扫描工具相关模型 ====================
+    ScanTool:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "Nmap"
+        display_name:
+          type: string
+          example: "网络映射器"
+        description:
+          type: string
+          example: "网络发现和安全审计工具"
+        type:
+          type: string
+          example: "port_scan"
+        version:
+          type: string
+          example: "7.94"
+        executable_path:
+          type: string
+          example: "/usr/bin/nmap"
+        config_template:
+          type: string
+          example: "{\"default_args\":[\"-sS\",\"-O\"],\"timeout\":300}"
+        input_format:
+          type: string
+          example: "json"
+        output_format:
+          type: string
+          example: "xml"
+        supported_targets:
+          type: array
+          items:
+            type: string
+          example: ["ip", "domain", "cidr"]
+        max_concurrent:
+          type: integer
+          example: 5
+        timeout_second:
+          type: integer
+          example: 600
+        retry_count:
+          type: integer
+          example: 3
+        status:
+          type: string
+          enum: [enabled, disabled, installing, error]
+          example: "enabled"
+        is_built_in:
+          type: boolean
+          example: true
+        compatibility:
+          type: string
+          example: "{\"os\":[\"linux\",\"windows\"],\"arch\":[\"x64\",\"arm64\"]}"
+        tags:
+          type: string
+          example: "network,port,scan"
+        metadata:
+          type: string
+          example: "{\"category\":\"network_security\",\"vendor\":\"nmap.org\"}"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    CreateToolRequest:
+      type: object
+      required:
+        - name
+        - type
+        - executable_path
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Nmap"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "网络映射器"
+        description:
+          type: string
+          maxLength: 500
+          example: "网络发现和安全审计工具"
+        type:
+          type: string
+          example: "port_scan"
+        version:
+          type: string
+          example: "7.94"
+        executable_path:
+          type: string
+          example: "/usr/bin/nmap"
+        config_template:
+          type: string
+          example: "{\"default_args\":[\"-sS\",\"-O\"],\"timeout\":300}"
+        input_format:
+          type: string
+          example: "json"
+        output_format:
+          type: string
+          example: "xml"
+        supported_targets:
+          type: array
+          items:
+            type: string
+          example: ["ip", "domain", "cidr"]
+        max_concurrent:
+          type: integer
+          minimum: 1
+          example: 5
+        timeout_second:
+          type: integer
+          minimum: 1
+          example: 600
+        retry_count:
+          type: integer
+          minimum: 0
+          example: 3
+        compatibility:
+          type: string
+          example: "{\"os\":[\"linux\",\"windows\"],\"arch\":[\"x64\",\"arm64\"]}"
+        tags:
+          type: string
+          example: "network,port,scan"
+        metadata:
+          type: string
+          example: "{\"category\":\"network_security\",\"vendor\":\"nmap.org\"}"
+
+    UpdateToolRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Nmap Updated"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "网络映射器 - 更新版"
+        description:
+          type: string
+          maxLength: 500
+          example: "更新的网络发现和安全审计工具"
+        type:
+          type: string
+          example: "port_scan"
+        version:
+          type: string
+          example: "7.95"
+        executable_path:
+          type: string
+          example: "/usr/local/bin/nmap"
+        config_template:
+          type: string
+          example: "{\"default_args\":[\"-sS\",\"-O\",\"-A\"],\"timeout\":600}"
+        input_format:
+          type: string
+          example: "json"
+        output_format:
+          type: string
+          example: "xml"
+        supported_targets:
+          type: array
+          items:
+            type: string
+          example: ["ip", "domain", "cidr", "url"]
+        max_concurrent:
+          type: integer
+          minimum: 1
+          example: 10
+        timeout_second:
+          type: integer
+          minimum: 1
+          example: 1200
+        retry_count:
+          type: integer
+          minimum: 0
+          example: 5
+        compatibility:
+          type: string
+          example: "{\"os\":[\"linux\",\"windows\",\"macos\"],\"arch\":[\"x64\",\"arm64\"]}"
+        tags:
+          type: string
+          example: "network,port,scan,advanced"
+        metadata:
+          type: string
+          example: "{\"category\":\"network_security\",\"vendor\":\"nmap.org\",\"updated\":true}"
+
+    ToolResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ScanTool'
+
+    ToolListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ScanTool'
+                pagination:
+                  $ref: '#/components/schemas/PaginationInfo'
+
+    # ==================== 扫描规则相关模型 ====================
+    ScanRule:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "SQL注入检测规则"
+        display_name:
+          type: string
+          example: "SQL注入漏洞检测"
+        description:
+          type: string
+          example: "检测Web应用中的SQL注入漏洞"
+        type:
+          type: string
+          example: "vulnerability_detection"
+        category:
+          type: string
+          example: "web_security"
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          example: "high"
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleAction'
+        priority:
+          type: integer
+          example: 8
+        status:
+          type: string
+          enum: [enabled, disabled, testing]
+          example: "enabled"
+        is_built_in:
+          type: boolean
+          example: false
+        tags:
+          type: string
+          example: "sql,injection,web,security"
+        metadata:
+          type: string
+          example: "{\"cve_refs\":[\"CVE-2021-1234\"],\"owasp_category\":\"A03\"}"
+        created_by:
+          type: integer
+          example: 1
+        updated_by:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    RuleCondition:
+      type: object
+      properties:
+        field:
+          type: string
+          example: "response.body"
+        operator:
+          type: string
+          enum: [equals, contains, regex, greater_than, less_than, in, not_in]
+          example: "contains"
+        value:
+          type: string
+          example: "SQL syntax error"
+        logic:
+          type: string
+          enum: [and, or]
+          example: "and"
+
+    RuleAction:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [alert, block, log, notify, execute]
+          example: "alert"
+        parameters:
+          type: object
+          additionalProperties: true
+          example:
+            severity: "high"
+            message: "检测到SQL注入攻击"
+
+    CreateRuleRequest:
+      type: object
+      required:
+        - name
+        - type
+        - category
+        - conditions
+        - actions
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "SQL注入检测规则"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "SQL注入漏洞检测"
+        description:
+          type: string
+          maxLength: 500
+          example: "检测Web应用中的SQL注入漏洞"
+        type:
+          type: string
+          example: "vulnerability_detection"
+        category:
+          type: string
+          example: "web_security"
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          example: "high"
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleAction'
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 8
+        tags:
+          type: string
+          example: "sql,injection,web,security"
+        metadata:
+          type: string
+          example: "{\"cve_refs\":[\"CVE-2021-1234\"],\"owasp_category\":\"A03\"}"
+
+    UpdateRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "更新的SQL注入检测规则"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "增强的SQL注入漏洞检测"
+        description:
+          type: string
+          maxLength: 500
+          example: "增强版Web应用SQL注入漏洞检测规则"
+        type:
+          type: string
+          example: "vulnerability_detection"
+        category:
+          type: string
+          example: "web_security"
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          example: "critical"
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleAction'
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 9
+        tags:
+          type: string
+          example: "sql,injection,web,security,enhanced"
+        metadata:
+          type: string
+          example: "{\"cve_refs\":[\"CVE-2021-1234\",\"CVE-2022-5678\"],\"owasp_category\":\"A03\"}"
+
+    RuleMatchRequest:
+      type: object
+      properties:
+        target_type:
+          type: string
+          example: "web_application"
+        target_data:
+          type: object
+          additionalProperties: true
+          example:
+            url: "https://example.com"
+            method: "POST"
+            headers:
+              Content-Type: "application/json"
+        context:
+          type: object
+          additionalProperties: true
+          example:
+            scan_type: "vulnerability_scan"
+            project_id: 1
+
+    RuleExecuteRequest:
+      type: object
+      required:
+        - target_data
+      properties:
+        target_data:
+          type: object
+          additionalProperties: true
+          example:
+            url: "https://example.com/login"
+            method: "POST"
+            body: "username=admin&password=admin"
+        context:
+          type: object
+          additionalProperties: true
+          example:
+            scan_id: "scan_123"
+            project_id: 1
+
+    RuleResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ScanRule'
+
+    RuleListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ScanRule'
+                pagination:
+                  $ref: '#/components/schemas/PaginationInfo'
+
+    # ==================== 工作流相关模型 ====================
+    Workflow:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "Web应用安全扫描工作流"
+        display_name:
+          type: string
+          example: "Web应用综合安全扫描"
+        description:
+          type: string
+          example: "针对Web应用的综合安全扫描工作流"
+        project_id:
+          type: integer
+          example: 1
+        definition:
+          type: string
+          example: "{\"steps\":[{\"name\":\"port_scan\",\"tool\":\"nmap\"},{\"name\":\"web_scan\",\"tool\":\"nikto\"}]}"
+        trigger_type:
+          type: string
+          enum: [manual, scheduled, event]
+          example: "scheduled"
+        trigger_config:
+          type: string
+          example: "{\"cron\":\"0 2 * * *\",\"timezone\":\"Asia/Shanghai\"}"
+        timeout_second:
+          type: integer
+          example: 3600
+        max_retries:
+          type: integer
+          example: 3
+        status:
+          type: string
+          enum: [draft, active, inactive, archived]
+          example: "active"
+        execution_status:
+          type: string
+          enum: [idle, running, paused, completed, failed, cancelled]
+          example: "idle"
+        last_execution:
+          type: string
+          format: date-time
+          example: "2024-01-01T02:00:00Z"
+        next_execution:
+          type: string
+          format: date-time
+          example: "2024-01-02T02:00:00Z"
+        success_count:
+          type: integer
+          example: 15
+        failure_count:
+          type: integer
+          example: 2
+        tags:
+          type: string
+          example: "web,security,automated"
+        metadata:
+          type: string
+          example: "{\"department\":\"security\",\"priority\":\"high\"}"
+        created_by:
+          type: integer
+          example: 1
+        updated_by:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    WorkflowStep:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "port_scan"
+        display_name:
+          type: string
+          example: "端口扫描"
+        tool_id:
+          type: integer
+          example: 1
+        config:
+          type: object
+          additionalProperties: true
+          example:
+            args: ["-sS", "-O"]
+            timeout: 300
+        depends_on:
+          type: array
+          items:
+            type: string
+          example: ["discovery"]
+        parallel:
+          type: boolean
+          example: false
+        retry_count:
+          type: integer
+          example: 2
+        timeout_second:
+          type: integer
+          example: 600
+
+    CreateWorkflowRequest:
+      type: object
+      required:
+        - name
+        - project_id
+        - definition
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Web应用安全扫描工作流"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "Web应用综合安全扫描"
+        description:
+          type: string
+          maxLength: 500
+          example: "针对Web应用的综合安全扫描工作流"
+        project_id:
+          type: integer
+          example: 1
+        definition:
+          type: string
+          example: "{\"steps\":[{\"name\":\"port_scan\",\"tool\":\"nmap\"},{\"name\":\"web_scan\",\"tool\":\"nikto\"}]}"
+        trigger_type:
+          type: string
+          enum: [manual, scheduled, event]
+          example: "scheduled"
+        trigger_config:
+          type: string
+          example: "{\"cron\":\"0 2 * * *\",\"timezone\":\"Asia/Shanghai\"}"
+        timeout_second:
+          type: integer
+          minimum: 1
+          example: 3600
+        max_retries:
+          type: integer
+          minimum: 0
+          example: 3
+        tags:
+          type: string
+          example: "web,security,automated"
+        metadata:
+          type: string
+          example: "{\"department\":\"security\",\"priority\":\"high\"}"
+
+    UpdateWorkflowRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "更新的Web应用安全扫描工作流"
+        display_name:
+          type: string
+          maxLength: 100
+          example: "增强的Web应用综合安全扫描"
+        description:
+          type: string
+          maxLength: 500
+          example: "增强版Web应用综合安全扫描工作流"
+        project_id:
+          type: integer
+          example: 1
+        definition:
+          type: string
+          example: "{\"steps\":[{\"name\":\"discovery\",\"tool\":\"nmap\"},{\"name\":\"port_scan\",\"tool\":\"nmap\"},{\"name\":\"web_scan\",\"tool\":\"nikto\"},{\"name\":\"vuln_scan\",\"tool\":\"sqlmap\"}]}"
+        trigger_type:
+          type: string
+          enum: [manual, scheduled, event]
+          example: "scheduled"
+        trigger_config:
+          type: string
+          example: "{\"cron\":\"0 1 * * *\",\"timezone\":\"Asia/Shanghai\"}"
+        timeout_second:
+          type: integer
+          minimum: 1
+          example: 7200
+        max_retries:
+          type: integer
+          minimum: 0
+          example: 5
+        tags:
+          type: string
+          example: "web,security,automated,enhanced"
+        metadata:
+          type: string
+          example: "{\"department\":\"security\",\"priority\":\"critical\"}"
+
+    WorkflowResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Workflow'
+
+    WorkflowListResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Workflow'
+                pagination:
+                  $ref: '#/components/schemas/PaginationInfo'
+
   responses:
+    Success:
+      description: 操作成功
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessResponse'
+          example:
+            code: 200
+            status: "success"
+            message: "操作成功"
+            data: {}
+            timestamp: "2024-01-01T12:00:00Z"
+
     BadRequest:
       description: 请求参数错误
       content:
@@ -397,6 +2708,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             code: 400
+            status: "error"
             message: "请求参数错误"
             error: "validation_error"
             timestamp: "2024-01-01T12:00:00Z"
@@ -409,6 +2721,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             code: 401
+            status: "error"
             message: "未授权访问"
             error: "unauthorized"
             timestamp: "2024-01-01T12:00:00Z"
@@ -421,6 +2734,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             code: 404
+            status: "error"
             message: "资源不存在"
             error: "not_found"
             timestamp: "2024-01-01T12:00:00Z"
@@ -433,6 +2747,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             code: 409
+            status: "error"
             message: "资源已存在"
             error: "conflict"
             timestamp: "2024-01-01T12:00:00Z"
@@ -445,6 +2760,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             code: 500
+            status: "error"
             message: "服务器内部错误"
             error: "internal_server_error"
             timestamp: "2024-01-01T12:00:00Z"

@@ -1646,7 +1646,7 @@ type Task struct {
     CreatedBy       string    `json:"created_by"`
     AssignedAgents  []string  `json:"assigned_agents" gorm:"type:json"`
     Targets         []Target  `json:"targets" gorm:"type:json"`
-    ScanConfig      ScanConfig `json:"scan_config" gorm:"embedded"`
+    ScanConfig      ScanConfig `json:"orchestrator" gorm:"embedded"`
     Schedule        Schedule  `json:"schedule" gorm:"embedded"`
     Notification    NotificationConfig `json:"notification" gorm:"embedded"`
     CreatedAt       time.Time `json:"created_at"`

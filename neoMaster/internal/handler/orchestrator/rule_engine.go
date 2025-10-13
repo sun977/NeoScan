@@ -5,7 +5,7 @@
  * @description: 规则引擎管理处理器，提供规则引擎的执行、管理、监控等功能
  * @func: 处理规则引擎相关的HTTP请求
  */
-package scan_config
+package orchestrator
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 
 	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
-	scanConfigService "neomaster/internal/service/scan_config"
-	"neomaster/internal/service/scan_config/rule_engine"
+	scanConfigService "neomaster/internal/service/orchestrator"
+	"neomaster/internal/service/orchestrator/rule_engine"
 
 	"github.com/gin-gonic/gin"
 )
@@ -64,7 +64,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "parse_id",
-			"func_name":  "handler.scan_config.rule_engine.ExecuteRule",
+			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -89,7 +89,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "get_rule",
-			"func_name":  "handler.scan_config.rule_engine.ExecuteRule",
+			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -112,7 +112,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "rule_disabled",
-			"func_name":  "handler.scan_config.rule_engine.ExecuteRule",
+			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -135,7 +135,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "parse_context",
-			"func_name":  "handler.scan_config.rule_engine.ExecuteRule",
+			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -159,7 +159,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
 			"operation":  "execute_rule",
 			"option":     "execute",
-			"func_name":  "handler.scan_config.rule_engine.ExecuteRule",
+			"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -181,7 +181,7 @@ func (h *RuleEngineHandler) ExecuteRule(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rule-engine/rules/:id/execute",
 		"operation":  "execute_rule",
 		"option":     "success",
-		"func_name":  "handler.scan_config.rule_engine.ExecuteRule",
+		"func_name":  "handler.orchestrator.rule_engine.ExecuteRule",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -229,7 +229,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/batch-execute",
 			"operation":  "execute_rules",
 			"option":     "parse_request",
-			"func_name":  "handler.scan_config.rule_engine.ExecuteRules",
+			"func_name":  "handler.orchestrator.rule_engine.ExecuteRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -252,7 +252,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/batch-execute",
 			"operation":  "execute_rules",
 			"option":     "execute",
-			"func_name":  "handler.scan_config.rule_engine.ExecuteRules",
+			"func_name":  "handler.orchestrator.rule_engine.ExecuteRules",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -274,7 +274,7 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 		"path":          "/api/v1/scan-config/rule-engine/rules/batch-execute",
 		"operation":     "execute_rules",
 		"option":        "success",
-		"func_name":     "handler.scan_config.rule_engine.ExecuteRules",
+		"func_name":     "handler.orchestrator.rule_engine.ExecuteRules",
 		"client_ip":     clientIP,
 		"user_agent":    userAgent,
 		"request_id":    requestID,
@@ -314,7 +314,7 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/metrics",
 			"operation":  "get_engine_metrics",
 			"option":     "get_metrics",
-			"func_name":  "handler.scan_config.rule_engine.GetEngineMetrics",
+			"func_name":  "handler.orchestrator.rule_engine.GetEngineMetrics",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -335,7 +335,7 @@ func (h *RuleEngineHandler) GetEngineMetrics(c *gin.Context) {
 		"path":          "/api/v1/scan-config/rule-engine/metrics",
 		"operation":     "get_engine_metrics",
 		"option":        "success",
-		"func_name":     "handler.scan_config.rule_engine.GetEngineMetrics",
+		"func_name":     "handler.orchestrator.rule_engine.GetEngineMetrics",
 		"client_ip":     clientIP,
 		"user_agent":    userAgent,
 		"request_id":    requestID,
@@ -375,7 +375,7 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/cache/clear",
 			"operation":  "clear_cache",
 			"option":     "clear",
-			"func_name":  "handler.scan_config.rule_engine.ClearCache",
+			"func_name":  "handler.orchestrator.rule_engine.ClearCache",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -396,7 +396,7 @@ func (h *RuleEngineHandler) ClearCache(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rule-engine/cache/clear",
 		"operation":  "clear_cache",
 		"option":     "success",
-		"func_name":  "handler.scan_config.rule_engine.ClearCache",
+		"func_name":  "handler.orchestrator.rule_engine.ClearCache",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -450,7 +450,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "parse_request",
-			"func_name":  "handler.scan_config.rule_engine.ValidateRule",
+			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -473,7 +473,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "validate",
-			"func_name":  "handler.scan_config.rule_engine.ValidateRule",
+			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -495,7 +495,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "success",
-			"func_name":  "handler.scan_config.rule_engine.ValidateRule",
+			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -506,7 +506,7 @@ func (h *RuleEngineHandler) ValidateRule(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/rules/validate",
 			"operation":  "validate_rule",
 			"option":     "validation_failed",
-			"func_name":  "handler.scan_config.rule_engine.ValidateRule",
+			"func_name":  "handler.orchestrator.rule_engine.ValidateRule",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -553,7 +553,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/conditions/parse",
 			"operation":  "parse_condition",
 			"option":     "parse_request",
-			"func_name":  "handler.scan_config.rule_engine.ParseCondition",
+			"func_name":  "handler.orchestrator.rule_engine.ParseCondition",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -576,7 +576,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 			"path":       "/api/v1/scan-config/rule-engine/conditions/parse",
 			"operation":  "parse_condition",
 			"option":     "parse",
-			"func_name":  "handler.scan_config.rule_engine.ParseCondition",
+			"func_name":  "handler.orchestrator.rule_engine.ParseCondition",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -598,7 +598,7 @@ func (h *RuleEngineHandler) ParseCondition(c *gin.Context) {
 		"path":       "/api/v1/scan-config/rule-engine/conditions/parse",
 		"operation":  "parse_condition",
 		"option":     "success",
-		"func_name":  "handler.scan_config.rule_engine.ParseCondition",
+		"func_name":  "handler.orchestrator.rule_engine.ParseCondition",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,

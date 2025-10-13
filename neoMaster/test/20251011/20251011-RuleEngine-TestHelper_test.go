@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 规则引擎测试辅助函数
  * @author: Linus Torvalds (AI Assistant)
  * @date: 2025.10.11
@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"neomaster/internal/model"
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 )
 
 // TestEnvironment 测试环境结构体
@@ -99,10 +99,10 @@ func initTestData(t *testing.T, db *gorm.DB) {
 		&model.Permission{},
 		&model.UserRole{},
 		&model.RolePermission{},
-		&scan_config.ScanRule{},
-		&scan_config.ProjectConfig{},
-		&scan_config.WorkflowConfig{},
-		&scan_config.ScanTool{},
+		&orchestrator.ScanRule{},
+		&orchestrator.ProjectConfig{},
+		&orchestrator.WorkflowConfig{},
+		&orchestrator.ScanTool{},
 	)
 	require.NoError(t, err, "测试数据库迁移失败")
 
@@ -199,33 +199,33 @@ func createTestRolesAndPermissions(t *testing.T, db *gorm.DB) {
 
 // createTestScanRules 创建测试扫描规则
 func createTestScanRules(t *testing.T, db *gorm.DB) {
-	testRules := []scan_config.ScanRule{
+	testRules := []orchestrator.ScanRule{
 		{
 			Name:        "Test IP Filter Rule",
 			Description: "测试IP过滤规则",
-			Type:        scan_config.ScanRuleTypeFilter,
-			Severity:    scan_config.ScanRuleSeverityMedium,
+			Type:        orchestrator.ScanRuleTypeFilter,
+			Severity:    orchestrator.ScanRuleSeverityMedium,
 			Condition:   "request_ip == '192.168.1.1'",
 			Action:      "log",
 			Parameters:  "{}",  // 提供有效的JSON字符串而不是空值
 			Metadata:    "{}",  // 提供有效的JSON字符串而不是空值
-			Status:      scan_config.ScanRuleStatusEnabled,
+			Status:      orchestrator.ScanRuleStatusEnabled,
 		},
 		{
 			Name:        "Test User Agent Rule",
 			Description: "测试User-Agent规则",
-			Type:        scan_config.ScanRuleTypeFilter,
-			Severity:    scan_config.ScanRuleSeverityLow,
+			Type:        orchestrator.ScanRuleTypeFilter,
+			Severity:    orchestrator.ScanRuleSeverityLow,
 			Condition:   "user_agent =~ '^Mozilla.*'",
 			Action:      "allow",
 			Parameters:  "{}",  // 提供有效的JSON字符串而不是空值
 			Metadata:    "{}",  // 提供有效的JSON字符串而不是空值
-			Status:      scan_config.ScanRuleStatusEnabled,
+			Status:      orchestrator.ScanRuleStatusEnabled,
 		},
 	}
 
 	for _, rule := range testRules {
-		var existingRule scan_config.ScanRule
+		var existingRule orchestrator.ScanRule
 		result := db.Where("name = ?", rule.Name).First(&existingRule)
 		if result.Error == gorm.ErrRecordNotFound {
 			err := db.Create(&rule).Error
@@ -331,7 +331,7 @@ func loginAndGetToken(t *testing.T, engine *gin.Engine, username, password strin
 // createTestRuleViaAPI 通过API创建测试规则
 func createTestRuleViaAPI(t *testing.T, engine *gin.Engine, token string, rule map[string]interface{}) uint {
 	body, _ := json.Marshal(rule)
-	req := httptest.NewRequest("POST", "/api/v1/scan-config/rules", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/v1/orchestrator/rules", bytes.NewBuffer(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 

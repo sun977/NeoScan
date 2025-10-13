@@ -35,7 +35,7 @@
 //  	ImportScanRules - 导入扫描规则
 //  	ExportScanRules - 导出扫描规则
 
-package scan_config
+package orchestrator
 
 import (
 	"context"
@@ -45,10 +45,10 @@ import (
 	"strings"
 	"time"
 
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-	scanConfigRepo "neomaster/internal/repository/scan_config"
-	"neomaster/internal/service/scan_config/rule_engine"
+	scanConfigRepo "neomaster/internal/repository/orchestrator"
+	"neomaster/internal/service/orchestrator/rule_engine"
 
 	"github.com/sirupsen/logrus"
 )
@@ -76,7 +76,7 @@ func NewScanRuleService(scanRuleRepo *scanConfigRepo.ScanRuleRepository) *ScanRu
 // @param ctx 上下文
 // @param rule 扫描规则配置对象
 // @return 创建的扫描规则配置和错误信息
-func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *scan_config.ScanRule) (*scan_config.ScanRule, error) {
+func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *orchestrator.ScanRule) (*orchestrator.ScanRule, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if rule == nil {
 		logger.LogError(errors.New("scan rule is nil"), "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
@@ -154,7 +154,7 @@ func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *scan_config.
 // @param id 扫描规则配置ID
 // @param rule 更新的扫描规则配置对象
 // @return 更新后的扫描规则配置和错误信息
-func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *scan_config.ScanRule) (*scan_config.ScanRule, error) {
+func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orchestrator.ScanRule) (*orchestrator.ScanRule, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", "update_scan_rule", "SERVICE", map[string]interface{}{
@@ -268,7 +268,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *sca
 // @param ctx 上下文
 // @param id 扫描规则配置ID
 // @return 扫描规则配置对象和错误信息
-func (s *ScanRuleService) GetScanRule(ctx context.Context, id uint) (*scan_config.ScanRule, error) {
+func (s *ScanRuleService) GetScanRule(ctx context.Context, id uint) (*orchestrator.ScanRule, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", "get_scan_rule", "SERVICE", map[string]interface{}{
@@ -313,7 +313,7 @@ func (s *ScanRuleService) GetScanRule(ctx context.Context, id uint) (*scan_confi
 // @param status 状态过滤（可选）
 // @param severity 严重程度过滤（可选）
 // @return 扫描规则配置列表、总数和错误信息
-func (s *ScanRuleService) ListScanRules(ctx context.Context, offset, limit int, ruleType *scan_config.ScanRuleType, status *scan_config.ScanRuleStatus, severity *scan_config.ScanRuleSeverity) ([]*scan_config.ScanRule, int64, error) {
+func (s *ScanRuleService) ListScanRules(ctx context.Context, offset, limit int, ruleType *orchestrator.ScanRuleType, status *orchestrator.ScanRuleStatus, severity *orchestrator.ScanRuleSeverity) ([]*orchestrator.ScanRule, int64, error) {
 	// 参数验证
 	if offset < 0 {
 		offset = 0
@@ -404,7 +404,7 @@ func (s *ScanRuleService) DeleteScanRule(ctx context.Context, id uint) error {
 // @param id 扫描规则配置ID
 // @return 错误信息
 func (s *ScanRuleService) EnableScanRule(ctx context.Context, id uint) error {
-	return s.updateScanRuleStatus(ctx, id, scan_config.ScanRuleStatusEnabled, "enable_scan_rule")
+	return s.updateScanRuleStatus(ctx, id, orchestrator.ScanRuleStatusEnabled, "enable_scan_rule")
 }
 
 // DisableScanRule 禁用扫描规则
@@ -412,14 +412,14 @@ func (s *ScanRuleService) EnableScanRule(ctx context.Context, id uint) error {
 // @param id 扫描规则配置ID
 // @return 错误信息
 func (s *ScanRuleService) DisableScanRule(ctx context.Context, id uint) error {
-	return s.updateScanRuleStatus(ctx, id, scan_config.ScanRuleStatusDisabled, "disable_scan_rule")
+	return s.updateScanRuleStatus(ctx, id, orchestrator.ScanRuleStatusDisabled, "disable_scan_rule")
 }
 
 // ValidateScanRuleConfig 验证扫描规则配置
 // @param ctx 上下文
 // @param rule 扫描规则配置对象
 // @return 错误信息
-func (s *ScanRuleService) ValidateScanRuleConfig(ctx context.Context, rule *scan_config.ScanRule) error {
+func (s *ScanRuleService) ValidateScanRuleConfig(ctx context.Context, rule *orchestrator.ScanRule) error {
 	// 基础字段验证
 	if strings.TrimSpace(rule.Name) == "" {
 		return errors.New("扫描规则名称不能为空")
@@ -493,14 +493,14 @@ func (s *ScanRuleService) ValidateScanRuleConfig(ctx context.Context, rule *scan
 // @param ctx 上下文
 // @param req 匹配请求参数
 // @return 匹配的扫描规则列表和错误信息
-func (s *ScanRuleService) MatchScanRules(ctx context.Context, req *scan_config.MatchScanRulesRequest) ([]scan_config.ScanRule, error) {
+func (s *ScanRuleService) MatchScanRules(ctx context.Context, req *orchestrator.MatchScanRulesRequest) ([]orchestrator.ScanRule, error) {
 	// 获取活跃的扫描规则
 	rules, err := s.scanRuleRepo.GetActiveRules(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var matchedRules []scan_config.ScanRule
+	var matchedRules []orchestrator.ScanRule
 
 	// 遍历规则进行匹配
 	for _, rule := range rules {
@@ -525,7 +525,7 @@ func (s *ScanRuleService) MatchScanRules(ctx context.Context, req *scan_config.M
 		"path":          "/api/v1/scan-config/rules/match",
 		"operation":     "match_scan_rules",
 		"option":        "scanRuleService.MatchScanRules",
-		"func_name":     "service.scan_config.scan_rule.MatchScanRules",
+		"func_name":     "service.orchestrator.scan_rule.MatchScanRules",
 		"matched_count": len(matchedRules),
 	}).Info("扫描规则匹配完成")
 
@@ -537,13 +537,13 @@ func (s *ScanRuleService) MatchScanRules(ctx context.Context, req *scan_config.M
 // @param rule 扫描规则
 // @param target 目标对象
 // @return 条件评估结果和错误信息
-func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *scan_config.ScanRule, target map[string]interface{}) (bool, error) {
+func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *orchestrator.ScanRule, target map[string]interface{}) (bool, error) {
 	// 记录请求日志
 	logrus.WithFields(logrus.Fields{
 		"path":      "/api/v1/scan-config/rules/evaluate",
 		"operation": "evaluate_rule_condition",
 		"option":    "scanRuleService.EvaluateRuleCondition",
-		"func_name": "service.scan_config.scan_rule.EvaluateRuleCondition",
+		"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 		"rule_id":   rule.ID,
 	}).Info("开始评估规则条件")
 
@@ -557,7 +557,7 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *scan_
 			"path":      "/api/v1/scan-config/rules/evaluate",
 			"operation": "evaluate_rule_condition",
 			"option":    "ruleEngine.ParseCondition",
-			"func_name": "service.scan_config.scan_rule.EvaluateRuleCondition",
+			"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("解析规则条件失败")
@@ -571,7 +571,7 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *scan_
 			"path":      "/api/v1/scan-config/rules/evaluate",
 			"operation": "evaluate_rule_condition",
 			"option":    "ruleEngine.EvaluateCondition",
-			"func_name": "service.scan_config.scan_rule.EvaluateRuleCondition",
+			"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("评估规则条件失败")
@@ -582,7 +582,7 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *scan_
 		"path":      "/api/v1/scan-config/rules/evaluate",
 		"operation": "evaluate_rule_condition",
 		"option":    "scanRuleService.EvaluateRuleCondition",
-		"func_name": "service.scan_config.scan_rule.EvaluateRuleCondition",
+		"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 		"rule_id":   rule.ID,
 		"result":    result,
 	}).Info("规则条件评估完成")
@@ -595,13 +595,13 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *scan_
 // @param rule 扫描规则
 // @param target 目标对象
 // @return 动作执行结果和错误信息
-func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *scan_config.ScanRule, target map[string]interface{}) (*scan_config.RuleExecutionResult, error) {
+func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *orchestrator.ScanRule, target map[string]interface{}) (*orchestrator.RuleExecutionResult, error) {
 	// 记录请求日志
 	logrus.WithFields(logrus.Fields{
 		"path":      "/api/v1/scan-config/rules/execute",
 		"operation": "execute_rule_action",
 		"option":    "scanRuleService.ExecuteRuleAction",
-		"func_name": "service.scan_config.scan_rule.ExecuteRuleAction",
+		"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 		"rule_id":   rule.ID,
 	}).Info("开始执行规则动作")
 
@@ -617,7 +617,7 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *scan_conf
 			"path":      "/api/v1/scan-config/rules/execute",
 			"operation": "execute_rule_action",
 			"option":    "rule.GetActionStruct",
-			"func_name": "service.scan_config.scan_rule.ExecuteRuleAction",
+			"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("解析规则动作失败")
@@ -631,12 +631,12 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *scan_conf
 			"path":      "/api/v1/scan-config/rules/execute",
 			"operation": "execute_rule_action",
 			"option":    "ruleEngine.ExecuteAction",
-			"func_name": "service.scan_config.scan_rule.ExecuteRuleAction",
+			"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("规则动作执行失败")
 
-		return &scan_config.RuleExecutionResult{
+		return &orchestrator.RuleExecutionResult{
 			RuleID:     rule.ID,
 			RuleName:   rule.Name,
 			Success:    false,
@@ -649,7 +649,7 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *scan_conf
 	}
 
 	// 构建执行结果
-	executionResult := &scan_config.RuleExecutionResult{
+	executionResult := &orchestrator.RuleExecutionResult{
 		RuleID:     rule.ID,
 		RuleName:   rule.Name,
 		Success:    actionResult != nil,
@@ -664,7 +664,7 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *scan_conf
 		"path":      "/api/v1/scan-config/rules/execute",
 		"operation": "execute_rule_action",
 		"option":    "scanRuleService.ExecuteRuleAction",
-		"func_name": "service.scan_config.scan_rule.ExecuteRuleAction",
+		"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 		"rule_id":   rule.ID,
 		"success":   actionResult != nil,
 		"matched":   true,
@@ -678,12 +678,12 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *scan_conf
 // @param req 导入请求参数
 // @return map[string]interface{} 导入结果
 // @return error 错误信息
-func (s *ScanRuleService) BatchImportScanRules(ctx context.Context, req *scan_config.ImportScanRulesRequest) (map[string]interface{}, error) {
+func (s *ScanRuleService) BatchImportScanRules(ctx context.Context, req *orchestrator.ImportScanRulesRequest) (map[string]interface{}, error) {
 	logger.Info("开始批量导入扫描规则", map[string]interface{}{
-		"path":      "service.scan_config.scan_rule",
+		"path":      "service.orchestrator.scan_rule",
 		"operation": "batch_import_scan_rules",
 		"option":    "scanRuleService.BatchImportScanRules",
-		"func_name": "service.scan_config.scan_rule.BatchImportScanRules",
+		"func_name": "service.orchestrator.scan_rule.BatchImportScanRules",
 		"format":    req.Format,
 		"overwrite": req.Overwrite,
 		"validate":  req.Validate,
@@ -714,12 +714,12 @@ func (s *ScanRuleService) BatchImportScanRules(ctx context.Context, req *scan_co
 // @param status 目标状态
 // @return map[string]interface{} 更新结果
 // @return error 错误信息
-func (s *ScanRuleService) BatchUpdateScanRuleStatus(ctx context.Context, ruleIDs []uint, status scan_config.ScanRuleStatus) (map[string]interface{}, error) {
+func (s *ScanRuleService) BatchUpdateScanRuleStatus(ctx context.Context, ruleIDs []uint, status orchestrator.ScanRuleStatus) (map[string]interface{}, error) {
 	logger.Info("开始批量更新扫描规则状态", map[string]interface{}{
-		"path":      "service.scan_config.scan_rule",
+		"path":      "service.orchestrator.scan_rule",
 		"operation": "batch_update_scan_rule_status",
 		"option":    "scanRuleService.BatchUpdateScanRuleStatus",
-		"func_name": "service.scan_config.scan_rule.BatchUpdateScanRuleStatus",
+		"func_name": "service.orchestrator.scan_rule.BatchUpdateScanRuleStatus",
 		"rule_ids":  ruleIDs,
 		"status":    status,
 		"count":     len(ruleIDs),
@@ -737,10 +737,10 @@ func (s *ScanRuleService) BatchUpdateScanRuleStatus(ctx context.Context, ruleIDs
 			failedCount++
 			errors = append(errors, fmt.Sprintf("规则ID %d 更新失败: %v", ruleID, err))
 			logger.Error("更新扫描规则状态失败", map[string]interface{}{
-				"path":      "service.scan_config.scan_rule",
+				"path":      "service.orchestrator.scan_rule",
 				"operation": "batch_update_scan_rule_status",
 				"option":    "scanRuleRepo.UpdateScanRuleStatus",
-				"func_name": "service.scan_config.scan_rule.BatchUpdateScanRuleStatus",
+				"func_name": "service.orchestrator.scan_rule.BatchUpdateScanRuleStatus",
 				"rule_id":   ruleID,
 				"status":    status,
 				"error":     err.Error(),
@@ -760,10 +760,10 @@ func (s *ScanRuleService) BatchUpdateScanRuleStatus(ctx context.Context, ruleIDs
 	}
 
 	logger.Info("批量更新扫描规则状态完成", map[string]interface{}{
-		"path":      "service.scan_config.scan_rule",
+		"path":      "service.orchestrator.scan_rule",
 		"operation": "batch_update_scan_rule_status",
 		"option":    "success",
-		"func_name": "service.scan_config.scan_rule.BatchUpdateScanRuleStatus",
+		"func_name": "service.orchestrator.scan_rule.BatchUpdateScanRuleStatus",
 		"result":    result,
 		"timestamp": logger.NowFormatted(),
 	})
@@ -890,7 +890,7 @@ func (s *ScanRuleService) GetScanRulePerformance(ctx context.Context, id uint) (
 // @param ctx 上下文
 // @param ruleType 规则类型
 // @return 扫描规则列表和错误信息
-func (s *ScanRuleService) GetScanRulesByType(ctx context.Context, ruleType scan_config.ScanRuleType) ([]*scan_config.ScanRule, error) {
+func (s *ScanRuleService) GetScanRulesByType(ctx context.Context, ruleType orchestrator.ScanRuleType) ([]*orchestrator.ScanRule, error) {
 	rules, err := s.scanRuleRepo.GetScanRulesByType(ctx, ruleType)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "get_scan_rules_by_type", "SERVICE", map[string]interface{}{
@@ -909,7 +909,7 @@ func (s *ScanRuleService) GetScanRulesByType(ctx context.Context, ruleType scan_
 // @param ctx 上下文
 // @param severity 严重程度
 // @return 扫描规则列表和错误信息
-func (s *ScanRuleService) GetScanRulesBySeverity(ctx context.Context, severity scan_config.ScanRuleSeverity) ([]*scan_config.ScanRule, error) {
+func (s *ScanRuleService) GetScanRulesBySeverity(ctx context.Context, severity orchestrator.ScanRuleSeverity) ([]*orchestrator.ScanRule, error) {
 	rules, err := s.scanRuleRepo.GetScanRulesBySeverity(ctx, severity)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "get_scan_rules_by_severity", "SERVICE", map[string]interface{}{
@@ -927,7 +927,7 @@ func (s *ScanRuleService) GetScanRulesBySeverity(ctx context.Context, severity s
 // GetActiveScanRules 获取活跃扫描规则
 // @param ctx 上下文
 // @return 活跃扫描规则列表和错误信息
-func (s *ScanRuleService) GetActiveScanRules(ctx context.Context) ([]*scan_config.ScanRule, error) {
+func (s *ScanRuleService) GetActiveScanRules(ctx context.Context) ([]*orchestrator.ScanRule, error) {
 	return s.GetActiveRules(ctx, nil)
 }
 
@@ -1029,14 +1029,14 @@ func (s *ScanRuleService) UpdateScanRuleStatus(ctx context.Context, id uint, sta
 	}
 
 	// 转换状态字符串为枚举类型
-	var ruleStatus scan_config.ScanRuleStatus
+	var ruleStatus orchestrator.ScanRuleStatus
 	switch strings.ToLower(status) {
 	case "enabled", "active":
-		ruleStatus = scan_config.ScanRuleStatusEnabled
+		ruleStatus = orchestrator.ScanRuleStatusEnabled
 	case "disabled", "inactive":
-		ruleStatus = scan_config.ScanRuleStatusDisabled
+		ruleStatus = orchestrator.ScanRuleStatusDisabled
 	case "draft":
-		ruleStatus = scan_config.ScanRuleStatusTesting
+		ruleStatus = orchestrator.ScanRuleStatusTesting
 	default:
 		logger.LogError(errors.New("invalid status"), "", id, "", "update_scan_rule_status", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule_status",
@@ -1055,7 +1055,7 @@ func (s *ScanRuleService) UpdateScanRuleStatus(ctx context.Context, id uint, sta
 // @param ctx 上下文
 // @param ruleType 规则类型过滤（可选）
 // @return 活跃扫描规则列表和错误信息
-func (s *ScanRuleService) GetActiveRules(ctx context.Context, ruleType *scan_config.ScanRuleType) ([]*scan_config.ScanRule, error) {
+func (s *ScanRuleService) GetActiveRules(ctx context.Context, ruleType *orchestrator.ScanRuleType) ([]*orchestrator.ScanRule, error) {
 	rules, err := s.scanRuleRepo.GetActiveRules(ctx, ruleType)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "get_active_rules", "SERVICE", map[string]interface{}{
@@ -1073,7 +1073,7 @@ func (s *ScanRuleService) GetActiveRules(ctx context.Context, ruleType *scan_con
 // @param ctx 上下文
 // @param rules 扫描规则列表
 // @return 导入结果和错误信息
-func (s *ScanRuleService) ImportScanRules(ctx context.Context, rules []*scan_config.ScanRule) (map[string]interface{}, error) {
+func (s *ScanRuleService) ImportScanRules(ctx context.Context, rules []*orchestrator.ScanRule) (map[string]interface{}, error) {
 	if len(rules) == 0 {
 		return nil, errors.New("导入的扫描规则列表不能为空")
 	}
@@ -1140,7 +1140,7 @@ func (s *ScanRuleService) ImportScanRules(ctx context.Context, rules []*scan_con
 // @param ruleType 规则类型过滤（可选）
 // @param status 状态过滤（可选）
 // @return 扫描规则列表和错误信息
-func (s *ScanRuleService) ExportScanRules(ctx context.Context, ruleType *scan_config.ScanRuleType, status *scan_config.ScanRuleStatus) ([]*scan_config.ScanRule, error) {
+func (s *ScanRuleService) ExportScanRules(ctx context.Context, ruleType *orchestrator.ScanRuleType, status *orchestrator.ScanRuleStatus) ([]*orchestrator.ScanRule, error) {
 	// 获取扫描规则列表（不分页，获取所有）
 	rules, _, err := s.scanRuleRepo.GetScanRuleList(ctx, 0, 10000, ruleType, nil, status)
 	if err != nil {
@@ -1162,7 +1162,7 @@ func (s *ScanRuleService) ExportScanRules(ctx context.Context, ruleType *scan_co
 }
 
 // 私有方法：更新扫描规则状态
-func (s *ScanRuleService) updateScanRuleStatus(ctx context.Context, id uint, status scan_config.ScanRuleStatus, operation string) error {
+func (s *ScanRuleService) updateScanRuleStatus(ctx context.Context, id uint, status orchestrator.ScanRuleStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
 		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
@@ -1222,7 +1222,7 @@ func (s *ScanRuleService) updateScanRuleStatus(ctx context.Context, id uint, sta
 }
 
 // 私有方法：检查规则适用性
-func (s *ScanRuleService) isRuleApplicable(rule *scan_config.ScanRule, target map[string]interface{}) bool {
+func (s *ScanRuleService) isRuleApplicable(rule *orchestrator.ScanRule, target map[string]interface{}) bool {
 	// 解析适用工具
 	if rule.ApplicableTools == "" {
 		return true // 没有限制，适用于所有目标
@@ -1250,7 +1250,7 @@ func (s *ScanRuleService) isRuleApplicable(rule *scan_config.ScanRule, target ma
 }
 
 // 私有方法：评估规则条件
-func (s *ScanRuleService) evaluateRuleCondition(rule *scan_config.ScanRule, target map[string]interface{}) bool {
+func (s *ScanRuleService) evaluateRuleCondition(rule *orchestrator.ScanRule, target map[string]interface{}) bool {
 	// 解析条件配置
 	if rule.Condition == "" {
 		return true // 没有条件，直接通过
@@ -1318,18 +1318,18 @@ func (s *ScanRuleService) evaluateRuleCondition(rule *scan_config.ScanRule, targ
 }
 
 // 私有方法：设置默认值
-func (s *ScanRuleService) setDefaultValues(rule *scan_config.ScanRule) {
+func (s *ScanRuleService) setDefaultValues(rule *orchestrator.ScanRule) {
 	// 设置默认状态
 	if rule.Status == 0 {
-		rule.Status = scan_config.ScanRuleStatusDisabled
+		rule.Status = orchestrator.ScanRuleStatusDisabled
 	}
 
 	if rule.Type == "" {
-		rule.Type = scan_config.ScanRuleTypeCustom
+		rule.Type = orchestrator.ScanRuleTypeCustom
 	}
 
 	if rule.Severity == "" {
-		rule.Severity = scan_config.ScanRuleSeverityMedium
+		rule.Severity = orchestrator.ScanRuleSeverityMedium
 	}
 
 	if rule.Condition == "" {
@@ -1374,13 +1374,13 @@ func (s *ScanRuleService) setDefaultValues(rule *scan_config.ScanRule) {
 // @param rule 扫描规则
 // @param testData 测试数据
 // @return 测试结果和错误信息
-func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *scan_config.ScanRule, testData map[string]interface{}) (*scan_config.RuleTestResult, error) {
+func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.ScanRule, testData map[string]interface{}) (*orchestrator.RuleTestResult, error) {
 	// 记录请求日志
 	logger.WithFields(logrus.Fields{
 		"path":      "/api/v1/scan-config/rules/test",
 		"operation": "test_scan_rule",
 		"option":    "scanRuleService.TestScanRule",
-		"func_name": "service.scan_config.scan_rule.TestScanRule",
+		"func_name": "service.orchestrator.scan_rule.TestScanRule",
 		"rule_id":   rule.ID,
 	}).Info("开始测试扫描规则")
 
@@ -1396,7 +1396,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *scan_config.Sc
 			"path":      "/api/v1/scan-config/rules/test",
 			"operation": "test_scan_rule",
 			"option":    "rule.GetActionStruct",
-			"func_name": "service.scan_config.scan_rule.TestScanRule",
+			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("解析规则动作失败")
@@ -1410,7 +1410,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *scan_config.Sc
 			"path":      "/api/v1/scan-config/rules/test",
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.ExecuteAction",
-			"func_name": "service.scan_config.scan_rule.TestScanRule",
+			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("测试扫描规则失败")
@@ -1424,11 +1424,11 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *scan_config.Sc
 			"path":      "/api/v1/scan-config/rules/test",
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.ParseCondition",
-			"func_name": "service.scan_config.scan_rule.TestScanRule",
+			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("解析规则条件失败")
-		return &scan_config.RuleTestResult{
+		return &orchestrator.RuleTestResult{
 			RuleID:   rule.ID,
 			Success:  false,
 			Message:  fmt.Sprintf("条件解析失败: %v", err),
@@ -1443,11 +1443,11 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *scan_config.Sc
 			"path":      "/api/v1/scan-config/rules/test",
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.EvaluateCondition",
-			"func_name": "service.scan_config.scan_rule.TestScanRule",
+			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
 		}).Error("评估规则条件失败")
-		return &scan_config.RuleTestResult{
+		return &orchestrator.RuleTestResult{
 			RuleID:   rule.ID,
 			Success:  false,
 			Message:  fmt.Sprintf("条件评估失败: %v", err),
@@ -1456,7 +1456,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *scan_config.Sc
 	}
 
 	// 构建测试结果
-	testResult := &scan_config.RuleTestResult{
+	testResult := &orchestrator.RuleTestResult{
 		RuleID:   rule.ID,
 		Success:  conditionResult,
 		Message:  fmt.Sprintf("规则测试完成，条件匹配: %v", conditionResult),
@@ -1470,7 +1470,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *scan_config.Sc
 		"path":             "/api/v1/scan-config/rules/test",
 		"operation":        "test_scan_rule",
 		"option":           "scanRuleService.TestScanRule",
-		"func_name":        "service.scan_config.scan_rule.TestScanRule",
+		"func_name":        "service.orchestrator.scan_rule.TestScanRule",
 		"rule_id":          rule.ID,
 		"condition_result": conditionResult,
 	}).Info("扫描规则测试完成")
@@ -1515,7 +1515,7 @@ func (s *ScanRuleService) ExecuteRulesAction(ctx context.Context, ruleIDs []uint
 	}
 
 	// 获取规则列表
-	var rules []*scan_config.ScanRule
+	var rules []*orchestrator.ScanRule
 	for _, ruleID := range ruleIDs {
 		rule, err := s.GetScanRule(ctx, ruleID)
 		if err != nil {

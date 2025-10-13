@@ -35,14 +35,14 @@
 //  字段更新:
 //  	UpdateScanToolFields - 使用map更新特定字段
 
-package scan_config
+package orchestrator
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
@@ -66,7 +66,7 @@ func NewScanToolRepository(db *gorm.DB) *ScanToolRepository {
 // @param ctx 上下文
 // @param tool 扫描工具对象
 // @return 错误信息
-func (r *ScanToolRepository) CreateScanTool(ctx context.Context, tool *scan_config.ScanTool) error {
+func (r *ScanToolRepository) CreateScanTool(ctx context.Context, tool *orchestrator.ScanTool) error {
 	tool.CreatedAt = time.Now()
 	tool.UpdatedAt = time.Now()
 
@@ -88,8 +88,8 @@ func (r *ScanToolRepository) CreateScanTool(ctx context.Context, tool *scan_conf
 // @param ctx 上下文
 // @param id 扫描工具ID
 // @return 扫描工具对象和错误信息
-func (r *ScanToolRepository) GetScanToolByID(ctx context.Context, id uint) (*scan_config.ScanTool, error) {
-	var tool scan_config.ScanTool
+func (r *ScanToolRepository) GetScanToolByID(ctx context.Context, id uint) (*orchestrator.ScanTool, error) {
+	var tool orchestrator.ScanTool
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&tool).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -116,8 +116,8 @@ func (r *ScanToolRepository) GetScanToolByID(ctx context.Context, id uint) (*sca
 // @param ctx 上下文
 // @param name 工具名称
 // @return 扫描工具对象和错误信息
-func (r *ScanToolRepository) GetScanToolByName(ctx context.Context, name string) (*scan_config.ScanTool, error) {
-	var tool scan_config.ScanTool
+func (r *ScanToolRepository) GetScanToolByName(ctx context.Context, name string) (*orchestrator.ScanTool, error) {
+	var tool orchestrator.ScanTool
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&tool).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -144,7 +144,7 @@ func (r *ScanToolRepository) GetScanToolByName(ctx context.Context, name string)
 // @param ctx 上下文
 // @param tool 扫描工具对象
 // @return 错误信息
-func (r *ScanToolRepository) UpdateScanTool(ctx context.Context, tool *scan_config.ScanTool) error {
+func (r *ScanToolRepository) UpdateScanTool(ctx context.Context, tool *orchestrator.ScanTool) error {
 	tool.UpdatedAt = time.Now()
 	err := r.db.WithContext(ctx).Save(tool).Error
 	if err != nil {
@@ -165,7 +165,7 @@ func (r *ScanToolRepository) UpdateScanTool(ctx context.Context, tool *scan_conf
 // @param id 扫描工具ID
 // @return 错误信息
 func (r *ScanToolRepository) DeleteScanTool(ctx context.Context, id uint) error {
-	err := r.db.WithContext(ctx).Delete(&scan_config.ScanTool{}, id).Error
+	err := r.db.WithContext(ctx).Delete(&orchestrator.ScanTool{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "scan_tool_delete", "DELETE", map[string]interface{}{
@@ -185,11 +185,11 @@ func (r *ScanToolRepository) DeleteScanTool(ctx context.Context, id uint) error 
 // @param toolType 工具类型过滤（可选）
 // @param status 状态过滤（可选）
 // @return 扫描工具列表、总数和错误信息
-func (r *ScanToolRepository) GetScanToolList(ctx context.Context, offset, limit int, toolType *scan_config.ScanToolType, status *scan_config.ScanToolStatus) ([]*scan_config.ScanTool, int64, error) {
-	var tools []*scan_config.ScanTool
+func (r *ScanToolRepository) GetScanToolList(ctx context.Context, offset, limit int, toolType *orchestrator.ScanToolType, status *orchestrator.ScanToolStatus) ([]*orchestrator.ScanTool, int64, error) {
+	var tools []*orchestrator.ScanTool
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&scan_config.ScanTool{})
+	query := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{})
 
 	// 工具类型过滤
 	if toolType != nil {
@@ -229,9 +229,9 @@ func (r *ScanToolRepository) GetScanToolList(ctx context.Context, offset, limit 
 // @param ctx 上下文
 // @param toolType 工具类型
 // @return 扫描工具列表和错误信息
-func (r *ScanToolRepository) GetScanToolsByType(ctx context.Context, toolType scan_config.ScanToolType) ([]*scan_config.ScanTool, error) {
-	var tools []*scan_config.ScanTool
-	err := r.db.WithContext(ctx).Where("type = ? AND status = ?", toolType, scan_config.ScanToolStatusEnabled).Find(&tools).Error
+func (r *ScanToolRepository) GetScanToolsByType(ctx context.Context, toolType orchestrator.ScanToolType) ([]*orchestrator.ScanTool, error) {
+	var tools []*orchestrator.ScanTool
+	err := r.db.WithContext(ctx).Where("type = ? AND status = ?", toolType, orchestrator.ScanToolStatusEnabled).Find(&tools).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
 			"operation": "get_scan_tools_by_type",
@@ -246,9 +246,9 @@ func (r *ScanToolRepository) GetScanToolsByType(ctx context.Context, toolType sc
 // GetAvailableScanTools 获取可用的扫描工具
 // @param ctx 上下文
 // @return 扫描工具列表和错误信息
-func (r *ScanToolRepository) GetAvailableScanTools(ctx context.Context) ([]*scan_config.ScanTool, error) {
-	var tools []*scan_config.ScanTool
-	err := r.db.WithContext(ctx).Where("status = ?", scan_config.ScanToolStatusEnabled).Find(&tools).Error
+func (r *ScanToolRepository) GetAvailableScanTools(ctx context.Context) ([]*orchestrator.ScanTool, error) {
+	var tools []*orchestrator.ScanTool
+	err := r.db.WithContext(ctx).Where("status = ?", orchestrator.ScanToolStatusEnabled).Find(&tools).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
 			"operation": "get_available_scan_tools",
@@ -265,7 +265,7 @@ func (r *ScanToolRepository) GetAvailableScanTools(ctx context.Context) ([]*scan
 // @return 是否存在和错误信息
 func (r *ScanToolRepository) ScanToolExists(ctx context.Context, name string) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanTool{}).Where("name = ?", name).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("name = ?", name).Count(&count).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_tool_exists", "GET", map[string]interface{}{
 			"operation": "scan_tool_exists",
@@ -282,8 +282,8 @@ func (r *ScanToolRepository) ScanToolExists(ctx context.Context, name string) (b
 // @param id 扫描工具ID
 // @param status 新状态
 // @return 错误信息
-func (r *ScanToolRepository) UpdateScanToolStatus(ctx context.Context, id uint, status scan_config.ScanToolStatus) error {
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanTool{}).Where("id = ?", id).Updates(map[string]interface{}{
+func (r *ScanToolRepository) UpdateScanToolStatus(ctx context.Context, id uint, status orchestrator.ScanToolStatus) error {
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":     status,
 		"updated_at": time.Now(),
 	}).Error
@@ -304,7 +304,7 @@ func (r *ScanToolRepository) UpdateScanToolStatus(ctx context.Context, id uint, 
 // @param id 扫描工具ID
 // @return 错误信息
 func (r *ScanToolRepository) EnableScanTool(ctx context.Context, id uint) error {
-	return r.UpdateScanToolStatus(ctx, id, scan_config.ScanToolStatusEnabled)
+	return r.UpdateScanToolStatus(ctx, id, orchestrator.ScanToolStatusEnabled)
 }
 
 // DisableScanTool 禁用扫描工具
@@ -312,7 +312,7 @@ func (r *ScanToolRepository) EnableScanTool(ctx context.Context, id uint) error 
 // @param id 扫描工具ID
 // @return 错误信息
 func (r *ScanToolRepository) DisableScanTool(ctx context.Context, id uint) error {
-	return r.UpdateScanToolStatus(ctx, id, scan_config.ScanToolStatusDisabled)
+	return r.UpdateScanToolStatus(ctx, id, orchestrator.ScanToolStatusDisabled)
 }
 
 // UpdateScanToolStats 更新扫描工具统计信息
@@ -323,7 +323,7 @@ func (r *ScanToolRepository) DisableScanTool(ctx context.Context, id uint) error
 // @param failureCount 失败次数
 // @return 错误信息
 func (r *ScanToolRepository) UpdateScanToolStats(ctx context.Context, id uint, usageCount, successCount, failureCount int) error {
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanTool{}).Where("id = ?", id).Updates(map[string]interface{}{
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"usage_count":   usageCount,
 		"success_count": successCount,
 		"failure_count": failureCount,
@@ -360,7 +360,7 @@ func (r *ScanToolRepository) IncrementUsageCount(ctx context.Context, id uint, s
 		updates["failure_count"] = gorm.Expr("failure_count + 1")
 	}
 
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanTool{}).Where("id = ?", id).Updates(updates).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("id = ?", id).Updates(updates).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
 			"operation": "increment_usage_count",
@@ -392,7 +392,7 @@ func (r *ScanToolRepository) BeginTx() (*gorm.DB, error) {
 // @param tx 事务对象
 // @param tool 扫描工具对象
 // @return 错误信息
-func (r *ScanToolRepository) UpdateScanToolWithTx(ctx context.Context, tx *gorm.DB, tool *scan_config.ScanTool) error {
+func (r *ScanToolRepository) UpdateScanToolWithTx(ctx context.Context, tx *gorm.DB, tool *orchestrator.ScanTool) error {
 	tool.UpdatedAt = time.Now()
 	err := tx.WithContext(ctx).Save(tool).Error
 	if err != nil {
@@ -414,7 +414,7 @@ func (r *ScanToolRepository) UpdateScanToolWithTx(ctx context.Context, tx *gorm.
 // @param id 扫描工具ID
 // @return 错误信息
 func (r *ScanToolRepository) DeleteScanToolWithTx(ctx context.Context, tx *gorm.DB, id uint) error {
-	err := tx.WithContext(ctx).Delete(&scan_config.ScanTool{}, id).Error
+	err := tx.WithContext(ctx).Delete(&orchestrator.ScanTool{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "scan_tool_delete_with_tx", "DELETE", map[string]interface{}{
@@ -434,7 +434,7 @@ func (r *ScanToolRepository) DeleteScanToolWithTx(ctx context.Context, tx *gorm.
 // @return 错误信息
 func (r *ScanToolRepository) UpdateScanToolFields(ctx context.Context, id uint, fields map[string]interface{}) error {
 	fields["updated_at"] = time.Now()
-	err := r.db.WithContext(ctx).Model(&scan_config.ScanTool{}).Where("id = ?", id).Updates(fields).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("id = ?", id).Updates(fields).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
 			"operation": "update_scan_tool_fields",

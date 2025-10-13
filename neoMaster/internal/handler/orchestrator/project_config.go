@@ -23,7 +23,7 @@
 //  	POST   /api/v1/scan-config/projects/:id/reload - 热重载项目配置
 //  	POST   /api/v1/scan-config/projects/:id/sync - 同步项目配置
 
-package scan_config
+package orchestrator
 
 import (
 	"errors"
@@ -32,10 +32,10 @@ import (
 	"strings"
 
 	"neomaster/internal/model"
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -66,12 +66,12 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	urlPath := c.Request.URL.String()
 
 	// 解析请求体
-	var req scan_config.ProjectConfig
+	var req orchestrator.ProjectConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_project_config",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.project_config.CreateProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.CreateProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -91,7 +91,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":    "create_project_config",
 			"option":       "validateProjectConfigRequest",
-			"func_name":    "handler.scan_config.project_config.CreateProjectConfig",
+			"func_name":    "handler.orchestrator.project_config.CreateProjectConfig",
 			"client_ip":    clientIP,
 			"user_agent":   userAgent,
 			"request_id":   requestID,
@@ -113,7 +113,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":    "create_project_config",
 			"option":       "projectConfigService.CreateProjectConfig",
-			"func_name":    "handler.scan_config.project_config.CreateProjectConfig",
+			"func_name":    "handler.orchestrator.project_config.CreateProjectConfig",
 			"client_ip":    clientIP,
 			"user_agent":   userAgent,
 			"request_id":   requestID,
@@ -143,7 +143,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "create_project_config", "创建项目配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":    "create_project_config",
 		"option":       "success",
-		"func_name":    "handler.scan_config.project_config.CreateProjectConfig",
+		"func_name":    "handler.orchestrator.project_config.CreateProjectConfig",
 		"client_ip":    clientIP,
 		"user_agent":   userAgent,
 		"request_id":   requestID,
@@ -178,7 +178,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_project_config",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.project_config.GetProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.GetProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -200,7 +200,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_project_config",
 			"option":     "projectConfigService.GetProjectConfig",
-			"func_name":  "handler.scan_config.project_config.GetProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.GetProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -230,7 +230,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "get_project_config", "获取项目配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":    "get_project_config",
 		"option":       "success",
-		"func_name":    "handler.scan_config.project_config.GetProjectConfig",
+		"func_name":    "handler.orchestrator.project_config.GetProjectConfig",
 		"client_ip":    clientIP,
 		"user_agent":   userAgent,
 		"request_id":   requestID,
@@ -265,7 +265,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_project_config",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.project_config.UpdateProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.UpdateProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -282,12 +282,12 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req scan_config.ProjectConfig
+	var req orchestrator.ProjectConfig
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.LogError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_project_config",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.project_config.UpdateProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.UpdateProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -308,7 +308,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 		logger.LogError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":    "update_project_config",
 			"option":       "validateProjectConfigRequest",
-			"func_name":    "handler.scan_config.project_config.UpdateProjectConfig",
+			"func_name":    "handler.orchestrator.project_config.UpdateProjectConfig",
 			"client_ip":    clientIP,
 			"user_agent":   userAgent,
 			"request_id":   requestID,
@@ -331,7 +331,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":    "update_project_config",
 			"option":       "projectConfigService.UpdateProjectConfig",
-			"func_name":    "handler.scan_config.project_config.UpdateProjectConfig",
+			"func_name":    "handler.orchestrator.project_config.UpdateProjectConfig",
 			"client_ip":    clientIP,
 			"user_agent":   userAgent,
 			"request_id":   requestID,
@@ -368,7 +368,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "update_project_config", "更新项目配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":    "update_project_config",
 		"option":       "success",
-		"func_name":    "handler.scan_config.project_config.UpdateProjectConfig",
+		"func_name":    "handler.orchestrator.project_config.UpdateProjectConfig",
 		"client_ip":    clientIP,
 		"user_agent":   userAgent,
 		"request_id":   requestID,
@@ -403,7 +403,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_project_config",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.project_config.DeleteProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.DeleteProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -425,7 +425,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_project_config",
 			"option":     "projectConfigService.DeleteProjectConfig",
-			"func_name":  "handler.scan_config.project_config.DeleteProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.DeleteProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -455,7 +455,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "delete_project_config", "删除项目配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "delete_project_config",
 		"option":     "success",
-		"func_name":  "handler.scan_config.project_config.DeleteProjectConfig",
+		"func_name":  "handler.orchestrator.project_config.DeleteProjectConfig",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -497,16 +497,16 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 	}
 
 	// 解析状态过滤参数
-	var statusFilter *scan_config.ProjectConfigStatus
+	var statusFilter *orchestrator.ProjectConfigStatus
 	if status != "" {
-		var s scan_config.ProjectConfigStatus
+		var s orchestrator.ProjectConfigStatus
 		switch status {
 		case "inactive", "0":
-			s = scan_config.ProjectConfigStatusInactive
+			s = orchestrator.ProjectConfigStatusInactive
 		case "active", "1":
-			s = scan_config.ProjectConfigStatusActive
+			s = orchestrator.ProjectConfigStatusActive
 		case "archived", "2":
-			s = scan_config.ProjectConfigStatusArchived
+			s = orchestrator.ProjectConfigStatusArchived
 		default:
 			// 无效状态，忽略过滤
 			statusFilter = nil
@@ -522,7 +522,7 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "list_project_configs",
 			"option":     "projectConfigService.ListProjectConfigs",
-			"func_name":  "handler.scan_config.project_config.ListProjectConfigs",
+			"func_name":  "handler.orchestrator.project_config.ListProjectConfigs",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -544,7 +544,7 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "list_project_configs", "获取项目配置列表成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "list_project_configs",
 		"option":     "success",
-		"func_name":  "handler.scan_config.project_config.ListProjectConfigs",
+		"func_name":  "handler.orchestrator.project_config.ListProjectConfigs",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -577,14 +577,14 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 // @route POST /api/v1/scan-config/projects/:id/enable
 // @param c Gin上下文
 func (h *ProjectConfigHandler) EnableProjectConfig(c *gin.Context) {
-	h.updateProjectConfigStatus(c, scan_config.ProjectConfigStatusActive, "enable_project_config", "启用项目配置")
+	h.updateProjectConfigStatus(c, orchestrator.ProjectConfigStatusActive, "enable_project_config", "启用项目配置")
 }
 
 // DisableProjectConfig 禁用项目配置
 // @route POST /api/v1/scan-config/projects/:id/disable
 // @param c Gin上下文
 func (h *ProjectConfigHandler) DisableProjectConfig(c *gin.Context) {
-	h.updateProjectConfigStatus(c, scan_config.ProjectConfigStatusInactive, "disable_project_config", "禁用项目配置")
+	h.updateProjectConfigStatus(c, orchestrator.ProjectConfigStatusInactive, "disable_project_config", "禁用项目配置")
 }
 
 // ReloadProjectConfig 热重载项目配置
@@ -604,7 +604,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "reload_project_config",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.project_config.ReloadProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.ReloadProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -626,7 +626,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "reload_project_config",
 			"option":     "projectConfigService.ReloadProjectConfig",
-			"func_name":  "handler.scan_config.project_config.ReloadProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.ReloadProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -656,7 +656,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "reload_project_config", "重新加载项目配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "reload_project_config",
 		"option":     "success",
-		"func_name":  "handler.scan_config.project_config.ReloadProjectConfig",
+		"func_name":  "handler.orchestrator.project_config.ReloadProjectConfig",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -689,7 +689,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "sync_project_config",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.project_config.SyncProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.SyncProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -711,7 +711,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "sync_project_config",
 			"option":     "projectConfigService.SyncProjectConfig",
-			"func_name":  "handler.scan_config.project_config.SyncProjectConfig",
+			"func_name":  "handler.orchestrator.project_config.SyncProjectConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -741,7 +741,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "sync_project_config", "同步项目配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "sync_project_config",
 		"option":     "success",
-		"func_name":  "handler.scan_config.project_config.SyncProjectConfig",
+		"func_name":  "handler.orchestrator.project_config.SyncProjectConfig",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -758,7 +758,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 }
 
 // 私有方法：更新项目配置状态
-func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status scan_config.ProjectConfigStatus, operation, message string) {
+func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status orchestrator.ProjectConfigStatus, operation, message string) {
 	// 获取请求上下文信息
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
@@ -772,7 +772,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.project_config.updateProjectConfigStatus",
+			"func_name":  "handler.orchestrator.project_config.updateProjectConfigStatus",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -790,7 +790,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 
 	// 调用Service层更新状态
 	var serviceErr error
-	if status == scan_config.ProjectConfigStatusActive {
+	if status == orchestrator.ProjectConfigStatusActive {
 		serviceErr = h.projectConfigService.EnableProjectConfig(c.Request.Context(), uint(id))
 	} else {
 		serviceErr = h.projectConfigService.DisableProjectConfig(c.Request.Context(), uint(id))
@@ -800,7 +800,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "projectConfigService.UpdateStatus",
-			"func_name":  "handler.scan_config.project_config.updateProjectConfigStatus",
+			"func_name":  "handler.orchestrator.project_config.updateProjectConfigStatus",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -831,7 +831,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 	logger.LogSystemEvent("project_config_handler", "update_project_config_status", "更新项目配置状态成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  operation,
 		"option":     "success",
-		"func_name":  "handler.scan_config.project_config.updateProjectConfigStatus",
+		"func_name":  "handler.orchestrator.project_config.updateProjectConfigStatus",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -849,7 +849,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 }
 
 // 私有方法：验证项目配置请求参数
-func (h *ProjectConfigHandler) validateProjectConfigRequest(req *scan_config.ProjectConfig) error {
+func (h *ProjectConfigHandler) validateProjectConfigRequest(req *orchestrator.ProjectConfig) error {
 	// 基础字段验证
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("项目名称不能为空")
@@ -893,7 +893,7 @@ func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_scan_config",
 			"option":     "projectConfigService.GetSystemScanConfig",
-			"func_name":  "handler.scan_config.project_config.GetSystemScanConfig",
+			"func_name":  "handler.orchestrator.project_config.GetSystemScanConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -912,7 +912,7 @@ func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "get_system_scan_config", "获取系统扫描配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_scan_config",
 		"option":     "success",
-		"func_name":  "handler.scan_config.project_config.GetSystemScanConfig",
+		"func_name":  "handler.orchestrator.project_config.GetSystemScanConfig",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -944,7 +944,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_system_scan_config",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.project_config.UpdateSystemScanConfig",
+			"func_name":  "handler.orchestrator.project_config.UpdateSystemScanConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -965,7 +965,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_system_scan_config",
 			"option":     "projectConfigService.UpdateSystemScanConfig",
-			"func_name":  "handler.scan_config.project_config.UpdateSystemScanConfig",
+			"func_name":  "handler.orchestrator.project_config.UpdateSystemScanConfig",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -984,7 +984,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 	logger.LogSystemEvent("project_config_handler", "update_system_scan_config", "更新系统扫描配置成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "update_system_scan_config",
 		"option":     "success",
-		"func_name":  "handler.scan_config.project_config.UpdateSystemScanConfig",
+		"func_name":  "handler.orchestrator.project_config.UpdateSystemScanConfig",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,

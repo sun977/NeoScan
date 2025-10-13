@@ -29,7 +29,7 @@
 //  	GET    /api/v1/scan-config/workflows/:id/logs - 获取工作流日志
 //  	GET    /api/v1/scan-config/workflows/:id/metrics - 获取工作流指标
 
-package scan_config
+package orchestrator
 
 import (
 	"errors"
@@ -38,10 +38,10 @@ import (
 	"strings"
 
 	"neomaster/internal/model"
-	"neomaster/internal/model/scan_config"
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/scan_config"
+	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -72,12 +72,12 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	urlPath := c.Request.URL.String()
 
 	// 解析请求体
-	var req scan_config.WorkflowConfig
+	var req orchestrator.WorkflowConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_workflow",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.scan_config.workflow.CreateWorkflow",
+			"func_name":  "handler.orchestrator.workflow.CreateWorkflow",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -97,7 +97,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":     "create_workflow",
 			"option":        "validateWorkflowRequest",
-			"func_name":     "handler.scan_config.workflow.CreateWorkflow",
+			"func_name":     "handler.orchestrator.workflow.CreateWorkflow",
 			"client_ip":     clientIP,
 			"user_agent":    userAgent,
 			"request_id":    requestID,
@@ -119,7 +119,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":     "create_workflow",
 			"option":        "workflowService.CreateWorkflowConfig",
-			"func_name":     "handler.scan_config.workflow.CreateWorkflow",
+			"func_name":     "handler.orchestrator.workflow.CreateWorkflow",
 			"client_ip":     clientIP,
 			"user_agent":    userAgent,
 			"request_id":    requestID,
@@ -149,7 +149,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "create_workflow", "创建工作流成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":     "create_workflow",
 		"option":        "success",
-		"func_name":     "handler.scan_config.workflow.CreateWorkflow",
+		"func_name":     "handler.orchestrator.workflow.CreateWorkflow",
 		"client_ip":     clientIP,
 		"user_agent":    userAgent,
 		"request_id":    requestID,
@@ -184,7 +184,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.GetWorkflow",
+			"func_name":  "handler.orchestrator.workflow.GetWorkflow",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -206,7 +206,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow",
 			"option":      "workflowService.GetWorkflowConfig",
-			"func_name":   "handler.scan_config.workflow.GetWorkflow",
+			"func_name":   "handler.orchestrator.workflow.GetWorkflow",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -236,7 +236,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "get_workflow", "获取工作流成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":     "get_workflow",
 		"option":        "success",
-		"func_name":     "handler.scan_config.workflow.GetWorkflow",
+		"func_name":     "handler.orchestrator.workflow.GetWorkflow",
 		"client_ip":     clientIP,
 		"user_agent":    userAgent,
 		"request_id":    requestID,
@@ -271,7 +271,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_workflow",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.UpdateWorkflow",
+			"func_name":  "handler.orchestrator.workflow.UpdateWorkflow",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -288,12 +288,12 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req scan_config.WorkflowConfig
+	var req orchestrator.WorkflowConfig
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.LogError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":   "update_workflow",
 			"option":      "ShouldBindJSON",
-			"func_name":   "handler.scan_config.workflow.UpdateWorkflow",
+			"func_name":   "handler.orchestrator.workflow.UpdateWorkflow",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -314,7 +314,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 		logger.LogError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":     "update_workflow",
 			"option":        "validateWorkflowRequest",
-			"func_name":     "handler.scan_config.workflow.UpdateWorkflow",
+			"func_name":     "handler.orchestrator.workflow.UpdateWorkflow",
 			"client_ip":     clientIP,
 			"user_agent":    userAgent,
 			"request_id":    requestID,
@@ -337,7 +337,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":     "update_workflow",
 			"option":        "workflowService.UpdateWorkflowConfig",
-			"func_name":     "handler.scan_config.workflow.UpdateWorkflow",
+			"func_name":     "handler.orchestrator.workflow.UpdateWorkflow",
 			"client_ip":     clientIP,
 			"user_agent":    userAgent,
 			"request_id":    requestID,
@@ -374,7 +374,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "update_workflow", "更新工作流成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":     "update_workflow",
 		"option":        "success",
-		"func_name":     "handler.scan_config.workflow.UpdateWorkflow",
+		"func_name":     "handler.orchestrator.workflow.UpdateWorkflow",
 		"client_ip":     clientIP,
 		"user_agent":    userAgent,
 		"request_id":    requestID,
@@ -409,7 +409,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_workflow",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.DeleteWorkflow",
+			"func_name":  "handler.orchestrator.workflow.DeleteWorkflow",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -431,7 +431,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":   "delete_workflow",
 			"option":      "workflowService.DeleteWorkflowConfig",
-			"func_name":   "handler.scan_config.workflow.DeleteWorkflow",
+			"func_name":   "handler.orchestrator.workflow.DeleteWorkflow",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -461,7 +461,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "delete_workflow", "删除工作流成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":   "delete_workflow",
 		"option":      "success",
-		"func_name":   "handler.scan_config.workflow.DeleteWorkflow",
+		"func_name":   "handler.orchestrator.workflow.DeleteWorkflow",
 		"client_ip":   clientIP,
 		"user_agent":  userAgent,
 		"request_id":  requestID,
@@ -514,29 +514,29 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	}
 
 	// 解析状态过滤参数
-	var statusFilter *scan_config.WorkflowStatus
+	var statusFilter *orchestrator.WorkflowStatus
 	if status != "" {
 		// 根据字符串值转换为对应的WorkflowStatus枚举
 		switch strings.ToLower(status) {
 		case "draft", "0":
-			s := scan_config.WorkflowStatusDraft
+			s := orchestrator.WorkflowStatusDraft
 			statusFilter = &s
 		case "active", "1":
-			s := scan_config.WorkflowStatusActive
+			s := orchestrator.WorkflowStatusActive
 			statusFilter = &s
 		case "inactive", "2":
-			s := scan_config.WorkflowStatusInactive
+			s := orchestrator.WorkflowStatusInactive
 			statusFilter = &s
 		case "archived", "3":
-			s := scan_config.WorkflowStatusArchived
+			s := orchestrator.WorkflowStatusArchived
 			statusFilter = &s
 		}
 	}
 
 	// 解析触发类型过滤参数
-	var triggerTypeFilter *scan_config.WorkflowTriggerType
+	var triggerTypeFilter *orchestrator.WorkflowTriggerType
 	if triggerType != "" {
-		t := scan_config.WorkflowTriggerType(triggerType)
+		t := orchestrator.WorkflowTriggerType(triggerType)
 		triggerTypeFilter = &t
 	}
 
@@ -546,7 +546,7 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":    "list_workflows",
 			"option":       "workflowService.ListWorkflowConfigs",
-			"func_name":    "handler.scan_config.workflow.ListWorkflows",
+			"func_name":    "handler.orchestrator.workflow.ListWorkflows",
 			"client_ip":    clientIP,
 			"user_agent":   userAgent,
 			"request_id":   requestID,
@@ -570,7 +570,7 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "list_workflows", "获取工作流列表成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "list_workflows",
 		"option":     "success",
-		"func_name":  "handler.scan_config.workflow.ListWorkflows",
+		"func_name":  "handler.orchestrator.workflow.ListWorkflows",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -638,14 +638,14 @@ func (h *WorkflowHandler) RetryWorkflow(c *gin.Context) {
 // @route POST /api/v1/scan-config/workflows/:id/enable
 // @param c Gin上下文
 func (h *WorkflowHandler) EnableWorkflow(c *gin.Context) {
-	h.updateWorkflowStatus(c, scan_config.WorkflowStatusActive, "enable_workflow", "启用工作流")
+	h.updateWorkflowStatus(c, orchestrator.WorkflowStatusActive, "enable_workflow", "启用工作流")
 }
 
 // DisableWorkflow 禁用工作流
 // @route POST /api/v1/scan-config/workflows/:id/disable
 // @param c Gin上下文
 func (h *WorkflowHandler) DisableWorkflow(c *gin.Context) {
-	h.updateWorkflowStatus(c, scan_config.WorkflowStatusInactive, "disable_workflow", "禁用工作流")
+	h.updateWorkflowStatus(c, orchestrator.WorkflowStatusInactive, "disable_workflow", "禁用工作流")
 }
 
 // GetWorkflowStatus 获取工作流状态
@@ -665,7 +665,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow_status",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.GetWorkflowStatus",
+			"func_name":  "handler.orchestrator.workflow.GetWorkflowStatus",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -687,7 +687,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow_status",
 			"option":      "workflowService.GetWorkflowStatus",
-			"func_name":   "handler.scan_config.workflow.GetWorkflowStatus",
+			"func_name":   "handler.orchestrator.workflow.GetWorkflowStatus",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -717,7 +717,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "get_workflow_status", "获取工作流状态成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":   "get_workflow_status",
 		"option":      "success",
-		"func_name":   "handler.scan_config.workflow.GetWorkflowStatus",
+		"func_name":   "handler.orchestrator.workflow.GetWorkflowStatus",
 		"client_ip":   clientIP,
 		"user_agent":  userAgent,
 		"request_id":  requestID,
@@ -752,7 +752,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow_logs",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.GetWorkflowLogs",
+			"func_name":  "handler.orchestrator.workflow.GetWorkflowLogs",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -788,7 +788,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow_logs",
 			"option":      "workflowService.GetWorkflowLogs",
-			"func_name":   "handler.scan_config.workflow.GetWorkflowLogs",
+			"func_name":   "handler.orchestrator.workflow.GetWorkflowLogs",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -820,7 +820,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "get_workflow_logs", "获取工作流日志成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":   "get_workflow_logs",
 		"option":      "success",
-		"func_name":   "handler.scan_config.workflow.GetWorkflowLogs",
+		"func_name":   "handler.orchestrator.workflow.GetWorkflowLogs",
 		"client_ip":   clientIP,
 		"user_agent":  userAgent,
 		"request_id":  requestID,
@@ -865,7 +865,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow_metrics",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.GetWorkflowMetrics",
+			"func_name":  "handler.orchestrator.workflow.GetWorkflowMetrics",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -887,7 +887,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow_metrics",
 			"option":      "workflowService.GetWorkflowPerformance",
-			"func_name":   "handler.scan_config.workflow.GetWorkflowMetrics",
+			"func_name":   "handler.orchestrator.workflow.GetWorkflowMetrics",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -917,7 +917,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "get_workflow_metrics", "获取工作流指标成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":   "get_workflow_metrics",
 		"option":      "success",
-		"func_name":   "handler.scan_config.workflow.GetWorkflowMetrics",
+		"func_name":   "handler.orchestrator.workflow.GetWorkflowMetrics",
 		"client_ip":   clientIP,
 		"user_agent":  userAgent,
 		"request_id":  requestID,
@@ -949,7 +949,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  action + "_workflow",
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.controlWorkflow",
+			"func_name":  "handler.orchestrator.workflow.controlWorkflow",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -989,7 +989,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":   action + "_workflow",
 			"option":      "workflowService." + strings.Title(action) + "Workflow",
-			"func_name":   "handler.scan_config.workflow.controlWorkflow",
+			"func_name":   "handler.orchestrator.workflow.controlWorkflow",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -1020,7 +1020,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 	logger.LogSystemEvent("workflow_handler", action+"_workflow", message+"成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":   action + "_workflow",
 		"option":      "success",
-		"func_name":   "handler.scan_config.workflow.controlWorkflow",
+		"func_name":   "handler.orchestrator.workflow.controlWorkflow",
 		"client_ip":   clientIP,
 		"user_agent":  userAgent,
 		"request_id":  requestID,
@@ -1045,7 +1045,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 }
 
 // 私有方法：更新工作流状态
-func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status scan_config.WorkflowStatus, operation, message string) {
+func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrator.WorkflowStatus, operation, message string) {
 	// 获取请求上下文信息
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
@@ -1059,7 +1059,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status scan_confi
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "ParseUint",
-			"func_name":  "handler.scan_config.workflow.updateWorkflowStatus",
+			"func_name":  "handler.orchestrator.workflow.updateWorkflowStatus",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1077,7 +1077,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status scan_confi
 
 	// 调用Service层更新状态
 	var serviceErr error
-	if status == scan_config.WorkflowStatusActive {
+	if status == orchestrator.WorkflowStatusActive {
 		serviceErr = h.workflowService.EnableWorkflowConfig(c.Request.Context(), uint(id))
 	} else {
 		serviceErr = h.workflowService.DisableWorkflowConfig(c.Request.Context(), uint(id))
@@ -1087,7 +1087,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status scan_confi
 		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":   operation,
 			"option":      "workflowService.UpdateStatus",
-			"func_name":   "handler.scan_config.workflow.updateWorkflowStatus",
+			"func_name":   "handler.orchestrator.workflow.updateWorkflowStatus",
 			"client_ip":   clientIP,
 			"user_agent":  userAgent,
 			"request_id":  requestID,
@@ -1118,7 +1118,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status scan_confi
 	logger.LogSystemEvent("workflow_handler", operation, message+"成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":   operation,
 		"option":      "success",
-		"func_name":   "handler.scan_config.workflow.updateWorkflowStatus",
+		"func_name":   "handler.orchestrator.workflow.updateWorkflowStatus",
 		"client_ip":   clientIP,
 		"user_agent":  userAgent,
 		"request_id":  requestID,
@@ -1136,7 +1136,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status scan_confi
 }
 
 // 私有方法：验证工作流请求参数
-func (h *WorkflowHandler) validateWorkflowRequest(req *scan_config.WorkflowConfig) error {
+func (h *WorkflowHandler) validateWorkflowRequest(req *orchestrator.WorkflowConfig) error {
 	// 基础字段验证
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("工作流名称不能为空")
@@ -1183,7 +1183,7 @@ func (h *WorkflowHandler) GetWorkflowsByProject(c *gin.Context) {
 			"path":      "/api/v1/scan-config/workflows/project/:project_id",
 			"operation": "get_workflows_by_project",
 			"option":    "parse_project_id",
-			"func_name": "handler.scan_config.workflow.GetWorkflowsByProject",
+			"func_name": "handler.orchestrator.workflow.GetWorkflowsByProject",
 			"error":     err.Error(),
 		})
 		c.JSON(http.StatusBadRequest, gin.H{"error": "项目ID格式错误"})
@@ -1196,7 +1196,7 @@ func (h *WorkflowHandler) GetWorkflowsByProject(c *gin.Context) {
 			"path":       "/api/v1/scan-config/workflows/project/:project_id",
 			"operation":  "get_workflows_by_project",
 			"option":     "workflowService.GetWorkflowsByProject",
-			"func_name":  "handler.scan_config.workflow.GetWorkflowsByProject",
+			"func_name":  "handler.orchestrator.workflow.GetWorkflowsByProject",
 			"project_id": projectID,
 			"error":      err.Error(),
 		})
@@ -1208,7 +1208,7 @@ func (h *WorkflowHandler) GetWorkflowsByProject(c *gin.Context) {
 		"path":       "/api/v1/scan-config/workflows/project/:project_id",
 		"operation":  "get_workflows_by_project",
 		"option":     "success",
-		"func_name":  "handler.scan_config.workflow.GetWorkflowsByProject",
+		"func_name":  "handler.orchestrator.workflow.GetWorkflowsByProject",
 		"project_id": projectID,
 		"count":      len(workflows),
 	})
@@ -1235,7 +1235,7 @@ func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_scan_statistics",
 			"option":     "workflowService.GetSystemScanStatistics",
-			"func_name":  "handler.scan_config.workflow.GetSystemScanStatistics",
+			"func_name":  "handler.orchestrator.workflow.GetSystemScanStatistics",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1254,7 +1254,7 @@ func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "get_system_scan_statistics", "获取系统扫描统计信息成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_scan_statistics",
 		"option":     "success",
-		"func_name":  "handler.scan_config.workflow.GetSystemScanStatistics",
+		"func_name":  "handler.orchestrator.workflow.GetSystemScanStatistics",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,
@@ -1286,7 +1286,7 @@ func (h *WorkflowHandler) GetSystemPerformance(c *gin.Context) {
 		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_performance",
 			"option":     "workflowService.GetSystemPerformance",
-			"func_name":  "handler.scan_config.workflow.GetSystemPerformance",
+			"func_name":  "handler.orchestrator.workflow.GetSystemPerformance",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -1305,7 +1305,7 @@ func (h *WorkflowHandler) GetSystemPerformance(c *gin.Context) {
 	logger.LogSystemEvent("workflow_handler", "get_system_performance", "获取系统性能信息成功", logrus.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_performance",
 		"option":     "success",
-		"func_name":  "handler.scan_config.workflow.GetSystemPerformance",
+		"func_name":  "handler.orchestrator.workflow.GetSystemPerformance",
 		"client_ip":  clientIP,
 		"user_agent": userAgent,
 		"request_id": requestID,

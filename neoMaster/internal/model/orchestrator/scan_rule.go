@@ -5,7 +5,7 @@
  * @description: 扫描规则配置模型，遵循"Never break userspace"原则 - 规则变更不能破坏现有扫描
  * @func: ScanRule 结构体及相关方法
  */
-package scan_config
+package orchestrator
 
 import (
 	"encoding/json"
@@ -233,11 +233,23 @@ func (sr *ScanRule) GetActionStruct() (*RuleAction, error) {
 		return nil, nil // 动作可以为空
 	}
 
+	// 首先尝试解析为单个RuleAction对象
 	var action RuleAction
-	if err := json.Unmarshal([]byte(sr.Action), &action); err != nil {
+	if err := json.Unmarshal([]byte(sr.Action), &action); err == nil {
+		return &action, nil
+	}
+
+	// 如果失败，尝试解析为RuleAction数组，取第一个元素
+	var actions []RuleAction
+	if err := json.Unmarshal([]byte(sr.Action), &actions); err != nil {
 		return nil, fmt.Errorf("解析规则动作失败: %w", err)
 	}
-	return &action, nil
+
+	if len(actions) == 0 {
+		return nil, nil // 动作数组为空
+	}
+
+	return &actions[0], nil // 返回第一个动作
 }
 
 // GetApplicableToolsList 获取适用工具列表

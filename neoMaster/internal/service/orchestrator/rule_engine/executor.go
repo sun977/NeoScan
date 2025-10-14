@@ -6,19 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"neomaster/internal/pkg/logger"
 )
 
 // ActionExecutor 动作执行器
 type ActionExecutor struct {
-	logger *logrus.Logger
 }
 
 // NewActionExecutor 创建新的动作执行器
-func NewActionExecutor(logger *logrus.Logger) *ActionExecutor {
-	return &ActionExecutor{
-		logger: logger,
-	}
+func NewActionExecutor(logger interface{}) *ActionExecutor {
+	return &ActionExecutor{}
 }
 
 // ExecuteAction 执行单个动作
@@ -30,7 +27,7 @@ func (ae *ActionExecutor) ExecuteAction(action Action, context *RuleContext) Act
 		Data:      make(map[string]interface{}),
 	}
 
-	ae.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"action_type": action.Type,
 		"parameters":  action.Parameters,
 		"func_name":   "executor.ExecuteAction",
@@ -49,7 +46,7 @@ func (ae *ActionExecutor) ExecuteAction(action Action, context *RuleContext) Act
 		result = ae.executeCommandAction(action, context)
 	default:
 		result.Error = fmt.Sprintf("不支持的动作类型: %s", action.Type)
-		ae.logger.WithFields(logrus.Fields{
+		logger.WithFields(map[string]interface{}{
 			"action_type": action.Type,
 			"error":       result.Error,
 			"func_name":   "executor.ExecuteAction",
@@ -69,7 +66,7 @@ func (ae *ActionExecutor) ExecuteActions(actions []Action, context *RuleContext)
 
 		// 如果是阻止动作且执行成功，停止后续动作执行
 		if action.Type == ActionBlock && result.Success {
-			ae.logger.WithFields(logrus.Fields{
+			logger.WithFields(map[string]interface{}{
 				"func_name": "executor.ExecuteActions",
 			}).Info("阻止动作执行成功，停止后续动作")
 			break
@@ -96,7 +93,7 @@ func (ae *ActionExecutor) executeLogAction(action Action, context *RuleContext) 
 	message = ae.replaceVariables(message, context)
 
 	// 记录日志
-	logFields := logrus.Fields{
+	logFields := map[string]interface{}{
 		"rule_action": "log",
 		"context":     context.Data,
 		"func_name":   "executor.executeLogAction",
@@ -104,15 +101,15 @@ func (ae *ActionExecutor) executeLogAction(action Action, context *RuleContext) 
 
 	switch strings.ToLower(level) {
 	case "debug":
-		ae.logger.WithFields(logFields).Debug(message)
+		logger.WithFields(logFields).Debug(message)
 	case "info":
-		ae.logger.WithFields(logFields).Info(message)
+		logger.WithFields(logFields).Info(message)
 	case "warn", "warning":
-		ae.logger.WithFields(logFields).Warn(message)
+		logger.WithFields(logFields).Warn(message)
 	case "error":
-		ae.logger.WithFields(logFields).Error(message)
+		logger.WithFields(logFields).Error(message)
 	default:
-		ae.logger.WithFields(logFields).Info(message)
+		logger.WithFields(logFields).Info(message)
 	}
 
 	result.Message = fmt.Sprintf("日志记录成功: %s", message)
@@ -141,7 +138,7 @@ func (ae *ActionExecutor) executeAlertAction(action Action, context *RuleContext
 	message = ae.replaceVariables(message, context)
 
 	// 记录告警日志
-	ae.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"alert_title":    title,
 		"alert_message":  message,
 		"alert_severity": severity,
@@ -176,7 +173,7 @@ func (ae *ActionExecutor) executeBlockAction(action Action, context *RuleContext
 	reason = ae.replaceVariables(reason, context)
 
 	// 记录阻止日志
-	ae.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"block_reason": reason,
 		"block_type":   blockType,
 		"context":      context.Data,
@@ -289,7 +286,7 @@ func (ae *ActionExecutor) executeCommandAction(action Action, context *RuleConte
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		result.Error = fmt.Sprintf("命令执行失败: %v", err)
-		ae.logger.WithFields(logrus.Fields{
+		logger.WithFields(map[string]interface{}{
 			"command":   command,
 			"args":      args,
 			"error":     err.Error(),

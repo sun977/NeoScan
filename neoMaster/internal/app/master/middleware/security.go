@@ -12,29 +12,28 @@
 package middleware
 
 import (
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 // GinCORSMiddleware CORS跨域资源共享中间件
 // 处理跨域请求，设置必要的CORS头部信息
 func (m *MiddlewareManager) GinCORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 获取客户端IP和请求来源
+		clientIP := utils.GetClientIP(c)
+		origin := c.Request.Header.Get("Origin")
+
 		// 记录日志
-		logrus.WithFields(logrus.Fields{
-			"path":      c.Request.URL.Path,
+		logger.LogInfo("Processing CORS request", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 			"operation": "cors_middleware",
 			"option":    "handle_cors_request",
 			"func_name": "middleware.security.GinCORSMiddleware",
-			"method":    c.Request.Method,
-			"origin":    c.Request.Header.Get("Origin"),
-		}).Debug("Processing CORS request")
-
-		// 获取请求来源
-		origin := c.Request.Header.Get("Origin")
+			"origin":    origin,
+		})
 
 		// 设置CORS头部
 		// 允许的来源（生产环境应该配置具体的域名）
@@ -62,13 +61,12 @@ func (m *MiddlewareManager) GinCORSMiddleware() gin.HandlerFunc {
 
 		// 处理预检请求（OPTIONS方法）
 		if c.Request.Method == "OPTIONS" {
-			logrus.WithFields(logrus.Fields{
-				"path":      c.Request.URL.Path,
+			logger.LogInfo("Handling CORS preflight request", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 				"operation": "cors_preflight",
 				"option":    "handle_options_request",
 				"func_name": "middleware.security.GinCORSMiddleware",
 				"origin":    origin,
-			}).Debug("Handling CORS preflight request")
+			})
 
 			c.AbortWithStatus(http.StatusNoContent)
 			return
@@ -83,13 +81,15 @@ func (m *MiddlewareManager) GinCORSMiddleware() gin.HandlerFunc {
 // 添加各种安全相关的HTTP头部，提高应用安全性
 func (m *MiddlewareManager) GinSecurityHeadersMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 获取客户端IP
+		clientIP := utils.GetClientIP(c)
+
 		// 记录日志
-		logrus.WithFields(logrus.Fields{
-			"path":      c.Request.URL.Path,
+		logger.LogInfo("Setting security headers", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 			"operation": "security_headers",
 			"option":    "set_security_headers",
 			"func_name": "middleware.security.GinSecurityHeadersMiddleware",
-		}).Debug("Setting security headers")
+		})
 
 		// X-Content-Type-Options: 防止MIME类型嗅探攻击
 		c.Header("X-Content-Type-Options", "nosniff")
@@ -134,13 +134,15 @@ func (m *MiddlewareManager) GinSecurityHeadersMiddleware() gin.HandlerFunc {
 // 添加robots标签，防止敏感页面被搜索引擎索引
 func (m *MiddlewareManager) GinNoIndexMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 获取客户端IP
+		clientIP := utils.GetClientIP(c)
+
 		// 记录日志
-		logrus.WithFields(logrus.Fields{
-			"path":      c.Request.URL.Path,
+		logger.LogInfo("Setting no-index headers", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 			"operation": "no_index",
 			"option":    "set_no_index_headers",
 			"func_name": "middleware.security.GinNoIndexMiddleware",
-		}).Debug("Setting no-index headers")
+		})
 
 		// 防止搜索引擎索引
 		c.Header("X-Robots-Tag", "noindex, nofollow, nosnippet, noarchive")
@@ -154,6 +156,9 @@ func (m *MiddlewareManager) GinNoIndexMiddleware() gin.HandlerFunc {
 // 为每个请求生成唯一ID，便于日志追踪和问题排查
 func (m *MiddlewareManager) GinRequestIDMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 获取客户端IP
+		clientIP := utils.GetClientIP(c)
+
 		// 检查是否已有请求ID（可能来自负载均衡器或代理）
 		requestID := c.GetHeader("X-Request-ID")
 		if requestID == "" {
@@ -168,13 +173,12 @@ func (m *MiddlewareManager) GinRequestIDMiddleware() gin.HandlerFunc {
 		c.Header("X-Request-ID", requestID)
 
 		// 记录日志
-		logrus.WithFields(logrus.Fields{
-			"path":       c.Request.URL.Path,
+		logger.LogInfo("Generated request ID", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 			"operation":  "request_id",
 			"option":     "generate_request_id",
 			"func_name":  "middleware.security.GinRequestIDMiddleware",
 			"request_id": requestID,
-		}).Debug("Generated request ID")
+		})
 
 		// 继续处理请求
 		c.Next()

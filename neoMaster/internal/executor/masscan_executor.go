@@ -19,15 +19,12 @@ import (
 
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-
-	"github.com/sirupsen/logrus"
 )
 
 // MasscanExecutor Masscan执行器实现
 type MasscanExecutor struct {
-	name    string         // 执行器名称
-	version string         // 执行器版本
-	logger  *logrus.Logger // 日志记录器
+	name    string // 执行器名称
+	version string // 执行器版本
 }
 
 // NewMasscanExecutor 创建新的Masscan执行器
@@ -35,7 +32,6 @@ func NewMasscanExecutor() *MasscanExecutor {
 	return &MasscanExecutor{
 		name:    "masscan_executor",
 		version: "1.0.0",
-		logger:  logger.LoggerInstance.GetLogger(),
 	}
 }
 
@@ -103,12 +99,13 @@ func (e *MasscanExecutor) validateMasscanVersion(masscanPath string) error {
 		return fmt.Errorf("invalid masscan executable, version output: %s", versionOutput)
 	}
 
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.masscan.validateMasscanVersion",
 		"operation": "validate_masscan",
 		"option":    "version_check",
 		"func_name": "executor.masscan.validateMasscanVersion",
-	}).Debugf("Masscan version validated: %s", strings.TrimSpace(versionOutput))
+		"version":   strings.TrimSpace(versionOutput),
+	}).Debug("Masscan version validation")
 
 	return nil
 }
@@ -121,12 +118,14 @@ func (e *MasscanExecutor) Execute(ctx context.Context, request *ScanRequest) (*S
 
 	startTime := time.Now()
 
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.masscan.Execute",
 		"operation": "execute_masscan",
 		"option":    "start_execution",
 		"func_name": "executor.masscan.Execute",
-	}).Infof("Starting masscan scan for task %s, target: %s", request.TaskID, request.Target)
+		"task_id":   request.TaskID,
+		"target":    request.Target,
+	}).Info("Starting masscan scan")
 
 	// 构建masscan命令
 	args, err := e.buildMasscanArgs(request)
@@ -137,8 +136,8 @@ func (e *MasscanExecutor) Execute(ctx context.Context, request *ScanRequest) (*S
 	// 创建输出目录
 	if request.OutputPath != "" {
 		outputDir := filepath.Dir(request.OutputPath)
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create output directory: %w", err)
+		if err1 := os.MkdirAll(outputDir, 0755); err1 != nil {
+			return nil, fmt.Errorf("failed to create output directory: %w", err1)
 		}
 	}
 
@@ -182,12 +181,13 @@ func (e *MasscanExecutor) Execute(ctx context.Context, request *ScanRequest) (*S
 		result.Status = ScanTaskStatusFailed
 		result.Error = err.Error()
 
-		e.logger.WithFields(logrus.Fields{
+		logger.WithFields(map[string]interface{}{
 			"path":      "executor.masscan.Execute",
 			"operation": "execute_masscan",
 			"option":    "execution_failed",
 			"func_name": "executor.masscan.Execute",
-		}).Errorf("Masscan execution failed for task %s: %v", request.TaskID, err)
+			"task_id":   request.TaskID,
+		}).WithError(err).Error("Masscan execution failed")
 
 		return result, nil // 返回结果而不是错误，让调用者处理
 	}
@@ -196,14 +196,15 @@ func (e *MasscanExecutor) Execute(ctx context.Context, request *ScanRequest) (*S
 
 	// 收集输出文件
 	if request.OutputPath != "" {
-		outputFiles, err := e.collectOutputFiles(request.OutputPath)
-		if err != nil {
-			e.logger.WithFields(logrus.Fields{
+		outputFiles, err1 := e.collectOutputFiles(request.OutputPath)
+		if err1 != nil {
+			logger.WithFields(map[string]interface{}{
 				"path":      "executor.masscan.Execute",
 				"operation": "execute_masscan",
 				"option":    "collect_output_files_failed",
 				"func_name": "executor.masscan.Execute",
-			}).Warnf("Failed to collect output files for task %s: %v", request.TaskID, err)
+				"task_id":   request.TaskID,
+			}).WithError(err1).Warn("Failed to collect output files")
 		} else {
 			result.OutputFiles = outputFiles
 		}
@@ -212,22 +213,25 @@ func (e *MasscanExecutor) Execute(ctx context.Context, request *ScanRequest) (*S
 	// 解析扫描结果元数据
 	metadata, err := e.parseMasscanOutput(string(output))
 	if err != nil {
-		e.logger.WithFields(logrus.Fields{
+		logger.WithFields(map[string]interface{}{
 			"path":      "executor.masscan.Execute",
 			"operation": "execute_masscan",
 			"option":    "parse_output_failed",
 			"func_name": "executor.masscan.Execute",
-		}).Warnf("Failed to parse masscan output for task %s: %v", request.TaskID, err)
+			"task_id":   request.TaskID,
+		}).WithError(err).Warn("Failed to parse masscan output")
 	} else {
 		result.Metadata = metadata
 	}
 
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.masscan.Execute",
 		"operation": "execute_masscan",
 		"option":    "execution_completed",
 		"func_name": "executor.masscan.Execute",
-	}).Infof("Masscan scan completed for task %s, duration: %v", request.TaskID, duration)
+		"task_id":   request.TaskID,
+		"duration":  duration,
+	}).Info("Masscan scan completed")
 
 	return result, nil
 }
@@ -415,12 +419,13 @@ func (e *MasscanExecutor) parseMasscanOutput(output string) (map[string]interfac
 // Stop 停止正在执行的扫描任务
 func (e *MasscanExecutor) Stop(ctx context.Context, taskID string) error {
 	// Masscan执行器本身不维护任务状态，依赖上下文取消
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.masscan.Stop",
 		"operation": "stop_masscan",
 		"option":    "stop_requested",
 		"func_name": "executor.masscan.Stop",
-	}).Infof("Stop requested for masscan task %s", taskID)
+		"task_id":   taskID,
+	}).Info("Stop requested for masscan task")
 
 	return nil
 }
@@ -433,7 +438,7 @@ func (e *MasscanExecutor) GetStatus(ctx context.Context, taskID string) (*ScanSt
 
 // Cleanup 清理资源
 func (e *MasscanExecutor) Cleanup() error {
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.masscan.Cleanup",
 		"operation": "cleanup",
 		"option":    "cleanup_completed",

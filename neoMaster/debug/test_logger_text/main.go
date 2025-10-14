@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/logger"
-
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -76,7 +74,7 @@ func main() {
 		"database",       // 组件
 		"startup",        // 事件
 		"数据库连接池初始化完成",    // 消息
-		logrus.InfoLevel, // 日志级别
+		logger.InfoLevel, // 日志级别
 		map[string]interface{}{
 			"max_connections":  100,
 			"idle_connections": 10,

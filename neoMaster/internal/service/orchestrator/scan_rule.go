@@ -49,8 +49,6 @@ import (
 	"neomaster/internal/pkg/logger"
 	scanConfigRepo "neomaster/internal/repository/orchestrator"
 	"neomaster/internal/service/orchestrator/rule_engine"
-
-	"github.com/sirupsen/logrus"
 )
 
 // ScanRuleService 扫描规则服务结构体
@@ -521,13 +519,12 @@ func (s *ScanRuleService) MatchScanRules(ctx context.Context, req *orchestrator.
 	}
 
 	// 记录请求日志
-	logger.WithFields(logrus.Fields{
-		"path":          "/api/v1/scan-config/rules/match",
+	logger.LogInfo("扫描规则匹配完成", "", 0, "", "/api/v1/scan-config/rules/match", "", map[string]interface{}{
 		"operation":     "match_scan_rules",
 		"option":        "scanRuleService.MatchScanRules",
 		"func_name":     "service.orchestrator.scan_rule.MatchScanRules",
 		"matched_count": len(matchedRules),
-	}).Info("扫描规则匹配完成")
+	})
 
 	return matchedRules, nil
 }
@@ -539,13 +536,12 @@ func (s *ScanRuleService) MatchScanRules(ctx context.Context, req *orchestrator.
 // @return 条件评估结果和错误信息
 func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *orchestrator.ScanRule, target map[string]interface{}) (bool, error) {
 	// 记录请求日志
-	logrus.WithFields(logrus.Fields{
-		"path":      "/api/v1/scan-config/rules/evaluate",
+	logger.LogInfo("开始评估规则条件", "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
 		"operation": "evaluate_rule_condition",
 		"option":    "scanRuleService.EvaluateRuleCondition",
 		"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 		"rule_id":   rule.ID,
-	}).Info("开始评估规则条件")
+	})
 
 	// 构建规则上下文
 	context := s.buildRuleContext(target)
@@ -553,39 +549,34 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *orche
 	// 解析规则条件
 	parsedCondition, err := s.ruleEngine.ParseCondition(ctx, rule.Condition)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/evaluate",
+		logger.LogError(fmt.Errorf("解析规则条件失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
 			"operation": "evaluate_rule_condition",
 			"option":    "ruleEngine.ParseCondition",
 			"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 			"rule_id":   rule.ID,
-			"error":     err.Error(),
-		}).Error("解析规则条件失败")
+		})
 		return false, err
 	}
 
 	// 评估条件
 	result, err := s.ruleEngine.EvaluateCondition(ctx, parsedCondition, context)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/evaluate",
+		logger.LogError(fmt.Errorf("评估规则条件失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
 			"operation": "evaluate_rule_condition",
 			"option":    "ruleEngine.EvaluateCondition",
 			"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 			"rule_id":   rule.ID,
-			"error":     err.Error(),
-		}).Error("评估规则条件失败")
+		})
 		return false, err
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"path":      "/api/v1/scan-config/rules/evaluate",
+	logger.LogInfo("规则条件评估完成", "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
 		"operation": "evaluate_rule_condition",
 		"option":    "scanRuleService.EvaluateRuleCondition",
 		"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
 		"rule_id":   rule.ID,
 		"result":    result,
-	}).Info("规则条件评估完成")
+	})
 
 	return result, nil
 }
@@ -597,13 +588,12 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *orche
 // @return 动作执行结果和错误信息
 func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *orchestrator.ScanRule, target map[string]interface{}) (*orchestrator.RuleExecutionResult, error) {
 	// 记录请求日志
-	logrus.WithFields(logrus.Fields{
-		"path":      "/api/v1/scan-config/rules/execute",
+	logger.LogInfo("开始执行规则动作", "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
 		"operation": "execute_rule_action",
 		"option":    "scanRuleService.ExecuteRuleAction",
 		"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 		"rule_id":   rule.ID,
-	}).Info("开始执行规则动作")
+	})
 
 	startTime := time.Now()
 
@@ -613,28 +603,24 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *orchestra
 	// 解析规则动作
 	actionStruct, err := rule.GetActionStruct()
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/execute",
+		logger.LogError(fmt.Errorf("解析规则动作失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
 			"operation": "execute_rule_action",
 			"option":    "rule.GetActionStruct",
 			"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 			"rule_id":   rule.ID,
-			"error":     err.Error(),
-		}).Error("解析规则动作失败")
+		})
 		return nil, err
 	}
 
 	// 使用规则引擎执行规则动作
 	actionResult, err := s.ruleEngine.ExecuteAction(ctx, actionStruct, context)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/execute",
+		logger.LogError(fmt.Errorf("规则动作执行失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
 			"operation": "execute_rule_action",
 			"option":    "ruleEngine.ExecuteAction",
 			"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 			"rule_id":   rule.ID,
-			"error":     err.Error(),
-		}).Error("规则动作执行失败")
+		})
 
 		return &orchestrator.RuleExecutionResult{
 			RuleID:     rule.ID,
@@ -660,15 +646,14 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *orchestra
 		ExecutedAt: time.Now(),
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"path":      "/api/v1/scan-config/rules/execute",
+	logger.LogInfo("规则动作执行完成", "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
 		"operation": "execute_rule_action",
 		"option":    "scanRuleService.ExecuteRuleAction",
 		"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
 		"rule_id":   rule.ID,
 		"success":   actionResult != nil,
 		"matched":   true,
-	}).Info("规则动作执行完成")
+	})
 
 	return executionResult, nil
 }
@@ -1270,12 +1255,12 @@ func (s *ScanRuleService) evaluateRuleCondition(rule *orchestrator.ScanRule, tar
 	// 实现基本的条件评估逻辑
 	// 1. 检查目标数据是否为空
 	if len(target) == 0 {
-		logger.WithFields(map[string]interface{}{
+		logger.LogWarn("Target data is empty for rule condition evaluation", "", 0, "", "", "", map[string]interface{}{
 			"operation": "evaluate_rule_condition",
 			"rule_id":   rule.ID,
 			"error":     "empty_target_data",
 			"timestamp": logger.NowFormatted(),
-		}).Warn("Target data is empty for rule condition evaluation")
+		})
 		return false
 	}
 
@@ -1284,35 +1269,35 @@ func (s *ScanRuleService) evaluateRuleCondition(rule *orchestrator.ScanRule, tar
 		if actualValue, exists := target[key]; exists {
 			// 简单的值匹配
 			if fmt.Sprintf("%v", actualValue) != fmt.Sprintf("%v", expectedValue) {
-				logger.WithFields(map[string]interface{}{
+				logger.LogInfo("Condition not matched", "", 0, "", "", "", map[string]interface{}{
 					"operation":      "evaluate_rule_condition",
 					"rule_id":        rule.ID,
 					"condition_key":  key,
 					"expected_value": expectedValue,
 					"actual_value":   actualValue,
 					"timestamp":      logger.NowFormatted(),
-				}).Debug("Condition not matched")
+				})
 				return false
 			}
 		} else {
 			// 目标数据中缺少必需的字段
-			logger.WithFields(map[string]interface{}{
+			logger.LogInfo("Required field missing in target data", "", 0, "", "", "", map[string]interface{}{
 				"operation":     "evaluate_rule_condition",
 				"rule_id":       rule.ID,
 				"missing_field": key,
 				"timestamp":     logger.NowFormatted(),
-			}).Debug("Required field missing in target data")
+			})
 			return false
 		}
 	}
 
 	// 3. 所有条件都匹配
-	logger.WithFields(map[string]interface{}{
+	logger.LogInfo("All conditions matched", "", 0, "", "", "", map[string]interface{}{
 		"operation": "evaluate_rule_condition",
 		"rule_id":   rule.ID,
 		"result":    "matched",
 		"timestamp": logger.NowFormatted(),
-	}).Debug("All conditions matched")
+	})
 
 	return true
 }
@@ -1376,13 +1361,12 @@ func (s *ScanRuleService) setDefaultValues(rule *orchestrator.ScanRule) {
 // @return 测试结果和错误信息
 func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.ScanRule, testData map[string]interface{}) (*orchestrator.RuleTestResult, error) {
 	// 记录请求日志
-	logger.WithFields(logrus.Fields{
-		"path":      "/api/v1/scan-config/rules/test",
+	logger.LogInfo("开始测试扫描规则", "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 		"operation": "test_scan_rule",
 		"option":    "scanRuleService.TestScanRule",
 		"func_name": "service.orchestrator.scan_rule.TestScanRule",
 		"rule_id":   rule.ID,
-	}).Info("开始测试扫描规则")
+	})
 
 	startTime := time.Now()
 
@@ -1392,42 +1376,39 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 	// 解析规则动作
 	actionStruct, err := rule.GetActionStruct()
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/test",
+		logger.LogError(fmt.Errorf("解析规则动作失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "rule.GetActionStruct",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
-			"error":     err.Error(),
-		}).Error("解析规则动作失败")
+			"error":   err.Error(),
+		})
 		return nil, err
 	}
 
 	// 执行规则动作测试
 	_, err = s.ruleEngine.ExecuteAction(ctx, actionStruct, ruleContext)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/test",
+		logger.LogError(fmt.Errorf("测试扫描规则失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.ExecuteAction",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
-		}).Error("测试扫描规则失败")
+		})
 		return nil, err
 	}
 
 	// 解析规则条件
 	parsedCondition, err := s.ruleEngine.ParseCondition(ctx, rule.Condition)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/test",
+		logger.LogError(fmt.Errorf("解析规则条件失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.ParseCondition",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
-		}).Error("解析规则条件失败")
+		})
 		return &orchestrator.RuleTestResult{
 			RuleID:   rule.ID,
 			Success:  false,
@@ -1439,14 +1420,13 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 	// 评估条件
 	conditionResult, err := s.ruleEngine.EvaluateCondition(ctx, parsedCondition, ruleContext)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "/api/v1/scan-config/rules/test",
+		logger.LogError(fmt.Errorf("评估规则条件失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.EvaluateCondition",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
 			"error":     err.Error(),
-		}).Error("评估规则条件失败")
+		})
 		return &orchestrator.RuleTestResult{
 			RuleID:   rule.ID,
 			Success:  false,
@@ -1466,14 +1446,13 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 		TestedAt: time.Now(),
 	}
 
-	logger.WithFields(logrus.Fields{
-		"path":             "/api/v1/scan-config/rules/test",
+	logger.LogInfo("扫描规则测试完成", "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 		"operation":        "test_scan_rule",
 		"option":           "scanRuleService.TestScanRule",
 		"func_name":        "service.orchestrator.scan_rule.TestScanRule",
 		"rule_id":          rule.ID,
 		"condition_result": conditionResult,
-	}).Info("扫描规则测试完成")
+	})
 
 	return testResult, nil
 }

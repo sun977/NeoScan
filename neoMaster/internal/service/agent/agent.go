@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
 	agentRepository "neomaster/internal/repository/agent"
@@ -64,21 +62,19 @@ func NewAgentService(agentRepo agentRepository.AgentRepository) AgentService {
 func (s *agentService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*agentModel.RegisterAgentResponse, error) {
 	// 生成Agent唯一ID
 	agentID := generateAgentID(req.Hostname, req.IPAddress)
-	
+
 	// 检查Agent是否已存在
 	existingAgent, err := s.agentRepo.GetByHostname(req.Hostname)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.RegisterAgent",
+		logger.LogError(err, "", 0, "", "service.agent.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "agentService.RegisterAgent",
 			"func_name": "service.agent.RegisterAgent",
 			"hostname":  req.Hostname,
-			"error":     err.Error(),
-		}).Error("检查Agent是否存在失败")
+		})
 		return nil, fmt.Errorf("检查Agent是否存在失败: %v", err)
 	}
-	
+
 	if existingAgent != nil {
 		// Agent已存在，更新信息
 		existingAgent.IPAddress = req.IPAddress
@@ -96,19 +92,17 @@ func (s *agentService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*age
 		existingAgent.Remark = req.Remark
 		existingAgent.Status = agentModel.AgentStatusOnline
 		existingAgent.LastHeartbeat = time.Now()
-		
+
 		if err := s.agentRepo.Update(existingAgent); err != nil {
-			logger.WithFields(logrus.Fields{
-				"path":      "service.agent.RegisterAgent",
+			logger.LogError(err, "", 0, "", "service.agent.RegisterAgent", "", map[string]interface{}{
 				"operation": "register_agent",
 				"option":    "agentService.RegisterAgent",
 				"func_name": "service.agent.RegisterAgent",
 				"agent_id":  existingAgent.AgentID,
-				"error":     err.Error(),
-			}).Error("更新已存在Agent失败")
+			})
 			return nil, fmt.Errorf("更新已存在Agent失败: %v", err)
 		}
-		
+
 		return &agentModel.RegisterAgentResponse{
 			AgentID:     existingAgent.AgentID,
 			GRPCToken:   existingAgent.GRPCToken,
@@ -117,7 +111,7 @@ func (s *agentService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*age
 			Message:     "Agent信息已更新",
 		}, nil
 	}
-	
+
 	// 创建新Agent
 	newAgent := &agentModel.Agent{
 		AgentID:       agentID,
@@ -140,28 +134,25 @@ func (s *agentService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*age
 		TokenExpiry:   time.Now().Add(24 * time.Hour), // Token 24小时后过期
 		LastHeartbeat: time.Now(),
 	}
-	
+
 	if err := s.agentRepo.Create(newAgent); err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.RegisterAgent",
+		logger.LogError(err, "", 0, "", "service.agent.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "agentService.RegisterAgent",
 			"func_name": "service.agent.RegisterAgent",
 			"agent_id":  agentID,
-			"error":     err.Error(),
-		}).Error("创建新Agent失败")
+		})
 		return nil, fmt.Errorf("创建新Agent失败: %v", err)
 	}
-	
-	logger.WithFields(logrus.Fields{
-		"path":      "service.agent.RegisterAgent",
+
+	logger.LogInfo("Agent注册成功", "", 0, "", "service.agent.RegisterAgent", "", map[string]interface{}{
 		"operation": "register_agent",
 		"option":    "agentService.RegisterAgent",
 		"func_name": "service.agent.RegisterAgent",
 		"agent_id":  agentID,
 		"hostname":  req.Hostname,
-	}).Info("Agent注册成功")
-	
+	})
+
 	return &agentModel.RegisterAgentResponse{
 		AgentID:     agentID,
 		GRPCToken:   newAgent.GRPCToken,
@@ -181,31 +172,29 @@ func (s *agentService) GetAgentList(req *agentModel.GetAgentListRequest) (*agent
 	if req.PageSize <= 0 {
 		req.PageSize = 10
 	}
-	
+
 	// 构建过滤条件
 	var status *agentModel.AgentStatus
 	if req.Status != "" {
 		status = &req.Status
 	}
-	
+
 	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, req.Tags)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.GetAgentList",
+		logger.LogError(err, "", 0, "", "service.agent.GetAgentList", "", map[string]interface{}{
 			"operation": "get_agent_list",
 			"option":    "agentService.GetAgentList",
 			"func_name": "service.agent.GetAgentList",
-			"error":     err.Error(),
-		}).Error("获取Agent列表失败")
+		})
 		return nil, fmt.Errorf("获取Agent列表失败: %v", err)
 	}
-	
+
 	// 转换为响应格式
 	agentInfos := make([]*agentModel.AgentInfo, 0, len(agents))
 	for _, agent := range agents {
 		agentInfos = append(agentInfos, convertToAgentInfo(agent))
 	}
-	
+
 	return &agentModel.GetAgentListResponse{
 		Agents: agentInfos,
 		Pagination: &agentModel.PaginationResponse{
@@ -220,21 +209,19 @@ func (s *agentService) GetAgentList(req *agentModel.GetAgentListRequest) (*agent
 func (s *agentService) GetAgentInfo(agentID string) (*agentModel.AgentInfo, error) {
 	agent, err := s.agentRepo.GetByID(agentID)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.GetAgentInfo",
+		logger.LogError(err, "", 0, "", "service.agent.GetAgentInfo", "", map[string]interface{}{
 			"operation": "get_agent_info",
 			"option":    "agentService.GetAgentInfo",
 			"func_name": "service.agent.GetAgentInfo",
 			"agent_id":  agentID,
-			"error":     err.Error(),
-		}).Error("获取Agent信息失败")
+		})
 		return nil, fmt.Errorf("获取Agent信息失败: %v", err)
 	}
-	
+
 	if agent == nil {
-		return nil, fmt.Errorf("Agent不存在: %s", agentID)
+		return nil, fmt.Errorf("agent不存在: %s", agentID)
 	}
-	
+
 	return convertToAgentInfo(agent), nil
 }
 
@@ -242,27 +229,24 @@ func (s *agentService) GetAgentInfo(agentID string) (*agentModel.AgentInfo, erro
 func (s *agentService) UpdateAgentStatus(agentID string, status agentModel.AgentStatus) error {
 	err := s.agentRepo.UpdateStatus(agentID, status)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.UpdateAgentStatus",
+		logger.LogError(err, "", 0, "", "service.agent.UpdateAgentStatus", "", map[string]interface{}{
 			"operation": "update_agent_status",
 			"option":    "agentService.UpdateAgentStatus",
 			"func_name": "service.agent.UpdateAgentStatus",
 			"agent_id":  agentID,
 			"status":    string(status),
-			"error":     err.Error(),
-		}).Error("更新Agent状态失败")
+		})
 		return fmt.Errorf("更新Agent状态失败: %v", err)
 	}
-	
-	logger.WithFields(logrus.Fields{
-		"path":      "service.agent.UpdateAgentStatus",
+
+	logger.LogInfo("Agent状态更新成功", "", 0, "", "service.agent.UpdateAgentStatus", "", map[string]interface{}{
 		"operation": "update_agent_status",
 		"option":    "agentService.UpdateAgentStatus",
 		"func_name": "service.agent.UpdateAgentStatus",
 		"agent_id":  agentID,
 		"status":    string(status),
-	}).Info("Agent状态更新成功")
-	
+	})
+
 	return nil
 }
 
@@ -270,25 +254,22 @@ func (s *agentService) UpdateAgentStatus(agentID string, status agentModel.Agent
 func (s *agentService) DeleteAgent(agentID string) error {
 	err := s.agentRepo.Delete(agentID)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.DeleteAgent",
+		logger.LogError(err, "", 0, "", "service.agent.DeleteAgent", "", map[string]interface{}{
 			"operation": "delete_agent",
 			"option":    "agentService.DeleteAgent",
 			"func_name": "service.agent.DeleteAgent",
 			"agent_id":  agentID,
-			"error":     err.Error(),
-		}).Error("删除Agent失败")
+		})
 		return fmt.Errorf("删除Agent失败: %v", err)
 	}
-	
-	logger.WithFields(logrus.Fields{
-		"path":      "service.agent.DeleteAgent",
+
+	logger.LogInfo("Agent删除成功", "", 0, "", "service.agent.DeleteAgent", "", map[string]interface{}{
 		"operation": "delete_agent",
 		"option":    "agentService.DeleteAgent",
 		"func_name": "service.agent.DeleteAgent",
 		"agent_id":  agentID,
-	}).Info("Agent删除成功")
-	
+	})
+
 	return nil
 }
 
@@ -297,42 +278,37 @@ func (s *agentService) ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agen
 	// 更新心跳时间
 	err := s.agentRepo.UpdateLastHeartbeat(req.AgentID)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.ProcessHeartbeat",
+		logger.LogError(err, "", 0, "", "service.agent.ProcessHeartbeat", "", map[string]interface{}{
 			"operation": "process_heartbeat",
 			"option":    "agentService.ProcessHeartbeat",
 			"func_name": "service.agent.ProcessHeartbeat",
 			"agent_id":  req.AgentID,
-			"error":     err.Error(),
-		}).Error("更新Agent心跳时间失败")
+		})
 		return nil, fmt.Errorf("更新Agent心跳时间失败: %v", err)
 	}
-	
+
 	// 更新Agent状态
 	if err := s.agentRepo.UpdateStatus(req.AgentID, req.Status); err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.ProcessHeartbeat",
+		logger.LogError(err, "", 0, "", "service.agent.ProcessHeartbeat", "", map[string]interface{}{
 			"operation": "process_heartbeat",
 			"option":    "agentService.ProcessHeartbeat",
 			"func_name": "service.agent.ProcessHeartbeat",
 			"agent_id":  req.AgentID,
-			"error":     err.Error(),
-		}).Error("更新Agent状态失败")
+		})
 		return nil, fmt.Errorf("更新Agent状态失败: %v", err)
 	}
-	
+
 	// TODO: 处理性能指标数据
 	if req.Metrics != nil {
 		// 这里可以将性能指标存储到时序数据库或缓存中
-		logger.WithFields(logrus.Fields{
-			"path":      "service.agent.ProcessHeartbeat",
+		logger.LogInfo("收到Agent性能指标数据", "", 0, "", "service.agent.ProcessHeartbeat", "", map[string]interface{}{
 			"operation": "process_heartbeat",
 			"option":    "agentService.ProcessHeartbeat",
 			"func_name": "service.agent.ProcessHeartbeat",
 			"agent_id":  req.AgentID,
-		}).Info("收到Agent性能指标数据")
+		})
 	}
-	
+
 	return &agentModel.HeartbeatResponse{
 		AgentID:   req.AgentID,
 		Status:    "success",

@@ -238,6 +238,68 @@ func LogError(err error, requestID string, userID uint, clientIP, path, method s
 	LoggerInstance.logger.WithFields(fields).Errorf("System error occurred: %s", err.Error())
 }
 
+// LogInfo 记录信息日志
+// 用于记录一般性信息、成功操作和状态更新
+func LogInfo(message string, requestID string, userID uint, clientIP, path, method string, extraFields map[string]interface{}) {
+	if LoggerInstance == nil {
+		return
+	}
+
+	if message == "" {
+		return
+	}
+
+	// 构建日志字段
+	fields := logrus.Fields{
+		"type":       "info",
+		"message":    message,
+		"request_id": requestID,
+		"user_id":    userID,
+		"client_ip":  clientIP,
+		"path":       path,
+		"method":     method,
+	}
+
+	// 添加额外字段
+	for k, v := range extraFields {
+		fields[k] = v
+	}
+
+	// 记录信息日志
+	LoggerInstance.logger.WithFields(fields).Info(message)
+}
+
+// LogWarn 记录警告日志
+// 用于记录警告信息、潜在问题和需要关注的状态
+func LogWarn(message string, requestID string, userID uint, clientIP, path, method string, extraFields map[string]interface{}) {
+	if LoggerInstance == nil {
+		return
+	}
+
+	if message == "" {
+		return
+	}
+
+	// 构建日志字段
+	fields := logrus.Fields{
+		"type":       "warn",
+		"message":    message,
+		"request_id": requestID,
+		"user_id":    userID,
+		"client_ip":  clientIP,
+		"path":       path,
+		"method":     method,
+	}
+
+	// 添加额外字段
+	for k, v := range extraFields {
+		fields[k] = v
+	}
+
+	// 记录警告日志
+	LoggerInstance.logger.WithFields(fields).Warn(message)
+}
+
 // LogSystemEvent 记录系统事件日志
 // 用于记录系统启动、关闭、组件状态变化等系统级事件
 func LogSystemEvent(component, event, message string, level logrus.Level, extraFields map[string]interface{}) {

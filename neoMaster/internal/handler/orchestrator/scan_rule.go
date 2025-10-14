@@ -16,7 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"neomaster/internal/model"
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
@@ -1865,17 +1864,17 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 func (h *ScanRuleHandler) validateScanRuleRequest(req *orchestrator.CreateScanRuleRequest) error {
 	// 验证规则名称
 	if req.Name == "" {
-		return model.NewValidationError("扫描规则名称不能为空")
+		return system.NewValidationError("扫描规则名称不能为空")
 	}
 
 	// 验证规则类型
 	if req.Type == "" {
-		return model.NewValidationError("扫描规则类型不能为空")
+		return system.NewValidationError("扫描规则类型不能为空")
 	}
 
 	// 验证规则配置
 	if len(req.Config) == 0 {
-		return model.NewValidationError("扫描规则配置不能为空")
+		return system.NewValidationError("扫描规则配置不能为空")
 	}
 
 	return nil

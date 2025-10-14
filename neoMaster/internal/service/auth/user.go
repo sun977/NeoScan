@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/repository/mysql"
@@ -103,13 +102,13 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	}
 
 	if exists {
-		logger.LogError(model.ErrUserOrEmailAlreadyExists, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogError(system.ErrUserOrEmailAlreadyExists, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"username":  req.Username,
 			"email":     req.Email,
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, model.ErrUserOrEmailAlreadyExists
+		return nil, system.ErrUserOrEmailAlreadyExists
 	}
 
 	// 哈希密码

@@ -10,9 +10,8 @@ package orchestrator
 import (
 	"encoding/json"
 	"fmt"
+	"neomaster/internal/model/basemodel"
 	"strings"
-
-	"neomaster/internal/model"
 )
 
 // ScanToolType 扫描工具类型枚举
@@ -59,7 +58,7 @@ func (s ScanToolStatus) String() string {
 // 设计原则：数据结构优先，让工具配置变得简单直观
 type ScanTool struct {
 	// 继承基础模型
-	model.BaseModel
+	basemodel.BaseModel
 
 	// 工具基本信息
 	Name        string       `json:"name" gorm:"uniqueIndex;not null;size:100;comment:工具名称，唯一" validate:"required,min=1,max=100"`

@@ -8,10 +8,9 @@
 package orchestrator
 
 import (
+	"neomaster/internal/model/basemodel"
 	"strings"
 	"time"
-
-	"neomaster/internal/model"
 )
 
 // ProjectConfigStatus 项目配置状态枚举
@@ -42,7 +41,7 @@ func (s ProjectConfigStatus) String() string {
 // 设计哲学：数据结构决定算法复杂度，好的数据结构让代码变得简单
 type ProjectConfig struct {
 	// 继承基础模型 - 复用而非重复
-	model.BaseModel
+	basemodel.BaseModel
 
 	// 项目基本信息
 	Name        string `json:"name" gorm:"not null;size:100;comment:项目名称" validate:"required,min=1,max=100"`

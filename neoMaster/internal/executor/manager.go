@@ -1,6 +1,6 @@
 /**
  * 扫描工具执行器管理器实现
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 管理所有扫描工具执行器，提供统一的任务调度和状态管理
  * @func: 执行器注册、任务执行、状态监控等
@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"neomaster/internal/pkg/logger"
-
-	"github.com/sirupsen/logrus"
 )
 
 // DefaultExecutorManager 默认执行器管理器实现
@@ -23,18 +21,17 @@ type DefaultExecutorManager struct {
 	executors map[string]ScanExecutor // 执行器映射 toolName -> executor
 	tasks     map[string]*TaskInfo    // 任务映射 taskID -> taskInfo
 	mutex     sync.RWMutex            // 读写锁
-	logger    *logrus.Logger          // 日志记录器
 }
 
 // TaskInfo 任务信息
 type TaskInfo struct {
-	Request   *ScanRequest   `json:"request"`   // 扫描请求
-	Executor  ScanExecutor   `json:"-"`         // 执行器实例
-	Status    *ScanStatus    `json:"status"`    // 任务状态
-	Result    *ScanResult    `json:"result"`    // 扫描结果
-	CancelCtx context.Context `json:"-"`        // 取消上下文
-	Cancel    context.CancelFunc `json:"-"`     // 取消函数
-	CreatedAt time.Time      `json:"created_at"` // 创建时间
+	Request   *ScanRequest       `json:"request"`    // 扫描请求
+	Executor  ScanExecutor       `json:"-"`          // 执行器实例
+	Status    *ScanStatus        `json:"status"`     // 任务状态
+	Result    *ScanResult        `json:"result"`     // 扫描结果
+	CancelCtx context.Context    `json:"-"`          // 取消上下文
+	Cancel    context.CancelFunc `json:"-"`          // 取消函数
+	CreatedAt time.Time          `json:"created_at"` // 创建时间
 }
 
 // NewExecutorManager 创建新的执行器管理器
@@ -42,7 +39,6 @@ func NewExecutorManager() *DefaultExecutorManager {
 	return &DefaultExecutorManager{
 		executors: make(map[string]ScanExecutor),
 		tasks:     make(map[string]*TaskInfo),
-		logger:    logger.LoggerInstance.GetLogger(),
 	}
 }
 
@@ -69,23 +65,21 @@ func (m *DefaultExecutorManager) RegisterExecutor(executor ScanExecutor) error {
 	supportedTools := executor.GetSupportedTools()
 	for _, toolName := range supportedTools {
 		if existing, exists := m.executors[toolName]; exists {
-			m.logger.WithFields(logrus.Fields{
-				"path":      "executor.manager.RegisterExecutor",
+			logger.LogWarn(fmt.Sprintf("Tool %s already supported by executor %s, will be overridden by %s",
+				toolName, existing.GetName(), executorName), "executor.manager.RegisterExecutor", 0, "", "", "", map[string]interface{}{
 				"operation": "register_executor",
 				"option":    "check_tool_conflict",
 				"func_name": "executor.manager.RegisterExecutor",
-			}).Warnf("Tool %s already supported by executor %s, will be overridden by %s", 
-				toolName, existing.GetName(), executorName)
+			})
 		}
 		m.executors[toolName] = executor
 	}
 
-	m.logger.WithFields(logrus.Fields{
-		"path":      "executor.manager.RegisterExecutor",
+	logger.LogInfo(fmt.Sprintf("Registered executor %s with tools: %v", executorName, supportedTools), "executor.manager.RegisterExecutor", 0, "", "", "", map[string]interface{}{
 		"operation": "register_executor",
 		"option":    "register_success",
 		"func_name": "executor.manager.RegisterExecutor",
-	}).Infof("Registered executor %s with tools: %v", executorName, supportedTools)
+	})
 
 	return nil
 }
@@ -139,12 +133,11 @@ func (m *DefaultExecutorManager) UnregisterExecutor(executorName string) error {
 		return fmt.Errorf("executor %s not found", executorName)
 	}
 
-	m.logger.WithFields(logrus.Fields{
-		"path":      "executor.manager.UnregisterExecutor",
+	logger.LogInfo(fmt.Sprintf("Unregistered executor %s, removed tools: %v", executorName, removedTools), "executor.manager.UnregisterExecutor", 0, "", "", "", map[string]interface{}{
 		"operation": "unregister_executor",
 		"option":    "unregister_success",
 		"func_name": "executor.manager.UnregisterExecutor",
-	}).Infof("Unregistered executor %s, removed tools: %v", executorName, removedTools)
+	})
 
 	return nil
 }
@@ -182,8 +175,8 @@ func (m *DefaultExecutorManager) ExecuteTask(ctx context.Context, request *ScanR
 
 	// 创建任务信息
 	taskInfo := &TaskInfo{
-		Request:   request,
-		Executor:  executor,
+		Request:  request,
+		Executor: executor,
 		Status: &ScanStatus{
 			TaskID:    request.TaskID,
 			Status:    ScanTaskStatusPending,
@@ -205,12 +198,11 @@ func (m *DefaultExecutorManager) ExecuteTask(ctx context.Context, request *ScanR
 	m.tasks[request.TaskID] = taskInfo
 	m.mutex.Unlock()
 
-	m.logger.WithFields(logrus.Fields{
-		"path":      "executor.manager.ExecuteTask",
+	logger.LogInfo(fmt.Sprintf("Created task %s for tool %s, target: %s", request.TaskID, request.Tool.Name, request.Target), "executor.manager.ExecuteTask", 0, "", "", "", map[string]interface{}{
 		"operation": "execute_task",
 		"option":    "task_created",
 		"func_name": "executor.manager.ExecuteTask",
-	}).Infof("Created task %s for tool %s, target: %s", request.TaskID, request.Tool.Name, request.Target)
+	})
 
 	// 异步执行任务
 	go m.executeTaskAsync(taskInfo)
@@ -226,13 +218,12 @@ func (m *DefaultExecutorManager) ExecuteTask(ctx context.Context, request *ScanR
 func (m *DefaultExecutorManager) executeTaskAsync(taskInfo *TaskInfo) {
 	defer func() {
 		if r := recover(); r != nil {
-			m.logger.WithFields(logrus.Fields{
-				"path":      "executor.manager.executeTaskAsync",
+			logger.LogError(fmt.Errorf("Task %s panicked: %v", taskInfo.Request.TaskID, r), "executor.manager.executeTaskAsync", 0, "", "", "", map[string]interface{}{
 				"operation": "execute_task",
 				"option":    "panic_recovery",
 				"func_name": "executor.manager.executeTaskAsync",
-			}).Errorf("Task %s panicked: %v", taskInfo.Request.TaskID, r)
-			
+			})
+
 			m.updateTaskStatus(taskInfo.Request.TaskID, ScanTaskStatusFailed, fmt.Sprintf("Task panicked: %v", r))
 		}
 	}()
@@ -242,19 +233,18 @@ func (m *DefaultExecutorManager) executeTaskAsync(taskInfo *TaskInfo) {
 
 	// 执行扫描
 	result, err := taskInfo.Executor.Execute(taskInfo.CancelCtx, taskInfo.Request)
-	
+
 	m.mutex.Lock()
 	taskInfo.Result = result
 	m.mutex.Unlock()
 
 	if err != nil {
-		m.logger.WithFields(logrus.Fields{
-			"path":      "executor.manager.executeTaskAsync",
+		logger.LogError(fmt.Errorf("Task %s failed: %v", taskInfo.Request.TaskID, err), "executor.manager.executeTaskAsync", 0, "", "", "", map[string]interface{}{
 			"operation": "execute_task",
 			"option":    "execution_failed",
 			"func_name": "executor.manager.executeTaskAsync",
-		}).Errorf("Task %s failed: %v", taskInfo.Request.TaskID, err)
-		
+		})
+
 		m.updateTaskStatus(taskInfo.Request.TaskID, ScanTaskStatusFailed, fmt.Sprintf("Execution failed: %v", err))
 		return
 	}
@@ -273,13 +263,12 @@ func (m *DefaultExecutorManager) executeTaskAsync(taskInfo *TaskInfo) {
 
 	// 任务完成
 	m.updateTaskStatus(taskInfo.Request.TaskID, ScanTaskStatusCompleted, "Task completed successfully")
-	
-	m.logger.WithFields(logrus.Fields{
-		"path":      "executor.manager.executeTaskAsync",
+
+	logger.LogInfo(fmt.Sprintf("Task %s completed successfully", taskInfo.Request.TaskID), "executor.manager.executeTaskAsync", 0, "", "", "", map[string]interface{}{
 		"operation": "execute_task",
 		"option":    "execution_completed",
 		"func_name": "executor.manager.executeTaskAsync",
-	}).Infof("Task %s completed successfully", taskInfo.Request.TaskID)
+	})
 }
 
 // updateTaskStatus 更新任务状态
@@ -312,22 +301,20 @@ func (m *DefaultExecutorManager) StopTask(ctx context.Context, taskID string) er
 
 	// 调用执行器的停止方法
 	if err := taskInfo.Executor.Stop(ctx, taskID); err != nil {
-		m.logger.WithFields(logrus.Fields{
-			"path":      "executor.manager.StopTask",
+		logger.LogWarn(fmt.Sprintf("Failed to stop task %s via executor: %v", taskID, err), "executor.manager.StopTask", 0, "", "", "", map[string]interface{}{
 			"operation": "stop_task",
 			"option":    "executor_stop_failed",
 			"func_name": "executor.manager.StopTask",
-		}).Warnf("Failed to stop task %s via executor: %v", taskID, err)
+		})
 	}
 
 	m.updateTaskStatus(taskID, ScanTaskStatusCancelled, "Task stopped by user")
 
-	m.logger.WithFields(logrus.Fields{
-		"path":      "executor.manager.StopTask",
+	logger.LogInfo(fmt.Sprintf("Task %s stopped", taskID), "executor.manager.StopTask", 0, "", "", "", map[string]interface{}{
 		"operation": "stop_task",
 		"option":    "task_stopped",
 		"func_name": "executor.manager.StopTask",
-	}).Infof("Task %s stopped", taskID)
+	})
 
 	return nil
 }
@@ -360,24 +347,22 @@ func (m *DefaultExecutorManager) Shutdown() error {
 	for taskID, taskInfo := range m.tasks {
 		if taskInfo.Status.Status == ScanTaskStatusRunning {
 			taskInfo.Cancel()
-			m.logger.WithFields(logrus.Fields{
-				"path":      "executor.manager.Shutdown",
+			logger.LogInfo(fmt.Sprintf("Cancelled running task %s during shutdown", taskID), "executor.manager.Shutdown", 0, "", "", "", map[string]interface{}{
 				"operation": "shutdown",
 				"option":    "cancel_running_task",
 				"func_name": "executor.manager.Shutdown",
-			}).Infof("Cancelled running task %s during shutdown", taskID)
+			})
 		}
 	}
 
 	// 清理所有执行器
 	for _, executor := range m.executors {
 		if err := executor.Cleanup(); err != nil {
-			m.logger.WithFields(logrus.Fields{
-				"path":      "executor.manager.Shutdown",
+			logger.LogWarn(fmt.Sprintf("Failed to cleanup executor %s: %v", executor.GetName(), err), "executor.manager.Shutdown", 0, "", "", "", map[string]interface{}{
 				"operation": "shutdown",
 				"option":    "executor_cleanup_failed",
 				"func_name": "executor.manager.Shutdown",
-			}).Warnf("Failed to cleanup executor %s: %v", executor.GetName(), err)
+			})
 		}
 	}
 
@@ -385,12 +370,11 @@ func (m *DefaultExecutorManager) Shutdown() error {
 	m.executors = make(map[string]ScanExecutor)
 	m.tasks = make(map[string]*TaskInfo)
 
-	m.logger.WithFields(logrus.Fields{
-		"path":      "executor.manager.Shutdown",
+	logger.LogInfo("Executor manager shutdown completed", "executor.manager.Shutdown", 0, "", "", "", map[string]interface{}{
 		"operation": "shutdown",
 		"option":    "shutdown_completed",
 		"func_name": "executor.manager.Shutdown",
-	}).Info("Executor manager shutdown completed")
+	})
 
 	return nil
 }

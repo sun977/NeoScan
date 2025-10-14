@@ -1,7 +1,7 @@
 /**
  * 测试用Mock会话服务
- * @author: Linus Torvalds (AI Assistant)
- * @date: 2025.01.14
+ * @author: Sun977
+ * @date: 2025.10.14
  * @description: 为测试提供简化的会话服务实现，避免复杂的依赖关系
  * @func: 提供基本的登录功能用于测试
  */

@@ -1,6 +1,6 @@
 /*
  * 扫描工具处理器：扫描工具HTTP接口处理
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.01.27
  * @description: 处理扫描工具相关的HTTP请求和响应
  * @func:

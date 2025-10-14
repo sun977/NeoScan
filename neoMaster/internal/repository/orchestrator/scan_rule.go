@@ -1,6 +1,6 @@
 /*
  * 扫描规则仓库层：扫描规则数据访问
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 单纯数据访问，不应该包含业务逻辑
  * @func:
@@ -278,12 +278,12 @@ func (r *ScanRuleRepository) GetScanRulesBySeverity(ctx context.Context, severit
 func (r *ScanRuleRepository) GetActiveRules(ctx context.Context, ruleType *orchestrator.ScanRuleType) ([]*orchestrator.ScanRule, error) {
 	var rules []*orchestrator.ScanRule
 	query := r.db.WithContext(ctx).Where("status = ?", orchestrator.ScanRuleStatusEnabled)
-	
+
 	// 类型过滤
 	if ruleType != nil {
 		query = query.Where("type = ?", *ruleType)
 	}
-	
+
 	err := query.Find(&rules).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "scan_rule_list", "GET", map[string]interface{}{

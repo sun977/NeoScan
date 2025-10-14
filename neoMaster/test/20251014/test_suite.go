@@ -1,6 +1,6 @@
 /**
  * 测试套件辅助工具
- * @author: Linus-style implementation
+ * @author: Sun977
  * @date: 2025.10.14
  * @description: 测试环境初始化和清理工具，遵循"好品味"原则 - 简洁、可复用、可靠
  * @func: 提供数据库连接、路由初始化、测试数据创建等功能

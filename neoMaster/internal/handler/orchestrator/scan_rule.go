@@ -1,6 +1,6 @@
 /**
  * 处理器:扫描规则处理器
- * @author: Linus Torvalds (AI Assistant)
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 扫描规则管理处理器，提供扫描规则的CRUD操作、状态管理、规则测试等功能
  * @func: 处理扫描规则相关的HTTP请求

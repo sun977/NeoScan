@@ -1,6 +1,6 @@
 /*
  * 扫描工具服务层：扫描工具管理业务逻辑
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 处理扫描工具管理和配置相关的业务逻辑
  * @func:

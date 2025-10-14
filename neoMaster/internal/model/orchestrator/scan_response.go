@@ -1,6 +1,6 @@
 /**
  * 模型:扫描配置响应模型
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 扫描配置相关的响应结构体，遵循"Never break userspace"原则
  * @func: 扫描规则、扫描工具、项目配置等响应模型

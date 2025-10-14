@@ -1,6 +1,6 @@
 ﻿/**
  * 规则引擎集成测试
- * @author: Linus Torvalds (AI Assistant)
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 规则引擎的完整集成测试，包括API路由、业务逻辑、端到端功能测试
  * @scope: API测试、业务逻辑测试、并发测试、性能测试
@@ -24,21 +24,21 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 
+	"neomaster/internal/app/master/router"
 	"neomaster/internal/handler/orchestrator"
 	"neomaster/internal/service/orchestrator/rule_engine"
-	"neomaster/internal/app/master/router"
 )
 
 // RuleEngineIntegrationTestSuite 规则引擎集成测试套件
 type RuleEngineIntegrationTestSuite struct {
 	suite.Suite
-	engine          *gin.Engine
-	ruleEngine      *rule_engine.RuleEngine
-	handler         *orchestrator.RuleEngineHandler
-	testToken       string
-	testRuleIDs     []uint
-	db              *gorm.DB
-	cleanupFunc     func()
+	engine      *gin.Engine
+	ruleEngine  *rule_engine.RuleEngine
+	handler     *orchestrator.RuleEngineHandler
+	testToken   string
+	testRuleIDs []uint
+	db          *gorm.DB
+	cleanupFunc func()
 }
 
 // SetupSuite 测试套件初始化
@@ -327,11 +327,11 @@ func (suite *RuleEngineIntegrationTestSuite) testRuleValidation() {
 		response := assertJSONResponse(t, w, http.StatusOK)
 		data, ok := response["data"].(map[string]interface{})
 		require.True(t, ok, "响应应该包含data字段")
-		
+
 		// 打印响应内容以调试
 		t.Logf("验证响应: %+v", response)
 		t.Logf("验证数据: %+v", data)
-		
+
 		assert.True(t, data["valid"].(bool), "有效规则应该通过验证")
 	})
 
@@ -341,7 +341,7 @@ func (suite *RuleEngineIntegrationTestSuite) testRuleValidation() {
 			"conditions": "invalid syntax ===",
 			"actions": []map[string]interface{}{
 				{
-					"type": "invalid_action",
+					"type":       "invalid_action",
 					"parameters": map[string]interface{}{},
 				},
 			},
@@ -460,7 +460,7 @@ func (suite *RuleEngineIntegrationTestSuite) testConcurrentExecution() {
 			errorCount++
 			t.Logf("并发执行出错（可能预期）: %v", err)
 		}
-		
+
 		// 由于规则可能不存在，允许一定数量的错误
 		t.Logf("并发执行完成，错误数量: %d/10", errorCount)
 	})

@@ -1,6 +1,6 @@
 /**
  * 模型:扫描规则模型
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 扫描规则配置模型，遵循"Never break userspace"原则 - 规则变更不能破坏现有扫描
  * @func: ScanRule 结构体及相关方法

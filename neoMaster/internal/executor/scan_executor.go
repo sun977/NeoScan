@@ -1,6 +1,6 @@
 /**
  * 扫描工具执行器接口
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 第三方扫描工具执行器接口，遵循"Never break userspace"原则
  * @func: 定义统一的扫描工具执行接口，支持nmap、masscan、nuclei等工具
@@ -59,28 +59,28 @@ type ScanRequest struct {
 
 // ScanResult 扫描结果结构
 type ScanResult struct {
-	TaskID       string                 `json:"task_id"`       // 任务ID
-	Status       ScanTaskStatus         `json:"status"`        // 执行状态
-	StartTime    time.Time              `json:"start_time"`    // 开始时间
-	EndTime      time.Time              `json:"end_time"`      // 结束时间
-	Duration     time.Duration          `json:"duration"`      // 执行时长
-	ExitCode     int                    `json:"exit_code"`     // 退出码
-	Output       string                 `json:"output"`        // 标准输出
-	Error        string                 `json:"error"`         // 错误输出
-	OutputFiles  []string               `json:"output_files"`  // 输出文件列表
-	Metadata     map[string]interface{} `json:"metadata"`      // 扩展元数据
-	ResourceUsage *ResourceUsage        `json:"resource_usage"` // 资源使用情况
+	TaskID        string                 `json:"task_id"`        // 任务ID
+	Status        ScanTaskStatus         `json:"status"`         // 执行状态
+	StartTime     time.Time              `json:"start_time"`     // 开始时间
+	EndTime       time.Time              `json:"end_time"`       // 结束时间
+	Duration      time.Duration          `json:"duration"`       // 执行时长
+	ExitCode      int                    `json:"exit_code"`      // 退出码
+	Output        string                 `json:"output"`         // 标准输出
+	Error         string                 `json:"error"`          // 错误输出
+	OutputFiles   []string               `json:"output_files"`   // 输出文件列表
+	Metadata      map[string]interface{} `json:"metadata"`       // 扩展元数据
+	ResourceUsage *ResourceUsage         `json:"resource_usage"` // 资源使用情况
 }
 
 // ScanStatus 扫描状态结构
 type ScanStatus struct {
-	TaskID      string         `json:"task_id"`      // 任务ID
-	Status      ScanTaskStatus `json:"status"`       // 当前状态
-	Progress    float64        `json:"progress"`     // 进度百分比 (0-100)
-	Message     string         `json:"message"`      // 状态消息
-	StartTime   time.Time      `json:"start_time"`   // 开始时间
-	ElapsedTime time.Duration  `json:"elapsed_time"` // 已用时间
-	EstimatedTime time.Duration `json:"estimated_time"` // 预计剩余时间
+	TaskID        string         `json:"task_id"`        // 任务ID
+	Status        ScanTaskStatus `json:"status"`         // 当前状态
+	Progress      float64        `json:"progress"`       // 进度百分比 (0-100)
+	Message       string         `json:"message"`        // 状态消息
+	StartTime     time.Time      `json:"start_time"`     // 开始时间
+	ElapsedTime   time.Duration  `json:"elapsed_time"`   // 已用时间
+	EstimatedTime time.Duration  `json:"estimated_time"` // 预计剩余时间
 }
 
 // ScanTaskStatus 扫描任务状态枚举
@@ -117,12 +117,12 @@ func (s ScanTaskStatus) String() string {
 
 // ResourceUsage 资源使用情况
 type ResourceUsage struct {
-	CPUPercent    float64 `json:"cpu_percent"`    // CPU使用率
-	MemoryMB      float64 `json:"memory_mb"`      // 内存使用量(MB)
-	DiskReadMB    float64 `json:"disk_read_mb"`   // 磁盘读取量(MB)
-	DiskWriteMB   float64 `json:"disk_write_mb"`  // 磁盘写入量(MB)
-	NetworkInMB   float64 `json:"network_in_mb"`  // 网络接收量(MB)
-	NetworkOutMB  float64 `json:"network_out_mb"` // 网络发送量(MB)
+	CPUPercent   float64 `json:"cpu_percent"`    // CPU使用率
+	MemoryMB     float64 `json:"memory_mb"`      // 内存使用量(MB)
+	DiskReadMB   float64 `json:"disk_read_mb"`   // 磁盘读取量(MB)
+	DiskWriteMB  float64 `json:"disk_write_mb"`  // 磁盘写入量(MB)
+	NetworkInMB  float64 `json:"network_in_mb"`  // 网络接收量(MB)
+	NetworkOutMB float64 `json:"network_out_mb"` // 网络发送量(MB)
 }
 
 // ExecutorManager 执行器管理器接口

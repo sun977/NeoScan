@@ -1,6 +1,6 @@
 /*
  * 扫描工具仓库层：扫描工具数据访问
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 单纯数据访问，不应该包含业务逻辑
  * @func:

@@ -1,6 +1,6 @@
 ﻿/**
  * 规则引擎测试辅助函数
- * @author: Linus Torvalds (AI Assistant)
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 规则引擎测试的辅助函数和工具，提供测试环境设置、数据准备等功能
  * @scope: 测试环境初始化、测试数据创建、JWT Token生成等
@@ -77,7 +77,7 @@ func getTestDatabaseDSN() string {
 	if dsn := os.Getenv("TEST_DATABASE_DSN"); dsn != "" {
 		return dsn
 	}
-	
+
 	// 默认测试数据库配置 - 使用正确的MySQL密码ROOT
 	return "root:ROOT@tcp(localhost:3306)/neoscan_test?charset=utf8mb4&parseTime=True&loc=Local"
 }
@@ -108,10 +108,10 @@ func initTestData(t *testing.T, db *gorm.DB) {
 
 	// 创建测试用户
 	createTestUsers(t, db)
-	
+
 	// 创建测试角色和权限
 	createTestRolesAndPermissions(t, db)
-	
+
 	// 创建测试扫描规则
 	createTestScanRules(t, db)
 }
@@ -207,8 +207,8 @@ func createTestScanRules(t *testing.T, db *gorm.DB) {
 			Severity:    orchestrator.ScanRuleSeverityMedium,
 			Condition:   "request_ip == '192.168.1.1'",
 			Action:      "log",
-			Parameters:  "{}",  // 提供有效的JSON字符串而不是空值
-			Metadata:    "{}",  // 提供有效的JSON字符串而不是空值
+			Parameters:  "{}", // 提供有效的JSON字符串而不是空值
+			Metadata:    "{}", // 提供有效的JSON字符串而不是空值
 			Status:      orchestrator.ScanRuleStatusEnabled,
 		},
 		{
@@ -218,8 +218,8 @@ func createTestScanRules(t *testing.T, db *gorm.DB) {
 			Severity:    orchestrator.ScanRuleSeverityLow,
 			Condition:   "user_agent =~ '^Mozilla.*'",
 			Action:      "allow",
-			Parameters:  "{}",  // 提供有效的JSON字符串而不是空值
-			Metadata:    "{}",  // 提供有效的JSON字符串而不是空值
+			Parameters:  "{}", // 提供有效的JSON字符串而不是空值
+			Metadata:    "{}", // 提供有效的JSON字符串而不是空值
 			Status:      orchestrator.ScanRuleStatusEnabled,
 		},
 	}
@@ -238,7 +238,7 @@ func createTestScanRules(t *testing.T, db *gorm.DB) {
 func cleanupTestData(t *testing.T, db *gorm.DB, redisClient *redis.Client) {
 	// 清理数据库测试数据
 	testTables := []string{
-		"user_roles", "role_permissions", "scan_rules", 
+		"user_roles", "role_permissions", "scan_rules",
 		"project_configs", "workflow_configs", "scan_tools",
 		"users", "roles", "permissions",
 	}
@@ -383,13 +383,13 @@ func assertJSONResponse(t *testing.T, w *httptest.ResponseRecorder, expectedStat
 		t.Logf("期望状态码: %d, 实际状态码: %d", expectedStatus, w.Code)
 		t.Logf("响应内容: %s", w.Body.String())
 	}
-	
+
 	require.Equal(t, expectedStatus, w.Code, "HTTP状态码不匹配")
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err, "响应应该是有效的JSON格式")
-	
+
 	return response
 }
 

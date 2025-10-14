@@ -1,6 +1,6 @@
 /*
  * 规则引擎：扫描策略规则的解析和执行
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 提供规则条件解析、匹配算法、动作执行等核心功能
  * @func:

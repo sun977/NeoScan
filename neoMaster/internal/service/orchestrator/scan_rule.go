@@ -1,6 +1,6 @@
 /*
  * 扫描规则服务层：扫描规则管理业务逻辑
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 处理扫描规则管理和配置相关的业务逻辑
  * @func:
@@ -1381,7 +1381,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 			"option":    "rule.GetActionStruct",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
 			"rule_id":   rule.ID,
-			"error":   err.Error(),
+			"error":     err.Error(),
 		})
 		return nil, err
 	}

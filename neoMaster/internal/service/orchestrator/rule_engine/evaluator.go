@@ -8,19 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"neomaster/internal/pkg/logger"
 )
 
 // Evaluator 条件评估器
 type Evaluator struct {
-	logger *logrus.Logger
 }
 
 // NewEvaluator 创建新的评估器
-func NewEvaluator(logger *logrus.Logger) *Evaluator {
-	return &Evaluator{
-		logger: logger,
-	}
+func NewEvaluator(logger interface{}) *Evaluator {
+	return &Evaluator{}
 }
 
 // EvaluateCondition 评估单个条件
@@ -28,8 +25,8 @@ func (e *Evaluator) EvaluateCondition(condition Condition, context *RuleContext)
 	// 从上下文中获取字段值
 	fieldValue, exists := e.getFieldValue(condition.Field, context)
 	if !exists {
-		e.logger.WithFields(logrus.Fields{
-			"field": condition.Field,
+		logger.WithFields(map[string]interface{}{
+			"field":     condition.Field,
 			"func_name": "evaluator.EvaluateCondition",
 		}).Debug("字段不存在")
 		return false, nil
@@ -79,14 +76,14 @@ func (e *Evaluator) EvaluateConditions(conditions []Condition, context *RuleCont
 	for _, condition := range conditions {
 		result, err := e.EvaluateCondition(condition, context)
 		if err != nil {
-			e.logger.WithFields(logrus.Fields{
+			logger.WithFields(map[string]interface{}{
 				"condition": condition,
-				"error": err.Error(),
+				"error":     err.Error(),
 				"func_name": "evaluator.EvaluateConditions",
 			}).Error("条件评估失败")
 			return false, err
 		}
-		
+
 		// AND逻辑：任何一个条件为false，整体结果为false
 		if !result {
 			return false, nil
@@ -133,7 +130,7 @@ func (e *Evaluator) evaluateEqual(fieldValue, expectedValue interface{}) (bool, 
 	// 类型转换和比较
 	fieldStr := e.convertToString(fieldValue)
 	expectedStr := e.convertToString(expectedValue)
-	
+
 	return fieldStr == expectedStr, nil
 }
 
@@ -143,12 +140,12 @@ func (e *Evaluator) evaluateGreater(fieldValue, expectedValue interface{}) (bool
 	if err != nil {
 		return false, err
 	}
-	
+
 	expectedNum, err := e.convertToNumber(expectedValue)
 	if err != nil {
 		return false, err
 	}
-	
+
 	return fieldNum > expectedNum, nil
 }
 
@@ -158,12 +155,12 @@ func (e *Evaluator) evaluateLess(fieldValue, expectedValue interface{}) (bool, e
 	if err != nil {
 		return false, err
 	}
-	
+
 	expectedNum, err := e.convertToNumber(expectedValue)
 	if err != nil {
 		return false, err
 	}
-	
+
 	return fieldNum < expectedNum, nil
 }
 
@@ -173,12 +170,12 @@ func (e *Evaluator) evaluateGreaterEqual(fieldValue, expectedValue interface{}) 
 	if err != nil {
 		return false, err
 	}
-	
+
 	expectedNum, err := e.convertToNumber(expectedValue)
 	if err != nil {
 		return false, err
 	}
-	
+
 	return fieldNum >= expectedNum, nil
 }
 
@@ -188,19 +185,19 @@ func (e *Evaluator) evaluateLessEqual(fieldValue, expectedValue interface{}) (bo
 	if err != nil {
 		return false, err
 	}
-	
+
 	expectedNum, err := e.convertToNumber(expectedValue)
 	if err != nil {
 		return false, err
 	}
-	
+
 	return fieldNum <= expectedNum, nil
 }
 
 // evaluateIn 评估包含条件
 func (e *Evaluator) evaluateIn(fieldValue, expectedValue interface{}) (bool, error) {
 	fieldStr := e.convertToString(fieldValue)
-	
+
 	// 期望值应该是数组
 	expectedArray, ok := expectedValue.([]interface{})
 	if !ok {
@@ -215,13 +212,13 @@ func (e *Evaluator) evaluateIn(fieldValue, expectedValue interface{}) (bool, err
 		}
 		return false, fmt.Errorf("期望值必须是数组类型")
 	}
-	
+
 	for _, item := range expectedArray {
 		if fieldStr == e.convertToString(item) {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -229,7 +226,7 @@ func (e *Evaluator) evaluateIn(fieldValue, expectedValue interface{}) (bool, err
 func (e *Evaluator) evaluateContains(fieldValue, expectedValue interface{}) (bool, error) {
 	fieldStr := e.convertToString(fieldValue)
 	expectedStr := e.convertToString(expectedValue)
-	
+
 	return strings.Contains(fieldStr, expectedStr), nil
 }
 
@@ -237,12 +234,12 @@ func (e *Evaluator) evaluateContains(fieldValue, expectedValue interface{}) (boo
 func (e *Evaluator) evaluateRegex(fieldValue, expectedValue interface{}) (bool, error) {
 	fieldStr := e.convertToString(fieldValue)
 	pattern := e.convertToString(expectedValue)
-	
+
 	matched, err := regexp.MatchString(pattern, fieldStr)
 	if err != nil {
 		return false, fmt.Errorf("正则表达式错误: %v", err)
 	}
-	
+
 	return matched, nil
 }
 
@@ -251,7 +248,7 @@ func (e *Evaluator) convertToString(value interface{}) string {
 	if value == nil {
 		return ""
 	}
-	
+
 	switch v := value.(type) {
 	case string:
 		return v
@@ -275,7 +272,7 @@ func (e *Evaluator) convertToNumber(value interface{}) (float64, error) {
 	if value == nil {
 		return 0, fmt.Errorf("值为空")
 	}
-	
+
 	switch v := value.(type) {
 	case int:
 		return float64(v), nil
@@ -314,13 +311,13 @@ func (e *Evaluator) ValidateCondition(condition Condition) error {
 	if condition.Field == "" {
 		return fmt.Errorf("字段名不能为空")
 	}
-	
+
 	// 验证操作符
 	validOperators := []string{
 		OpEqual, OpNotEqual, OpGreater, OpLess, OpGreaterEqual, OpLessEqual,
 		OpIn, OpNotIn, OpContains, OpNotContains, OpRegex, OpNotRegex,
 	}
-	
+
 	valid := false
 	for _, op := range validOperators {
 		if condition.Operator == op {
@@ -328,16 +325,16 @@ func (e *Evaluator) ValidateCondition(condition Condition) error {
 			break
 		}
 	}
-	
+
 	if !valid {
 		return fmt.Errorf("无效的操作符: %s", condition.Operator)
 	}
-	
+
 	// 验证值类型
 	if condition.Value == nil {
 		return fmt.Errorf("条件值不能为空")
 	}
-	
+
 	// 特定操作符的值类型验证
 	switch condition.Operator {
 	case OpIn, OpNotIn:
@@ -352,6 +349,6 @@ func (e *Evaluator) ValidateCondition(condition Condition) error {
 			return fmt.Errorf("无效的正则表达式: %s, 错误: %v", pattern, err)
 		}
 	}
-	
+
 	return nil
 }

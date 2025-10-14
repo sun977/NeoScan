@@ -39,8 +39,6 @@ import (
 
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-
-	"github.com/sirupsen/logrus"
 )
 
 // RuleEngine 规则引擎结构体
@@ -54,7 +52,6 @@ type RuleEngine struct {
 	rules        map[string]*Rule     // 规则存储
 	rulesMux     sync.RWMutex         // 规则读写锁
 	metrics      *RuleEngineMetrics   // 引擎指标
-	logger       *logrus.Logger       // 日志记录器
 }
 
 // CachedRule 缓存的规则结构体
@@ -91,16 +88,14 @@ type RuleAction struct {
 // @param cacheTimeout 缓存超时时间
 // @return *RuleEngine 规则引擎实例
 func NewRuleEngine(cacheTimeout time.Duration) *RuleEngine {
-	logger := logrus.New()
 	return &RuleEngine{
 		ruleCache:    make(map[uint]*CachedRule),
 		cacheTimeout: cacheTimeout,
-		evaluator:    NewEvaluator(logger),
-		executor:     NewActionExecutor(logger),
+		evaluator:    NewEvaluator(nil),
+		executor:     NewActionExecutor(nil),
 		rules:        make(map[string]*Rule),
 		rulesMux:     sync.RWMutex{},
 		metrics:      &RuleEngineMetrics{},
-		logger:       logger,
 	}
 }
 
@@ -138,11 +133,11 @@ func (re *RuleEngine) AddRule(rule *Rule) error {
 		re.metrics.EnabledRules++
 	}
 
-	re.logger.WithFields(logrus.Fields{
+	logger.LogBusinessOperation("add_rule", 0, "", "", "", "success", "规则添加成功", map[string]interface{}{
 		"rule_id":   rule.ID,
 		"rule_name": rule.Name,
 		"func_name": "rule_engine.AddRule",
-	}).Info("规则添加成功")
+	})
 
 	return nil
 }
@@ -186,11 +181,11 @@ func (re *RuleEngine) UpdateRule(rule *Rule) error {
 
 	re.rules[rule.ID] = rule
 
-	re.logger.WithFields(logrus.Fields{
+	logger.LogBusinessOperation("update_rule", 0, "", "", "", "success", "规则更新成功", map[string]interface{}{
 		"rule_id":   rule.ID,
 		"rule_name": rule.Name,
 		"func_name": "rule_engine.UpdateRule",
-	}).Info("规则更新成功")
+	})
 
 	return nil
 }
@@ -215,11 +210,11 @@ func (re *RuleEngine) RemoveRule(ruleID string) error {
 		re.metrics.EnabledRules--
 	}
 
-	re.logger.WithFields(logrus.Fields{
+	logger.LogBusinessOperation("remove_rule", 0, "", "", "", "success", "规则删除成功", map[string]interface{}{
 		"rule_id":   ruleID,
 		"rule_name": rule.Name,
 		"func_name": "rule_engine.RemoveRule",
-	}).Info("规则删除成功")
+	})
 
 	return nil
 }
@@ -268,10 +263,10 @@ func (re *RuleEngine) EnableRule(ruleID string) error {
 		rule.UpdatedAt = time.Now()
 		re.metrics.EnabledRules++
 
-		re.logger.WithFields(logrus.Fields{
+		logger.LogBusinessOperation("enable_rule", 0, "", "", "", "success", "规则已启用", map[string]interface{}{
 			"rule_id":   ruleID,
 			"func_name": "rule_engine.EnableRule",
-		}).Info("规则已启用")
+		})
 	}
 
 	return nil
@@ -292,10 +287,10 @@ func (re *RuleEngine) DisableRule(ruleID string) error {
 		rule.UpdatedAt = time.Now()
 		re.metrics.EnabledRules--
 
-		re.logger.WithFields(logrus.Fields{
+		logger.LogBusinessOperation("disable_rule", 0, "", "", "", "success", "规则已禁用", map[string]interface{}{
 			"rule_id":   ruleID,
 			"func_name": "rule_engine.DisableRule",
-		}).Info("规则已禁用")
+		})
 	}
 
 	return nil
@@ -312,14 +307,16 @@ func (re *RuleEngine) ExecuteRule(ruleID string, context *RuleContext) (*RuleRes
 	}
 
 	if !rule.Enabled {
-		re.logger.WithFields(logrus.Fields{
+		logger.WithFields(map[string]interface{}{
 			"rule_id":   ruleID,
 			"func_name": "rule_engine.ExecuteRule",
-		}).Debug("规则已禁用，跳过执行")
+		}).Info("规则已禁用，跳过执行")
 		return &RuleResult{
 			RuleID:    ruleID,
 			Matched:   false,
+			Actions:   []ActionResult{},
 			Message:   "规则已禁用",
+			Metadata:  make(map[string]interface{}),
 			Timestamp: time.Now(),
 		}, nil
 	}
@@ -331,11 +328,11 @@ func (re *RuleEngine) ExecuteRule(ruleID string, context *RuleContext) (*RuleRes
 	matched, err := re.evaluator.EvaluateConditions(rule.Conditions, context)
 	if err != nil {
 		re.metrics.FailedRuns++
-		re.logger.WithFields(logrus.Fields{
+		logger.Error("规则条件评估失败", map[string]interface{}{
 			"rule_id":   ruleID,
 			"error":     err.Error(),
 			"func_name": "rule_engine.ExecuteRule",
-		}).Error("规则条件评估失败")
+		})
 		return nil, fmt.Errorf("规则条件评估失败: %v", err)
 	}
 
@@ -408,11 +405,11 @@ func (re *RuleEngine) ExecuteRules(context *RuleContext) (*BatchRuleResult, erro
 		result, err := re.ExecuteRule(rule.ID, context)
 		if err != nil {
 			failed++
-			re.logger.WithFields(logrus.Fields{
+			logger.LogError(err, "", 0, "", "", "", map[string]interface{}{
 				"rule_id":   rule.ID,
 				"error":     err.Error(),
 				"func_name": "rule_engine.ExecuteRules",
-			}).Error("规则执行失败")
+			})
 			continue
 		}
 
@@ -424,9 +421,9 @@ func (re *RuleEngine) ExecuteRules(context *RuleContext) (*BatchRuleResult, erro
 		// 检查是否被阻止
 		if context.Variables != nil {
 			if blocked, exists := context.Variables["blocked"]; exists && blocked.(bool) {
-				re.logger.WithFields(logrus.Fields{
+				logger.Info("检测到阻止标志，停止后续规则执行", map[string]interface{}{
 					"func_name": "rule_engine.ExecuteRules",
-				}).Info("检测到阻止标志，停止后续规则执行")
+				})
 				break
 			}
 		}
@@ -1164,16 +1161,16 @@ func (re *RuleEngine) ClearCache() {
 
 	re.ruleCache = make(map[uint]*CachedRule)
 
-	re.logger.WithFields(logrus.Fields{
+	logger.Info("规则引擎缓存已清空", map[string]interface{}{
 		"func_name": "rule_engine.ClearCache",
-	}).Info("规则引擎缓存已清空")
+	})
 }
 
 // Stop 停止规则引擎
 func (re *RuleEngine) Stop() {
-	re.logger.WithFields(logrus.Fields{
+	logger.Info("规则引擎已停止", map[string]interface{}{
 		"func_name": "rule_engine.Stop",
-	}).Info("规则引擎已停止")
+	})
 }
 
 // sortRulesByPriority 按优先级排序规则

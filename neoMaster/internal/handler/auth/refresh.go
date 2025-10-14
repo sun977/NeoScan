@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"neomaster/internal/model"
 	"neomaster/internal/service/auth"
 
 	"github.com/gin-gonic/gin"
@@ -26,11 +25,11 @@ func NewRefreshHandler(sessionService *auth.SessionService) *RefreshHandler {
 // validateRefreshRequest 验证刷新令牌请求参数
 func (h *RefreshHandler) validateRefreshRequest(req *system.RefreshTokenRequest) error {
 	if req.RefreshToken == "" {
-		return &model.ValidationError{Field: "refresh_token", Message: "refresh token cannot be empty"}
+		return &system.ValidationError{Field: "refresh_token", Message: "refresh token cannot be empty"}
 	}
 
 	if len(req.RefreshToken) < 10 {
-		return &model.ValidationError{Field: "refresh_token", Message: "refresh token format is invalid"}
+		return &system.ValidationError{Field: "refresh_token", Message: "refresh token format is invalid"}
 	}
 
 	return nil
@@ -191,18 +190,18 @@ func (h *RefreshHandler) CheckTokenExpiry(c *gin.Context) {
 func (h *RefreshHandler) extractTokenFromHeader(c *gin.Context) (string, error) {
 	authorization := c.GetHeader("Authorization")
 	if authorization == "" {
-		return "", &model.ValidationError{Field: "authorization", Message: "authorization header is required"}
+		return "", &system.ValidationError{Field: "authorization", Message: "authorization header is required"}
 	}
 
 	// 检查Bearer前缀
 	if !strings.HasPrefix(authorization, "Bearer ") {
-		return "", &model.ValidationError{Field: "authorization", Message: "authorization header must start with 'Bearer '"}
+		return "", &system.ValidationError{Field: "authorization", Message: "authorization header must start with 'Bearer '"}
 	}
 
 	// 提取令牌
 	token := strings.TrimPrefix(authorization, "Bearer ")
 	if token == "" {
-		return "", &model.ValidationError{Field: "authorization", Message: "token cannot be empty"}
+		return "", &system.ValidationError{Field: "authorization", Message: "token cannot be empty"}
 	}
 
 	return token, nil

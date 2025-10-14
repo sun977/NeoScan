@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
@@ -28,19 +27,19 @@ func NewLoginHandler(sessionService *auth.SessionService) *LoginHandler {
 // validateLoginRequest 验证登录请求参数
 func (h *LoginHandler) validateLoginRequest(req *system.LoginRequest) error {
 	if req.Username == "" {
-		return &model.ValidationError{Field: "username", Message: "username cannot be empty"}
+		return &system.ValidationError{Field: "username", Message: "username cannot be empty"}
 	}
 
 	if req.Password == "" {
-		return &model.ValidationError{Field: "password", Message: "password cannot be empty"}
+		return &system.ValidationError{Field: "password", Message: "password cannot be empty"}
 	}
 
 	if len(req.Username) < 3 {
-		return &model.ValidationError{Field: "username", Message: "username must be at least 3 characters"}
+		return &system.ValidationError{Field: "username", Message: "username must be at least 3 characters"}
 	}
 
 	if len(req.Password) < 6 {
-		return &model.ValidationError{Field: "password", Message: "password must be at least 6 characters"}
+		return &system.ValidationError{Field: "password", Message: "password must be at least 6 characters"}
 	}
 
 	return nil

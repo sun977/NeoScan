@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"strings"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 
@@ -351,18 +350,18 @@ func (m *MiddlewareManager) GinRequireAnyRole(roles ...string) gin.HandlerFunc {
 func (m *MiddlewareManager) extractTokenFromGinHeader(c *gin.Context) (string, error) {
 	authorization := c.GetHeader("Authorization")
 	if authorization == "" {
-		return "", &model.ValidationError{Field: "authorization", Message: "authorization header is required"}
+		return "", &system.ValidationError{Field: "authorization", Message: "authorization header is required"}
 	}
 
 	// 检查Bearer前缀
 	if !strings.HasPrefix(authorization, "Bearer ") {
-		return "", &model.ValidationError{Field: "authorization", Message: "authorization header must start with 'Bearer '"}
+		return "", &system.ValidationError{Field: "authorization", Message: "authorization header must start with 'Bearer '"}
 	}
 
 	// 提取令牌
 	token := strings.TrimPrefix(authorization, "Bearer ")
 	if token == "" {
-		return "", &model.ValidationError{Field: "authorization", Message: "access token cannot be empty"}
+		return "", &system.ValidationError{Field: "authorization", Message: "access token cannot be empty"}
 	}
 
 	return token, nil

@@ -5,7 +5,6 @@ import (
 	"neomaster/internal/model/system"
 	"net/http"
 
-	"neomaster/internal/model"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/auth"
@@ -28,13 +27,13 @@ func NewRegisterHandler(userService *auth.UserService) *RegisterHandler {
 // validateRegisterRequest 验证注册请求参数
 func (h *RegisterHandler) validateRegisterRequest(req *system.RegisterRequest) error {
 	if req.Username == "" {
-		return model.ErrInvalidUsername
+		return system.ErrInvalidUsername
 	}
 	if req.Email == "" {
-		return model.ErrInvalidEmail
+		return system.ErrInvalidEmail
 	}
 	if req.Password == "" {
-		return model.ErrInvalidPassword
+		return system.ErrInvalidPassword
 	}
 	return nil
 }
@@ -42,11 +41,11 @@ func (h *RegisterHandler) validateRegisterRequest(req *system.RegisterRequest) e
 // getErrorStatusCode 根据错误类型返回对应的HTTP状态码
 func (h *RegisterHandler) getErrorStatusCode(err error) int {
 	switch err {
-	case model.ErrUserAlreadyExists:
+	case system.ErrUserAlreadyExists:
 		return http.StatusConflict
-	case model.ErrUsernameAlreadyExists:
+	case system.ErrUsernameAlreadyExists:
 		return http.StatusConflict
-	case model.ErrEmailAlreadyExists:
+	case system.ErrEmailAlreadyExists:
 		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError

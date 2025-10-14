@@ -5,7 +5,7 @@
  * @description: 系统错误常量和错误类型定义
  * @func: 各种错误常量和ValidationError结构体
  */
-package model
+package system
 
 import "errors"
 

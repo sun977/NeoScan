@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log"
 
+	"neomaster/internal/app/master/router"
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
-	"neomaster/internal/app/master/router"
 
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"

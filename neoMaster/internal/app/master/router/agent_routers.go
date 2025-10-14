@@ -21,88 +21,43 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentGroup.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// ==================== Agent基础管理路由 ====================
-		agentGroup.GET("", r.agentListPlaceholder)          // 获取Agent列表
-		agentGroup.GET("/:id", r.agentGetByIDPlaceholder)   // 根据ID获取Agent信息
-		agentGroup.POST("", r.agentCreatePlaceholder)       // 创建新Agent
-		agentGroup.PUT("/:id", r.agentUpdatePlaceholder)    // 更新Agent信息
-		agentGroup.DELETE("/:id", r.agentDeletePlaceholder) // 删除Agent
+		agentGroup.GET("", r.agentHandler.GetAgentList)                   // 获取Agent列表
+		agentGroup.GET("/:id", r.agentHandler.GetAgentInfo)               // 根据ID获取Agent信息
+		agentGroup.POST("", r.agentHandler.RegisterAgent)                 // 注册新Agent
+		agentGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // 更新Agent状态
+		agentGroup.DELETE("/:id", r.agentHandler.DeleteAgent)             // 删除Agent
 
-		// ==================== Agent状态管理路由 ====================
+		// ==================== Agent心跳管理路由 ====================
+		agentGroup.POST("/heartbeat", r.agentHandler.ProcessHeartbeat) // 处理Agent心跳
+
+		// ==================== Agent状态管理路由（占位符，待后续实现） ====================
 		agentGroup.POST("/:id/start", r.agentStartPlaceholder)     // 启动Agent
 		agentGroup.POST("/:id/stop", r.agentStopPlaceholder)       // 停止Agent
 		agentGroup.POST("/:id/restart", r.agentRestartPlaceholder) // 重启Agent
 		agentGroup.GET("/:id/status", r.agentStatusPlaceholder)    // 获取Agent状态
 
-		// ==================== Agent配置管理路由 ====================
+		// ==================== Agent配置管理路由（占位符，待后续实现） ====================
 		agentGroup.GET("/:id/config", r.agentGetConfigPlaceholder)    // 获取Agent配置
 		agentGroup.PUT("/:id/config", r.agentUpdateConfigPlaceholder) // 更新Agent配置
 
-		// ==================== Agent任务管理路由 ====================
+		// ==================== Agent任务管理路由（占位符，待后续实现） ====================
 		agentGroup.GET("/:id/tasks", r.agentGetTasksPlaceholder)               // 获取Agent任务列表
 		agentGroup.POST("/:id/tasks", r.agentCreateTaskPlaceholder)            // 为Agent创建任务
 		agentGroup.GET("/:id/tasks/:task_id", r.agentGetTaskPlaceholder)       // 获取特定任务信息
 		agentGroup.DELETE("/:id/tasks/:task_id", r.agentDeleteTaskPlaceholder) // 删除Agent任务
 
-		// ==================== Agent日志管理路由 ====================
+		// ==================== Agent日志管理路由（占位符，待后续实现） ====================
 		agentGroup.GET("/:id/logs", r.agentGetLogsPlaceholder) // 获取Agent日志
 
-		// ==================== Agent健康检查路由 ====================
+		// ==================== Agent健康检查路由（占位符，待后续实现） ====================
 		agentGroup.GET("/:id/health", r.agentHealthCheckPlaceholder) // Agent健康检查
 		agentGroup.GET("/:id/ping", r.agentPingPlaceholder)          // Agent连通性检查
 	}
 }
 
-// ==================== Agent基础管理占位符 ====================
+// ==================== Agent基础管理占位符（已实现的功能移除占位符） ====================
 
-// agentListPlaceholder 获取Agent列表占位符
-func (r *Router) agentListPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "Agent列表功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentGetByIDPlaceholder 根据ID获取Agent信息占位符
-func (r *Router) agentGetByIDPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent信息功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentCreatePlaceholder 创建新Agent占位符
-func (r *Router) agentCreatePlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "创建Agent功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentUpdatePlaceholder 更新Agent信息占位符
-func (r *Router) agentUpdatePlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "更新Agent信息功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentDeletePlaceholder 删除Agent占位符
-func (r *Router) agentDeletePlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "删除Agent功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// ==================== Agent状态管理占位符 ====================
+// 以下占位符函数保留，用于未来功能扩展
 
 // agentStartPlaceholder 启动Agent占位符
 func (r *Router) agentStartPlaceholder(c *gin.Context) {

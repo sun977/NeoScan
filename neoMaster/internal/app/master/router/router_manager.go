@@ -11,13 +11,16 @@ import (
 	"time"
 
 	"neomaster/internal/app/master/middleware"
+	agentHandler "neomaster/internal/handler/agent"
 	authHandler "neomaster/internal/handler/auth"
 	scanConfigHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
+	agentRepo "neomaster/internal/repository/agent"
 	"neomaster/internal/repository/mysql"
 	scanConfigRepo "neomaster/internal/repository/orchestrator"
 	redisRepo "neomaster/internal/repository/redis"
+	agentService "neomaster/internal/service/agent"
 	authService "neomaster/internal/service/auth"
 	scanConfigService "neomaster/internal/service/orchestrator"
 
@@ -38,6 +41,8 @@ type Router struct {
 	roleHandler       *systemHandler.RoleHandler
 	permissionHandler *systemHandler.PermissionHandler
 	sessionHandler    *systemHandler.SessionHandler
+	// Agent管理相关Handler
+	agentHandler *agentHandler.AgentHandler
 	// 扫描配置相关Handler
 	projectConfigHandler *scanConfigHandler.ProjectConfigHandler
 	workflowHandler      *scanConfigHandler.WorkflowHandler
@@ -113,11 +118,18 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	scanToolRepo := scanConfigRepo.NewScanToolRepository(db)
 	scanRuleRepo := scanConfigRepo.NewScanRuleRepository(db)
 
+	// 初始化Agent相关Repository和Service
+	agentRepository := agentRepo.NewAgentRepository(db)
+	agentSvc := agentService.NewAgentService(agentRepository)
+
 	// 初始化扫描配置相关Service
 	projectConfigService := scanConfigService.NewProjectConfigService(projectConfigRepo, workflowConfigRepo, scanToolRepo)
 	workflowService := scanConfigService.NewWorkflowService(workflowConfigRepo, projectConfigRepo, scanToolRepo, scanRuleRepo)
 	scanToolService := scanConfigService.NewScanToolService(scanToolRepo)
 	scanRuleService := scanConfigService.NewScanRuleService(scanRuleRepo)
+
+	// 初始化Agent相关Handler
+	agentHdl := agentHandler.NewAgentHandler(agentSvc)
 
 	// 初始化扫描配置相关Handler
 	projectConfigHandler := scanConfigHandler.NewProjectConfigHandler(projectConfigService)
@@ -142,6 +154,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 		roleHandler:       roleHandler,
 		permissionHandler: permissionHandler,
 		sessionHandler:    sessionHandler,
+		// Agent管理相关Handler
+		agentHandler: agentHdl,
 		// 扫描配置相关Handler
 		projectConfigHandler: projectConfigHandler,
 		workflowHandler:      workflowHandler,
@@ -176,6 +190,9 @@ func (r *Router) SetupRoutes() {
 
 	// 扫描编排器配置路由（需要JWT认证）
 	r.setupOrchestratorRoutes(v1)
+
+	// Agent管理路由（需要JWT认证）
+	r.setupAgentRoutes(v1)
 
 	// 健康检查路由
 	r.setupHealthRoutes(api)

@@ -8,11 +8,11 @@
 package agent
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/model/system"
@@ -43,16 +43,20 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	// 检查Content-Type
 	contentType := c.GetHeader("Content-Type")
 	if contentType == "" {
-		logger.WithFields(logrus.Fields{
-			"path":       "/api/v1/agent/register",
-			"operation":  "register_agent",
-			"option":     "contentTypeCheck",
-			"func_name":  "handler.agent.agent_handler.RegisterAgent",
-			"client_ip":  clientIP,
-			"user_agent": userAgent,
-			"request_id": XRequestID,
-			"error":      "missing Content-Type header",
-		}).Error("Content-Type header缺失")
+		logger.LogError(
+			fmt.Errorf("missing Content-Type header"),
+			XRequestID,
+			0, // userID - 在注册阶段还没有agent ID
+			clientIP,
+			"/api/v1/agent/register",
+			"POST",
+			map[string]interface{}{
+				"operation":  "register_agent",
+				"option":     "contentTypeCheck",
+				"func_name":  "handler.agent.agent_handler.RegisterAgent",
+				"user_agent": userAgent,
+			},
+		)
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
@@ -65,17 +69,21 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	// 解析请求体
 	var req agentModel.RegisterAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":         "/api/v1/agent/register",
-			"operation":    "register_agent",
-			"option":       "ShouldBindJSON",
-			"func_name":    "handler.agent.agent_handler.RegisterAgent",
-			"client_ip":    clientIP,
-			"user_agent":   userAgent,
-			"request_id":   XRequestID,
-			"content_type": contentType,
-			"error":        err.Error(),
-		}).Error("请求体解析失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0, // userID - 在注册阶段还没有agent ID
+			clientIP,
+			"/api/v1/agent/register",
+			"POST",
+			map[string]interface{}{
+				"operation":    "register_agent",
+				"option":       "ShouldBindJSON",
+				"func_name":    "handler.agent.agent_handler.RegisterAgent",
+				"user_agent":   userAgent,
+				"content_type": contentType,
+			},
+		)
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
@@ -89,18 +97,22 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	response, err := h.agentService.RegisterAgent(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.WithFields(logrus.Fields{
-			"path":        "/api/v1/agent/register",
-			"operation":   "register_agent",
-			"option":      "agentService.RegisterAgent",
-			"func_name":   "handler.agent.agent_handler.RegisterAgent",
-			"client_ip":   clientIP,
-			"user_agent":  userAgent,
-			"request_id":  XRequestID,
-			"hostname":    req.Hostname,
-			"status_code": statusCode,
-			"error":       err.Error(),
-		}).Error("Agent注册失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0, // userID - 在注册阶段还没有agent ID
+			clientIP,
+			"/api/v1/agent/register",
+			"POST",
+			map[string]interface{}{
+				"operation":   "register_agent",
+				"option":      "agentService.RegisterAgent",
+				"func_name":   "handler.agent.agent_handler.RegisterAgent",
+				"user_agent":  userAgent,
+				"hostname":    req.Hostname,
+				"status_code": statusCode,
+			},
+		)
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
@@ -111,17 +123,22 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	}
 
 	// 成功响应
-	logger.WithFields(logrus.Fields{
-		"path":       "/api/v1/agent/register",
-		"operation":  "register_agent",
-		"option":     "success",
-		"func_name":  "handler.agent.agent_handler.RegisterAgent",
-		"client_ip":  clientIP,
-		"user_agent": userAgent,
-		"request_id": XRequestID,
-		"agent_id":   response.AgentID,
-		"hostname":   req.Hostname,
-	}).Info("Agent注册成功")
+	logger.LogInfo(
+		"Agent注册成功",
+		XRequestID,
+		0, // userID - 在注册阶段还没有agent ID
+		clientIP,
+		"/api/v1/agent/register",
+		"POST",
+		map[string]interface{}{
+			"operation":  "register_agent",
+			"option":     "success",
+			"func_name":  "handler.agent.agent_handler.RegisterAgent",
+			"user_agent": userAgent,
+			"agent_id":   response.AgentID,
+			"hostname":   req.Hostname,
+		},
+	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
@@ -141,16 +158,20 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	// 获取Agent ID
 	agentID := c.Param("id")
 	if agentID == "" {
-		logger.WithFields(logrus.Fields{
-			"path":       "/api/v1/agent/:id",
-			"operation":  "get_agent_info",
-			"option":     "paramValidation",
-			"func_name":  "handler.agent.agent_handler.GetAgentInfo",
-			"client_ip":  clientIP,
-			"user_agent": userAgent,
-			"request_id": XRequestID,
-			"error":      "agent ID is required",
-		}).Error("Agent ID参数缺失")
+		logger.LogError(
+			fmt.Errorf("agent ID is required"),
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/:id",
+			"GET",
+			map[string]interface{}{
+				"operation":  "get_agent_info",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.agent_handler.GetAgentInfo",
+				"user_agent": userAgent,
+			},
+		)
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
@@ -164,18 +185,22 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	agentInfo, err := h.agentService.GetAgentInfo(agentID)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.WithFields(logrus.Fields{
-			"path":        "/api/v1/agent/:id",
-			"operation":   "get_agent_info",
-			"option":      "agentService.GetAgentInfo",
-			"func_name":   "handler.agent.agent_handler.GetAgentInfo",
-			"client_ip":   clientIP,
-			"user_agent":  userAgent,
-			"request_id":  XRequestID,
-			"agent_id":    agentID,
-			"status_code": statusCode,
-			"error":       err.Error(),
-		}).Error("获取Agent信息失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/:id",
+			"GET",
+			map[string]interface{}{
+				"operation":   "get_agent_info",
+				"option":      "agentService.GetAgentInfo",
+				"func_name":   "handler.agent.agent_handler.GetAgentInfo",
+				"user_agent":  userAgent,
+				"agent_id":    agentID,
+				"status_code": statusCode,
+			},
+		)
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
@@ -186,16 +211,21 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	}
 
 	// 成功响应
-	logger.WithFields(logrus.Fields{
-		"path":       "/api/v1/agent/:id",
-		"operation":  "get_agent_info",
-		"option":     "success",
-		"func_name":  "handler.agent.agent_handler.GetAgentInfo",
-		"client_ip":  clientIP,
-		"user_agent": userAgent,
-		"request_id": XRequestID,
-		"agent_id":   agentID,
-	}).Info("获取Agent信息成功")
+	logger.LogInfo(
+		"获取Agent信息成功",
+		XRequestID,
+		0,
+		clientIP,
+		"/api/v1/agent/:id",
+		"GET",
+		map[string]interface{}{
+			"operation":  "get_agent_info",
+			"option":     "success",
+			"func_name":  "handler.agent.agent_handler.GetAgentInfo",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
@@ -214,7 +244,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 
 	// 解析查询参数
 	var req agentModel.GetAgentListRequest
-	
+
 	// 分页参数
 	if pageStr := c.Query("page"); pageStr != "" {
 		if page, err := strconv.Atoi(pageStr); err == nil {
@@ -226,7 +256,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 			req.PageSize = pageSize
 		}
 	}
-	
+
 	// 过滤参数
 	req.Status = agentModel.AgentStatus(c.Query("status"))
 	req.Tags = c.QueryArray("tags")
@@ -235,17 +265,21 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	response, err := h.agentService.GetAgentList(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.WithFields(logrus.Fields{
-			"path":        "/api/v1/agent/list",
-			"operation":   "get_agent_list",
-			"option":      "agentService.GetAgentList",
-			"func_name":   "handler.agent.agent_handler.GetAgentList",
-			"client_ip":   clientIP,
-			"user_agent":  userAgent,
-			"request_id":  XRequestID,
-			"status_code": statusCode,
-			"error":       err.Error(),
-		}).Error("获取Agent列表失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/list",
+			"GET",
+			map[string]interface{}{
+				"operation":   "get_agent_list",
+				"option":      "agentService.GetAgentList",
+				"func_name":   "handler.agent.agent_handler.GetAgentList",
+				"user_agent":  userAgent,
+				"status_code": statusCode,
+			},
+		)
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
@@ -256,16 +290,21 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	}
 
 	// 成功响应
-	logger.WithFields(logrus.Fields{
-		"path":       "/api/v1/agent/list",
-		"operation":  "get_agent_list",
-		"option":     "success",
-		"func_name":  "handler.agent.agent_handler.GetAgentList",
-		"client_ip":  clientIP,
-		"user_agent": userAgent,
-		"request_id": XRequestID,
-		"total":      response.Pagination.Total,
-	}).Info("获取Agent列表成功")
+	logger.LogInfo(
+		"获取Agent列表成功",
+		XRequestID,
+		0,
+		clientIP,
+		"/api/v1/agent/list",
+		"GET",
+		map[string]interface{}{
+			"operation":  "get_agent_list",
+			"option":     "success",
+			"func_name":  "handler.agent.agent_handler.GetAgentList",
+			"user_agent": userAgent,
+			"total":      response.Pagination.Total,
+		},
+	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
@@ -285,16 +324,20 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	// 获取Agent ID
 	agentID := c.Param("id")
 	if agentID == "" {
-		logger.WithFields(logrus.Fields{
-			"path":       "/api/v1/agent/:id/status",
-			"operation":  "update_agent_status",
-			"option":     "paramValidation",
-			"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
-			"client_ip":  clientIP,
-			"user_agent": userAgent,
-			"request_id": XRequestID,
-			"error":      "agent ID is required",
-		}).Error("Agent ID参数缺失")
+		logger.LogError(
+			fmt.Errorf("agent ID is required"),
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/:id/status",
+			"PUT",
+			map[string]interface{}{
+				"operation":  "update_agent_status",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
+				"user_agent": userAgent,
+			},
+		)
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
@@ -307,17 +350,21 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	// 解析请求体
 	var req agentModel.UpdateAgentStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":       "/api/v1/agent/:id/status",
-			"operation":  "update_agent_status",
-			"option":     "ShouldBindJSON",
-			"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
-			"client_ip":  clientIP,
-			"user_agent": userAgent,
-			"request_id": XRequestID,
-			"agent_id":   agentID,
-			"error":      err.Error(),
-		}).Error("请求体解析失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/:id/status",
+			"PUT",
+			map[string]interface{}{
+				"operation":  "update_agent_status",
+				"option":     "ShouldBindJSON",
+				"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
+				"user_agent": userAgent,
+				"agent_id":   agentID,
+			},
+		)
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
@@ -331,19 +378,23 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	err := h.agentService.UpdateAgentStatus(agentID, req.Status)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.WithFields(logrus.Fields{
-			"path":        "/api/v1/agent/:id/status",
-			"operation":   "update_agent_status",
-			"option":      "agentService.UpdateAgentStatus",
-			"func_name":   "handler.agent.agent_handler.UpdateAgentStatus",
-			"client_ip":   clientIP,
-			"user_agent":  userAgent,
-			"request_id":  XRequestID,
-			"agent_id":    agentID,
-			"status":      string(req.Status),
-			"status_code": statusCode,
-			"error":       err.Error(),
-		}).Error("更新Agent状态失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/:id/status",
+			"PUT",
+			map[string]interface{}{
+				"operation":   "update_agent_status",
+				"option":      "agentService.UpdateAgentStatus",
+				"func_name":   "handler.agent.agent_handler.UpdateAgentStatus",
+				"user_agent":  userAgent,
+				"agent_id":    agentID,
+				"status":      string(req.Status),
+				"status_code": statusCode,
+			},
+		)
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
@@ -354,17 +405,22 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	}
 
 	// 成功响应
-	logger.WithFields(logrus.Fields{
-		"path":       "/api/v1/agent/:id/status",
-		"operation":  "update_agent_status",
-		"option":     "success",
-		"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
-		"client_ip":  clientIP,
-		"user_agent": userAgent,
-		"request_id": XRequestID,
-		"agent_id":   agentID,
-		"status":     string(req.Status),
-	}).Info("更新Agent状态成功")
+	logger.LogInfo(
+		"更新Agent状态成功",
+		XRequestID,
+		0,
+		clientIP,
+		"/api/v1/agent/:id/status",
+		"PUT",
+		map[string]interface{}{
+			"operation":  "update_agent_status",
+			"option":     "success",
+			"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+			"status":     string(req.Status),
+		},
+	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
@@ -383,16 +439,20 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 	// 解析请求体
 	var req agentModel.HeartbeatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.WithFields(logrus.Fields{
-			"path":       "/api/v1/agent/heartbeat",
-			"operation":  "process_heartbeat",
-			"option":     "ShouldBindJSON",
-			"func_name":  "handler.agent.agent_handler.ProcessHeartbeat",
-			"client_ip":  clientIP,
-			"user_agent": userAgent,
-			"request_id": XRequestID,
-			"error":      err.Error(),
-		}).Error("心跳请求体解析失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/heartbeat",
+			"POST",
+			map[string]interface{}{
+				"operation":  "process_heartbeat",
+				"option":     "ShouldBindJSON",
+				"func_name":  "handler.agent.agent_handler.ProcessHeartbeat",
+				"user_agent": userAgent,
+			},
+		)
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
@@ -406,18 +466,22 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 	response, err := h.agentService.ProcessHeartbeat(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.WithFields(logrus.Fields{
-			"path":        "/api/v1/agent/heartbeat",
-			"operation":   "process_heartbeat",
-			"option":      "agentService.ProcessHeartbeat",
-			"func_name":   "handler.agent.agent_handler.ProcessHeartbeat",
-			"client_ip":   clientIP,
-			"user_agent":  userAgent,
-			"request_id":  XRequestID,
-			"agent_id":    req.AgentID,
-			"status_code": statusCode,
-			"error":       err.Error(),
-		}).Error("处理Agent心跳失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/heartbeat",
+			"POST",
+			map[string]interface{}{
+				"operation":   "process_heartbeat",
+				"option":      "agentService.ProcessHeartbeat",
+				"func_name":   "handler.agent.agent_handler.ProcessHeartbeat",
+				"user_agent":  userAgent,
+				"agent_id":    req.AgentID,
+				"status_code": statusCode,
+			},
+		)
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
@@ -428,16 +492,21 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 	}
 
 	// 成功响应
-	logger.WithFields(logrus.Fields{
-		"path":       "/api/v1/agent/heartbeat",
-		"operation":  "process_heartbeat",
-		"option":     "success",
-		"func_name":  "handler.agent.agent_handler.ProcessHeartbeat",
-		"client_ip":  clientIP,
-		"user_agent": userAgent,
-		"request_id": XRequestID,
-		"agent_id":   req.AgentID,
-	}).Info("处理Agent心跳成功")
+	logger.LogInfo(
+		"处理Agent心跳成功",
+		XRequestID,
+		0,
+		clientIP,
+		"/api/v1/agent/heartbeat",
+		"POST",
+		map[string]interface{}{
+			"operation":  "process_heartbeat",
+			"option":     "success",
+			"func_name":  "handler.agent.agent_handler.ProcessHeartbeat",
+			"user_agent": userAgent,
+			"agent_id":   req.AgentID,
+		},
+	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
@@ -446,6 +515,9 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 		Data:    response,
 	})
 }
+
+// 注意：ListAgents 和 UpdateAgent 方法已删除，因为它们在服务层接口中不存在
+// 如需要这些功能，请先在服务层接口中定义相应的方法
 
 // DeleteAgent 删除Agent处理器
 func (h *AgentHandler) DeleteAgent(c *gin.Context) {
@@ -457,16 +529,20 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	// 获取Agent ID
 	agentID := c.Param("id")
 	if agentID == "" {
-		logger.WithFields(logrus.Fields{
-			"path":       "/api/v1/agent/:id",
-			"operation":  "delete_agent",
-			"option":     "paramValidation",
-			"func_name":  "handler.agent.agent_handler.DeleteAgent",
-			"client_ip":  clientIP,
-			"user_agent": userAgent,
-			"request_id": XRequestID,
-			"error":      "agent ID is required",
-		}).Error("Agent ID参数缺失")
+		logger.LogError(
+			fmt.Errorf("agent ID is required"),
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/:id",
+			"DELETE",
+			map[string]interface{}{
+				"operation":  "delete_agent",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.agent_handler.DeleteAgent",
+				"user_agent": userAgent,
+			},
+		)
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
@@ -480,18 +556,22 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	err := h.agentService.DeleteAgent(agentID)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.WithFields(logrus.Fields{
-			"path":        "/api/v1/agent/:id",
-			"operation":   "delete_agent",
-			"option":      "agentService.DeleteAgent",
-			"func_name":   "handler.agent.agent_handler.DeleteAgent",
-			"client_ip":   clientIP,
-			"user_agent":  userAgent,
-			"request_id":  XRequestID,
-			"agent_id":    agentID,
-			"status_code": statusCode,
-			"error":       err.Error(),
-		}).Error("删除Agent失败")
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			"/api/v1/agent/:id",
+			"DELETE",
+			map[string]interface{}{
+				"operation":   "delete_agent",
+				"option":      "agentService.DeleteAgent",
+				"func_name":   "handler.agent.agent_handler.DeleteAgent",
+				"user_agent":  userAgent,
+				"agent_id":    agentID,
+				"status_code": statusCode,
+			},
+		)
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
@@ -502,16 +582,21 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	}
 
 	// 成功响应
-	logger.WithFields(logrus.Fields{
-		"path":       "/api/v1/agent/:id",
-		"operation":  "delete_agent",
-		"option":     "success",
-		"func_name":  "handler.agent.agent_handler.DeleteAgent",
-		"client_ip":  clientIP,
-		"user_agent": userAgent,
-		"request_id": XRequestID,
-		"agent_id":   agentID,
-	}).Info("删除Agent成功")
+	logger.LogInfo(
+		"Agent删除成功",
+		XRequestID,
+		0,
+		clientIP,
+		"/api/v1/agent/:id",
+		"DELETE",
+		map[string]interface{}{
+			"operation":  "delete_agent",
+			"option":     "success",
+			"func_name":  "handler.agent.agent_handler.DeleteAgent",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
@@ -526,13 +611,13 @@ func (h *AgentHandler) getErrorStatusCode(err error) int {
 	if err == nil {
 		return http.StatusOK
 	}
-	
+
 	// 可以根据具体的错误类型进行更精确的状态码映射
 	errMsg := err.Error()
 	if errMsg == "Agent不存在" || errMsg == "agent not found" {
 		return http.StatusNotFound
 	}
-	
+
 	// 默认返回内部服务器错误
 	return http.StatusInternalServerError
 }

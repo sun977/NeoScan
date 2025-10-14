@@ -18,15 +18,12 @@ import (
 
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-
-	"github.com/sirupsen/logrus"
 )
 
 // NmapExecutor Nmap执行器实现
 type NmapExecutor struct {
-	name    string         // 执行器名称
-	version string         // 执行器版本
-	logger  *logrus.Logger // 日志记录器
+	name    string // 执行器名称
+	version string // 执行器版本
 }
 
 // NewNmapExecutor 创建新的Nmap执行器
@@ -34,7 +31,6 @@ func NewNmapExecutor() *NmapExecutor {
 	return &NmapExecutor{
 		name:    "nmap_executor",
 		version: "1.0.0",
-		logger:  logger.LoggerInstance.GetLogger(),
 	}
 }
 
@@ -102,12 +98,13 @@ func (e *NmapExecutor) validateNmapVersion(nmapPath string) error {
 		return fmt.Errorf("invalid nmap executable, version output: %s", versionOutput)
 	}
 
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nmap.validateNmapVersion",
 		"operation": "validate_nmap",
 		"option":    "version_check",
 		"func_name": "executor.nmap.validateNmapVersion",
-	}).Debugf("Nmap version validated: %s", strings.TrimSpace(versionOutput))
+		"version":   strings.TrimSpace(versionOutput),
+	}).Debug("Nmap version validation")
 
 	return nil
 }
@@ -119,13 +116,15 @@ func (e *NmapExecutor) Execute(ctx context.Context, request *ScanRequest) (*Scan
 	}
 
 	startTime := time.Now()
-	
-	e.logger.WithFields(logrus.Fields{
+
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nmap.Execute",
 		"operation": "execute_nmap",
 		"option":    "start_execution",
 		"func_name": "executor.nmap.Execute",
-	}).Infof("Starting nmap scan for task %s, target: %s", request.TaskID, request.Target)
+		"task_id":   request.TaskID,
+		"target":    request.Target,
+	}).Info("Starting nmap scan")
 
 	// 构建nmap命令
 	args, err := e.buildNmapArgs(request)
@@ -136,14 +135,14 @@ func (e *NmapExecutor) Execute(ctx context.Context, request *ScanRequest) (*Scan
 	// 创建输出目录
 	if request.OutputPath != "" {
 		outputDir := filepath.Dir(request.OutputPath)
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create output directory: %w", err)
+		if err1 := os.MkdirAll(outputDir, 0755); err1 != nil {
+			return nil, fmt.Errorf("failed to create output directory: %w", err1)
 		}
 	}
 
 	// 执行nmap命令
 	cmd := exec.CommandContext(ctx, request.Tool.ExecutablePath, args...)
-	
+
 	// 设置工作目录
 	if request.WorkingDir != "" {
 		cmd.Dir = request.WorkingDir
@@ -180,14 +179,15 @@ func (e *NmapExecutor) Execute(ctx context.Context, request *ScanRequest) (*Scan
 	if err != nil {
 		result.Status = ScanTaskStatusFailed
 		result.Error = err.Error()
-		
-		e.logger.WithFields(logrus.Fields{
+
+		logger.WithFields(map[string]interface{}{
 			"path":      "executor.nmap.Execute",
 			"operation": "execute_nmap",
 			"option":    "execution_failed",
 			"func_name": "executor.nmap.Execute",
-		}).Errorf("Nmap execution failed for task %s: %v", request.TaskID, err)
-		
+			"task_id":   request.TaskID,
+		}).WithError(err).Error("Nmap execution failed")
+
 		return result, nil // 返回结果而不是错误，让调用者处理
 	}
 
@@ -195,14 +195,15 @@ func (e *NmapExecutor) Execute(ctx context.Context, request *ScanRequest) (*Scan
 
 	// 收集输出文件
 	if request.OutputPath != "" {
-		outputFiles, err := e.collectOutputFiles(request.OutputPath)
-		if err != nil {
-			e.logger.WithFields(logrus.Fields{
+		outputFiles, err1 := e.collectOutputFiles(request.OutputPath)
+		if err1 != nil {
+			logger.WithFields(map[string]interface{}{
 				"path":      "executor.nmap.Execute",
 				"operation": "execute_nmap",
 				"option":    "collect_output_files_failed",
 				"func_name": "executor.nmap.Execute",
-			}).Warnf("Failed to collect output files for task %s: %v", request.TaskID, err)
+				"task_id":   request.TaskID,
+			}).WithError(err1).Warn("Failed to collect output files")
 		} else {
 			result.OutputFiles = outputFiles
 		}
@@ -211,22 +212,25 @@ func (e *NmapExecutor) Execute(ctx context.Context, request *ScanRequest) (*Scan
 	// 解析扫描结果元数据
 	metadata, err := e.parseNmapOutput(string(output))
 	if err != nil {
-		e.logger.WithFields(logrus.Fields{
+		logger.WithFields(map[string]interface{}{
 			"path":      "executor.nmap.Execute",
 			"operation": "execute_nmap",
 			"option":    "parse_output_failed",
 			"func_name": "executor.nmap.Execute",
-		}).Warnf("Failed to parse nmap output for task %s: %v", request.TaskID, err)
+			"task_id":   request.TaskID,
+		}).WithError(err).Warn("Failed to parse nmap output")
 	} else {
 		result.Metadata = metadata
 	}
 
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nmap.Execute",
 		"operation": "execute_nmap",
 		"option":    "execution_completed",
 		"func_name": "executor.nmap.Execute",
-	}).Infof("Nmap scan completed for task %s, duration: %v", request.TaskID, duration)
+		"task_id":   request.TaskID,
+		"duration":  duration,
+	}).Info("Nmap scan completed")
 
 	return result, nil
 }
@@ -292,7 +296,7 @@ func (e *NmapExecutor) buildNmapArgs(request *ScanRequest) ([]string, error) {
 		if request.OutputPath != "" {
 			// 默认输出XML格式便于解析
 			args = append(args, "-oX", request.OutputPath)
-			
+
 			// 如果指定了其他格式
 			if outputFormat, ok := request.Options["output_format"].(string); ok {
 				switch outputFormat {
@@ -318,7 +322,7 @@ func (e *NmapExecutor) buildNmapArgs(request *ScanRequest) ([]string, error) {
 // collectOutputFiles 收集输出文件
 func (e *NmapExecutor) collectOutputFiles(outputPath string) ([]string, error) {
 	var files []string
-	
+
 	// 检查主输出文件
 	if _, err := os.Stat(outputPath); err == nil {
 		files = append(files, outputPath)
@@ -327,7 +331,7 @@ func (e *NmapExecutor) collectOutputFiles(outputPath string) ([]string, error) {
 	// 检查其他可能的输出文件
 	baseDir := filepath.Dir(outputPath)
 	baseName := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
-	
+
 	possibleFiles := []string{
 		filepath.Join(baseDir, baseName+".txt"),
 		filepath.Join(baseDir, baseName+".gnmap"),
@@ -346,13 +350,13 @@ func (e *NmapExecutor) collectOutputFiles(outputPath string) ([]string, error) {
 // parseNmapOutput 解析nmap输出
 func (e *NmapExecutor) parseNmapOutput(output string) (map[string]interface{}, error) {
 	metadata := make(map[string]interface{})
-	
+
 	lines := strings.Split(output, "\n")
-	
+
 	// 解析基本信息
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// 解析扫描统计
 		if strings.Contains(line, "Nmap scan report for") {
 			parts := strings.Fields(line)
@@ -360,7 +364,7 @@ func (e *NmapExecutor) parseNmapOutput(output string) (map[string]interface{}, e
 				metadata["target_host"] = parts[4]
 			}
 		}
-		
+
 		// 解析扫描时间
 		if strings.Contains(line, "Nmap done:") {
 			if strings.Contains(line, "scanned in") {
@@ -373,7 +377,7 @@ func (e *NmapExecutor) parseNmapOutput(output string) (map[string]interface{}, e
 				}
 			}
 		}
-		
+
 		// 解析端口统计
 		if strings.Contains(line, "open ports") {
 			parts := strings.Fields(line)
@@ -382,20 +386,21 @@ func (e *NmapExecutor) parseNmapOutput(output string) (map[string]interface{}, e
 			}
 		}
 	}
-	
+
 	return metadata, nil
 }
 
 // Stop 停止正在执行的扫描任务
 func (e *NmapExecutor) Stop(ctx context.Context, taskID string) error {
 	// Nmap执行器本身不维护任务状态，依赖上下文取消
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nmap.Stop",
 		"operation": "stop_nmap",
 		"option":    "stop_requested",
 		"func_name": "executor.nmap.Stop",
-	}).Infof("Stop requested for nmap task %s", taskID)
-	
+		"task_id":   taskID,
+	}).Info("Stop requested for nmap task")
+
 	return nil
 }
 
@@ -407,12 +412,12 @@ func (e *NmapExecutor) GetStatus(ctx context.Context, taskID string) (*ScanStatu
 
 // Cleanup 清理资源
 func (e *NmapExecutor) Cleanup() error {
-	e.logger.WithFields(logrus.Fields{
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nmap.Cleanup",
 		"operation": "cleanup",
 		"option":    "cleanup_completed",
 		"func_name": "executor.nmap.Cleanup",
 	}).Info("Nmap executor cleanup completed")
-	
+
 	return nil
 }

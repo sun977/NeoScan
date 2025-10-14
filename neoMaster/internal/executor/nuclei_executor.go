@@ -19,15 +19,12 @@ import (
 
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-
-	"github.com/sirupsen/logrus"
 )
 
 // NucleiExecutor Nuclei执行器实现
 type NucleiExecutor struct {
-	name    string         // 执行器名称
-	version string         // 执行器版本
-	logger  *logrus.Logger // 日志记录器
+	name    string // 执行器名称
+	version string // 执行器版本
 }
 
 // NewNucleiExecutor 创建新的Nuclei执行器
@@ -35,7 +32,6 @@ func NewNucleiExecutor() *NucleiExecutor {
 	return &NucleiExecutor{
 		name:    "nuclei_executor",
 		version: "1.0.0",
-		logger:  logger.LoggerInstance.GetLogger(),
 	}
 }
 
@@ -103,12 +99,14 @@ func (e *NucleiExecutor) validateNucleiVersion(nucleiPath string) error {
 		return fmt.Errorf("invalid nuclei executable, version output: %s", versionOutput)
 	}
 
-	e.logger.WithFields(logrus.Fields{
+	// 使用 WithFields 记录调试日志
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nuclei.validateNucleiVersion",
 		"operation": "validate_nuclei",
 		"option":    "version_check",
 		"func_name": "executor.nuclei.validateNucleiVersion",
-	}).Debugf("Nuclei version validated: %s", strings.TrimSpace(versionOutput))
+		"version":   strings.TrimSpace(versionOutput),
+	}).Debug("Nuclei version validated")
 
 	return nil
 }
@@ -120,13 +118,16 @@ func (e *NucleiExecutor) Execute(ctx context.Context, request *ScanRequest) (*Sc
 	}
 
 	startTime := time.Now()
-	
-	e.logger.WithFields(logrus.Fields{
+
+	// 使用 WithFields 记录信息日志
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nuclei.Execute",
 		"operation": "execute_nuclei",
 		"option":    "start_execution",
 		"func_name": "executor.nuclei.Execute",
-	}).Infof("Starting nuclei scan for task %s, target: %s", request.TaskID, request.Target)
+		"task_id":   request.TaskID,
+		"target":    request.Target,
+	}).Info("Starting nuclei scan")
 
 	// 构建nuclei命令
 	args, err := e.buildNucleiArgs(request)
@@ -137,14 +138,14 @@ func (e *NucleiExecutor) Execute(ctx context.Context, request *ScanRequest) (*Sc
 	// 创建输出目录
 	if request.OutputPath != "" {
 		outputDir := filepath.Dir(request.OutputPath)
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create output directory: %w", err)
+		if err1 := os.MkdirAll(outputDir, 0755); err1 != nil {
+			return nil, fmt.Errorf("failed to create output directory: %w", err1)
 		}
 	}
 
 	// 执行nuclei命令
 	cmd := exec.CommandContext(ctx, request.Tool.ExecutablePath, args...)
-	
+
 	// 设置工作目录
 	if request.WorkingDir != "" {
 		cmd.Dir = request.WorkingDir
@@ -181,14 +182,16 @@ func (e *NucleiExecutor) Execute(ctx context.Context, request *ScanRequest) (*Sc
 	if err != nil {
 		result.Status = ScanTaskStatusFailed
 		result.Error = err.Error()
-		
-		e.logger.WithFields(logrus.Fields{
+
+		// 使用 WithFields 记录错误日志
+		logger.WithFields(map[string]interface{}{
 			"path":      "executor.nuclei.Execute",
 			"operation": "execute_nuclei",
 			"option":    "execution_failed",
 			"func_name": "executor.nuclei.Execute",
-		}).Errorf("Nuclei execution failed for task %s: %v", request.TaskID, err)
-		
+			"task_id":   request.TaskID,
+		}).WithError(err).Error("Nuclei execution failed")
+
 		return result, nil // 返回结果而不是错误，让调用者处理
 	}
 
@@ -196,14 +199,16 @@ func (e *NucleiExecutor) Execute(ctx context.Context, request *ScanRequest) (*Sc
 
 	// 收集输出文件
 	if request.OutputPath != "" {
-		outputFiles, err := e.collectOutputFiles(request.OutputPath)
-		if err != nil {
-			e.logger.WithFields(logrus.Fields{
+		outputFiles, err1 := e.collectOutputFiles(request.OutputPath)
+		if err1 != nil {
+			// 使用 WithFields 记录警告日志
+			logger.WithFields(map[string]interface{}{
 				"path":      "executor.nuclei.Execute",
 				"operation": "execute_nuclei",
 				"option":    "collect_output_files_failed",
 				"func_name": "executor.nuclei.Execute",
-			}).Warnf("Failed to collect output files for task %s: %v", request.TaskID, err)
+				"task_id":   request.TaskID,
+			}).WithError(err1).Warn("Failed to collect output files")
 		} else {
 			result.OutputFiles = outputFiles
 		}
@@ -212,22 +217,27 @@ func (e *NucleiExecutor) Execute(ctx context.Context, request *ScanRequest) (*Sc
 	// 解析扫描结果元数据
 	metadata, err := e.parseNucleiOutput(string(output))
 	if err != nil {
-		e.logger.WithFields(logrus.Fields{
+		// 使用 WithFields 记录警告日志
+		logger.WithFields(map[string]interface{}{
 			"path":      "executor.nuclei.Execute",
 			"operation": "execute_nuclei",
 			"option":    "parse_output_failed",
 			"func_name": "executor.nuclei.Execute",
-		}).Warnf("Failed to parse nuclei output for task %s: %v", request.TaskID, err)
+			"task_id":   request.TaskID,
+		}).WithError(err).Warn("Failed to parse nuclei output")
 	} else {
 		result.Metadata = metadata
 	}
 
-	e.logger.WithFields(logrus.Fields{
+	// 使用 WithFields 记录信息日志
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nuclei.Execute",
 		"operation": "execute_nuclei",
 		"option":    "execution_completed",
 		"func_name": "executor.nuclei.Execute",
-	}).Infof("Nuclei scan completed for task %s, duration: %v", request.TaskID, duration)
+		"task_id":   request.TaskID,
+		"duration":  duration,
+	}).Info("Nuclei scan completed")
 
 	return result, nil
 }
@@ -296,7 +306,7 @@ func (e *NucleiExecutor) buildNucleiArgs(request *ScanRequest) ([]string, error)
 		if request.OutputPath != "" {
 			// 默认输出JSON格式便于解析
 			args = append(args, "-json", "-o", request.OutputPath)
-			
+
 			// 如果指定了其他格式
 			if outputFormat, ok := request.Options["output_format"].(string); ok {
 				switch outputFormat {
@@ -370,7 +380,7 @@ func (e *NucleiExecutor) buildNucleiArgs(request *ScanRequest) ([]string, error)
 // collectOutputFiles 收集输出文件
 func (e *NucleiExecutor) collectOutputFiles(outputPath string) ([]string, error) {
 	var files []string
-	
+
 	// 检查主输出文件
 	if _, err := os.Stat(outputPath); err == nil {
 		files = append(files, outputPath)
@@ -379,7 +389,7 @@ func (e *NucleiExecutor) collectOutputFiles(outputPath string) ([]string, error)
 	// 检查其他可能的输出文件
 	baseDir := filepath.Dir(outputPath)
 	baseName := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
-	
+
 	possibleFiles := []string{
 		filepath.Join(baseDir, baseName+".sarif"),
 		filepath.Join(baseDir, baseName+".md"),
@@ -398,19 +408,19 @@ func (e *NucleiExecutor) collectOutputFiles(outputPath string) ([]string, error)
 // parseNucleiOutput 解析nuclei输出
 func (e *NucleiExecutor) parseNucleiOutput(output string) (map[string]interface{}, error) {
 	metadata := make(map[string]interface{})
-	
+
 	lines := strings.Split(output, "\n")
 	vulnerabilities := 0
 	severityCount := make(map[string]int)
-	
+
 	// 解析基本信息
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// 解析发现的漏洞
 		if strings.Contains(line, "[") && strings.Contains(line, "]") {
 			vulnerabilities++
-			
+
 			// 解析严重程度
 			if strings.Contains(line, "[critical]") {
 				severityCount["critical"]++
@@ -424,7 +434,7 @@ func (e *NucleiExecutor) parseNucleiOutput(output string) (map[string]interface{
 				severityCount["info"]++
 			}
 		}
-		
+
 		// 解析模板统计
 		if strings.Contains(line, "Templates loaded") {
 			parts := strings.Fields(line)
@@ -435,7 +445,7 @@ func (e *NucleiExecutor) parseNucleiOutput(output string) (map[string]interface{
 				}
 			}
 		}
-		
+
 		// 解析扫描统计
 		if strings.Contains(line, "Targets loaded") {
 			parts := strings.Fields(line)
@@ -447,23 +457,25 @@ func (e *NucleiExecutor) parseNucleiOutput(output string) (map[string]interface{
 			}
 		}
 	}
-	
+
 	metadata["vulnerabilities_count"] = vulnerabilities
 	metadata["severity_breakdown"] = severityCount
-	
+
 	return metadata, nil
 }
 
 // Stop 停止正在执行的扫描任务
 func (e *NucleiExecutor) Stop(ctx context.Context, taskID string) error {
 	// Nuclei执行器本身不维护任务状态，依赖上下文取消
-	e.logger.WithFields(logrus.Fields{
+	// 使用 WithFields 记录信息日志
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nuclei.Stop",
 		"operation": "stop_nuclei",
 		"option":    "stop_requested",
 		"func_name": "executor.nuclei.Stop",
-	}).Infof("Stop requested for nuclei task %s", taskID)
-	
+		"task_id":   taskID,
+	}).Info("Stop requested for nuclei task")
+
 	return nil
 }
 
@@ -475,12 +487,13 @@ func (e *NucleiExecutor) GetStatus(ctx context.Context, taskID string) (*ScanSta
 
 // Cleanup 清理资源
 func (e *NucleiExecutor) Cleanup() error {
-	e.logger.WithFields(logrus.Fields{
+	// 使用 WithFields 记录信息日志
+	logger.WithFields(map[string]interface{}{
 		"path":      "executor.nuclei.Cleanup",
 		"operation": "cleanup",
 		"option":    "cleanup_completed",
 		"func_name": "executor.nuclei.Cleanup",
 	}).Info("Nuclei executor cleanup completed")
-	
+
 	return nil
 }

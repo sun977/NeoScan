@@ -1,6 +1,6 @@
 /**
  * 模型:工作流配置模型
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 扫描工作流配置模型，遵循"简洁执念"原则 - 消除复杂性，让工作流编排变得简单
  * @func: WorkflowConfig 结构体及相关方法

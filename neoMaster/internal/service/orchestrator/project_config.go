@@ -1,6 +1,6 @@
 /*
  * 项目配置服务层：项目配置业务逻辑
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 处理项目配置相关的业务逻辑，不直接操作数据库
  * @func:

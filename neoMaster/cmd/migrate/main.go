@@ -1,6 +1,6 @@
 /*
  * 数据库迁移工具
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.14
  * @description: 执行数据库自动迁移，创建所有必要的表结构
  * @func: 自动迁移所有模型，确保数据库结构与代码模型一致

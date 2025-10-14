@@ -1,6 +1,6 @@
 /**
  * 模型:扫描工具模型
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 第三方扫描工具配置模型，遵循"实用主义"原则 - 解决实际问题，不追求理论完美
  * @func: ScanTool 结构体及相关方法

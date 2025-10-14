@@ -1,6 +1,6 @@
 /**
  * 模型:Agent响应模型
- * @author: Linus-style implementation
+ * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent相关的响应数据模型，遵循"好品味"原则 - 数据结构优先
  * @func: 各种Agent Response结构体定义
@@ -24,33 +24,33 @@ type RegisterAgentResponse struct {
 // AgentInfo Agent信息结构
 // 用于返回Agent的详细信息，包含基础信息和状态
 type AgentInfo struct {
-	ID                uint        `json:"id"`                  // 数据库主键ID
-	AgentID           string      `json:"agent_id"`            // Agent唯一标识ID
-	Hostname          string      `json:"hostname"`            // 主机名
-	IPAddress         string      `json:"ip_address"`          // IP地址
-	Port              int         `json:"port"`                // Agent服务端口
-	Version           string      `json:"version"`             // Agent版本号
-	Status            AgentStatus `json:"status"`              // Agent状态
-	OS                string      `json:"os"`                  // 操作系统
-	Arch              string      `json:"arch"`                // 系统架构
-	CPUCores          int         `json:"cpu_cores"`           // CPU核心数
-	MemoryTotal       int64       `json:"memory_total"`        // 总内存大小(字节)
-	DiskTotal         int64       `json:"disk_total"`          // 总磁盘大小(字节)
-	Capabilities      []string    `json:"capabilities"`        // Agent支持的功能模块列表
-	Tags              []string    `json:"tags"`                // Agent标签列表
-	LastHeartbeat     time.Time   `json:"last_heartbeat"`      // 最后心跳时间
-	ResultLatestTime  *time.Time  `json:"result_latest_time"`  // 最新返回结果时间
-	Remark            string      `json:"remark"`              // 备注信息
-	ContainerID       string      `json:"container_id"`        // 容器ID
-	PID               int         `json:"pid"`                 // 进程ID
-	CreatedAt         time.Time   `json:"created_at"`          // 创建时间
-	UpdatedAt         time.Time   `json:"updated_at"`          // 更新时间
+	ID               uint        `json:"id"`                 // 数据库主键ID
+	AgentID          string      `json:"agent_id"`           // Agent唯一标识ID
+	Hostname         string      `json:"hostname"`           // 主机名
+	IPAddress        string      `json:"ip_address"`         // IP地址
+	Port             int         `json:"port"`               // Agent服务端口
+	Version          string      `json:"version"`            // Agent版本号
+	Status           AgentStatus `json:"status"`             // Agent状态
+	OS               string      `json:"os"`                 // 操作系统
+	Arch             string      `json:"arch"`               // 系统架构
+	CPUCores         int         `json:"cpu_cores"`          // CPU核心数
+	MemoryTotal      int64       `json:"memory_total"`       // 总内存大小(字节)
+	DiskTotal        int64       `json:"disk_total"`         // 总磁盘大小(字节)
+	Capabilities     []string    `json:"capabilities"`       // Agent支持的功能模块列表
+	Tags             []string    `json:"tags"`               // Agent标签列表
+	LastHeartbeat    time.Time   `json:"last_heartbeat"`     // 最后心跳时间
+	ResultLatestTime *time.Time  `json:"result_latest_time"` // 最新返回结果时间
+	Remark           string      `json:"remark"`             // 备注信息
+	ContainerID      string      `json:"container_id"`       // 容器ID
+	PID              int         `json:"pid"`                // 进程ID
+	CreatedAt        time.Time   `json:"created_at"`         // 创建时间
+	UpdatedAt        time.Time   `json:"updated_at"`         // 更新时间
 }
 
 // GetAgentListResponse 获取Agent列表响应结构
 // 包含Agent列表和分页信息
 type GetAgentListResponse struct {
-	Agents     []*AgentInfo       `json:"agents"`     // Agent列表
+	Agents     []*AgentInfo        `json:"agents"`     // Agent列表
 	Pagination *PaginationResponse `json:"pagination"` // 分页信息
 }
 
@@ -66,20 +66,20 @@ type PaginationResponse struct {
 // AgentMetricsResponse Agent性能指标响应结构
 // 返回Agent的实时性能数据
 type AgentMetricsResponse struct {
-	AgentID           string                 `json:"agent_id"`            // Agent唯一标识ID
-	CPUUsage          float64                `json:"cpu_usage"`           // CPU使用率(百分比)
-	MemoryUsage       float64                `json:"memory_usage"`        // 内存使用率(百分比)
-	DiskUsage         float64                `json:"disk_usage"`          // 磁盘使用率(百分比)
-	NetworkBytesSent  int64                  `json:"network_bytes_sent"`  // 网络发送字节数
-	NetworkBytesRecv  int64                  `json:"network_bytes_recv"`  // 网络接收字节数
-	ActiveConnections int                    `json:"active_connections"`  // 活动连接数
-	RunningTasks      int                    `json:"running_tasks"`       // 正在运行的任务数
-	CompletedTasks    int                    `json:"completed_tasks"`     // 已完成任务数
-	FailedTasks       int                    `json:"failed_tasks"`        // 失败任务数
-	WorkStatus        AgentWorkStatus        `json:"work_status"`         // 工作状态
-	ScanType          string                 `json:"scan_type"`           // 当前扫描类型
-	PluginStatus      map[string]interface{} `json:"plugin_status"`       // 插件状态信息
-	Timestamp         time.Time              `json:"timestamp"`           // 指标时间戳
+	AgentID           string                 `json:"agent_id"`           // Agent唯一标识ID
+	CPUUsage          float64                `json:"cpu_usage"`          // CPU使用率(百分比)
+	MemoryUsage       float64                `json:"memory_usage"`       // 内存使用率(百分比)
+	DiskUsage         float64                `json:"disk_usage"`         // 磁盘使用率(百分比)
+	NetworkBytesSent  int64                  `json:"network_bytes_sent"` // 网络发送字节数
+	NetworkBytesRecv  int64                  `json:"network_bytes_recv"` // 网络接收字节数
+	ActiveConnections int                    `json:"active_connections"` // 活动连接数
+	RunningTasks      int                    `json:"running_tasks"`      // 正在运行的任务数
+	CompletedTasks    int                    `json:"completed_tasks"`    // 已完成任务数
+	FailedTasks       int                    `json:"failed_tasks"`       // 失败任务数
+	WorkStatus        AgentWorkStatus        `json:"work_status"`        // 工作状态
+	ScanType          string                 `json:"scan_type"`          // 当前扫描类型
+	PluginStatus      map[string]interface{} `json:"plugin_status"`      // 插件状态信息
+	Timestamp         time.Time              `json:"timestamp"`          // 指标时间戳
 }
 
 // AgentConfigResponse Agent配置响应结构
@@ -123,13 +123,13 @@ type AgentTaskAssignmentResponse struct {
 // AgentGroupResponse Agent分组响应结构
 // 返回分组信息
 type AgentGroupResponse struct {
-	ID          uint      `json:"id"`           // 数据库主键ID
-	GroupID     string    `json:"group_id"`     // 分组ID
-	Name        string    `json:"name"`         // 分组名称
-	Description string    `json:"description"`  // 分组描述
-	Tags        []string  `json:"tags"`         // 分组标签列表
-	CreatedAt   time.Time `json:"created_at"`   // 创建时间
-	UpdatedAt   time.Time `json:"updated_at"`   // 更新时间
+	ID          uint      `json:"id"`          // 数据库主键ID
+	GroupID     string    `json:"group_id"`    // 分组ID
+	Name        string    `json:"name"`        // 分组名称
+	Description string    `json:"description"` // 分组描述
+	Tags        []string  `json:"tags"`        // 分组标签列表
+	CreatedAt   time.Time `json:"created_at"`  // 创建时间
+	UpdatedAt   time.Time `json:"updated_at"`  // 更新时间
 }
 
 // AgentVersionResponse Agent版本响应结构
@@ -149,10 +149,10 @@ type AgentVersionResponse struct {
 // HeartbeatResponse 心跳响应结构
 // 返回心跳处理结果
 type HeartbeatResponse struct {
-	AgentID   string    `json:"agent_id"`   // Agent唯一标识ID
-	Status    string    `json:"status"`     // 处理状态
-	Message   string    `json:"message"`    // 响应消息
-	Timestamp time.Time `json:"timestamp"`  // 响应时间戳
+	AgentID   string    `json:"agent_id"`  // Agent唯一标识ID
+	Status    string    `json:"status"`    // 处理状态
+	Message   string    `json:"message"`   // 响应消息
+	Timestamp time.Time `json:"timestamp"` // 响应时间戳
 }
 
 // AgentDeleteResponse Agent删除响应结构

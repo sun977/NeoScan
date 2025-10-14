@@ -1,6 +1,6 @@
 /**
  * 服务层:Agent管理服务
- * @author: Linus-style implementation
+ * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent管理核心业务逻辑，遵循"好品味"原则 - 简洁而强大
  * @func: Agent注册、状态管理、心跳处理、配置推送等核心功能

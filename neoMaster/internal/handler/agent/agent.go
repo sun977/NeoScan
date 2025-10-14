@@ -1,6 +1,6 @@
 /**
  * Agent处理器层:Agent HTTP请求处理
- * @author: Linus-style implementation
+ * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent控制器层，处理HTTP请求和响应，遵循RESTful API设计
  * @func: HTTP请求处理，遵循"好品味"原则 - 统一的错误处理，简洁的响应格式

@@ -1,7 +1,7 @@
 /**
  * 处理器:规则引擎处理器
- * @author: Linus Torvalds (AI Assistant)
- * @date: 2025.01.11
+ * @author: Sun977
+ * @date: 2025.10.11
  * @description: 规则引擎管理处理器，提供规则引擎的执行、管理、监控等功能
  * @func: 处理规则引擎相关的HTTP请求
  */

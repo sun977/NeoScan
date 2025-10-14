@@ -1,6 +1,6 @@
 /*
  * 项目配置处理器：项目配置HTTP接口处理
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.01.27
  * @description: 处理项目配置相关的HTTP请求和响应
  * @func:

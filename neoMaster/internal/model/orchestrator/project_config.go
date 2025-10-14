@@ -1,6 +1,6 @@
 /**
  * 模型:项目配置模型
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 扫描项目配置数据模型，遵循"好品味"设计原则 - 简洁、无特殊情况、数据结构优先
  * @func: ProjectConfig 结构体及相关方法

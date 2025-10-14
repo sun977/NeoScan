@@ -1,6 +1,6 @@
 /**
  * 测试:Agent功能单元测试
- * @author: Linus-style implementation
+ * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent核心功能的单元测试，遵循"好品味"原则 - 简洁、全面、可靠
  * @func: 测试Agent注册、心跳、状态更新、列表查询等核心功能

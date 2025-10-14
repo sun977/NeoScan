@@ -1,6 +1,6 @@
 /*
  * 工作流配置仓库层：工作流配置数据访问
- * @author: Linus-inspired AI
+ * @author: Sun977
  * @date: 2025.10.11
  * @description: 单纯数据访问，不应该包含业务逻辑
  * @func:
@@ -70,7 +70,7 @@ func NewWorkflowConfigRepository(db *gorm.DB) *WorkflowConfigRepository {
 func (r *WorkflowConfigRepository) CreateWorkflowConfig(ctx context.Context, config *orchestrator.WorkflowConfig) error {
 	config.CreatedAt = time.Now()
 	config.UpdatedAt = time.Now()
-	
+
 	err := r.db.WithContext(ctx).Create(config).Error
 	if err != nil {
 		// 记录创建失败日志
@@ -121,11 +121,11 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigByID(ctx context.Context, id
 func (r *WorkflowConfigRepository) GetWorkflowConfigByName(ctx context.Context, name string, projectID *uint) (*orchestrator.WorkflowConfig, error) {
 	var config orchestrator.WorkflowConfig
 	query := r.db.WithContext(ctx).Where("name = ?", name)
-	
+
 	if projectID != nil {
 		query = query.Where("project_config_id = ?", *projectID)
 	}
-	
+
 	err := query.First(&config).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -198,19 +198,19 @@ func (r *WorkflowConfigRepository) DeleteWorkflowConfig(ctx context.Context, id 
 func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, offset, limit int, projectID *uint, status *orchestrator.WorkflowStatus) ([]*orchestrator.WorkflowConfig, int64, error) {
 	var configs []*orchestrator.WorkflowConfig
 	var total int64
-	
+
 	query := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{})
-	
+
 	// 项目ID过滤
 	if projectID != nil {
 		query = query.Where("project_config_id = ?", *projectID)
 	}
-	
+
 	// 状态过滤
 	if status != nil {
 		query = query.Where("status = ?", *status)
 	}
-	
+
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
@@ -219,7 +219,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, of
 		})
 		return nil, 0, err
 	}
-	
+
 	// 获取分页数据
 	err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&configs).Error
 	if err != nil {
@@ -231,7 +231,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, of
 		})
 		return nil, 0, err
 	}
-	
+
 	return configs, total, nil
 }
 
@@ -277,11 +277,11 @@ func (r *WorkflowConfigRepository) GetActiveWorkflowConfigs(ctx context.Context)
 func (r *WorkflowConfigRepository) WorkflowConfigExists(ctx context.Context, name string, projectID *uint) (bool, error) {
 	var count int64
 	query := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("name = ?", name)
-	
+
 	if projectID != nil {
 		query = query.Where("project_config_id = ?", *projectID)
 	}
-	
+
 	err := query.Count(&count).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "workflow_config_exists", "GET", map[string]interface{}{
@@ -361,22 +361,22 @@ func (r *WorkflowConfigRepository) DisableWorkflowConfig(ctx context.Context, id
 // @return 错误信息
 func (r *WorkflowConfigRepository) UpdateWorkflowConfigStats(ctx context.Context, id uint, executionCount, successCount, failureCount int, avgExecutionTime float64) error {
 	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"execution_count":      executionCount,
-		"success_count":        successCount,
-		"failure_count":        failureCount,
-		"avg_execution_time":   avgExecutionTime,
-		"last_execution_time":  time.Now(),
-		"updated_at":           time.Now(),
+		"execution_count":     executionCount,
+		"success_count":       successCount,
+		"failure_count":       failureCount,
+		"avg_execution_time":  avgExecutionTime,
+		"last_execution_time": time.Now(),
+		"updated_at":          time.Now(),
 	}).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
-			"operation":           "update_workflow_config_stats",
-			"config_id":           id,
-			"execution_count":     executionCount,
-			"success_count":       successCount,
-			"failure_count":       failureCount,
-			"avg_execution_time":  avgExecutionTime,
-			"timestamp":           logger.NowFormatted(),
+			"operation":          "update_workflow_config_stats",
+			"config_id":          id,
+			"execution_count":    executionCount,
+			"success_count":      successCount,
+			"failure_count":      failureCount,
+			"avg_execution_time": avgExecutionTime,
+			"timestamp":          logger.NowFormatted(),
 		})
 		return err
 	}
@@ -395,18 +395,18 @@ func (r *WorkflowConfigRepository) IncrementExecutionCount(ctx context.Context, 
 		"last_execution_time": time.Now(),
 		"updated_at":          time.Now(),
 	}
-	
+
 	if success {
 		updates["success_count"] = gorm.Expr("success_count + 1")
 	} else {
 		updates["failure_count"] = gorm.Expr("failure_count + 1")
 	}
-	
+
 	// 更新平均执行时间（简化计算，实际应该考虑历史数据）
 	if executionTime > 0 {
 		updates["avg_execution_time"] = executionTime
 	}
-	
+
 	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(updates).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{

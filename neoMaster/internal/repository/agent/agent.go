@@ -1,6 +1,6 @@
 /**
  * Agent仓库层:Agent数据访问
- * @author: Linus-style implementation
+ * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent数据访问层，专注于数据操作，不包含业务逻辑
  * @func: 单纯数据访问，遵循"好品味"原则 - 数据结构优先，消除特殊情况
@@ -54,7 +54,7 @@ func (r *agentRepository) Create(agentData *agentModel.Agent) error {
 	// 设置创建时间
 	agentData.CreatedAt = time.Now()
 	agentData.UpdatedAt = time.Now()
-	
+
 	result := r.db.Create(agentData)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", 0, "", "repository.agent.Create", "", map[string]interface{}{
@@ -66,7 +66,7 @@ func (r *agentRepository) Create(agentData *agentModel.Agent) error {
 		})
 		return result.Error
 	}
-	
+
 	logger.LogInfo("Agent记录创建成功", "", 0, "", "repository.agent.Create", "", map[string]interface{}{
 		"operation": "create_agent",
 		"option":    "agentRepository.Create",
@@ -74,7 +74,7 @@ func (r *agentRepository) Create(agentData *agentModel.Agent) error {
 		"agent_id":  agentData.AgentID,
 		"hostname":  agentData.Hostname,
 	})
-	
+
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (r *agentRepository) Create(agentData *agentModel.Agent) error {
 // 返回: *agentModel.Agent - Agent数据, error - 错误信息
 func (r *agentRepository) GetByID(agentID string) (*agentModel.Agent, error) {
 	var agentData agentModel.Agent
-	
+
 	result := r.db.Where("agent_id = ?", agentID).First(&agentData)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
@@ -97,7 +97,7 @@ func (r *agentRepository) GetByID(agentID string) (*agentModel.Agent, error) {
 		})
 		return nil, result.Error
 	}
-	
+
 	return &agentData, nil
 }
 
@@ -106,7 +106,7 @@ func (r *agentRepository) GetByID(agentID string) (*agentModel.Agent, error) {
 // 返回: *agentModel.Agent - Agent数据, error - 错误信息
 func (r *agentRepository) GetByHostname(hostname string) (*agentModel.Agent, error) {
 	var agentData agentModel.Agent
-	
+
 	result := r.db.Where("hostname = ?", hostname).First(&agentData)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
@@ -120,7 +120,7 @@ func (r *agentRepository) GetByHostname(hostname string) (*agentModel.Agent, err
 		})
 		return nil, result.Error
 	}
-	
+
 	return &agentData, nil
 }
 
@@ -130,7 +130,7 @@ func (r *agentRepository) GetByHostname(hostname string) (*agentModel.Agent, err
 func (r *agentRepository) Update(agentData *agentModel.Agent) error {
 	// 设置更新时间
 	agentData.UpdatedAt = time.Now()
-	
+
 	result := r.db.Save(agentData)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", 0, "", "repository.agent.Update", "", map[string]interface{}{
@@ -142,7 +142,7 @@ func (r *agentRepository) Update(agentData *agentModel.Agent) error {
 		})
 		return result.Error
 	}
-	
+
 	logger.LogInfo("Agent记录更新成功", "", 0, "", "repository.agent.Update", "", map[string]interface{}{
 		"operation": "update_agent",
 		"option":    "agentRepository.Update",
@@ -150,7 +150,7 @@ func (r *agentRepository) Update(agentData *agentModel.Agent) error {
 		"agent_id":  agentData.AgentID,
 		"hostname":  agentData.Hostname,
 	})
-	
+
 	return nil
 }
 
@@ -164,7 +164,7 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 			"status":     status,
 			"updated_at": time.Now(),
 		})
-	
+
 	if result.Error != nil {
 		logger.LogError(result.Error, "", 0, "", "repository.agent.UpdateStatus", "", map[string]interface{}{
 			"operation": "update_agent_status",
@@ -175,7 +175,7 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 		})
 		return result.Error
 	}
-	
+
 	logger.LogInfo("Agent状态更新成功", "", 0, "", "repository.agent.UpdateStatus", "", map[string]interface{}{
 		"operation": "update_agent_status",
 		"option":    "agentRepository.UpdateStatus",
@@ -183,7 +183,7 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 		"agent_id":  agentID,
 		"status":    string(status),
 	})
-	
+
 	return nil
 }
 
@@ -232,7 +232,7 @@ func (r *agentRepository) Delete(agentID string) error {
 		})
 		return result.Error
 	}
-	
+
 	if result.RowsAffected == 0 {
 		logger.LogInfo("Agent记录不存在，无需删除", "", 0, "", "repository.agent.Delete", "", map[string]interface{}{
 			"operation": "delete_agent",
@@ -242,14 +242,14 @@ func (r *agentRepository) Delete(agentID string) error {
 		})
 		return nil // 不存在也不算错误
 	}
-	
+
 	logger.LogInfo("Agent记录删除成功", "", 0, "", "repository.agent.Delete", "", map[string]interface{}{
 		"operation": "delete_agent",
 		"option":    "agentRepository.Delete",
 		"func_name": "repository.agent.Delete",
 		"agent_id":  agentID,
 	})
-	
+
 	return nil
 }
 
@@ -262,12 +262,12 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 
 	// 构建查询条件
 	query := r.db.Model(&agentModel.Agent{})
-	
+
 	// 状态过滤
 	if status != nil {
 		query = query.Where("status = ?", *status)
 	}
-	
+
 	// 标签过滤（简单实现，实际可能需要更复杂的JSON查询）
 	if len(tags) > 0 {
 		for _, tag := range tags {
@@ -314,7 +314,7 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 // 返回: []*agentModel.Agent - Agent列表, error - 错误信息
 func (r *agentRepository) GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error) {
 	var agents []*agentModel.Agent
-	
+
 	result := r.db.Where("status = ?", status).Find(&agents)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", 0, "", "repository.agent.GetByStatus", "", map[string]interface{}{
@@ -325,6 +325,6 @@ func (r *agentRepository) GetByStatus(status agentModel.AgentStatus) ([]*agentMo
 		})
 		return nil, result.Error
 	}
-	
+
 	return agents, nil
 }

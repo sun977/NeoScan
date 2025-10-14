@@ -38,7 +38,6 @@ import (
 	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 // ProjectConfigHandler 项目配置处理器结构体
@@ -140,7 +139,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "create_project_config", "创建项目配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "create_project_config", "创建项目配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":    "create_project_config",
 		"option":       "success",
 		"func_name":    "handler.orchestrator.project_config.CreateProjectConfig",
@@ -227,7 +226,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "get_project_config", "获取项目配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "get_project_config", "获取项目配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":    "get_project_config",
 		"option":       "success",
 		"func_name":    "handler.orchestrator.project_config.GetProjectConfig",
@@ -365,7 +364,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "update_project_config", "更新项目配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "update_project_config", "更新项目配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":    "update_project_config",
 		"option":       "success",
 		"func_name":    "handler.orchestrator.project_config.UpdateProjectConfig",
@@ -452,7 +451,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "delete_project_config", "删除项目配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "delete_project_config", "删除项目配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "delete_project_config",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.project_config.DeleteProjectConfig",
@@ -541,7 +540,7 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "list_project_configs", "获取项目配置列表成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "list_project_configs", "获取项目配置列表成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "list_project_configs",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.project_config.ListProjectConfigs",
@@ -653,7 +652,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "reload_project_config", "重新加载项目配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "reload_project_config", "重新加载项目配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "reload_project_config",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.project_config.ReloadProjectConfig",
@@ -738,7 +737,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "sync_project_config", "同步项目配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "sync_project_config", "同步项目配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "sync_project_config",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.project_config.SyncProjectConfig",
@@ -828,7 +827,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "update_project_config_status", "更新项目配置状态成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "update_project_config_status", "更新项目配置状态成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  operation,
 		"option":     "success",
 		"func_name":  "handler.orchestrator.project_config.updateProjectConfigStatus",
@@ -909,7 +908,7 @@ func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "get_system_scan_config", "获取系统扫描配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "get_system_scan_config", "获取系统扫描配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_scan_config",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.project_config.GetSystemScanConfig",
@@ -981,7 +980,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("project_config_handler", "update_system_scan_config", "更新系统扫描配置成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("project_config_handler", "update_system_scan_config", "更新系统扫描配置成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "update_system_scan_config",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.project_config.UpdateSystemScanConfig",

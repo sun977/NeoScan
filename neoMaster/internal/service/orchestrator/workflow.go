@@ -48,8 +48,6 @@ import (
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	scanConfigRepo "neomaster/internal/repository/orchestrator"
-
-	"github.com/sirupsen/logrus"
 )
 
 // WorkflowService 工作流服务结构体
@@ -437,7 +435,7 @@ func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) err
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("SERVICE", "delete_workflow_config", "删除工作流配置", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "delete_workflow_config", "删除工作流配置", logger.InfoLevel, map[string]interface{}{
 		"operation":     "delete_workflow_config",
 		"workflow_name": config.Name,
 		"workflow_id":   id,
@@ -521,7 +519,7 @@ func (s *WorkflowService) ExecuteWorkflow(ctx context.Context, id uint, params m
 	}
 
 	// 记录执行日志
-	logger.LogSystemEvent("SERVICE", "execute_workflow", "执行工作流", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "execute_workflow", "执行工作流", logger.InfoLevel, map[string]interface{}{
 		"operation":     "execute_workflow",
 		"workflow_name": config.Name,
 		"workflow_id":   id,
@@ -548,7 +546,7 @@ func (s *WorkflowService) StopWorkflow(ctx context.Context, executionID string) 
 	// 3. 更新执行状态
 	// 4. 清理资源
 
-	logger.LogSystemEvent("SERVICE", "stop_workflow", "停止工作流", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "stop_workflow", "停止工作流", logger.InfoLevel, map[string]interface{}{
 		"operation":    "stop_workflow",
 		"execution_id": executionID,
 		"status":       "stopped",
@@ -569,7 +567,7 @@ func (s *WorkflowService) PauseWorkflow(ctx context.Context, executionID string)
 
 	// TODO: 实现暂停工作流逻辑
 
-	logger.LogSystemEvent("SERVICE", "pause_workflow", "暂停工作流", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "pause_workflow", "暂停工作流", logger.InfoLevel, map[string]interface{}{
 		"operation":    "pause_workflow",
 		"execution_id": executionID,
 		"status":       "paused",
@@ -590,7 +588,7 @@ func (s *WorkflowService) ResumeWorkflow(ctx context.Context, executionID string
 
 	// TODO: 实现恢复工作流逻辑
 
-	logger.LogSystemEvent("SERVICE", "resume_workflow", "恢复工作流", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "resume_workflow", "恢复工作流", logger.InfoLevel, map[string]interface{}{
 		"operation":    "resume_workflow",
 		"execution_id": executionID,
 		"status":       "resumed",
@@ -616,7 +614,7 @@ func (s *WorkflowService) RetryWorkflow(ctx context.Context, executionID string)
 
 	newExecutionID := fmt.Sprintf("retry_%s_%d", executionID, time.Now().Unix())
 
-	logger.LogSystemEvent("SERVICE", "retry_workflow", "重试工作流", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "retry_workflow", "重试工作流", logger.InfoLevel, map[string]interface{}{
 		"operation":        "retry_workflow",
 		"original_exec_id": executionID,
 		"new_exec_id":      newExecutionID,

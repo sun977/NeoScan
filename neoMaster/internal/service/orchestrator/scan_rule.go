@@ -807,7 +807,7 @@ func (s *ScanRuleService) UpdateScanRuleStats(ctx context.Context, id uint, matc
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_rule", "update_scan_rule_stats", "更新扫描规则统计成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_rule", "update_scan_rule_stats", "更新扫描规则统计成功", logger.InfoLevel, map[string]interface{}{
 		"operation": "update_scan_rule_stats",
 		"rule_id":   id,
 		"matched":   matched,
@@ -991,7 +991,7 @@ func (s *ScanRuleService) GetScanRuleMetrics(ctx context.Context, id uint) (map[
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_rule", "get_scan_rule_metrics", "获取扫描规则指标成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_rule", "get_scan_rule_metrics", "获取扫描规则指标成功", logger.InfoLevel, map[string]interface{}{
 		"operation": "get_scan_rule_metrics",
 		"rule_id":   id,
 		"status":    "success",
@@ -1124,7 +1124,7 @@ func (s *ScanRuleService) ImportScanRules(ctx context.Context, rules []*orchestr
 		"imported_at":   time.Now(),
 	}
 
-	logger.LogSystemEvent("scan_rule", "import_scan_rules", "导入扫描规则成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_rule", "import_scan_rules", "导入扫描规则成功", logger.InfoLevel, map[string]interface{}{
 		"operation":     "import_scan_rules",
 		"total_count":   len(rules),
 		"success_count": successCount,
@@ -1152,7 +1152,7 @@ func (s *ScanRuleService) ExportScanRules(ctx context.Context, ruleType *orchest
 		return nil, fmt.Errorf("获取扫描规则列表失败: %w", err)
 	}
 
-	logger.LogSystemEvent("scan_rule", "export_scan_rules", "导出扫描规则成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_rule", "export_scan_rules", "导出扫描规则成功", logger.InfoLevel, map[string]interface{}{
 		"operation":   "export_scan_rules",
 		"rules_count": len(rules),
 		"timestamp":   logger.NowFormatted(),

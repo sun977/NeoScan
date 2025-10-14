@@ -302,17 +302,20 @@ func LogWarn(message string, requestID string, userID uint, clientIP, path, meth
 
 // LogSystemEvent 记录系统事件日志
 // 用于记录系统启动、关闭、组件状态变化等系统级事件
-func LogSystemEvent(component, event, message string, level logrus.Level, extraFields map[string]interface{}) {
+func LogSystemEvent(component, event, message string, level LogLevel, extraFields map[string]interface{}) {
 	if LoggerInstance == nil {
 		return
 	}
+
+	// 转换为logrus级别
+	logrusLevel := toLogrusLevel(level)
 
 	// 构建系统日志条目（移除未使用的Timestamp字段）
 	entry := SystemLogEntry{
 		Component: component,
 		Event:     event,
 		Message:   message,
-		Level:     level.String(),
+		Level:     logrusLevel.String(),
 	}
 
 	// 构建日志字段（移除重复的timestamp字段，使用logrus自带的时间戳）
@@ -330,7 +333,7 @@ func LogSystemEvent(component, event, message string, level logrus.Level, extraF
 	}
 
 	// 根据级别记录日志
-	switch level {
+	switch logrusLevel {
 	case logrus.DebugLevel:
 		LoggerInstance.logger.WithFields(fields).Debug(fmt.Sprintf("System event: %s - %s", component, event))
 	case logrus.InfoLevel:
@@ -422,4 +425,39 @@ func LogHTTPRequest(r *http.Request, statusCode int, responseTime time.Duration,
 		"request_id":    entry.RequestID,
 		"request_size":  entry.RequestSize,
 	}).Info("HTTP request processed")
+}
+
+// LogLevel 日志级别类型，封装logrus.Level避免Handler层直接依赖logrus
+type LogLevel int
+
+const (
+// DebugLevel 调试级别
+DebugLevel LogLevel = iota
+// InfoLevel 信息级别
+InfoLevel
+// WarnLevel 警告级别
+WarnLevel
+// ErrorLevel 错误级别
+ErrorLevel
+// FatalLevel 致命错误级别
+FatalLevel
+)
+
+// toLogrusLevel 将封装的LogLevel转换为logrus.Level
+// 这是内部函数，外部不应该直接使用logrus
+func toLogrusLevel(level LogLevel) logrus.Level {
+	switch level {
+	case DebugLevel:
+		return logrus.DebugLevel
+	case InfoLevel:
+		return logrus.InfoLevel
+	case WarnLevel:
+		return logrus.WarnLevel
+	case ErrorLevel:
+		return logrus.ErrorLevel
+	case FatalLevel:
+		return logrus.FatalLevel
+	default:
+		return logrus.InfoLevel
+	}
 }

@@ -17,10 +17,10 @@ import (
 	"sync"
 	"time"
 
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 // RateLimiter 限流器接口
@@ -152,14 +152,12 @@ func (m *MiddlewareManager) GinRateLimitMiddlewareWithLimiter(limiter RateLimite
 		// 检查是否允许请求
 		if !limiter.Allow(clientIP) {
 			// 记录限流日志
-			logrus.WithFields(logrus.Fields{
-				"path":      c.Request.URL.Path,
+			logger.LogWarn("Rate limit exceeded for client", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 				"operation": "rate_limit_exceeded",
 				"option":    "block_request",
 				"func_name": "middleware.ratelimit.GinRateLimitMiddlewareWithLimiter",
-				"client_ip": clientIP,
 				"method":    c.Request.Method,
-			}).Warn("Rate limit exceeded for client")
+			})
 
 			// 返回限流错误
 			c.JSON(http.StatusTooManyRequests, gin.H{
@@ -172,13 +170,11 @@ func (m *MiddlewareManager) GinRateLimitMiddlewareWithLimiter(limiter RateLimite
 		}
 
 		// 记录通过限流的日志
-		logrus.WithFields(logrus.Fields{
-			"path":      c.Request.URL.Path,
+		logger.LogInfo("Request passed rate limit check", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 			"operation": "rate_limit_check",
 			"option":    "allow_request",
 			"func_name": "middleware.ratelimit.GinRateLimitMiddlewareWithLimiter",
-			"client_ip": clientIP,
-		}).Debug("Request passed rate limit check")
+		})
 
 		// 继续处理请求
 		c.Next()
@@ -208,14 +204,12 @@ func (m *MiddlewareManager) GinAuthRateLimitMiddleware() gin.HandlerFunc {
 
 		if !limiter.Allow(key) {
 			// 记录认证限流日志
-			logrus.WithFields(logrus.Fields{
-				"path":      c.Request.URL.Path,
+			logger.LogWarn("Authentication rate limit exceeded", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 				"operation": "auth_rate_limit_exceeded",
 				"option":    "block_auth_request",
 				"func_name": "middleware.ratelimit.GinAuthRateLimitMiddleware",
-				"client_ip": clientIP,
 				"method":    c.Request.Method,
-			}).Warn("Authentication rate limit exceeded")
+			})
 
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":   "Authentication rate limit exceeded",
@@ -227,13 +221,11 @@ func (m *MiddlewareManager) GinAuthRateLimitMiddleware() gin.HandlerFunc {
 		}
 
 		// 记录通过认证限流的日志
-		logrus.WithFields(logrus.Fields{
-			"path":      c.Request.URL.Path,
+		logger.LogInfo("Authentication request passed rate limit check", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 			"operation": "auth_rate_limit_check",
 			"option":    "allow_auth_request",
 			"func_name": "middleware.ratelimit.GinAuthRateLimitMiddleware",
-			"client_ip": clientIP,
-		}).Debug("Authentication request passed rate limit check")
+		})
 
 		c.Next()
 	}
@@ -262,15 +254,13 @@ func (m *MiddlewareManager) GinUserBasedRateLimitMiddleware() gin.HandlerFunc {
 
 		if !limiter.Allow(key) {
 			// 记录用户限流日志
-			logrus.WithFields(logrus.Fields{
-				"path":      c.Request.URL.Path,
+			logger.LogWarn("User-based rate limit exceeded", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 				"operation": "user_rate_limit_exceeded",
 				"option":    "block_user_request",
 				"func_name": "middleware.ratelimit.GinUserBasedRateLimitMiddleware",
 				"user_id":   userID,
-				"client_ip": clientIP,
 				"key":       key,
-			}).Warn("User-based rate limit exceeded")
+			})
 
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":   "User rate limit exceeded",
@@ -282,14 +272,13 @@ func (m *MiddlewareManager) GinUserBasedRateLimitMiddleware() gin.HandlerFunc {
 		}
 
 		// 记录通过用户限流的日志
-		logrus.WithFields(logrus.Fields{
-			"path":      c.Request.URL.Path,
+		logger.LogInfo("User request passed rate limit check", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
 			"operation": "user_rate_limit_check",
 			"option":    "allow_user_request",
 			"func_name": "middleware.ratelimit.GinUserBasedRateLimitMiddleware",
 			"user_id":   userID,
 			"key":       key,
-		}).Debug("User request passed rate limit check")
+		})
 
 		c.Next()
 	}

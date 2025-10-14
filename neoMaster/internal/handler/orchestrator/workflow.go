@@ -44,7 +44,6 @@ import (
 	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 // WorkflowHandler 工作流处理器结构体
@@ -146,7 +145,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "create_workflow", "创建工作流成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "create_workflow", "创建工作流成功", logger.InfoLevel, map[string]interface{}{
 		"operation":     "create_workflow",
 		"option":        "success",
 		"func_name":     "handler.orchestrator.workflow.CreateWorkflow",
@@ -233,7 +232,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "get_workflow", "获取工作流成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "get_workflow", "获取工作流成功", logger.InfoLevel, map[string]interface{}{
 		"operation":     "get_workflow",
 		"option":        "success",
 		"func_name":     "handler.orchestrator.workflow.GetWorkflow",
@@ -371,7 +370,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "update_workflow", "更新工作流成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "update_workflow", "更新工作流成功", logger.InfoLevel, map[string]interface{}{
 		"operation":     "update_workflow",
 		"option":        "success",
 		"func_name":     "handler.orchestrator.workflow.UpdateWorkflow",
@@ -458,7 +457,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "delete_workflow", "删除工作流成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "delete_workflow", "删除工作流成功", logger.InfoLevel, map[string]interface{}{
 		"operation":   "delete_workflow",
 		"option":      "success",
 		"func_name":   "handler.orchestrator.workflow.DeleteWorkflow",
@@ -567,7 +566,7 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "list_workflows", "获取工作流列表成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "list_workflows", "获取工作流列表成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "list_workflows",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.workflow.ListWorkflows",
@@ -714,7 +713,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "get_workflow_status", "获取工作流状态成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "get_workflow_status", "获取工作流状态成功", logger.InfoLevel, map[string]interface{}{
 		"operation":   "get_workflow_status",
 		"option":      "success",
 		"func_name":   "handler.orchestrator.workflow.GetWorkflowStatus",
@@ -817,7 +816,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "get_workflow_logs", "获取工作流日志成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "get_workflow_logs", "获取工作流日志成功", logger.InfoLevel, map[string]interface{}{
 		"operation":   "get_workflow_logs",
 		"option":      "success",
 		"func_name":   "handler.orchestrator.workflow.GetWorkflowLogs",
@@ -914,7 +913,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "get_workflow_metrics", "获取工作流指标成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "get_workflow_metrics", "获取工作流指标成功", logger.InfoLevel, map[string]interface{}{
 		"operation":   "get_workflow_metrics",
 		"option":      "success",
 		"func_name":   "handler.orchestrator.workflow.GetWorkflowMetrics",
@@ -1017,7 +1016,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", action+"_workflow", message+"成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", action+"_workflow", message+"成功", logger.InfoLevel, map[string]interface{}{
 		"operation":   action + "_workflow",
 		"option":      "success",
 		"func_name":   "handler.orchestrator.workflow.controlWorkflow",
@@ -1115,7 +1114,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", operation, message+"成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", operation, message+"成功", logger.InfoLevel, map[string]interface{}{
 		"operation":   operation,
 		"option":      "success",
 		"func_name":   "handler.orchestrator.workflow.updateWorkflowStatus",
@@ -1251,7 +1250,7 @@ func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "get_system_scan_statistics", "获取系统扫描统计信息成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "get_system_scan_statistics", "获取系统扫描统计信息成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_scan_statistics",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.workflow.GetSystemScanStatistics",
@@ -1302,7 +1301,7 @@ func (h *WorkflowHandler) GetSystemPerformance(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("workflow_handler", "get_system_performance", "获取系统性能信息成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("workflow_handler", "get_system_performance", "获取系统性能信息成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_performance",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.workflow.GetSystemPerformance",

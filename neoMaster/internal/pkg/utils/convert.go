@@ -590,6 +590,120 @@ func SafeStringToFloat64(str string, min, max float64) (float64, error) {
 	return value, nil
 }
 
+// ==================== JSON数组转换 ====================
+
+// JSONArrayToStringSlice JSON数组字符串转字符串切片
+// 参数: jsonStr - JSON数组字符串，如 ["a","b","c"]
+// 返回: 字符串切片和错误信息
+// 用于处理MySQL JSON字段到Go切片的转换
+func JSONArrayToStringSlice(jsonStr string) ([]string, error) {
+	if jsonStr == "" || jsonStr == "null" {
+		return []string{}, nil
+	}
+
+	var result []string
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+		return nil, fmt.Errorf("JSON数组转字符串切片失败: %v", err)
+	}
+
+	return result, nil
+}
+
+// StringSliceToJSONArray 字符串切片转JSON数组字符串
+// 参数: slice - 字符串切片
+// 返回: JSON数组字符串和错误信息
+// 用于处理Go切片到MySQL JSON字段的转换
+func StringSliceToJSONArray(slice []string) (string, error) {
+	if slice == nil {
+		return "null", nil
+	}
+
+	if len(slice) == 0 {
+		return "[]", nil
+	}
+
+	bytes, err := json.Marshal(slice)
+	if err != nil {
+		return "", fmt.Errorf("字符串切片转JSON数组失败: %v", err)
+	}
+
+	return string(bytes), nil
+}
+
+// PostgreSQLArrayToStringSlice PostgreSQL数组格式转字符串切片
+// 参数: pgArray - PostgreSQL数组字符串，如 {a,b,c}
+// 返回: 字符串切片和错误信息
+// 用于处理PostgreSQL数组格式到Go切片的转换
+func PostgreSQLArrayToStringSlice(pgArray string) ([]string, error) {
+	if pgArray == "" || pgArray == "{}" {
+		return []string{}, nil
+	}
+
+	// 移除大括号
+	pgArray = strings.Trim(pgArray, "{}")
+	if pgArray == "" {
+		return []string{}, nil
+	}
+
+	// 按逗号分割
+	parts := strings.Split(pgArray, ",")
+	result := make([]string, len(parts))
+	
+	for i, part := range parts {
+		// 去除前后空格和引号
+		result[i] = strings.Trim(strings.TrimSpace(part), "\"")
+	}
+
+	return result, nil
+}
+
+// StringSliceToPostgreSQLArray 字符串切片转PostgreSQL数组格式
+// 参数: slice - 字符串切片
+// 返回: PostgreSQL数组字符串
+// 用于处理Go切片到PostgreSQL数组格式的转换
+func StringSliceToPostgreSQLArray(slice []string) string {
+	if slice == nil || len(slice) == 0 {
+		return "{}"
+	}
+
+	// 对每个元素进行引号包装（如果需要）
+	quoted := make([]string, len(slice))
+	for i, s := range slice {
+		// 如果字符串包含特殊字符，需要加引号
+		if strings.ContainsAny(s, " ,{}\"\\") {
+			quoted[i] = fmt.Sprintf("\"%s\"", strings.ReplaceAll(s, "\"", "\\\""))
+		} else {
+			quoted[i] = s
+		}
+	}
+
+	return fmt.Sprintf("{%s}", strings.Join(quoted, ","))
+}
+
+// ConvertJSONArrayToPostgreSQLArray JSON数组格式转PostgreSQL数组格式
+// 参数: jsonArray - JSON数组字符串，如 ["a","b","c"]
+// 返回: PostgreSQL数组字符串，如 {a,b,c}，和错误信息
+// 用于不同数据库格式之间的转换
+func ConvertJSONArrayToPostgreSQLArray(jsonArray string) (string, error) {
+	slice, err := JSONArrayToStringSlice(jsonArray)
+	if err != nil {
+		return "", err
+	}
+	return StringSliceToPostgreSQLArray(slice), nil
+}
+
+// ConvertPostgreSQLArrayToJSONArray PostgreSQL数组格式转JSON数组格式
+// 参数: pgArray - PostgreSQL数组字符串，如 {a,b,c}
+// 返回: JSON数组字符串，如 ["a","b","c"]，和错误信息
+// 用于不同数据库格式之间的转换
+func ConvertPostgreSQLArrayToJSONArray(pgArray string) (string, error) {
+	slice, err := PostgreSQLArrayToStringSlice(pgArray)
+	if err != nil {
+		return "", err
+	}
+	return StringSliceToJSONArray(slice)
+}
+
 // ==================== 特殊转换 ====================
 
 // BytesToString 字节数组转字符串

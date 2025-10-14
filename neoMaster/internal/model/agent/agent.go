@@ -8,9 +8,59 @@
 package agent
 
 import (
-	"neomaster/internal/model/basemodel"
+	"database/sql/driver"
+	"fmt"
 	"time"
+
+	"neomaster/internal/model/basemodel"
+	"neomaster/internal/pkg/utils"
 )
+
+// StringSlice 自定义字符串切片类型，用于处理JSON数组字段
+// 支持MySQL JSON格式和PostgreSQL数组格式的转换
+type StringSlice []string
+
+// Scan 实现sql.Scanner接口，用于从数据库读取数据
+// 参数: value - 数据库中的值
+// 返回: 错误信息
+// - Agent 表中有 capabilities 和 tags 字段，类型为 JSON (["port_scan", "vuln_scan", "web_scan"])
+// - 每次查询 Agent 数据时，GORM 都会调用 Scan 方法
+func (s *StringSlice) Scan(value interface{}) error {
+	if value == nil {
+		*s = StringSlice{}
+		return nil
+	}
+
+	var str string
+	switch v := value.(type) {
+	case string:
+		str = v
+	case []byte:
+		str = string(v)
+	default:
+		return fmt.Errorf("无法将 %T 转换为 StringSlice", value)
+	}
+
+	// 使用convert.go中的转换函数
+	slice, err := utils.JSONArrayToStringSlice(str)
+	if err != nil {
+		return fmt.Errorf("StringSlice.Scan 失败: %v", err)
+	}
+
+	*s = StringSlice(slice)
+	return nil
+}
+
+// Value 实现driver.Valuer接口，用于向数据库写入数据
+// 返回: 数据库值和错误信息
+func (s StringSlice) Value() (driver.Value, error) {
+	// 使用convert.go中的转换函数
+	jsonStr, err := utils.StringSliceToJSONArray([]string(s))
+	if err != nil {
+		return nil, fmt.Errorf("StringSlice.Value 失败: %v", err)
+	}
+	return jsonStr, nil
+}
 
 // Agent 状态枚举常量
 type AgentStatus string
@@ -72,8 +122,8 @@ type Agent struct {
 	Hostname  string      `json:"hostname" gorm:"size:255;comment:主机名"`
 	IPAddress string      `json:"ip_address" gorm:"size:45;comment:IP地址，支持IPv6"`
 	Port      int         `json:"port" gorm:"default:5772;comment:Agent服务端口"`
-	Version string      `json:"version" gorm:"size:50;comment:Agent版本号"`
-	Status  AgentStatus `json:"status" gorm:"default:offline;size:20;comment:Agent状态:online-在线,offline-离线,exception-异常,maintenance-维护"`
+	Version   string      `json:"version" gorm:"size:50;comment:Agent版本号"`
+	Status    AgentStatus `json:"status" gorm:"default:offline;size:20;comment:Agent状态:online-在线,offline-离线,exception-异常,maintenance-维护"`
 
 	// 静态系统信息
 	OS          string `json:"os" gorm:"size:50;comment:操作系统"`
@@ -83,11 +133,11 @@ type Agent struct {
 	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
 	// 能力和标签
-	Capabilities []string `json:"capabilities" gorm:"type:json;comment:Agent支持的功能模块列表"`
-	Tags         []string `json:"tags" gorm:"type:json;comment:Agent标签列表"`
+	Capabilities StringSlice `json:"capabilities" gorm:"type:json;comment:Agent支持的功能模块列表"`
+	Tags         StringSlice `json:"tags" gorm:"type:json;comment:Agent标签列表"`
 
 	// 安全认证字段
-	GRPCToken   string    `json:"grpc_token" gorm:"size:500;comment:gRPC通信Token"`
+	GRPCToken   string    `json:"grpc_token" gorm:"column:grpc_token;size:500;comment:gRPC通信Token"`
 	TokenExpiry time.Time `json:"token_expiry" gorm:"comment:Token过期时间"`
 
 	// 时间戳
@@ -99,7 +149,7 @@ type Agent struct {
 
 	// 容器相关信息(根据内存优化建议添加)【可选】
 	ContainerID string `json:"container_id" gorm:"size:100;comment:容器ID"`
-	PID         int    `json:"pid" gorm:"comment:进程ID"`
+	PID         int    `json:"pid" gorm:"column:pid;comment:进程ID"`
 }
 
 // IsActive 检查Agent是否处于在线活跃状态
@@ -313,9 +363,9 @@ type AgentMetrics struct {
 	ActiveConnections int                    `json:"active_connections" gorm:"comment:活动连接数"`
 	RunningTasks      int                    `json:"running_tasks" gorm:"comment:正在运行的任务数"`
 	CompletedTasks    int                    `json:"completed_tasks" gorm:"comment:已完成任务数"`
-	FailedTasks int             `json:"failed_tasks" gorm:"comment:失败任务数"`
-	WorkStatus  AgentWorkStatus `json:"work_status" gorm:"size:20;comment:工作状态:idle-空闲,working-工作中,exception-异常"`
-	ScanType    string          `json:"scan_type" gorm:"size:50;comment:当前扫描类型"`
+	FailedTasks       int                    `json:"failed_tasks" gorm:"comment:失败任务数"`
+	WorkStatus        AgentWorkStatus        `json:"work_status" gorm:"size:20;comment:工作状态:idle-空闲,working-工作中,exception-异常"`
+	ScanType          string                 `json:"scan_type" gorm:"size:50;comment:当前扫描类型"`
 	PluginStatus      map[string]interface{} `json:"plugin_status" gorm:"type:json;comment:插件状态信息"`
 	Timestamp         time.Time              `json:"timestamp" gorm:"index;comment:指标时间戳"`
 }

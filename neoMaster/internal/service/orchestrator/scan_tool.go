@@ -41,7 +41,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	scanConfigRepo "neomaster/internal/repository/orchestrator"
@@ -125,11 +124,11 @@ func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator
 
 	// 记录成功日志
 	logger.Info("create_scan_tool success", map[string]interface{}{
-		"operation":    "create_scan_tool",
-		"tool_name":    tool.Name,
-		"tool_id":      tool.ID,
-		"result":       "success",
-		"timestamp":    logger.NowFormatted(),
+		"operation": "create_scan_tool",
+		"tool_name": tool.Name,
+		"tool_id":   tool.ID,
+		"result":    "success",
+		"timestamp": logger.NowFormatted(),
 	})
 
 	return tool, nil
@@ -240,11 +239,11 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 
 	// 记录成功日志
 	logger.Info("update_scan_tool success", map[string]interface{}{
-		"operation":    "update_scan_tool",
-		"tool_name":    tool.Name,
-		"tool_id":      id,
-		"result":       "success",
-		"timestamp":    logger.NowFormatted(),
+		"operation": "update_scan_tool",
+		"tool_name": tool.Name,
+		"tool_id":   id,
+		"result":    "success",
+		"timestamp": logger.NowFormatted(),
 	})
 
 	return tool, nil
@@ -385,11 +384,11 @@ func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 
 	// 记录成功日志
 	logger.Info("delete_scan_tool success", map[string]interface{}{
-		"operation":    "delete_scan_tool",
-		"tool_name":    tool.Name,
-		"tool_id":      id,
-		"result":       "success",
-		"timestamp":    logger.NowFormatted(),
+		"operation": "delete_scan_tool",
+		"tool_name": tool.Name,
+		"tool_id":   id,
+		"result":    "success",
+		"timestamp": logger.NowFormatted(),
 	})
 
 	return nil
@@ -453,7 +452,7 @@ func (s *ScanToolService) CheckScanToolHealth(ctx context.Context, id uint) (map
 		"suggestions": []string{},
 	}
 
-	logger.LogSystemEvent("SERVICE", "check_scan_tool_health", "工具健康检查完成", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "check_scan_tool_health", "工具健康检查完成", logger.InfoLevel, map[string]interface{}{
 		"operation": "check_scan_tool_health",
 		"tool_name": tool.Name,
 		"tool_id":   id,
@@ -531,7 +530,7 @@ func (s *ScanToolService) ValidateScanToolConfig(ctx context.Context, tool *orch
 	if tool.MaxExecutionTime < 0 {
 		return errors.New("最大执行时间不能为负数")
 	}
-// 验证超时时间
+	// 验证超时时间
 	if tool.MaxExecutionTime < 0 {
 		return errors.New("最大执行时间不能为负数")
 	}
@@ -592,7 +591,7 @@ func (s *ScanToolService) UpdateScanToolUsage(ctx context.Context, id uint, succ
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("SERVICE", "update_scan_tool_usage", "更新工具使用统计", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "update_scan_tool_usage", "更新工具使用统计", logger.InfoLevel, map[string]interface{}{
 		"operation":      "update_scan_tool_usage",
 		"tool_id":        id,
 		"success":        success,
@@ -741,7 +740,7 @@ func (s *ScanToolService) InstallScanTool(ctx context.Context, id uint) error {
 		return fmt.Errorf("更新工具状态失败: %w", err)
 	}
 
-	logger.LogSystemEvent("SERVICE", "install_scan_tool", "安装扫描工具", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "install_scan_tool", "安装扫描工具", logger.InfoLevel, map[string]interface{}{
 		"operation": "install_scan_tool",
 		"tool_name": tool.Name,
 		"tool_id":   id,
@@ -788,7 +787,7 @@ func (s *ScanToolService) UninstallScanTool(ctx context.Context, id uint) error 
 		return fmt.Errorf("更新工具状态失败: %w", err)
 	}
 
-	logger.LogSystemEvent("SERVICE", "uninstall_scan_tool", "卸载扫描工具", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("SERVICE", "uninstall_scan_tool", "卸载扫描工具", logger.InfoLevel, map[string]interface{}{
 		"operation": "uninstall_scan_tool",
 		"tool_name": tool.Name,
 		"tool_id":   id,
@@ -848,12 +847,12 @@ func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, sta
 
 	// 记录成功日志
 	logger.Info(operation+" success", map[string]interface{}{
-		"operation":    operation,
-		"tool_name":    tool.Name,
-		"tool_id":      id,
-		"status":       status,
-		"result":       "success",
-		"timestamp":    logger.NowFormatted(),
+		"operation": operation,
+		"tool_name": tool.Name,
+		"tool_id":   id,
+		"status":    status,
+		"result":    "success",
+		"timestamp": logger.NowFormatted(),
 	})
 
 	return nil
@@ -969,11 +968,11 @@ func (s *ScanToolService) BatchInstallScanTools(ctx context.Context, toolIDs []u
 
 	// 记录完成日志
 	logger.Info("batch_install_scan_tools completed", map[string]interface{}{
-		"operation":      "batch_install_scan_tools",
-		"total":          len(toolIDs),
-		"success_count":  successCount,
-		"failure_count":  failureCount,
-		"timestamp":      logger.NowFormatted(),
+		"operation":     "batch_install_scan_tools",
+		"total":         len(toolIDs),
+		"success_count": successCount,
+		"failure_count": failureCount,
+		"timestamp":     logger.NowFormatted(),
 	})
 
 	return results, nil
@@ -1041,11 +1040,11 @@ func (s *ScanToolService) BatchUninstallScanTools(ctx context.Context, toolIDs [
 
 	// 记录完成日志
 	logger.Info("batch_uninstall_scan_tools completed", map[string]interface{}{
-		"operation":      "batch_uninstall_scan_tools",
-		"total":          len(toolIDs),
-		"success_count":  successCount,
-		"failure_count":  failureCount,
-		"timestamp":      logger.NowFormatted(),
+		"operation":     "batch_uninstall_scan_tools",
+		"total":         len(toolIDs),
+		"success_count": successCount,
+		"failure_count": failureCount,
+		"timestamp":     logger.NowFormatted(),
 	})
 
 	return results, nil
@@ -1118,11 +1117,11 @@ func (s *ScanToolService) GetSystemToolStatus(ctx context.Context) (map[string]i
 
 	// 记录成功日志
 	logger.Info("get_system_tool_status success", map[string]interface{}{
-		"operation":    "get_system_tool_status",
-		"total_tools":  totalTools,
-		"enabled":      enabledCount,
-		"installed":    installedCount,
-		"timestamp":    logger.NowFormatted(),
+		"operation":   "get_system_tool_status",
+		"total_tools": totalTools,
+		"enabled":     enabledCount,
+		"installed":   installedCount,
+		"timestamp":   logger.NowFormatted(),
 	})
 
 	return systemStatus, nil

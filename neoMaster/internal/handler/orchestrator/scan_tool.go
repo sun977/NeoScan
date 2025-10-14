@@ -41,7 +41,6 @@ import (
 	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 // ScanToolHandler 扫描工具处理器结构体
@@ -143,7 +142,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "create_scan_tool", "创建扫描工具成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "create_scan_tool", "创建扫描工具成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "create_scan_tool",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
@@ -230,7 +229,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "get_scan_tool", "获取扫描工具成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "get_scan_tool", "获取扫描工具成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "get_scan_tool",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.GetScanTool",
@@ -368,7 +367,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "update_scan_tool", "更新扫描工具成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "update_scan_tool", "更新扫描工具成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "update_scan_tool",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
@@ -455,7 +454,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "delete_scan_tool", "删除扫描工具成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "delete_scan_tool", "删除扫描工具成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "delete_scan_tool",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.DeleteScanTool",
@@ -553,7 +552,7 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "list_scan_tools", "获取扫描工具列表成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "list_scan_tools", "获取扫描工具列表成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "list_scan_tools",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.ListScanTools",
@@ -666,7 +665,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "health_check_scan_tool", "扫描工具健康检查成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "health_check_scan_tool", "扫描工具健康检查成功", logger.InfoLevel, map[string]interface{}{
 		"operation":     "health_check_scan_tool",
 		"option":        "success",
 		"func_name":     "handler.orchestrator.scan_tool.HealthCheckScanTool",
@@ -767,7 +766,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "get_scan_tool_metrics", "获取扫描工具指标成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "get_scan_tool_metrics", "获取扫描工具指标成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "get_scan_tool_metrics",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.GetScanToolMetrics",
@@ -858,7 +857,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrat
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", operation, message+"成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", operation, message+"成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  operation,
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.updateScanToolStatus",
@@ -954,7 +953,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", action+"_scan_tool", message+"成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", action+"_scan_tool", message+"成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  action + "_scan_tool",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.manageScanTool",
@@ -1127,7 +1126,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "batch_install_scan_tools", "批量安装扫描工具成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "batch_install_scan_tools", "批量安装扫描工具成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "batch_install_scan_tools",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
@@ -1225,7 +1224,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "batch_uninstall_scan_tools", "批量卸载扫描工具成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "batch_uninstall_scan_tools", "批量卸载扫描工具成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "batch_uninstall_scan_tools",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
@@ -1276,7 +1275,7 @@ func (h *ScanToolHandler) GetSystemToolStatus(c *gin.Context) {
 	}
 
 	// 记录成功日志
-	logger.LogSystemEvent("scan_tool_handler", "get_system_tool_status", "获取系统工具状态成功", logrus.InfoLevel, map[string]interface{}{
+	logger.LogSystemEvent("scan_tool_handler", "get_system_tool_status", "获取系统工具状态成功", logger.InfoLevel, map[string]interface{}{
 		"operation":  "get_system_tool_status",
 		"option":     "success",
 		"func_name":  "handler.orchestrator.scan_tool.GetSystemToolStatus",

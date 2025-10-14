@@ -10,9 +10,8 @@ package orchestrator
 import (
 	"encoding/json"
 	"fmt"
+	"neomaster/internal/model/basemodel"
 	"strings"
-
-	"neomaster/internal/model"
 )
 
 // WorkflowStatus 工作流状态枚举
@@ -59,7 +58,7 @@ func (t WorkflowTriggerType) String() string {
 // 设计哲学：工作流应该是线性的、可预测的，避免复杂的分支和循环
 type WorkflowConfig struct {
 	// 继承基础模型
-	model.BaseModel
+	basemodel.BaseModel
 
 	// 工作流基本信息
 	Name        string `json:"name" gorm:"not null;size:100;comment:工作流名称" validate:"required,min=1,max=100"`

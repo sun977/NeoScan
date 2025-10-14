@@ -8,7 +8,7 @@
 package agent
 
 import (
-	"neomaster/internal/model"
+	"neomaster/internal/model/basemodel"
 	"time"
 )
 
@@ -65,7 +65,7 @@ const (
 // 1. Agent基础信息 - 相对静态，注册时确定
 type Agent struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	// 基本信息
 	AgentID   string      `json:"agent_id" gorm:"uniqueIndex;not null;size:100;comment:Agent唯一标识ID"`
@@ -234,7 +234,7 @@ func (Agent) TableName() string {
 // Agent版本信息
 type AgentVersion struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	Version     string    `json:"version" gorm:"not null;size:50;comment:版本号"`
 	ReleaseDate time.Time `json:"release_date" gorm:"comment:发布日期"`
@@ -265,7 +265,7 @@ func (AgentVersion) TableName() string {
 // 2. Agent配置 - 独立管理，支持版本控制
 type AgentConfig struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
 	Version             int                    `json:"version" gorm:"default:1;comment:配置版本号"`
@@ -302,7 +302,7 @@ func (AgentConfig) TableName() string {
 // 3. Agent负载信息(动态) - 高频更新，独立存储
 type AgentMetrics struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
 	CPUUsage          float64                `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
@@ -376,7 +376,7 @@ func (AgentMetrics) TableName() string {
 // 4. Agent分组
 type AgentGroup struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	GroupID     string   `json:"group_id" gorm:"not null;size:100;comment:分组ID"`
 	Name        string   `json:"name" gorm:"not null;size:100;comment:分组名称"`
@@ -406,7 +406,7 @@ func (AgentGroup) TableName() string {
 // 注意：一个Agent可以属于多个分组,一个分组可以包含多个Agent
 type AgentGroupMember struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	AgentID  string    `json:"agent_id" gorm:"not null;size:100;comment:Agent业务ID"` // Agent业务ID,外键关联agents表
 	GroupID  string    `json:"group_id" gorm:"not null;size:100;comment:分组ID"`      // 分组ID,外键关联agent_groups表
@@ -422,7 +422,7 @@ func (AgentGroupMember) TableName() string {
 // 5. 添加任务分发记录
 type AgentTaskAssignment struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	AgentID     string          `json:"agent_id" gorm:"index;size:100;comment:Agent业务ID"`
 	TaskID      string          `json:"task_id" gorm:"index;size:100;comment:任务ID"`
@@ -501,7 +501,7 @@ func (AgentTaskAssignment) TableName() string {
 // 扫描类型结构体 [为自定义扫描类型预留,系统默认内置扫描类型在代码中定义]
 type ScanType struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	model.BaseModel
+	basemodel.BaseModel
 
 	Name           string                 `json:"name" gorm:"unique;not null;size:100;comment:扫描类型名称，唯一"`
 	DisplayName    string                 `json:"display_name" gorm:"not null;size:100;comment:扫描类型显示名称"`

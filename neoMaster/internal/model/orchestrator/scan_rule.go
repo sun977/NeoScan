@@ -10,9 +10,8 @@ package orchestrator
 import (
 	"encoding/json"
 	"fmt"
+	"neomaster/internal/model/basemodel"
 	"strings"
-
-	"neomaster/internal/model"
 )
 
 // ScanRuleType 扫描规则类型枚举
@@ -73,7 +72,7 @@ func (s ScanRuleSeverity) String() string {
 // 设计原则：规则应该是原子的、可组合的，避免复杂的嵌套逻辑
 type ScanRule struct {
 	// 继承基础模型
-	model.BaseModel
+	basemodel.BaseModel
 
 	// 规则基本信息
 	Name        string       `json:"name" gorm:"uniqueIndex;not null;size:100;comment:规则名称，唯一" validate:"required,min=1,max=100"`

@@ -1,4 +1,4 @@
-package model
+package basemodel
 
 import "time"
 

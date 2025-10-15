@@ -1,0 +1,35 @@
+# docker-compose.prod.yml
+# demo
+version: '3.8'
+
+services:
+  neoscan-master:
+    build: .
+    ports:
+      - "8123:8123"
+    environment:
+      - NEOSCAN_ENV=production
+      - NEOSCAN_MYSQL_HOST=mysql
+      - NEOSCAN_MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - NEOSCAN_REDIS_HOST=redis
+      - NEOSCAN_JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - /var/log/neoscan:/var/log/neoscan
+    depends_on:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=neoscan_prod
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+
+volumes:
+  mysql_data:

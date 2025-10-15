@@ -39,6 +39,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
 
 	// 检查Content-Type
 	contentType := c.GetHeader("Content-Type")
@@ -48,7 +49,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 			XRequestID,
 			0, // userID - 在注册阶段还没有agent ID
 			clientIP,
-			"/api/v1/agent/register",
+			pathUrl,
 			"POST",
 			map[string]interface{}{
 				"operation":  "register_agent",
@@ -74,7 +75,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 			XRequestID,
 			0, // userID - 在注册阶段还没有agent ID
 			clientIP,
-			"/api/v1/agent/register",
+			pathUrl,
 			"POST",
 			map[string]interface{}{
 				"operation":    "register_agent",
@@ -102,7 +103,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 			XRequestID,
 			0, // userID - 在注册阶段还没有agent ID
 			clientIP,
-			"/api/v1/agent/register",
+			pathUrl,
 			"POST",
 			map[string]interface{}{
 				"operation":   "register_agent",
@@ -128,7 +129,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		XRequestID,
 		0, // userID - 在注册阶段还没有agent ID
 		clientIP,
-		"/api/v1/agent/register",
+		pathUrl,
 		"POST",
 		map[string]interface{}{
 			"operation":  "register_agent",
@@ -154,6 +155,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
 
 	// 获取Agent ID
 	agentID := c.Param("id")
@@ -163,7 +165,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/:id",
+			pathUrl,
 			"GET",
 			map[string]interface{}{
 				"operation":  "get_agent_info",
@@ -190,7 +192,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/:id",
+			pathUrl,
 			"GET",
 			map[string]interface{}{
 				"operation":   "get_agent_info",
@@ -216,7 +218,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 		XRequestID,
 		0,
 		clientIP,
-		"/api/v1/agent/:id",
+		pathUrl,
 		"GET",
 		map[string]interface{}{
 			"operation":  "get_agent_info",
@@ -241,6 +243,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
 
 	// 解析查询参数
 	var req agentModel.GetAgentListRequest
@@ -270,7 +273,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/list",
+			pathUrl,
 			"GET",
 			map[string]interface{}{
 				"operation":   "get_agent_list",
@@ -295,7 +298,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 		XRequestID,
 		0,
 		clientIP,
-		"/api/v1/agent/list",
+		pathUrl,
 		"GET",
 		map[string]interface{}{
 			"operation":  "get_agent_list",
@@ -320,6 +323,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
 
 	// 获取Agent ID
 	agentID := c.Param("id")
@@ -329,7 +333,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/:id/status",
+			pathUrl,
 			"PUT",
 			map[string]interface{}{
 				"operation":  "update_agent_status",
@@ -355,7 +359,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/:id/status",
+			pathUrl,
 			"PUT",
 			map[string]interface{}{
 				"operation":  "update_agent_status",
@@ -383,7 +387,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/:id/status",
+			pathUrl,
 			"PUT",
 			map[string]interface{}{
 				"operation":   "update_agent_status",
@@ -410,7 +414,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 		XRequestID,
 		0,
 		clientIP,
-		"/api/v1/agent/:id/status",
+		pathUrl,
 		"PUT",
 		map[string]interface{}{
 			"operation":  "update_agent_status",
@@ -435,6 +439,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
 
 	// 解析请求体
 	var req agentModel.HeartbeatRequest
@@ -444,7 +449,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/heartbeat",
+			pathUrl,
 			"POST",
 			map[string]interface{}{
 				"operation":  "process_heartbeat",
@@ -471,7 +476,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/heartbeat",
+			pathUrl,
 			"POST",
 			map[string]interface{}{
 				"operation":   "process_heartbeat",
@@ -497,7 +502,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 		XRequestID,
 		0,
 		clientIP,
-		"/api/v1/agent/heartbeat",
+		pathUrl,
 		"POST",
 		map[string]interface{}{
 			"operation":  "process_heartbeat",
@@ -525,6 +530,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
 
 	// 获取Agent ID
 	agentID := c.Param("id")
@@ -534,7 +540,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/:id",
+			pathUrl,
 			"DELETE",
 			map[string]interface{}{
 				"operation":  "delete_agent",
@@ -561,7 +567,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 			XRequestID,
 			0,
 			clientIP,
-			"/api/v1/agent/:id",
+			pathUrl,
 			"DELETE",
 			map[string]interface{}{
 				"operation":   "delete_agent",
@@ -587,7 +593,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		XRequestID,
 		0,
 		clientIP,
-		"/api/v1/agent/:id",
+		pathUrl,
 		"DELETE",
 		map[string]interface{}{
 			"operation":  "delete_agent",

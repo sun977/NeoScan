@@ -1,1 +1,1 @@
-ÿþ{"client_ip":"","error":"user not found","fields.level":"error","fields.timestamp":"2025-10-14 16:53:16.700","level":"error","message":"System error occurred: user not found","method":"GET","operation":"get_user_by_username","path":"user_get","request_id":"","timestamp":"2025-10-14 16:53:16.700","type":"error","user_id":0,"username":"admin"}
+ÿþ

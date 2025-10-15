@@ -37,8 +37,8 @@ type App struct {
 // NewApp 创建新的应用程序实例
 func NewApp() (*App, error) {
 	// 加载配置文件，默认使用 development 开发环境，test 是测试环境，prod 是生产环境
-	// cfg, err := config.LoadConfig("", "test")
-	cfg, err := config.LoadConfig("", "development")
+	cfg, err := config.LoadConfig("", "test")
+	// cfg, err := config.LoadConfig("", "development")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}

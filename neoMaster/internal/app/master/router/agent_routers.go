@@ -19,7 +19,7 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentPublicGroup := v1.Group("/agent")
 	{
 		// ==================== Agent公开接口（不需要认证） ====================
-		agentPublicGroup.POST("", r.agentHandler.RegisterAgent)              // 注册新Agent - 公开接口
+		agentPublicGroup.POST("/register", r.agentHandler.RegisterAgent)     // 注册新Agent - 公开接口
 		agentPublicGroup.POST("/heartbeat", r.agentHandler.ProcessHeartbeat) // 处理Agent心跳 - 公开接口
 	}
 

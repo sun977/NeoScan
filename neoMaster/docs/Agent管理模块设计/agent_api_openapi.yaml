@@ -1,0 +1,809 @@
+openapi: 3.0.3
+info:
+  title: NeoScan Agent Management API
+  description: |
+    NeoScan Agent管理模块API文档
+    
+    本文档定义了Agent管理相关的所有API接口，包括：
+    - Agent注册与管理
+    - Agent状态监控
+    - Agent心跳处理
+    
+    ## 认证方式
+    API使用Bearer Token认证，请在请求头中添加：
+    ```
+    Authorization: Bearer <your_token>
+    ```
+    
+    ## 响应格式
+    所有API响应都遵循统一的格式：
+    ```json
+    {
+      "code": 200,
+      "status": "success",
+      "message": "操作成功",
+      "data": {},
+      "error": ""
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: NeoScan Team
+    email: support@neoscan.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: 开发环境
+  - url: https://api.neoscan.com/api/v1
+    description: 生产环境
+
+tags:
+  - name: Agent基础管理
+    description: Agent注册、查询、更新、删除等基础管理功能
+  - name: Agent心跳管理
+    description: Agent心跳处理和状态监控
+
+paths:
+  /agent:
+    get:
+      tags:
+        - Agent基础管理
+      summary: 获取Agent列表
+      description: |
+        获取Agent列表，支持分页和多种过滤条件
+        
+        ## 查询参数说明
+        - `page`: 页码，从1开始
+        - `page_size`: 每页大小，范围1-100
+        - `status`: 按状态过滤，可选值：online、offline、exception、maintenance
+        - `tags`: 按标签过滤，支持多个标签
+      operationId: getAgentList
+      parameters:
+        - name: page
+          in: query
+          description: 页码，从1开始
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页大小
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Agent状态过滤
+          required: false
+          schema:
+            $ref: '#/components/schemas/AgentStatus'
+        - name: tags
+          in: query
+          description: 标签过滤，支持多个标签
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: 获取Agent列表成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/GetAgentListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Agent基础管理
+      summary: 注册新Agent
+      description: |
+        注册新的Agent到系统中
+        
+        ## 注册流程
+        1. 验证Agent基础信息
+        2. 生成唯一的Agent ID
+        3. 创建gRPC通信Token
+        4. 返回注册结果和认证信息
+      operationId: registerAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterAgentRequest'
+      responses:
+        '200':
+          description: Agent注册成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegisterAgentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Agent已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agent/{id}:
+    get:
+      tags:
+        - Agent基础管理
+      summary: 根据ID获取Agent信息
+      description: |
+        根据Agent ID获取详细的Agent信息
+        
+        ## 返回信息包括
+        - Agent基础信息
+        - 系统配置信息
+        - 状态和性能指标
+        - 最后心跳时间
+      operationId: getAgentInfo
+      parameters:
+        - name: id
+          in: path
+          description: Agent唯一标识ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 获取Agent信息成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Agent不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Agent基础管理
+      summary: 删除Agent
+      description: |
+        从系统中删除指定的Agent
+        
+        ## 注意事项
+        - 删除操作不可逆
+        - 删除前会检查Agent是否有正在运行的任务
+        - 建议先将Agent状态设置为维护模式
+      operationId: deleteAgent
+      parameters:
+        - name: id
+          in: path
+          description: Agent唯一标识ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Agent不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '409':
+          description: Agent有正在运行的任务，无法删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agent/{id}/status:
+    patch:
+      tags:
+        - Agent基础管理
+      summary: 更新Agent状态
+      description: |
+        更新指定Agent的状态
+        
+        ## 状态说明
+        - `online`: 在线状态，可以接收任务
+        - `offline`: 离线状态，不接收任务
+        - `exception`: 异常状态，需要人工干预
+        - `maintenance`: 维护状态，暂停服务
+      operationId: updateAgentStatus
+      parameters:
+        - name: id
+          in: path
+          description: Agent唯一标识ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgentStatusRequest'
+      responses:
+        '200':
+          description: Agent状态更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Agent不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agent/heartbeat:
+    post:
+      tags:
+        - Agent心跳管理
+      summary: 处理Agent心跳
+      description: |
+        处理Agent发送的心跳信息，更新Agent状态和性能指标
+        
+        ## 心跳信息包括
+        - Agent当前状态
+        - 系统资源使用情况
+        - 任务执行统计
+        - 网络连接状态
+        
+        ## 心跳处理逻辑
+        1. 验证Agent身份
+        2. 更新最后心跳时间
+        3. 记录性能指标
+        4. 检查Agent健康状态
+      operationId: processHeartbeat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '200':
+          description: 心跳处理成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/HeartbeatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Agent不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    # 基础响应结构
+    APIResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: HTTP状态码
+          example: 200
+        status:
+          type: string
+          description: 响应状态
+          enum: [success, failed]
+          example: success
+        message:
+          type: string
+          description: 响应消息
+          example: 操作成功
+        data:
+          type: object
+          description: 响应数据
+        error:
+          type: string
+          description: 错误信息
+          example: ""
+      required:
+        - code
+        - status
+        - message
+
+    # Agent状态枚举
+    AgentStatus:
+      type: string
+      enum:
+        - online
+        - offline
+        - exception
+        - maintenance
+      description: |
+        Agent状态：
+        - online: 在线状态
+        - offline: 离线状态
+        - exception: 异常状态
+        - maintenance: 维护状态
+
+    # Agent注册请求
+    RegisterAgentRequest:
+      type: object
+      properties:
+        hostname:
+          type: string
+          description: 主机名
+          example: "agent-server-01"
+        ip_address:
+          type: string
+          description: IP地址
+          example: "192.168.1.100"
+        port:
+          type: integer
+          description: Agent服务端口
+          minimum: 1
+          maximum: 65535
+          example: 5772
+        version:
+          type: string
+          description: Agent版本
+          example: "1.0.0"
+        os:
+          type: string
+          description: 操作系统
+          example: "Linux"
+        arch:
+          type: string
+          description: 系统架构
+          example: "x86_64"
+        cpu_cores:
+          type: integer
+          description: CPU核心数
+          minimum: 1
+          example: 4
+        memory_total:
+          type: integer
+          format: int64
+          description: 总内存大小(字节)
+          minimum: 1
+          example: 8589934592
+        disk_total:
+          type: integer
+          format: int64
+          description: 总磁盘大小(字节)
+          minimum: 1
+          example: 107374182400
+        container_id:
+          type: string
+          description: 容器ID（可选）
+          example: "docker-container-123"
+        pid:
+          type: integer
+          description: 进程ID
+          minimum: 1
+          example: 1234
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Agent支持的功能模块列表
+          example: ["nmap", "masscan", "nuclei"]
+        tags:
+          type: array
+          items:
+            type: string
+          description: Agent标签列表
+          example: ["production", "scanner"]
+        remark:
+          type: string
+          description: 备注信息
+          example: "生产环境扫描Agent"
+      required:
+        - hostname
+        - ip_address
+        - port
+        - version
+        - os
+        - arch
+
+    # Agent注册响应
+    RegisterAgentResponse:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Agent唯一标识ID
+          example: "agent_20241014_001"
+        grpc_token:
+          type: string
+          description: gRPC通信Token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_expiry:
+          type: string
+          format: date-time
+          description: Token过期时间
+          example: "2024-10-15T10:30:00Z"
+        status:
+          type: string
+          description: 注册状态
+          example: "registered"
+        message:
+          type: string
+          description: 响应消息
+          example: "Agent注册成功"
+      required:
+        - agent_id
+        - grpc_token
+        - token_expiry
+        - status
+        - message
+
+    # Agent信息
+    AgentInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 数据库主键ID
+          example: 1
+        agent_id:
+          type: string
+          description: Agent唯一标识ID
+          example: "agent_20241014_001"
+        hostname:
+          type: string
+          description: 主机名
+          example: "agent-server-01"
+        ip_address:
+          type: string
+          description: IP地址
+          example: "192.168.1.100"
+        port:
+          type: integer
+          description: Agent服务端口
+          example: 5772
+        version:
+          type: string
+          description: Agent版本
+          example: "1.0.0"
+        status:
+          $ref: '#/components/schemas/AgentStatus'
+        os:
+          type: string
+          description: 操作系统
+          example: "Linux"
+        arch:
+          type: string
+          description: 系统架构
+          example: "x86_64"
+        cpu_cores:
+          type: integer
+          description: CPU核心数
+          example: 4
+        memory_total:
+          type: integer
+          format: int64
+          description: 总内存大小(字节)
+          example: 8589934592
+        disk_total:
+          type: integer
+          format: int64
+          description: 总磁盘大小(字节)
+          example: 107374182400
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: Agent支持的功能模块列表
+          example: ["nmap", "masscan", "nuclei"]
+        tags:
+          type: array
+          items:
+            type: string
+          description: Agent标签列表
+          example: ["production", "scanner"]
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: 最后心跳时间
+          example: "2024-10-14T10:30:00Z"
+        result_latest_time:
+          type: string
+          format: date-time
+          description: 最新返回结果时间
+          example: "2024-10-14T10:25:00Z"
+        remark:
+          type: string
+          description: 备注信息
+          example: "生产环境扫描Agent"
+        container_id:
+          type: string
+          description: 容器ID
+          example: "docker-container-123"
+        pid:
+          type: integer
+          description: 进程ID
+          example: 1234
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+          example: "2024-10-14T09:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+          example: "2024-10-14T10:30:00Z"
+
+    # Agent列表响应
+    GetAgentListResponse:
+      type: object
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentInfo'
+          description: Agent列表
+        pagination:
+          $ref: '#/components/schemas/PaginationResponse'
+      required:
+        - agents
+        - pagination
+
+    # 分页响应
+    PaginationResponse:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: 当前页码
+          example: 1
+        page_size:
+          type: integer
+          description: 每页大小
+          example: 20
+        total:
+          type: integer
+          format: int64
+          description: 总记录数
+          example: 100
+        total_pages:
+          type: integer
+          description: 总页数
+          example: 5
+      required:
+        - page
+        - page_size
+        - total
+        - total_pages
+
+    # 更新Agent状态请求
+    UpdateAgentStatusRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/AgentStatus'
+      required:
+        - status
+
+    # 心跳请求
+    HeartbeatRequest:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Agent唯一标识ID
+          example: "agent_20241014_001"
+        status:
+          $ref: '#/components/schemas/AgentStatus'
+        cpu_usage:
+          type: number
+          format: float
+          description: CPU使用率(百分比)
+          minimum: 0
+          maximum: 100
+          example: 45.5
+        memory_usage:
+          type: number
+          format: float
+          description: 内存使用率(百分比)
+          minimum: 0
+          maximum: 100
+          example: 68.2
+        disk_usage:
+          type: number
+          format: float
+          description: 磁盘使用率(百分比)
+          minimum: 0
+          maximum: 100
+          example: 32.1
+        network_bytes_sent:
+          type: integer
+          format: int64
+          description: 网络发送字节数
+          minimum: 0
+          example: 1048576
+        network_bytes_recv:
+          type: integer
+          format: int64
+          description: 网络接收字节数
+          minimum: 0
+          example: 2097152
+        active_connections:
+          type: integer
+          description: 活动连接数
+          minimum: 0
+          example: 10
+        running_tasks:
+          type: integer
+          description: 正在运行的任务数
+          minimum: 0
+          example: 3
+        completed_tasks:
+          type: integer
+          description: 已完成任务数
+          minimum: 0
+          example: 25
+        failed_tasks:
+          type: integer
+          description: 失败任务数
+          minimum: 0
+          example: 2
+      required:
+        - agent_id
+        - status
+
+    # 心跳响应
+    HeartbeatResponse:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Agent唯一标识ID
+          example: "agent_20241014_001"
+        status:
+          type: string
+          description: 处理状态
+          example: "processed"
+        message:
+          type: string
+          description: 响应消息
+          example: "心跳处理成功"
+        timestamp:
+          type: string
+          format: date-time
+          description: 响应时间戳
+          example: "2024-10-14T10:30:00Z"
+      required:
+        - agent_id
+        - status
+        - message
+        - timestamp
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/APIResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 400
+                  status:
+                    example: failed
+                  message:
+                    example: 请求参数错误
+                  error:
+                    example: "Invalid request format"
+
+    Unauthorized:
+      description: 未授权访问
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/APIResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 401
+                  status:
+                    example: failed
+                  message:
+                    example: 未授权访问
+                  error:
+                    example: "Invalid or missing authentication token"
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/APIResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 500
+                  status:
+                    example: failed
+                  message:
+                    example: 服务器内部错误
+                  error:
+                    example: "Internal server error"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        使用JWT Bearer Token进行认证
+        
+        请在请求头中添加：
+        ```
+        Authorization: Bearer <your_jwt_token>
+        ```
+
+security:
+  - BearerAuth: []

@@ -263,12 +263,12 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 	// 构建查询条件
 	query := r.db.Model(&agentModel.Agent{})
 
-	// 状态过滤
+	// 状态过滤 - 仅支持单个状态值过滤
 	if status != nil {
 		query = query.Where("status = ?", *status)
 	}
 
-	// 标签过滤（简单实现，实际可能需要更复杂的JSON查询）
+	// 标签过滤（简单实现，实际可能需要更复杂的JSON查询） - 仅支持单个标签过滤
 	if len(tags) > 0 {
 		for _, tag := range tags {
 			query = query.Where("tags LIKE ?", "%"+tag+"%")

@@ -257,7 +257,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 		}
 	}
 
-	// 过滤参数
+	// 过滤参数 status: offline / online
 	req.Status = agentModel.AgentStatus(c.Query("status"))
 	req.Tags = c.QueryArray("tags")
 

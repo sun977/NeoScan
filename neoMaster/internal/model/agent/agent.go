@@ -9,6 +9,7 @@ package agent
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -553,12 +554,12 @@ type ScanType struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
 
-	Name           string                 `json:"name" gorm:"unique;not null;size:100;comment:扫描类型名称，唯一"`
-	DisplayName    string                 `json:"display_name" gorm:"not null;size:100;comment:扫描类型显示名称"`
-	Description    string                 `json:"description" gorm:"size:500;comment:扫描类型描述"`
-	Category       string                 `json:"category" gorm:"size:50;comment:扫描类型分类"`
-	IsActive       bool                   `json:"is_active" gorm:"default:true;comment:是否激活"`
-	ConfigTemplate map[string]interface{} `json:"config_template" gorm:"type:json;comment:配置模板"`
+	Name           string             `json:"name" gorm:"unique;not null;size:100;comment:扫描类型名称，唯一"`
+	DisplayName    string             `json:"display_name" gorm:"not null;size:100;comment:扫描类型显示名称"`
+	Description    string             `json:"description" gorm:"size:500;comment:扫描类型描述"`
+	Category       string             `json:"category" gorm:"size:50;comment:扫描类型分类"`
+	IsActive       bool               `json:"is_active" gorm:"default:true;comment:是否激活"`
+	ConfigTemplate ConfigTemplateJSON `json:"config_template" gorm:"type:json;comment:配置模板"`
 }
 
 // IsActiveType 检查扫描类型是否激活
@@ -571,4 +572,40 @@ func (st *ScanType) IsActiveType() bool {
 // ScanType 结构体的方法 - 定义ScanType的数据库表名
 func (ScanType) TableName() string {
 	return "agent_scan_types"
+}
+
+// ConfigTemplateJSON 自定义类型，用于处理map[string]interface{}的JSON序列化
+type ConfigTemplateJSON map[string]interface{}
+
+// Scan 实现sql.Scanner接口，用于从数据库读取JSON数据
+func (c *ConfigTemplateJSON) Scan(value interface{}) error {
+	if value == nil {
+		*c = make(map[string]interface{})
+		return nil
+	}
+
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return fmt.Errorf("cannot scan %T into ConfigTemplateJSON", value)
+	}
+
+	if len(bytes) == 0 {
+		*c = make(map[string]interface{})
+		return nil
+	}
+
+	return json.Unmarshal(bytes, c)
+}
+
+// Value 实现driver.Valuer接口，用于向数据库写入JSON数据
+func (c ConfigTemplateJSON) Value() (driver.Value, error) {
+	if c == nil {
+		return nil, nil
+	}
+	return json.Marshal(c)
 }

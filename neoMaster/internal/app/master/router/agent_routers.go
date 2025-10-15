@@ -31,7 +31,7 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		// ==================== Agent管理接口（需要认证） ====================
 		agentManageGroup.GET("", r.agentHandler.GetAgentList)                   // 获取Agent列表
 		agentManageGroup.GET("/:id", r.agentHandler.GetAgentInfo)               // 根据ID获取Agent信息
-		agentManageGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // 更新Agent状态
+		agentManageGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // 更新Agent状态 - PATCH 对现有资源进行部分修改
 		agentManageGroup.DELETE("/:id", r.agentHandler.DeleteAgent)             // 删除Agent
 
 		// ==================== Agent状态管理路由（占位符，待后续实现） ====================

@@ -15,43 +15,47 @@ import (
 )
 
 func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
-	// Agent管理路由组
-	agentGroup := v1.Group("/agent")
-	agentGroup.Use(r.middlewareManager.GinJWTAuthMiddleware())
-	agentGroup.Use(r.middlewareManager.GinUserActiveMiddleware())
+	// Agent公开路由组（不需要认证）
+	agentPublicGroup := v1.Group("/agent")
 	{
-		// ==================== Agent基础管理路由 ====================
-		agentGroup.GET("", r.agentHandler.GetAgentList)                   // 获取Agent列表
-		agentGroup.GET("/:id", r.agentHandler.GetAgentInfo)               // 根据ID获取Agent信息
-		agentGroup.POST("", r.agentHandler.RegisterAgent)                 // 注册新Agent
-		agentGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // 更新Agent状态
-		agentGroup.DELETE("/:id", r.agentHandler.DeleteAgent)             // 删除Agent
+		// ==================== Agent公开接口（不需要认证） ====================
+		agentPublicGroup.POST("", r.agentHandler.RegisterAgent)              // 注册新Agent - 公开接口
+		agentPublicGroup.POST("/heartbeat", r.agentHandler.ProcessHeartbeat) // 处理Agent心跳 - 公开接口
+	}
 
-		// ==================== Agent心跳管理路由 ====================
-		agentGroup.POST("/heartbeat", r.agentHandler.ProcessHeartbeat) // 处理Agent心跳
+	// Agent管理路由组（需要认证）
+	agentManageGroup := v1.Group("/agent")
+	agentManageGroup.Use(r.middlewareManager.GinJWTAuthMiddleware())
+	agentManageGroup.Use(r.middlewareManager.GinUserActiveMiddleware())
+	{
+		// ==================== Agent管理接口（需要认证） ====================
+		agentManageGroup.GET("", r.agentHandler.GetAgentList)                   // 获取Agent列表
+		agentManageGroup.GET("/:id", r.agentHandler.GetAgentInfo)               // 根据ID获取Agent信息
+		agentManageGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // 更新Agent状态
+		agentManageGroup.DELETE("/:id", r.agentHandler.DeleteAgent)             // 删除Agent
 
 		// ==================== Agent状态管理路由（占位符，待后续实现） ====================
-		agentGroup.POST("/:id/start", r.agentStartPlaceholder)     // 启动Agent
-		agentGroup.POST("/:id/stop", r.agentStopPlaceholder)       // 停止Agent
-		agentGroup.POST("/:id/restart", r.agentRestartPlaceholder) // 重启Agent
-		agentGroup.GET("/:id/status", r.agentStatusPlaceholder)    // 获取Agent状态
+		agentManageGroup.POST("/:id/start", r.agentStartPlaceholder)     // 启动Agent
+		agentManageGroup.POST("/:id/stop", r.agentStopPlaceholder)       // 停止Agent
+		agentManageGroup.POST("/:id/restart", r.agentRestartPlaceholder) // 重启Agent
+		agentManageGroup.GET("/:id/status", r.agentStatusPlaceholder)    // 获取Agent状态
 
 		// ==================== Agent配置管理路由（占位符，待后续实现） ====================
-		agentGroup.GET("/:id/config", r.agentGetConfigPlaceholder)    // 获取Agent配置
-		agentGroup.PUT("/:id/config", r.agentUpdateConfigPlaceholder) // 更新Agent配置
+		agentManageGroup.GET("/:id/config", r.agentGetConfigPlaceholder)    // 获取Agent配置
+		agentManageGroup.PUT("/:id/config", r.agentUpdateConfigPlaceholder) // 更新Agent配置
 
 		// ==================== Agent任务管理路由（占位符，待后续实现） ====================
-		agentGroup.GET("/:id/tasks", r.agentGetTasksPlaceholder)               // 获取Agent任务列表
-		agentGroup.POST("/:id/tasks", r.agentCreateTaskPlaceholder)            // 为Agent创建任务
-		agentGroup.GET("/:id/tasks/:task_id", r.agentGetTaskPlaceholder)       // 获取特定任务信息
-		agentGroup.DELETE("/:id/tasks/:task_id", r.agentDeleteTaskPlaceholder) // 删除Agent任务
+		agentManageGroup.GET("/:id/tasks", r.agentGetTasksPlaceholder)               // 获取Agent任务列表
+		agentManageGroup.POST("/:id/tasks", r.agentCreateTaskPlaceholder)            // 为Agent创建任务
+		agentManageGroup.GET("/:id/tasks/:task_id", r.agentGetTaskPlaceholder)       // 获取特定任务信息
+		agentManageGroup.DELETE("/:id/tasks/:task_id", r.agentDeleteTaskPlaceholder) // 删除Agent任务
 
 		// ==================== Agent日志管理路由（占位符，待后续实现） ====================
-		agentGroup.GET("/:id/logs", r.agentGetLogsPlaceholder) // 获取Agent日志
+		agentManageGroup.GET("/:id/logs", r.agentGetLogsPlaceholder) // 获取Agent日志
 
 		// ==================== Agent健康检查路由（占位符，待后续实现） ====================
-		agentGroup.GET("/:id/health", r.agentHealthCheckPlaceholder) // Agent健康检查
-		agentGroup.GET("/:id/ping", r.agentPingPlaceholder)          // Agent连通性检查
+		agentManageGroup.GET("/:id/health", r.agentHealthCheckPlaceholder) // Agent健康检查
+		agentManageGroup.GET("/:id/ping", r.agentPingPlaceholder)          // Agent连通性检查
 	}
 }
 

@@ -54,7 +54,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 			map[string]interface{}{
 				"operation":  "register_agent",
 				"option":     "contentTypeCheck",
-				"func_name":  "handler.agent.agent_handler.RegisterAgent",
+				"func_name":  "handler.agent.RegisterAgent",
 				"user_agent": userAgent,
 			},
 		)
@@ -80,7 +80,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 			map[string]interface{}{
 				"operation":    "register_agent",
 				"option":       "ShouldBindJSON",
-				"func_name":    "handler.agent.agent_handler.RegisterAgent",
+				"func_name":    "handler.agent.RegisterAgent",
 				"user_agent":   userAgent,
 				"content_type": contentType,
 			},
@@ -108,7 +108,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 			map[string]interface{}{
 				"operation":   "register_agent",
 				"option":      "agentService.RegisterAgent",
-				"func_name":   "handler.agent.agent_handler.RegisterAgent",
+				"func_name":   "handler.agent.RegisterAgent",
 				"user_agent":  userAgent,
 				"hostname":    req.Hostname,
 				"status_code": statusCode,
@@ -134,7 +134,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		map[string]interface{}{
 			"operation":  "register_agent",
 			"option":     "success",
-			"func_name":  "handler.agent.agent_handler.RegisterAgent",
+			"func_name":  "handler.agent.RegisterAgent",
 			"user_agent": userAgent,
 			"agent_id":   response.AgentID,
 			"hostname":   req.Hostname,
@@ -170,7 +170,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 			map[string]interface{}{
 				"operation":  "get_agent_info",
 				"option":     "paramValidation",
-				"func_name":  "handler.agent.agent_handler.GetAgentInfo",
+				"func_name":  "handler.agent.GetAgentInfo",
 				"user_agent": userAgent,
 			},
 		)
@@ -197,7 +197,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 			map[string]interface{}{
 				"operation":   "get_agent_info",
 				"option":      "agentService.GetAgentInfo",
-				"func_name":   "handler.agent.agent_handler.GetAgentInfo",
+				"func_name":   "handler.agent.GetAgentInfo",
 				"user_agent":  userAgent,
 				"agent_id":    agentID,
 				"status_code": statusCode,
@@ -223,7 +223,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 		map[string]interface{}{
 			"operation":  "get_agent_info",
 			"option":     "success",
-			"func_name":  "handler.agent.agent_handler.GetAgentInfo",
+			"func_name":  "handler.agent.GetAgentInfo",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 		},
@@ -278,7 +278,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 			map[string]interface{}{
 				"operation":   "get_agent_list",
 				"option":      "agentService.GetAgentList",
-				"func_name":   "handler.agent.agent_handler.GetAgentList",
+				"func_name":   "handler.agent.GetAgentList",
 				"user_agent":  userAgent,
 				"status_code": statusCode,
 			},
@@ -303,7 +303,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 		map[string]interface{}{
 			"operation":  "get_agent_list",
 			"option":     "success",
-			"func_name":  "handler.agent.agent_handler.GetAgentList",
+			"func_name":  "handler.agent.GetAgentList",
 			"user_agent": userAgent,
 			"total":      response.Pagination.Total,
 		},
@@ -338,7 +338,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			map[string]interface{}{
 				"operation":  "update_agent_status",
 				"option":     "paramValidation",
-				"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
+				"func_name":  "handler.agent.UpdateAgentStatus",
 				"user_agent": userAgent,
 			},
 		)
@@ -364,7 +364,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			map[string]interface{}{
 				"operation":  "update_agent_status",
 				"option":     "ShouldBindJSON",
-				"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
+				"func_name":  "handler.agent.UpdateAgentStatus",
 				"user_agent": userAgent,
 				"agent_id":   agentID,
 			},
@@ -392,7 +392,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			map[string]interface{}{
 				"operation":   "update_agent_status",
 				"option":      "agentService.UpdateAgentStatus",
-				"func_name":   "handler.agent.agent_handler.UpdateAgentStatus",
+				"func_name":   "handler.agent.UpdateAgentStatus",
 				"user_agent":  userAgent,
 				"agent_id":    agentID,
 				"status":      string(req.Status),
@@ -419,7 +419,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 		map[string]interface{}{
 			"operation":  "update_agent_status",
 			"option":     "success",
-			"func_name":  "handler.agent.agent_handler.UpdateAgentStatus",
+			"func_name":  "handler.agent.UpdateAgentStatus",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 			"status":     string(req.Status),
@@ -454,7 +454,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 			map[string]interface{}{
 				"operation":  "process_heartbeat",
 				"option":     "ShouldBindJSON",
-				"func_name":  "handler.agent.agent_handler.ProcessHeartbeat",
+				"func_name":  "handler.agent.ProcessHeartbeat",
 				"user_agent": userAgent,
 			},
 		)
@@ -481,7 +481,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 			map[string]interface{}{
 				"operation":   "process_heartbeat",
 				"option":      "agentService.ProcessHeartbeat",
-				"func_name":   "handler.agent.agent_handler.ProcessHeartbeat",
+				"func_name":   "handler.agent.ProcessHeartbeat",
 				"user_agent":  userAgent,
 				"agent_id":    req.AgentID,
 				"status_code": statusCode,
@@ -507,7 +507,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 		map[string]interface{}{
 			"operation":  "process_heartbeat",
 			"option":     "success",
-			"func_name":  "handler.agent.agent_handler.ProcessHeartbeat",
+			"func_name":  "handler.agent.ProcessHeartbeat",
 			"user_agent": userAgent,
 			"agent_id":   req.AgentID,
 		},
@@ -545,7 +545,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 			map[string]interface{}{
 				"operation":  "delete_agent",
 				"option":     "paramValidation",
-				"func_name":  "handler.agent.agent_handler.DeleteAgent",
+				"func_name":  "handler.agent.DeleteAgent",
 				"user_agent": userAgent,
 			},
 		)
@@ -572,7 +572,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 			map[string]interface{}{
 				"operation":   "delete_agent",
 				"option":      "agentService.DeleteAgent",
-				"func_name":   "handler.agent.agent_handler.DeleteAgent",
+				"func_name":   "handler.agent.DeleteAgent",
 				"user_agent":  userAgent,
 				"agent_id":    agentID,
 				"status_code": statusCode,
@@ -598,7 +598,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		map[string]interface{}{
 			"operation":  "delete_agent",
 			"option":     "success",
-			"func_name":  "handler.agent.agent_handler.DeleteAgent",
+			"func_name":  "handler.agent.DeleteAgent",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 		},

@@ -1,3 +1,16 @@
+// 项目配置文件加载逻辑
+// 1. 确定配置目录：
+//    - 环境变量(.env) NEOSCAN_CONFIG_PATH 指定的路径
+//    - 或默认 "configs" 目录[二进制web服务文件需与configs同目录]
+// 2. 根据环境选择文件：
+//    - "production"/"prod" → config.prod.yaml  →  neoscan_prod 数据库
+//    - "test"/"testing"    → config.test.yaml  →  neoscan_test 数据库
+//    - 其他/默认           → config.yaml  →  neoscan_dev 数据库
+// 3. 文件存在性检查：
+//    - 如果目标文件不存在，回退到 config.yaml
+//    - 确保系统始终有配置文件可用
+// 开发：我没有使用.env 文件，而是使用 config.yaml 文件运行的项目
+
 package master
 
 import (
@@ -23,7 +36,8 @@ type App struct {
 
 // NewApp 创建新的应用程序实例
 func NewApp() (*App, error) {
-	// 加载配置
+	// 加载配置文件，默认使用 development 开发环境，test 是测试环境，prod 是生产环境
+	// cfg, err := config.LoadConfig("", "test")
 	cfg, err := config.LoadConfig("", "development")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)

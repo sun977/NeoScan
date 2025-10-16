@@ -1,9 +1,9 @@
 /**
- * 模型:Agent 模型
+ * 模型:Agent 核心模型
  * @author: sun977
  * @date: 2025.09.26
- * @description: 定义 Agent 模型和相关的结构体
- * @func:
+ * @description: Agent 核心模型定义，遵循单一职责原则
+ * @func: 定义 Agent 实体及其核心业务方法
  */
 package agent
 
@@ -16,6 +16,10 @@ import (
 	"neomaster/internal/model/basemodel"
 	"neomaster/internal/pkg/utils"
 )
+
+// ============================================================================
+// 基础类型定义
+// ============================================================================
 
 // StringSlice 自定义字符串切片类型，用于处理JSON数组字段
 // 支持MySQL JSON格式和PostgreSQL数组格式的转换
@@ -63,7 +67,47 @@ func (s StringSlice) Value() (driver.Value, error) {
 	return jsonStr, nil
 }
 
-// Agent 状态枚举常量
+// ConfigTemplateJSON 配置模板JSON类型
+type ConfigTemplateJSON map[string]interface{}
+
+// Scan 实现sql.Scanner接口
+func (c *ConfigTemplateJSON) Scan(value interface{}) error {
+	if value == nil {
+		*c = ConfigTemplateJSON{}
+		return nil
+	}
+
+	var str string
+	switch v := value.(type) {
+	case string:
+		str = v
+	case []byte:
+		str = string(v)
+	default:
+		return fmt.Errorf("无法将 %T 转换为 ConfigTemplateJSON", value)
+	}
+
+	if str == "" {
+		*c = ConfigTemplateJSON{}
+		return nil
+	}
+
+	return json.Unmarshal([]byte(str), c)
+}
+
+// Value 实现driver.Valuer接口
+func (c ConfigTemplateJSON) Value() (driver.Value, error) {
+	if len(c) == 0 {
+		return "{}", nil
+	}
+	return json.Marshal(c)
+}
+
+// ============================================================================
+// 枚举常量定义
+// ============================================================================
+
+// AgentStatus Agent状态枚举
 type AgentStatus string
 
 const (
@@ -73,7 +117,7 @@ const (
 	AgentStatusMaintenance AgentStatus = "maintenance" // 维护
 )
 
-// Agent 工作状态常量枚举
+// AgentWorkStatus Agent工作状态枚举
 type AgentWorkStatus string
 
 const (
@@ -103,7 +147,7 @@ const (
 	AgentScanTypeOtherScan     AgentScanType = "otherScan"     // 其他扫描 [可选类型:其他扫描] --- 其他自定义的扫描类型,如自定义的脚本扫描,自定义的模块扫描等(不同于用户定义的扫描类型)
 )
 
-// 任务状态常量枚举
+// AgentTaskStatus 任务状态枚举
 type AgentTaskStatus string
 
 const (
@@ -113,12 +157,16 @@ const (
 	AgentTaskStatusFailed    AgentTaskStatus = "failed"    // 已失败
 )
 
-// 1. Agent基础信息 - 相对静态，注册时确定
+// ============================================================================
+// 核心实体：Agent - 相对静态，注册时确定
+// ============================================================================
+
+// Agent 核心实体 - Agent基础信息
 type Agent struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
 
-	// 基本信息
+	// 基本标识信息
 	AgentID   string      `json:"agent_id" gorm:"uniqueIndex;not null;size:100;comment:Agent唯一标识ID"`
 	Hostname  string      `json:"hostname" gorm:"size:255;comment:主机名"`
 	IPAddress string      `json:"ip_address" gorm:"size:45;comment:IP地址，支持IPv6"`
@@ -133,11 +181,11 @@ type Agent struct {
 	MemoryTotal int64  `json:"memory_total" gorm:"comment:总内存大小(字节)"`
 	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
-	// 能力和标签
+	// 能力和标签(需要scanType和TagType定义) - 内容应为:["1","2"]
 	Capabilities StringSlice `json:"capabilities" gorm:"type:json;comment:Agent支持的功能模块列表"`
 	Tags         StringSlice `json:"tags" gorm:"type:json;comment:Agent标签列表"`
 
-	// 安全认证字段
+	// 安全认证
 	GRPCToken   string    `json:"grpc_token" gorm:"column:grpc_token;size:500;comment:gRPC通信Token"`
 	TokenExpiry time.Time `json:"token_expiry" gorm:"comment:Token过期时间"`
 
@@ -146,12 +194,19 @@ type Agent struct {
 	LastHeartbeat    time.Time  `json:"last_heartbeat" gorm:"comment:最后心跳时间"`
 
 	// 扩展字段
-	Remark string `json:"remark" gorm:"size:500;comment:备注信息"`
-
-	// 容器相关信息(根据内存优化建议添加)【可选】
+	Remark      string `json:"remark" gorm:"size:500;comment:备注信息"`
 	ContainerID string `json:"container_id" gorm:"size:100;comment:容器ID"`
 	PID         int    `json:"pid" gorm:"column:pid;comment:进程ID"`
 }
+
+// TableName 定义表名
+func (Agent) TableName() string {
+	return "agents"
+}
+
+// ============================================================================
+// Agent 状态管理方法
+// ============================================================================
 
 // IsActive 检查Agent是否处于在线活跃状态
 // Agent 结构体的方法 - 检查Agent是否处于在线活跃状态
@@ -177,8 +232,21 @@ func (a *Agent) GetStatus() AgentStatus {
 	return a.Status
 }
 
-// AddCapability 添加能力
-// Agent 结构体的方法 - 添加能力，避免重复添加
+// IsOnline 判断Agent是否在线（基于状态和心跳时间）
+func (a *Agent) IsOnline() bool {
+	return a.Status == AgentStatusOnline && time.Since(a.LastHeartbeat) < 5*time.Minute
+}
+
+// UpdateHeartbeat 更新心跳时间
+func (a *Agent) UpdateHeartbeat() {
+	a.LastHeartbeat = time.Now()
+}
+
+// ============================================================================
+// Agent 能力管理方法
+// ============================================================================
+
+// AddCapability 添加能力（避免重复）
 func (a *Agent) AddCapability(capability string) {
 	for _, c := range a.Capabilities {
 		if c == capability {
@@ -210,8 +278,16 @@ func (a *Agent) HasCapability(capability string) bool {
 	return false
 }
 
-// AddTag 添加标签
-// Agent 结构体的方法 - 添加标签，避免重复添加
+// CanAcceptTask 判断Agent是否可以接受指定类型的任务
+func (a *Agent) CanAcceptTask(taskType string) bool {
+	return a.IsOnline() && a.HasCapability(taskType)
+}
+
+// ============================================================================
+// Agent 标签管理方法
+// ============================================================================
+
+// AddTag 添加标签（避免重复）
 func (a *Agent) AddTag(tag string) {
 	for _, t := range a.Tags {
 		if t == tag {
@@ -243,46 +319,21 @@ func (a *Agent) HasTag(tag string) bool {
 	return false
 }
 
+// ============================================================================
+// Agent 安全认证方法
+// ============================================================================
+
 // IsTokenValid 检查Token是否有效
 // Agent 结构体的方法 - 检查Token是否有效
 func (a *Agent) IsTokenValid() bool {
 	return time.Now().Before(a.TokenExpiry)
 }
 
-// UpdateHeartbeat 更新心跳时间
-// Agent 结构体的方法 - 更新心跳时间，接收到agent响应时调用
-func (a *Agent) UpdateHeartbeat() {
-	a.LastHeartbeat = time.Now()
-}
+// ============================================================================
+// 相关实体：AgentVersion
+// ============================================================================
 
-// IsOnline 判断Agent是否在线
-// Agent 结构体的方法 - 判断Agent是否在线，基于状态和心跳时间
-func (a *Agent) IsOnline() bool {
-	return a.Status == AgentStatusOnline &&
-		time.Since(a.LastHeartbeat) < 5*time.Minute
-}
-
-// CanAcceptTask 判断Agent是否可以接受指定类型的任务
-// Agent 结构体的方法 - 判断Agent是否可以接受指定类型的任务
-func (a *Agent) CanAcceptTask(taskType string) bool {
-	if !a.IsOnline() {
-		return false
-	}
-	for _, capability := range a.Capabilities {
-		if capability == taskType {
-			return true
-		}
-	}
-	return false
-}
-
-// TableName 定义Agent的数据库表名
-// Agent 结构体的方法 - 定义Agent的数据库表名
-func (Agent) TableName() string {
-	return "agents"
-}
-
-// Agent版本信息
+// AgentVersion Agent版本信息
 type AgentVersion struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
@@ -293,6 +344,11 @@ type AgentVersion struct {
 	DownloadURL string    `json:"download_url" gorm:"size:500;comment:下载地址"`
 	IsActive    bool      `json:"is_active" gorm:"default:true;comment:是否激活"`
 	IsLatest    bool      `json:"is_latest" gorm:"default:false;comment:是否为最新版本"`
+}
+
+// TableName 定义表名
+func (AgentVersion) TableName() string {
+	return "agent_versions"
 }
 
 // IsActiveVersion 检查版本是否激活
@@ -307,18 +363,16 @@ func (av *AgentVersion) IsLatestVersion() bool {
 	return av.IsLatest
 }
 
-// TableName 定义AgentVersion的数据库表名
-// AgentVersion 结构体的方法 - 定义AgentVersion的数据库表名
-func (AgentVersion) TableName() string {
-	return "agent_versions"
-}
+// ============================================================================
+// 相关实体：AgentConfig
+// ============================================================================
 
-// 2. Agent配置 - 独立管理，支持版本控制
+// AgentConfig Agent配置信息
 type AgentConfig struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
 
-	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
+	AgentID             string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID"`
 	Version             int                    `json:"version" gorm:"default:1;comment:配置版本号"`
 	HeartbeatInterval   int                    `json:"heartbeat_interval" gorm:"default:30;comment:心跳间隔(秒)"`
 	TaskPollInterval    int                    `json:"task_poll_interval" gorm:"default:10;comment:任务轮询间隔(秒)"`
@@ -329,6 +383,11 @@ type AgentConfig struct {
 	TokenExpiryDuration int                    `json:"token_expiry_duration" gorm:"default:86400;comment:Token过期时间(秒)"`
 	TokenNeverExpire    bool                   `json:"token_never_expire" gorm:"default:false;comment:Token是否永不过期"`
 	IsActive            bool                   `json:"is_active" gorm:"default:true;comment:是否激活"`
+}
+
+// TableName 定义表名
+func (AgentConfig) TableName() string {
+	return "agent_configs"
 }
 
 // IsActiveConfig 检查配置是否激活
@@ -344,18 +403,16 @@ func (ac *AgentConfig) IncrementVersion() {
 	ac.UpdatedAt = time.Now()
 }
 
-// TableName 定义AgentConfig的数据库表名
-// AgentConfig 结构体的方法 - 定义AgentConfig的数据库表名
-func (AgentConfig) TableName() string {
-	return "agent_configs"
-}
+// ============================================================================
+// 相关实体：AgentMetrics
+// ============================================================================
 
-// 3. Agent负载信息(动态) - 高频更新，独立存储
+// AgentMetrics Agent负载信息（动态数据）
 type AgentMetrics struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
 
-	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID，唯一索引"`
+	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID,唯一索引"`
 	CPUUsage          float64                `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
 	MemoryUsage       float64                `json:"memory_usage" gorm:"comment:内存使用率(百分比)"`
 	DiskUsage         float64                `json:"disk_usage" gorm:"comment:磁盘使用率(百分比)"`
@@ -369,6 +426,11 @@ type AgentMetrics struct {
 	ScanType          string                 `json:"scan_type" gorm:"size:50;comment:当前扫描类型"`
 	PluginStatus      map[string]interface{} `json:"plugin_status" gorm:"type:json;comment:插件状态信息"`
 	Timestamp         time.Time              `json:"timestamp" gorm:"index;comment:指标时间戳"`
+}
+
+// TableName 定义表名
+func (AgentMetrics) TableName() string {
+	return "agent_metrics"
 }
 
 // GetAgentLoad 获取Agent负载
@@ -408,23 +470,11 @@ type MetricsCollector interface {
 	GetTaskStats() (running, completed, failed int)
 }
 
-// CreateAgentMetrics 创建一个用于收集Agent指标的Metrics对象
-// Agent 结构体的方法 - 创建一个用于收集Agent指标的Metrics对象
-// 注意：实际的指标数据需要通过gRPC等通信方式从Agent获取并填充,这里只是一个空的Metrics对象
-func (a *Agent) CreateAgentMetrics() *AgentMetrics {
-	return &AgentMetrics{
-		AgentID:   a.AgentID, // 使用AgentID而不是ID，因为AgentMetrics应该关联到Agent的业务ID
-		Timestamp: time.Now(),
-	}
-}
+// ============================================================================
+// 相关实体：AgentGroup
+// ============================================================================
 
-// TableName 定义AgentMetrics的数据库表名
-// AgentMetrics 结构体的方法 - 定义AgentMetrics的数据库表名
-func (AgentMetrics) TableName() string {
-	return "agent_metrics"
-}
-
-// 4. Agent分组
+// AgentGroup Agent分组
 type AgentGroup struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
@@ -433,6 +483,11 @@ type AgentGroup struct {
 	Name        string   `json:"name" gorm:"not null;size:100;comment:分组名称"`
 	Description string   `json:"description" gorm:"size:500;comment:分组描述"`
 	Tags        []string `json:"tags" gorm:"type:json;comment:分组标签列表"`
+}
+
+// TableName 定义表名
+func (AgentGroup) TableName() string {
+	return "agent_groups"
 }
 
 // IsValid 检查分组是否有效
@@ -447,12 +502,11 @@ func (ag *AgentGroup) UpdateTimestamp() {
 	ag.UpdatedAt = time.Now()
 }
 
-// TableName 定义AgentGroup的数据库表名
-// AgentGroup 结构体的方法 - 定义AgentGroup的数据库表名
-func (AgentGroup) TableName() string {
-	return "agent_groups"
-}
+// ============================================================================
+// 相关实体：AgentGroupMember
+// ============================================================================
 
+// AgentGroupMember Agent分组成员关系
 // AgentGroupMember 结构体定义Agent分组成员关系[联合分组是一对一关系,不能使用联合分组]
 // 注意：一个Agent可以属于多个分组,一个分组可以包含多个Agent
 type AgentGroupMember struct {
@@ -470,7 +524,11 @@ func (AgentGroupMember) TableName() string {
 	return "agent_group_members"
 }
 
-// 5. 添加任务分发记录
+// ============================================================================
+// 相关实体：AgentTaskAssignment
+// ============================================================================
+
+// AgentTaskAssignment 任务分发记录
 type AgentTaskAssignment struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
@@ -483,6 +541,11 @@ type AgentTaskAssignment struct {
 	CompletedAt *time.Time      `json:"completed_at" gorm:"comment:任务完成时间"`
 	Status      AgentTaskStatus `json:"status" gorm:"size:20;comment:任务状态:assigned-已分配,running-运行中,completed-已完成,failed-已失败"`
 	Result      string          `json:"result" gorm:"type:text;comment:任务执行结果"`
+}
+
+// TableName 定义表名
+func (AgentTaskAssignment) TableName() string {
+	return "agent_task_assignments"
 }
 
 // IsAssigned 检查任务是否已分配
@@ -513,8 +576,7 @@ func (ata *AgentTaskAssignment) IsFailed() bool {
 // AgentTaskAssignment 结构体的方法 - 标记任务已分配
 func (ata *AgentTaskAssignment) AssignTask() {
 	ata.Status = AgentTaskStatusAssigned
-	now := time.Now()
-	ata.AssignedAt = now
+	ata.AssignedAt = time.Now()
 }
 
 // StartTask 标记任务开始
@@ -543,13 +605,11 @@ func (ata *AgentTaskAssignment) FailTask(result string) {
 	ata.Result = result
 }
 
-// TableName 定义AgentTaskAssignment的数据库表名
-// AgentTaskAssignment 结构体的方法 - 定义AgentTaskAssignment的数据库表名
-func (AgentTaskAssignment) TableName() string {
-	return "agent_task_assignments"
-}
+// ============================================================================
+// 相关实体：ScanType
+// ============================================================================
 
-// 扫描类型结构体 [为自定义扫描类型预留,系统默认内置扫描类型在代码中定义]
+// ScanType 扫描类型定义 (用来给Agent指定扫描类型和能力标注 - Agent-Capabilities)
 type ScanType struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
@@ -562,50 +622,28 @@ type ScanType struct {
 	ConfigTemplate ConfigTemplateJSON `json:"config_template" gorm:"type:json;comment:配置模板"`
 }
 
+// TableName 定义表名
+func (ScanType) TableName() string {
+	return "agent_scan_types"
+}
+
 // IsActiveType 检查扫描类型是否激活
 // ScanType 结构体的方法 - 检查扫描类型是否激活
 func (st *ScanType) IsActiveType() bool {
 	return st.IsActive
 }
 
-// TableName 定义ScanType的数据库表名
-// ScanType 结构体的方法 - 定义ScanType的数据库表名
-func (ScanType) TableName() string {
-	return "agent_scan_types"
+// TagType 标签类型定义 (用来给Agent指定标签 - Agent-Tags)
+type TagType struct {
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	basemodel.BaseModel
+
+	Name        string `json:"name" gorm:"unique;not null;size:100;comment:标签类型名称，唯一"`
+	DisplayName string `json:"display_name" gorm:"not null;size:100;comment:标签类型显示名称"`
+	Description string `json:"description" gorm:"size:500;comment:标签类型描述"`
+	Remarks     string `json:"remarks" gorm:"size:500;comment:标签类型备注"`
 }
 
-// ConfigTemplateJSON 自定义类型，用于处理map[string]interface{}的JSON序列化
-type ConfigTemplateJSON map[string]interface{}
-
-// Scan 实现sql.Scanner接口，用于从数据库读取JSON数据
-func (c *ConfigTemplateJSON) Scan(value interface{}) error {
-	if value == nil {
-		*c = make(map[string]interface{})
-		return nil
-	}
-
-	var bytes []byte
-	switch v := value.(type) {
-	case []byte:
-		bytes = v
-	case string:
-		bytes = []byte(v)
-	default:
-		return fmt.Errorf("cannot scan %T into ConfigTemplateJSON", value)
-	}
-
-	if len(bytes) == 0 {
-		*c = make(map[string]interface{})
-		return nil
-	}
-
-	return json.Unmarshal(bytes, c)
-}
-
-// Value 实现driver.Valuer接口，用于向数据库写入JSON数据
-func (c ConfigTemplateJSON) Value() (driver.Value, error) {
-	if c == nil {
-		return nil, nil
-	}
-	return json.Marshal(c)
+func (TagType) TableName() string {
+	return "agent_tag_types"
 }

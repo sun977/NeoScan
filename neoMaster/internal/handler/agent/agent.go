@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -262,7 +263,24 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 
 	// 过滤参数 status: offline / online
 	req.Status = agentModel.AgentStatus(c.Query("status"))
-	req.Tags = c.QueryArray("tags")
+	
+	// 标签过滤参数处理 - 支持逗号分隔的标签值
+	// 例如: tags=2,7 或 tags=2&tags=7 两种格式都支持
+	tagsArray := c.QueryArray("tags")
+	if len(tagsArray) > 1 {
+		// 处理多个tags参数: tags=2&tags=7
+		req.Tags = tagsArray
+	} else if len(tagsArray) == 1 && strings.Contains(tagsArray[0], ",") {
+		// 处理逗号分隔的标签值: tags=2,7
+		req.Tags = strings.Split(tagsArray[0], ",")
+		// 去除空白字符
+		for i, tag := range req.Tags {
+			req.Tags[i] = strings.TrimSpace(tag)
+		}
+	} else if len(tagsArray) == 1 {
+		// 单个标签: tags=2
+		req.Tags = tagsArray
+	}
 
 	// 调用服务层获取Agent列表
 	response, err := h.agentService.GetAgentList(&req)

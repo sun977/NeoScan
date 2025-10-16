@@ -254,7 +254,7 @@ func (r *agentRepository) Delete(agentID string) error {
 }
 
 // GetList 获取Agent列表
-// 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, tags - 标签过滤, capabilities - 功能模块过滤
+// 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, keyword - 关键字过滤, tags - 标签过滤, capabilities - 功能模块过滤
 // 返回: []*agentModel.Agent - Agent列表, int64 - 总数量, error - 错误信息
 func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error) {
 	var agents []*agentModel.Agent

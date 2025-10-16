@@ -163,7 +163,7 @@ func (s *agentService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*age
 }
 
 // GetAgentList 获取Agent列表服务
-// 支持分页和过滤条件
+// 支持分页和过滤条件：status 状态、keyword 关键字、tags 标签、capabilities 功能模块
 func (s *agentService) GetAgentList(req *agentModel.GetAgentListRequest) (*agentModel.GetAgentListResponse, error) {
 	// 设置默认值
 	if req.Page <= 0 {

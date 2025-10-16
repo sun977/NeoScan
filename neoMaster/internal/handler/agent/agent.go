@@ -239,6 +239,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 }
 
 // GetAgentList 获取Agent列表处理器
+// 支持分页、status 状态过滤、keyword 关键字模糊查询、tags 标签过滤、capabilities 功能模块过滤
 func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	// 规范化客户端信息
 	clientIP := utils.GetClientIP(c)

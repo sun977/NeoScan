@@ -84,6 +84,7 @@ func (r *agentRepository) Create(agentData *agentModel.Agent) error {
 func (r *agentRepository) GetByID(agentID string) (*agentModel.Agent, error) {
 	var agentData agentModel.Agent
 
+	// 实际上是根据 agentID 查询
 	result := r.db.Where("agent_id = ?", agentID).First(&agentData)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {

@@ -23,12 +23,13 @@ import (
 
 // StringSlice 自定义字符串切片类型，用于处理JSON数组字段
 // 支持MySQL JSON格式和PostgreSQL数组格式的转换
+// 现在用于存储ScanType和TagType的ID列表，格式为 ["2", "3"]
 type StringSlice []string
 
 // Scan 实现sql.Scanner接口，用于从数据库读取数据
 // 参数: value - 数据库中的值
 // 返回: 错误信息
-// - Agent 表中有 capabilities 和 tags 字段，类型为 JSON (["port_scan", "vuln_scan", "web_scan"])
+// - Agent 表中有 capabilities 和 tags 字段，类型为 JSON (["2", "3"])，存储字符串形式的ID
 // - 每次查询 Agent 数据时，GORM 都会调用 Scan 方法
 func (s *StringSlice) Scan(value interface{}) error {
 	if value == nil {
@@ -181,9 +182,9 @@ type Agent struct {
 	MemoryTotal int64  `json:"memory_total" gorm:"comment:总内存大小(字节)"`
 	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
-	// 能力和标签
-	Capabilities StringSlice `json:"capabilities" gorm:"type:json;comment:Agent支持的功能模块列表"`
-	Tags         StringSlice `json:"tags" gorm:"type:json;comment:Agent标签列表"`
+	// 能力和标签(存储ScanType和TagType的ID) - 内容格式:["2","3"] (字符串形式的ID列表)
+	Capabilities StringSlice `json:"capabilities" gorm:"type:json;comment:Agent支持的扫描类型ID列表，对应ScanType表的ID"`
+	Tags         StringSlice `json:"tags" gorm:"type:json;comment:Agent标签ID列表，对应TagType表的ID"`
 
 	// 安全认证
 	GRPCToken   string    `json:"grpc_token" gorm:"column:grpc_token;size:500;comment:gRPC通信Token"`
@@ -247,20 +248,22 @@ func (a *Agent) UpdateHeartbeat() {
 // ============================================================================
 
 // AddCapability 添加能力（避免重复）
-func (a *Agent) AddCapability(capability string) {
+// 参数: capabilityID - 扫描类型ID（字符串形式）
+func (a *Agent) AddCapability(capabilityID string) {
 	for _, c := range a.Capabilities {
-		if c == capability {
+		if c == capabilityID {
 			return // 避免重复添加
 		}
 	}
-	a.Capabilities = append(a.Capabilities, capability)
+	a.Capabilities = append(a.Capabilities, capabilityID)
 }
 
 // RemoveCapability 移除能力
 // Agent 结构体的方法 - 移除指定能力
-func (a *Agent) RemoveCapability(capability string) {
+// 参数: capabilityID - 扫描类型ID（字符串形式）
+func (a *Agent) RemoveCapability(capabilityID string) {
 	for i, c := range a.Capabilities {
-		if c == capability {
+		if c == capabilityID {
 			a.Capabilities = append(a.Capabilities[:i], a.Capabilities[i+1:]...)
 			return
 		}
@@ -269,9 +272,10 @@ func (a *Agent) RemoveCapability(capability string) {
 
 // HasCapability 检查是否具有指定能力
 // Agent 结构体的方法 - 检查是否具有指定能力
-func (a *Agent) HasCapability(capability string) bool {
+// 参数: capabilityID - 扫描类型ID（字符串形式）
+func (a *Agent) HasCapability(capabilityID string) bool {
 	for _, c := range a.Capabilities {
-		if c == capability {
+		if c == capabilityID {
 			return true
 		}
 	}
@@ -279,8 +283,9 @@ func (a *Agent) HasCapability(capability string) bool {
 }
 
 // CanAcceptTask 判断Agent是否可以接受指定类型的任务
-func (a *Agent) CanAcceptTask(taskType string) bool {
-	return a.IsOnline() && a.HasCapability(taskType)
+// 参数: taskTypeID - 任务类型ID（字符串形式）
+func (a *Agent) CanAcceptTask(taskTypeID string) bool {
+	return a.IsOnline() && a.HasCapability(taskTypeID)
 }
 
 // ============================================================================
@@ -288,20 +293,22 @@ func (a *Agent) CanAcceptTask(taskType string) bool {
 // ============================================================================
 
 // AddTag 添加标签（避免重复）
-func (a *Agent) AddTag(tag string) {
+// 参数: tagID - 标签类型ID（字符串形式）
+func (a *Agent) AddTag(tagID string) {
 	for _, t := range a.Tags {
-		if t == tag {
+		if t == tagID {
 			return // 避免重复添加
 		}
 	}
-	a.Tags = append(a.Tags, tag)
+	a.Tags = append(a.Tags, tagID)
 }
 
 // RemoveTag 移除标签
 // Agent 结构体的方法 - 移除指定标签
-func (a *Agent) RemoveTag(tag string) {
+// 参数: tagID - 标签类型ID（字符串形式）
+func (a *Agent) RemoveTag(tagID string) {
 	for i, t := range a.Tags {
-		if t == tag {
+		if t == tagID {
 			a.Tags = append(a.Tags[:i], a.Tags[i+1:]...)
 			return
 		}
@@ -310,9 +317,10 @@ func (a *Agent) RemoveTag(tag string) {
 
 // HasTag 检查是否具有指定标签
 // Agent 结构体的方法 - 检查是否具有指定标签
-func (a *Agent) HasTag(tag string) bool {
+// 参数: tagID - 标签类型ID（字符串形式）
+func (a *Agent) HasTag(tagID string) bool {
 	for _, t := range a.Tags {
-		if t == tag {
+		if t == tagID {
 			return true
 		}
 	}
@@ -609,12 +617,13 @@ func (ata *AgentTaskAssignment) FailTask(result string) {
 // 相关实体：ScanType
 // ============================================================================
 
-// ScanType 扫描类型定义
+// ScanType 扫描类型定义 (用来给Agent指定扫描类型和能力标注 - Agent-Capabilities)
 type ScanType struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	// ID字段作为主键和业务标识，统一使用BaseModel.ID(uint64)
 	basemodel.BaseModel
 
-	Name           string             `json:"name" gorm:"unique;not null;size:100;comment:扫描类型名称，唯一"`
+	Name           string             `json:"name" gorm:"not null;size:100;comment:扫描类型名称"`
 	DisplayName    string             `json:"display_name" gorm:"not null;size:100;comment:扫描类型显示名称"`
 	Description    string             `json:"description" gorm:"size:500;comment:扫描类型描述"`
 	Category       string             `json:"category" gorm:"size:50;comment:扫描类型分类"`
@@ -631,4 +640,20 @@ func (ScanType) TableName() string {
 // ScanType 结构体的方法 - 检查扫描类型是否激活
 func (st *ScanType) IsActiveType() bool {
 	return st.IsActive
+}
+
+// TagType 标签类型定义 (用来给Agent指定标签 - Agent-Tags)
+type TagType struct {
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	// ID字段作为主键和业务标识，统一使用BaseModel.ID(uint64)
+	basemodel.BaseModel
+
+	Name        string `json:"name" gorm:"not null;size:100;comment:标签类型名称，唯一"`
+	DisplayName string `json:"display_name" gorm:"not null;size:100;comment:标签类型显示名称"`
+	Description string `json:"description" gorm:"size:500;comment:标签类型描述"`
+	Remarks     string `json:"remarks" gorm:"size:500;comment:标签类型备注"`
+}
+
+func (TagType) TableName() string {
+	return "agent_tag_types"
 }

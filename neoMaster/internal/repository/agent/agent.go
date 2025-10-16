@@ -268,10 +268,13 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 		query = query.Where("status = ?", *status)
 	}
 
-	// 标签过滤（简单实现，实际可能需要更复杂的JSON查询） - 仅支持单个标签过滤
+	// 标签过滤 - 使用JSON查询精确匹配标签ID
+	// 支持多个标签的AND逻辑：Agent必须包含所有指定的标签ID
 	if len(tags) > 0 {
 		for _, tag := range tags {
-			query = query.Where("tags LIKE ?", "%"+tag+"%")
+			// 使用JSON_CONTAINS函数精确匹配JSON数组中的字符串值
+			// 注意：tag需要用双引号包围，因为JSON数组中存储的是字符串
+			query = query.Where("JSON_CONTAINS(tags, ?)", `"`+tag+`"`)
 		}
 	}
 

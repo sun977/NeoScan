@@ -47,7 +47,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		logger.LogError(
 			fmt.Errorf("missing Content-Type header"),
 			XRequestID,
-			0, // userID - 在注册阶段还没有agent ID
+			0, // AgentID - 在注册阶段还没有agent ID
 			clientIP,
 			pathUrl,
 			"POST",
@@ -73,7 +73,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		logger.LogError(
 			err,
 			XRequestID,
-			0, // userID - 在注册阶段还没有agent ID
+			0, // AgentID - 在注册阶段还没有agent ID
 			clientIP,
 			pathUrl,
 			"POST",
@@ -101,7 +101,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		logger.LogError(
 			err,
 			XRequestID,
-			0, // userID - 在注册阶段还没有agent ID
+			0, // AgentID - 在注册阶段还没有agent ID
 			clientIP,
 			pathUrl,
 			"POST",
@@ -127,7 +127,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	logger.LogInfo(
 		"Agent注册成功",
 		XRequestID,
-		0, // userID - 在注册阶段还没有agent ID
+		0, // AgentID - 在注册阶段还没有agent ID
 		clientIP,
 		pathUrl,
 		"POST",

@@ -264,6 +264,9 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	// 过滤参数 status: offline / online
 	req.Status = agentModel.AgentStatus(c.Query("status"))
 
+	// 关键字过滤参数 - 支持对agent_id、hostname、ip_address的模糊查询
+	req.Keyword = c.Query("keyword")
+
 	// 标签过滤参数处理 - 支持逗号分隔的标签值
 	// 例如: tags=2,7 或 tags=2&tags=7 两种格式都支持
 	tagsArray := c.QueryArray("tags")

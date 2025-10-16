@@ -31,7 +31,7 @@ type AgentRepository interface {
 	UpdateLastHeartbeat(agentID string) error
 
 	// Agent查询操作
-	GetList(page, pageSize int, status *agentModel.AgentStatus, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
+	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
 }
 
@@ -256,7 +256,7 @@ func (r *agentRepository) Delete(agentID string) error {
 // GetList 获取Agent列表
 // 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, tags - 标签过滤, capabilities - 功能模块过滤
 // 返回: []*agentModel.Agent - Agent列表, int64 - 总数量, error - 错误信息
-func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error) {
+func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error) {
 	var agents []*agentModel.Agent
 	var total int64
 
@@ -266,6 +266,11 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 	// 状态过滤 - 仅支持单个状态值过滤
 	if status != nil {
 		query = query.Where("status = ?", *status)
+	}
+
+	// 关键字模糊过滤
+	if keyword != nil {
+		query = query.Where("agent_id LIKE ? OR hostname LIKE ? OR ip_address LIKE ?", "%"+*keyword+"%", "%"+*keyword+"%", "%"+*keyword+"%")
 	}
 
 	// 标签过滤 - 使用JSON查询精确匹配标签ID

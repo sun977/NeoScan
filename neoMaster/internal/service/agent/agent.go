@@ -173,13 +173,20 @@ func (s *agentService) GetAgentList(req *agentModel.GetAgentListRequest) (*agent
 		req.PageSize = 10
 	}
 
-	// 构建过滤条件
+	// 构建 status 状态过滤条件
 	var status *agentModel.AgentStatus
 	if req.Status != "" {
 		status = &req.Status
 	}
 
-	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, req.Tags, req.Capabilities)
+	// 构建 keyword 过滤条件
+	var keyword *string
+	if req.Keyword != "" {
+		keyword = &req.Keyword
+	}
+
+	// 页码 页码大小 状态 关键字 标签 能力
+	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, keyword, req.Tags, req.Capabilities)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.agent.GetAgentList", "", map[string]interface{}{
 			"operation": "get_agent_list",

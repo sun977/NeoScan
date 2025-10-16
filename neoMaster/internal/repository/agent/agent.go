@@ -8,6 +8,7 @@
 package agent
 
 import (
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -182,6 +183,20 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 		return result.Error
 	}
 
+	// 检查是否真的更新了记录
+	if result.RowsAffected == 0 {
+		err := fmt.Errorf("Agent not found")
+		logger.LogError(err, "", 0, "", "repository.agent.UpdateStatus", "", map[string]interface{}{
+			"operation": "update_agent_status",
+			"option":    "agentRepository.UpdateStatus",
+			"func_name": "repository.agent.UpdateStatus",
+			"agent_id":  agentID,
+			"status":    string(status),
+			"message":   "No rows affected, agent not found",
+		})
+		return err
+	}
+
 	logger.LogInfo("Agent状态更新成功", "", 0, "", "repository.agent.UpdateStatus", "", map[string]interface{}{
 		"operation": "update_agent_status",
 		"option":    "agentRepository.UpdateStatus",
@@ -212,6 +227,19 @@ func (r *agentRepository) UpdateLastHeartbeat(agentID string) error {
 			"agent_id":  agentID,
 		})
 		return result.Error
+	}
+
+	// 检查是否真的更新了记录
+	if result.RowsAffected == 0 {
+		err := fmt.Errorf("Agent not found")
+		logger.LogError(err, "", 0, "", "repository.agent.UpdateLastHeartbeat", "", map[string]interface{}{
+			"operation": "update_heartbeat",
+			"option":    "agentRepository.UpdateLastHeartbeat",
+			"func_name": "repository.agent.UpdateLastHeartbeat",
+			"agent_id":  agentID,
+			"message":   "No rows affected, agent not found",
+		})
+		return err
 	}
 
 	logger.LogInfo("Agent心跳时间更新成功", "", 0, "", "repository.agent.UpdateLastHeartbeat", "", map[string]interface{}{
@@ -277,7 +305,7 @@ func (r *agentRepository) GetLatestMetrics(agentID string) (*agentModel.AgentMet
 	return &metrics, nil
 }
 
-// UpdateAgentMetrics 更新Agent性能指标 - 修复为直接操作agent_metrics表
+// UpdateAgentMetrics 更新Agent性能指标 - 实现upsert逻辑（存在则更新，不存在则创建）
 // 参数: agentID - Agent的业务ID, metrics - 性能指标数据指针
 // 返回: error - 更新过程中的错误信息
 func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error {
@@ -285,24 +313,75 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 	metrics.AgentID = agentID
 	metrics.Timestamp = time.Now()
 
-	// 直接创建新的性能指标记录，而不是更新agents表
-	result := r.db.Create(metrics)
+	// 查找是否已存在该Agent的性能指标记录
+	var existingMetrics agentModel.AgentMetrics
+	result := r.db.Where("agent_id = ?", agentID).First(&existingMetrics)
+
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+		if result.Error == gorm.ErrRecordNotFound {
+			// 不存在记录，创建新记录
+			createResult := r.db.Create(metrics)
+			if createResult.Error != nil {
+				logger.LogError(createResult.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+					"operation": "create_agent_metrics",
+					"option":    "agentRepository.UpdateAgentMetrics",
+					"func_name": "repository.agent.UpdateAgentMetrics",
+					"agent_id":  agentID,
+				})
+				return createResult.Error
+			}
+
+			logger.LogInfo("Agent性能指标创建成功", "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+				"operation": "create_agent_metrics",
+				"option":    "agentRepository.UpdateAgentMetrics",
+				"func_name": "repository.agent.UpdateAgentMetrics",
+				"agent_id":  agentID,
+			})
+		} else {
+			// 查询出错
+			logger.LogError(result.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+				"operation": "query_agent_metrics",
+				"option":    "agentRepository.UpdateAgentMetrics",
+				"func_name": "repository.agent.UpdateAgentMetrics",
+				"agent_id":  agentID,
+			})
+			return result.Error
+		}
+	} else {
+		// 存在记录，更新现有记录
+		updateResult := r.db.Model(&existingMetrics).Updates(map[string]interface{}{
+			"cpu_usage":          metrics.CPUUsage,
+			"memory_usage":       metrics.MemoryUsage,
+			"disk_usage":         metrics.DiskUsage,
+			"network_bytes_sent": metrics.NetworkBytesSent,
+			"network_bytes_recv": metrics.NetworkBytesRecv,
+			"active_connections": metrics.ActiveConnections,
+			"running_tasks":      metrics.RunningTasks,
+			"completed_tasks":    metrics.CompletedTasks,
+			"failed_tasks":       metrics.FailedTasks,
+			"work_status":        metrics.WorkStatus,
+			"scan_type":          metrics.ScanType,
+			"plugin_status":      metrics.PluginStatus,
+			"timestamp":          metrics.Timestamp,
+		})
+
+		if updateResult.Error != nil {
+			logger.LogError(updateResult.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+				"operation": "update_agent_metrics",
+				"option":    "agentRepository.UpdateAgentMetrics",
+				"func_name": "repository.agent.UpdateAgentMetrics",
+				"agent_id":  agentID,
+			})
+			return updateResult.Error
+		}
+
+		logger.LogInfo("Agent性能指标更新成功", "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
 			"operation": "update_agent_metrics",
 			"option":    "agentRepository.UpdateAgentMetrics",
 			"func_name": "repository.agent.UpdateAgentMetrics",
 			"agent_id":  agentID,
 		})
-		return result.Error
 	}
-
-	logger.LogInfo("Agent性能指标更新成功", "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
-		"operation": "update_agent_metrics",
-		"option":    "agentRepository.UpdateAgentMetrics",
-		"func_name": "repository.agent.UpdateAgentMetrics",
-		"agent_id":  agentID,
-	})
 
 	return nil
 }

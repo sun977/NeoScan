@@ -527,10 +527,19 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 				"status_code": statusCode,
 			},
 		)
+
+		// 根据错误类型返回不同的消息
+		var message string
+		if statusCode == http.StatusNotFound {
+			message = "Agent not found"
+		} else {
+			message = "Failed to process heartbeat"
+		}
+
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,
 			Status:  "failed",
-			Message: "Failed to process heartbeat",
+			Message: message,
 			Error:   err.Error(),
 		})
 		return
@@ -660,7 +669,7 @@ func (h *AgentHandler) getErrorStatusCode(err error) int {
 
 	// 可以根据具体的错误类型进行更精确的状态码映射
 	errMsg := err.Error()
-	if errMsg == "Agent不存在" || errMsg == "agent not found" {
+	if errMsg == "Agent not found" || errMsg == "agent not found" || errMsg == "Agent不存在" {
 		return http.StatusNotFound
 	}
 

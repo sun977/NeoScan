@@ -27,9 +27,9 @@ type AgentService interface {
 	DeleteAgent(agentID string) error
 
 	// Agent心跳和状态监控
-	ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agentModel.HeartbeatResponse, error)
-	GetAgentMetrics(agentID string) (*agentModel.AgentMetricsResponse, error)
-	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error
+	ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agentModel.HeartbeatResponse, error) // 处理Agent发送过来的心跳，更新状态和性能指标
+	GetAgentMetrics(agentID string) (*agentModel.AgentMetricsResponse, error)                 // 主动获取Agent的性能指标
+	// 注意：性能指标更新通过ProcessHeartbeat流程中的CreateMetrics完成，无需单独的UpdateAgentMetrics方法
 
 	// Agent配置管理
 	GetAgentConfig(agentID string) (*agentModel.AgentConfigResponse, error)
@@ -285,7 +285,7 @@ func (s *agentService) DeleteAgent(agentID string) error {
 // 将心跳状态更新和性能指标存储分离，体现"好品味"的数据处理逻辑
 func (s *agentService) ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agentModel.HeartbeatResponse, error) {
 	// 1. 更新Agent心跳状态信息到agents表
-	// 分别更新状态和心跳时间
+	// 只更新last_heartbeat、updated_at、status字段，其他字段在注册时已确定
 	err := s.agentRepo.UpdateStatus(req.AgentID, req.Status)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.agent.ProcessHeartbeat", "", map[string]interface{}{
@@ -310,14 +310,13 @@ func (s *agentService) ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agen
 	}
 
 	// 2. 处理性能指标数据到agent_metrics表
-	// 使用统一的GetMetrics方法获取性能指标数据
-	metrics := req.GetMetrics()
-	if metrics != nil {
+	// Agent已经提供了完整的性能指标数据，直接使用即可
+	if req.Metrics != nil {
 		// 确保AgentID正确设置
-		metrics.AgentID = req.AgentID
+		req.Metrics.AgentID = req.AgentID
 
 		// 将性能指标存储到agent_metrics表
-		err = s.agentRepo.CreateMetrics(metrics)
+		err = s.agentRepo.CreateMetrics(req.Metrics)
 		if err != nil {
 			logger.LogError(err, "", 0, "", "service.agent.ProcessHeartbeat", "", map[string]interface{}{
 				"operation": "process_heartbeat",
@@ -359,20 +358,6 @@ func (s *agentService) ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agen
 func (s *agentService) GetAgentMetrics(agentID string) (*agentModel.AgentMetricsResponse, error) {
 	// TODO: 实现从时序数据库获取性能指标
 	return nil, fmt.Errorf("功能暂未实现")
-}
-
-// UpdateAgentMetrics 更新Agent性能指标服务
-func (s *agentService) UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error {
-	if err := s.agentRepo.UpdateAgentMetrics(agentID, metrics); err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.UpdateAgentMetrics", "", map[string]interface{}{
-			"operation": "update_agent_metrics",
-			"option":    "agentService.UpdateAgentMetrics",
-			"func_name": "service.agent.UpdateAgentMetrics",
-			"agent_id":  agentID,
-		})
-		return fmt.Errorf("更新Agent性能指标失败: %v", err)
-	}
-	return nil
 }
 
 // GetAgentConfig 获取Agent配置服务

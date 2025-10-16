@@ -27,94 +27,15 @@ type RegisterAgentRequest struct {
 }
 
 // HeartbeatRequest Agent心跳请求结构
-// 包含Agent当前状态和性能指标
-// HeartbeatMetricsData Agent心跳中的性能指标数据
-// 将性能指标字段提取为独立结构，避免数据结构混乱
-type HeartbeatMetricsData struct {
-	CPUUsage          float64                `json:"cpu_usage" validate:"min=0,max=100"`    // CPU使用率(百分比)，0-100
-	MemoryUsage       float64                `json:"memory_usage" validate:"min=0,max=100"` // 内存使用率(百分比)，0-100
-	DiskUsage         float64                `json:"disk_usage" validate:"min=0,max=100"`   // 磁盘使用率(百分比)，0-100
-	NetworkBytesSent  int64                  `json:"network_bytes_sent" validate:"min=0"`   // 网络发送字节数，非负数
-	NetworkBytesRecv  int64                  `json:"network_bytes_recv" validate:"min=0"`   // 网络接收字节数，非负数
-	ActiveConnections int                    `json:"active_connections" validate:"min=0"`   // 活动连接数，非负数
-	RunningTasks      int                    `json:"running_tasks" validate:"min=0"`        // 正在运行的任务数，非负数
-	CompletedTasks    int                    `json:"completed_tasks" validate:"min=0"`      // 已完成任务数，非负数
-	FailedTasks       int                    `json:"failed_tasks" validate:"min=0"`         // 失败任务数，非负数
-	WorkStatus        AgentWorkStatus        `json:"work_status" validate:"required"`       // 工作状态，必填
-	ScanType          string                 `json:"scan_type"`                             // 当前扫描类型
-	PluginStatus      map[string]interface{} `json:"plugin_status"`                         // 插件状态信息
-}
-
-// HeartbeatRequest Agent心跳请求结构 - 优化后的版本
-// 将心跳状态信息和性能指标数据分离，体现"好品味"的数据结构设计
+// 遵循"好品味"原则：心跳状态信息和性能指标数据完全分离
+// 心跳请求只负责传递心跳状态和性能指标数据
 type HeartbeatRequest struct {
-	// 心跳基础信息
+	// 心跳基础信息 - 用于更新agents表的last_heartbeat、updated_at、status字段
 	AgentID string      `json:"agent_id" validate:"required"` // Agent唯一标识ID，必填
 	Status  AgentStatus `json:"status" validate:"required"`   // Agent状态，必填
 
-	// 性能指标数据 - 可选，支持两种传递方式
-	MetricsData *HeartbeatMetricsData `json:"metrics_data,omitempty"` // 结构化的性能指标数据
-	Metrics     *AgentMetrics         `json:"metrics,omitempty"`      // 完整的AgentMetrics对象（向后兼容）
-
-	// 向后兼容的性能指标字段（已废弃，建议使用MetricsData）
-	CPUUsage          float64                `json:"cpu_usage,omitempty" validate:"min=0,max=100"`    // CPU使用率(百分比)，0-100
-	MemoryUsage       float64                `json:"memory_usage,omitempty" validate:"min=0,max=100"` // 内存使用率(百分比)，0-100
-	DiskUsage         float64                `json:"disk_usage,omitempty" validate:"min=0,max=100"`   // 磁盘使用率(百分比)，0-100
-	NetworkBytesSent  int64                  `json:"network_bytes_sent,omitempty" validate:"min=0"`   // 网络发送字节数，非负数
-	NetworkBytesRecv  int64                  `json:"network_bytes_recv,omitempty" validate:"min=0"`   // 网络接收字节数，非负数
-	ActiveConnections int                    `json:"active_connections,omitempty" validate:"min=0"`   // 活动连接数，非负数
-	RunningTasks      int                    `json:"running_tasks,omitempty" validate:"min=0"`        // 正在运行的任务数，非负数
-	CompletedTasks    int                    `json:"completed_tasks,omitempty" validate:"min=0"`      // 已完成任务数，非负数
-	FailedTasks       int                    `json:"failed_tasks,omitempty" validate:"min=0"`         // 失败任务数，非负数
-	WorkStatus        AgentWorkStatus        `json:"work_status,omitempty"`                           // 工作状态
-	ScanType          string                 `json:"scan_type,omitempty"`                             // 当前扫描类型
-	PluginStatus      map[string]interface{} `json:"plugin_status,omitempty"`                         // 插件状态信息
-}
-
-// GetMetrics 获取性能指标数据 - 统一的数据获取方法
-// 优先使用Metrics，其次使用MetricsData，最后使用向后兼容字段
-func (req *HeartbeatRequest) GetMetrics() *AgentMetrics {
-	// 1. 如果有完整的Metrics对象，直接返回
-	if req.Metrics != nil {
-		req.Metrics.AgentID = req.AgentID // 确保AgentID正确
-		return req.Metrics
-	}
-
-	// 2. 如果有MetricsData，转换为AgentMetrics
-	if req.MetricsData != nil {
-		return &AgentMetrics{
-			AgentID:           req.AgentID,
-			CPUUsage:          req.MetricsData.CPUUsage,
-			MemoryUsage:       req.MetricsData.MemoryUsage,
-			DiskUsage:         req.MetricsData.DiskUsage,
-			NetworkBytesSent:  req.MetricsData.NetworkBytesSent,
-			NetworkBytesRecv:  req.MetricsData.NetworkBytesRecv,
-			ActiveConnections: req.MetricsData.ActiveConnections,
-			RunningTasks:      req.MetricsData.RunningTasks,
-			CompletedTasks:    req.MetricsData.CompletedTasks,
-			FailedTasks:       req.MetricsData.FailedTasks,
-			WorkStatus:        req.MetricsData.WorkStatus,
-			ScanType:          req.MetricsData.ScanType,
-			PluginStatus:      req.MetricsData.PluginStatus,
-		}
-	}
-
-	// 3. 向后兼容：使用原有字段构造AgentMetrics
-	return &AgentMetrics{
-		AgentID:           req.AgentID,
-		CPUUsage:          req.CPUUsage,
-		MemoryUsage:       req.MemoryUsage,
-		DiskUsage:         req.DiskUsage,
-		NetworkBytesSent:  req.NetworkBytesSent,
-		NetworkBytesRecv:  req.NetworkBytesRecv,
-		ActiveConnections: req.ActiveConnections,
-		RunningTasks:      req.RunningTasks,
-		CompletedTasks:    req.CompletedTasks,
-		FailedTasks:       req.FailedTasks,
-		WorkStatus:        req.WorkStatus,
-		ScanType:          req.ScanType,
-		PluginStatus:      req.PluginStatus,
-	}
+	// 性能指标数据 - 可选，用于存储到agent_metrics表
+	Metrics *AgentMetrics `json:"metrics,omitempty"` // 性能指标数据，可选
 }
 
 // GetAgentListRequest 获取Agent列表请求结构

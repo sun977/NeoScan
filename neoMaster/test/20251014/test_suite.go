@@ -44,7 +44,7 @@ type TestSuite struct {
 // NewTestSuite 创建新的测试套件
 func NewTestSuite(t *testing.T) *TestSuite {
 	// 加载测试配置
-	cfg, err := config.LoadConfig("../../configs/config.test.yaml", "test")
+	cfg, err := config.LoadConfig("../../configs", "test")
 	require.NoError(t, err, "加载测试配置失败")
 
 	// 使用neoscan_test数据库连接
@@ -86,6 +86,9 @@ func NewTestSuite(t *testing.T) *TestSuite {
 	redisClient := &redis.Client{} // 简化的Redis客户端，测试时可能不需要真实连接
 	jwtSecret := "test-jwt-secret-key-for-testing-only"
 	routerManager := router.NewRouter(db, redisClient, jwtSecret)
+	
+	// 设置路由 - 这是关键步骤，必须调用才能注册所有路由
+	routerManager.SetupRoutes()
 
 	// 创建基础角色和权限
 	ts := &TestSuite{
@@ -228,6 +231,9 @@ func (ts *TestSuite) CreateTestAgent(t *testing.T, hostname, ipAddress string, p
 	agentID, err := utils.GenerateUUID()
 	require.NoError(t, err)
 
+	// 设置Token过期时间为24小时后
+	tokenExpiry := time.Now().Add(24 * time.Hour)
+
 	agent := &agentModel.Agent{
 		AgentID:       agentID,
 		Hostname:      hostname,
@@ -242,6 +248,7 @@ func (ts *TestSuite) CreateTestAgent(t *testing.T, hostname, ipAddress string, p
 		Status:        agentModel.AgentStatusOnline,
 		Capabilities:  agentModel.StringSlice{"port_scan", "vuln_scan"},
 		Tags:          agentModel.StringSlice{"test", "development"},
+		TokenExpiry:   tokenExpiry,  // 设置Token过期时间
 		Remark:        "测试Agent",
 		LastHeartbeat: time.Now(),
 	}
@@ -282,6 +289,9 @@ func (ts *TestSuite) CreateTestAgentWithCustomData(t *testing.T, data map[string
 		require.NoError(t, err)
 	}
 
+	// 设置Token过期时间为24小时后
+	tokenExpiry := time.Now().Add(24 * time.Hour)
+
 	agent := &agentModel.Agent{
 		AgentID:       agentID,
 		Hostname:      defaults["hostname"].(string),
@@ -296,6 +306,7 @@ func (ts *TestSuite) CreateTestAgentWithCustomData(t *testing.T, data map[string
 		Status:        defaults["status"].(agentModel.AgentStatus),
 		Capabilities:  defaults["capabilities"].(agentModel.StringSlice),
 		Tags:          defaults["tags"].(agentModel.StringSlice),
+		TokenExpiry:   tokenExpiry,  // 设置Token过期时间
 		Remark:        defaults["remark"].(string),
 		LastHeartbeat: time.Now(),
 	}

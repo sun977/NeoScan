@@ -30,6 +30,11 @@ type AgentRepository interface {
 	UpdateStatus(agentID string, status agentModel.AgentStatus) error
 	UpdateLastHeartbeat(agentID string) error
 
+	// Agent性能指标管理 - 直接操作agent_metrics表
+	CreateMetrics(metrics *agentModel.AgentMetrics) error
+	GetLatestMetrics(agentID string) (*agentModel.AgentMetrics, error)
+	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error
+
 	// Agent查询操作
 	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
@@ -213,6 +218,89 @@ func (r *agentRepository) UpdateLastHeartbeat(agentID string) error {
 		"operation": "update_heartbeat",
 		"option":    "agentRepository.UpdateLastHeartbeat",
 		"func_name": "repository.agent.UpdateLastHeartbeat",
+		"agent_id":  agentID,
+	})
+
+	return nil
+}
+
+// CreateMetrics 创建Agent性能指标记录
+// 参数: metrics - 性能指标数据指针
+// 返回: error - 创建过程中的错误信息
+func (r *agentRepository) CreateMetrics(metrics *agentModel.AgentMetrics) error {
+	// 设置时间戳
+	metrics.Timestamp = time.Now()
+
+	result := r.db.Create(metrics)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repository.agent.CreateMetrics", "", map[string]interface{}{
+			"operation": "create_agent_metrics",
+			"option":    "agentRepository.CreateMetrics",
+			"func_name": "repository.agent.CreateMetrics",
+			"agent_id":  metrics.AgentID,
+		})
+		return result.Error
+	}
+
+	logger.LogInfo("Agent性能指标创建成功", "", 0, "", "repository.agent.CreateMetrics", "", map[string]interface{}{
+		"operation": "create_agent_metrics",
+		"option":    "agentRepository.CreateMetrics",
+		"func_name": "repository.agent.CreateMetrics",
+		"agent_id":  metrics.AgentID,
+	})
+
+	return nil
+}
+
+// GetLatestMetrics 获取Agent最新性能指标
+// 参数: agentID - Agent的业务ID
+// 返回: *agentModel.AgentMetrics - 最新的性能指标数据, error - 查询过程中的错误信息
+func (r *agentRepository) GetLatestMetrics(agentID string) (*agentModel.AgentMetrics, error) {
+	var metrics agentModel.AgentMetrics
+	result := r.db.Where("agent_id = ?", agentID).
+		Order("timestamp DESC").
+		First(&metrics)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil // 没有找到记录，返回nil而不是错误
+		}
+		logger.LogError(result.Error, "", 0, "", "repository.agent.GetLatestMetrics", "", map[string]interface{}{
+			"operation": "get_latest_metrics",
+			"option":    "agentRepository.GetLatestMetrics",
+			"func_name": "repository.agent.GetLatestMetrics",
+			"agent_id":  agentID,
+		})
+		return nil, result.Error
+	}
+
+	return &metrics, nil
+}
+
+// UpdateAgentMetrics 更新Agent性能指标 - 修复为直接操作agent_metrics表
+// 参数: agentID - Agent的业务ID, metrics - 性能指标数据指针
+// 返回: error - 更新过程中的错误信息
+func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error {
+	// 设置AgentID和时间戳
+	metrics.AgentID = agentID
+	metrics.Timestamp = time.Now()
+
+	// 直接创建新的性能指标记录，而不是更新agents表
+	result := r.db.Create(metrics)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+			"operation": "update_agent_metrics",
+			"option":    "agentRepository.UpdateAgentMetrics",
+			"func_name": "repository.agent.UpdateAgentMetrics",
+			"agent_id":  agentID,
+		})
+		return result.Error
+	}
+
+	logger.LogInfo("Agent性能指标更新成功", "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+		"operation": "update_agent_metrics",
+		"option":    "agentRepository.UpdateAgentMetrics",
+		"func_name": "repository.agent.UpdateAgentMetrics",
 		"agent_id":  agentID,
 	})
 

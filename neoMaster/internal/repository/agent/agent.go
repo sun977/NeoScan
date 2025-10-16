@@ -31,7 +31,7 @@ type AgentRepository interface {
 	UpdateLastHeartbeat(agentID string) error
 
 	// Agent查询操作
-	GetList(page, pageSize int, status *agentModel.AgentStatus, tags []string) ([]*agentModel.Agent, int64, error)
+	GetList(page, pageSize int, status *agentModel.AgentStatus, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
 }
 
@@ -254,9 +254,9 @@ func (r *agentRepository) Delete(agentID string) error {
 }
 
 // GetList 获取Agent列表
-// 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, tags - 标签过滤
+// 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, tags - 标签过滤, capabilities - 功能模块过滤
 // 返回: []*agentModel.Agent - Agent列表, int64 - 总数量, error - 错误信息
-func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, tags []string) ([]*agentModel.Agent, int64, error) {
+func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error) {
 	var agents []*agentModel.Agent
 	var total int64
 
@@ -275,6 +275,16 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 			// 使用JSON_CONTAINS函数精确匹配JSON数组中的字符串值
 			// 注意：tag需要用双引号包围，因为JSON数组中存储的是字符串
 			query = query.Where("JSON_CONTAINS(tags, ?)", `"`+tag+`"`)
+		}
+	}
+
+	// Capabilities 过滤 - 使用JSON查询精确匹配功能模块ID
+	// 支持多个功能模块的AND逻辑：Agent必须包含所有指定的功能模块ID
+	if len(capabilities) > 0 {
+		for _, capability := range capabilities {
+			// 使用JSON_CONTAINS函数精确匹配JSON数组中的字符串值
+			// 注意：capability需要用双引号包围，因为JSON数组中存储的是字符串
+			query = query.Where("JSON_CONTAINS(capabilities, ?)", `"`+capability+`"`)
 		}
 	}
 

@@ -49,12 +49,13 @@ type HeartbeatRequest struct {
 // GetAgentListRequest 获取Agent列表请求结构
 // 支持分页和过滤条件
 type GetAgentListRequest struct {
-	Page     int         `json:"page" validate:"min=1"`              // 页码，最少1
-	PageSize int         `json:"page_size" validate:"min=1,max=100"` // 每页大小，1-100
-	Status   AgentStatus `json:"status"`                             // 按状态过滤，可选
-	ScanType string      `json:"scan_type"`                          // 按扫描类型过滤，可选
-	Keyword  string      `json:"keyword"`                            // 关键词搜索(主机名、IP地址)，可选
-	Tags     []string    `json:"tags"`                               // 按标签过滤，可选
+	Page         int         `json:"page" validate:"min=1"`              // 页码，最少1
+	PageSize     int         `json:"page_size" validate:"min=1,max=100"` // 每页大小，1-100
+	Status       AgentStatus `json:"status"`                             // 按状态过滤，可选
+	ScanType     string      `json:"scan_type"`                          // 按扫描类型过滤，可选
+	Keyword      string      `json:"keyword"`                            // 关键词搜索(主机名、IP地址)，可选
+	Tags         []string    `json:"tags"`                               // 按标签过滤，可选
+	Capabilities []string    `json:"capabilities"`                       // 按功能模块过滤，可选
 }
 
 // UpdateAgentStatusRequest 更新Agent状态请求结构

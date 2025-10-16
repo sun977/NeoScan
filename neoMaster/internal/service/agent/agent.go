@@ -179,7 +179,7 @@ func (s *agentService) GetAgentList(req *agentModel.GetAgentListRequest) (*agent
 		status = &req.Status
 	}
 
-	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, req.Tags)
+	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, req.Tags, req.Capabilities)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.agent.GetAgentList", "", map[string]interface{}{
 			"operation": "get_agent_list",

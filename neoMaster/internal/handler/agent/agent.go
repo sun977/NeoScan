@@ -263,7 +263,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 
 	// 过滤参数 status: offline / online
 	req.Status = agentModel.AgentStatus(c.Query("status"))
-	
+
 	// 标签过滤参数处理 - 支持逗号分隔的标签值
 	// 例如: tags=2,7 或 tags=2&tags=7 两种格式都支持
 	tagsArray := c.QueryArray("tags")
@@ -280,6 +280,24 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	} else if len(tagsArray) == 1 {
 		// 单个标签: tags=2
 		req.Tags = tagsArray
+	}
+
+	// 功能模块过滤参数处理 - 支持逗号分隔的功能模块值
+	// 例如: capabilities=1,2 或 capabilities=1&capabilities=2 两种格式都支持
+	capabilitiesArray := c.QueryArray("capabilities")
+	if len(capabilitiesArray) > 1 {
+		// 处理多个capabilities参数: capabilities=1&capabilities=2
+		req.Capabilities = capabilitiesArray
+	} else if len(capabilitiesArray) == 1 && strings.Contains(capabilitiesArray[0], ",") {
+		// 处理逗号分隔的功能模块值: capabilities=1,2
+		req.Capabilities = strings.Split(capabilitiesArray[0], ",")
+		// 去除空白字符
+		for i, capability := range req.Capabilities {
+			req.Capabilities[i] = strings.TrimSpace(capability)
+		}
+	} else if len(capabilitiesArray) == 1 {
+		// 单个功能模块: capabilities=scan
+		req.Capabilities = capabilitiesArray
 	}
 
 	// 调用服务层获取Agent列表

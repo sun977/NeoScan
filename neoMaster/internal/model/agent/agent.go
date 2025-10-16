@@ -420,7 +420,7 @@ type AgentMetrics struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
 
-	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID,唯一索引"`
+	AgentID           string                 `json:"agent_id" gorm:"index;size:100;comment:Agent唯一标识ID,支持多条时序记录"`
 	CPUUsage          float64                `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
 	MemoryUsage       float64                `json:"memory_usage" gorm:"comment:内存使用率(百分比)"`
 	DiskUsage         float64                `json:"disk_usage" gorm:"comment:磁盘使用率(百分比)"`

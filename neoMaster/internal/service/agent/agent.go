@@ -17,9 +17,9 @@ import (
 	agentRepository "neomaster/internal/repository/agent"
 )
 
-// AgentService Agent服务接口定义
+// AgentManagerService Agent服务接口定义
 // 定义Agent管理的核心业务方法
-type AgentService interface {
+type AgentManagerService interface {
 	// Agent基础管理
 	RegisterAgent(req *agentModel.RegisterAgentRequest) (*agentModel.RegisterAgentResponse, error)
 	GetAgentList(req *agentModel.GetAgentListRequest) (*agentModel.GetAgentListResponse, error)
@@ -53,7 +53,7 @@ type agentService struct {
 
 // NewAgentService 创建Agent服务实例
 // 遵循依赖注入原则，保持代码的可测试性
-func NewAgentService(agentRepo agentRepository.AgentRepository) AgentService {
+func NewAgentService(agentRepo agentRepository.AgentRepository) AgentManagerService {
 	return &agentService{
 		agentRepo: agentRepo,
 	}
@@ -432,37 +432,37 @@ func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 	if len(req.Hostname) > 255 {
 		return fmt.Errorf("Hostname too long")
 	}
-	
+
 	// 检查version长度
 	if len(req.Version) > 50 {
 		return fmt.Errorf("Version too long")
 	}
-	
+
 	// 检查CPU核心数
 	if req.CPUCores < 0 {
 		return fmt.Errorf("Invalid CPU cores")
 	}
-	
+
 	// 检查内存总量
 	if req.MemoryTotal < 0 {
 		return fmt.Errorf("Invalid memory total")
 	}
-	
+
 	// 检查磁盘总量
 	if req.DiskTotal < 0 {
 		return fmt.Errorf("Invalid disk total")
 	}
-	
+
 	// 检查端口范围
 	if req.Port < 1 || req.Port > 65535 {
 		return fmt.Errorf("port must be between 1 and 65535")
 	}
-	
+
 	// 检查capabilities是否为空
 	if len(req.Capabilities) == 0 {
 		return fmt.Errorf("At least one capability is required")
 	}
-	
+
 	// 检查capabilities是否包含有效值
 	validCapabilities := map[string]bool{
 		"port_scan":          true,
@@ -472,13 +472,13 @@ func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 		"web_scan":           true,
 		"network_scan":       true,
 	}
-	
+
 	for _, capability := range req.Capabilities {
 		if !validCapabilities[capability] {
 			return fmt.Errorf("Invalid capability")
 		}
 	}
-	
+
 	return nil
 }
 

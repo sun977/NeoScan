@@ -1194,10 +1194,10 @@ func testAgentPermissions(t *testing.T) {
 				"capabilities": ["port_scan"],
 				"tags": ["test"]
 			}`,
-			adminExpected:    http.StatusOK,        // 管理员可以注册Agent
-			operatorExpected: http.StatusOK,        // 操作员可以注册Agent
-			viewerExpected:   http.StatusOK,        // 查看者可以注册Agent（公开接口）
-			guestExpected:    http.StatusOK,        // 访客可以注册Agent（公开接口）
+			adminExpected:    http.StatusOK, // 管理员可以注册Agent
+			operatorExpected: http.StatusOK, // 操作员可以注册Agent
+			viewerExpected:   http.StatusOK, // 查看者可以注册Agent（公开接口）
+			guestExpected:    http.StatusOK, // 访客可以注册Agent（公开接口）
 		},
 		// Agent列表查询权限测试
 		{
@@ -1246,10 +1246,10 @@ func testAgentPermissions(t *testing.T) {
 				"load_average": 1.5,
 				"active_tasks": 3
 			}`,
-			adminExpected:    http.StatusOK,        // 管理员可以发送心跳
-			operatorExpected: http.StatusOK,        // 操作员可以发送心跳
-			viewerExpected:   http.StatusOK,        // 查看者可以发送心跳（公开接口）
-			guestExpected:    http.StatusOK,        // 访客可以发送心跳（公开接口）
+			adminExpected:    http.StatusOK, // 管理员可以发送心跳
+			operatorExpected: http.StatusOK, // 操作员可以发送心跳
+			viewerExpected:   http.StatusOK, // 查看者可以发送心跳（公开接口）
+			guestExpected:    http.StatusOK, // 访客可以发送心跳（公开接口）
 		},
 		// Agent删除权限测试
 		{

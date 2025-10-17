@@ -3,7 +3,7 @@
  * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent管理核心业务逻辑，遵循"好品味"原则 - 简洁而强大
- * @func: Agent注册、状态管理、心跳处理、配置推送等核心功能
+ * @func: Agent注册、状态管理、Agent健康检查(主动发起查询)、Agent分组管理
  */
 package agent
 
@@ -430,27 +430,27 @@ func generateAgentID(hostname string) string {
 func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 	// 检查hostname长度
 	if len(req.Hostname) > 255 {
-		return fmt.Errorf("Hostname too long")
+		return fmt.Errorf("hostname too long")
 	}
 
 	// 检查version长度
 	if len(req.Version) > 50 {
-		return fmt.Errorf("Version too long")
+		return fmt.Errorf("version too long")
 	}
 
 	// 检查CPU核心数
 	if req.CPUCores < 0 {
-		return fmt.Errorf("Invalid CPU cores")
+		return fmt.Errorf("invalid CPU cores")
 	}
 
 	// 检查内存总量
 	if req.MemoryTotal < 0 {
-		return fmt.Errorf("Invalid memory total")
+		return fmt.Errorf("invalid memory total")
 	}
 
 	// 检查磁盘总量
 	if req.DiskTotal < 0 {
-		return fmt.Errorf("Invalid disk total")
+		return fmt.Errorf("invalid disk total")
 	}
 
 	// 检查端口范围
@@ -460,7 +460,7 @@ func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 
 	// 检查capabilities是否为空
 	if len(req.Capabilities) == 0 {
-		return fmt.Errorf("At least one capability is required")
+		return fmt.Errorf("at least one capability is required")
 	}
 
 	// 检查capabilities是否包含有效值
@@ -475,7 +475,7 @@ func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 
 	for _, capability := range req.Capabilities {
 		if !validCapabilities[capability] {
-			return fmt.Errorf("Invalid capability")
+			return fmt.Errorf("invalid capability")
 		}
 	}
 

@@ -11,21 +11,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	system2 "neomaster/internal/repository/mysql/system"
 
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/utils"
-	"neomaster/internal/repository/mysql"
 )
 
 // MockSessionService 模拟会话服务，用于测试
 type MockSessionService struct {
-	userRepo *mysql.UserRepository
-	roleRepo *mysql.RoleRepository
+	userRepo *system2.UserRepository
+	roleRepo *system2.RoleRepository
 }
 
 // NewMockSessionService 创建模拟会话服务
-func NewMockSessionService(userRepo *mysql.UserRepository, roleRepo *mysql.RoleRepository) *MockSessionService {
+func NewMockSessionService(userRepo *system2.UserRepository, roleRepo *system2.RoleRepository) *MockSessionService {
 	return &MockSessionService{
 		userRepo: userRepo,
 		roleRepo: roleRepo,

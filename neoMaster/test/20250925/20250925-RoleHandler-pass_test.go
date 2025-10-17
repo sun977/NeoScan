@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	system2 "neomaster/internal/model/system"
+	mysqlrepo "neomaster/internal/repository/mysql/system"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -19,7 +20,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	system "neomaster/internal/handler/system"
-	mysqlrepo "neomaster/internal/repository/mysql"
 	authsvc "neomaster/internal/service/auth"
 )
 

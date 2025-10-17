@@ -10,7 +10,7 @@
  * 4.权限基础查询
  */
 
-package mysql
+package system
 
 import (
 	"context"

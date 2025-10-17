@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"neomaster/internal/model/system"
+	system2 "neomaster/internal/repository/mysql/system"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -20,7 +21,6 @@ import (
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/database"
-	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	authService "neomaster/internal/service/auth"
 
@@ -39,13 +39,13 @@ type TestConfig struct {
 // TestSuite 测试套件，包含所有测试需要的依赖
 type TestSuite struct {
 	*TestConfig
-	UserRepo          *mysql.UserRepository        // 用户仓库
-	SessionRepo       *redisRepo.SessionRepository // 会话仓库
-	UserService       *authService.UserService     // 用户服务
-	JWTService        *authService.JWTService      // JWT服务
-	SessionService    *authService.SessionService  // 会话服务
-	RBACService       *authService.RBACService     // RBAC服务
-	passwordManager   *auth.PasswordManager        // 密码管理器
+	UserRepo          *system2.UserRepository       // 用户仓库
+	SessionRepo       *redisRepo.SessionRepository  // 会话仓库
+	UserService       *authService.UserService      // 用户服务
+	JWTService        *authService.JWTService       // JWT服务
+	SessionService    *authService.SessionService   // 会话服务
+	RBACService       *authService.RBACService      // RBAC服务
+	passwordManager   *auth.PasswordManager         // 密码管理器
 	MiddlewareManager *middleware.MiddlewareManager // 中间件管理器，使用middleware包中的类型
 }
 
@@ -103,10 +103,10 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	}
 
 	// 创建仓库实例 - 如果数据库连接失败则创建nil仓库
-	var userRepo *mysql.UserRepository
+	var userRepo *system2.UserRepository
 	passwordManager := auth.NewPasswordManager(nil)
 	if db != nil {
-		userRepo = mysql.NewUserRepository(db)
+		userRepo = system2.NewUserRepository(db)
 	} else {
 		// 数据库连接失败时，userRepo保持为nil
 		userRepo = nil

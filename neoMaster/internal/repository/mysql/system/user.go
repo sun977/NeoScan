@@ -5,7 +5,7 @@
  * @description: 用户数据访问
  * @func:单纯数据访问,不应该包含业务逻辑
  */
-package mysql
+package system
 
 import (
 	"context"

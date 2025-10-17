@@ -32,7 +32,7 @@
 //  字段更新:
 //  	UpdateRoleFields - 使用map更新特定字段
 
-package mysql
+package system
 
 import (
 	"context"

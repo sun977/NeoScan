@@ -15,12 +15,12 @@ import (
 	"errors"
 	"fmt"
 	"neomaster/internal/model/system"
+	system2 "neomaster/internal/repository/mysql/system"
 	"strings"
 	"time"
 
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
-	"neomaster/internal/repository/mysql"
 	"neomaster/internal/repository/redis"
 
 	"gorm.io/gorm"
@@ -29,7 +29,7 @@ import (
 // UserService 用户服务
 // 负责用户相关的业务逻辑，包括用户注册、获取用户信息等
 type UserService struct {
-	userRepo        *mysql.UserRepository    // 用户数据仓库
+	userRepo        *system2.UserRepository  // 用户数据仓库
 	redisRepo       *redis.SessionRepository // Redis缓存仓库
 	passwordManager *auth.PasswordManager    // 密码管理器
 	jwtManager      *auth.JWTManager         // JWT管理器
@@ -37,7 +37,7 @@ type UserService struct {
 
 // NewUserService 创建新的用户服务实例
 func NewUserService(
-	userRepo *mysql.UserRepository,
+	userRepo *system2.UserRepository,
 	redisRepo *redis.SessionRepository,
 	passwordManager *auth.PasswordManager,
 	jwtManager *auth.JWTManager,

@@ -10,6 +10,7 @@ package test
 import (
 	"context"
 	"neomaster/internal/model/system"
+	system2 "neomaster/internal/repository/mysql/system"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,7 +22,6 @@ import (
 	"neomaster/internal/config"
 	pkgAuth "neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/database"
-	"neomaster/internal/repository/mysql"
 	redisRepo "neomaster/internal/repository/redis"
 	authService "neomaster/internal/service/auth"
 
@@ -41,7 +41,7 @@ type TestConfig struct {
 // 适配优化后的中间件结构
 type TestSuite struct {
 	*TestConfig
-	UserRepo          *mysql.UserRepository         // 用户仓库
+	UserRepo          *system2.UserRepository       // 用户仓库
 	SessionRepo       *redisRepo.SessionRepository  // 会话仓库
 	UserService       *authService.UserService      // 用户服务
 	JWTService        *authService.JWTService       // JWT服务
@@ -49,7 +49,7 @@ type TestSuite struct {
 	RBACService       *authService.RBACService      // RBAC服务
 	passwordManager   *pkgAuth.PasswordManager      // 密码管理器
 	MiddlewareManager *middleware.MiddlewareManager // 中间件管理器，使用优化后的middleware包
-	RouterManager     *router.Router               // 路由管理器
+	RouterManager     *router.Router                // 路由管理器
 }
 
 // SetupTestEnvironment 设置测试环境
@@ -118,11 +118,11 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	passwordManager := pkgAuth.NewPasswordManager(nil)
 
 	// 初始化仓库层
-	var userRepo *mysql.UserRepository
+	var userRepo *system2.UserRepository
 	var sessionRepo *redisRepo.SessionRepository
 
 	if db != nil {
-		userRepo = mysql.NewUserRepository(db)
+		userRepo = system2.NewUserRepository(db)
 	}
 	sessionRepo = redisRepo.NewSessionRepository(redisClient)
 

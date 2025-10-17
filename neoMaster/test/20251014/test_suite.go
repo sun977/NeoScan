@@ -10,6 +10,7 @@ package test
 import (
 	"context"
 	"fmt"
+	system2 "neomaster/internal/repository/mysql/system"
 	"testing"
 	"time"
 
@@ -25,7 +26,6 @@ import (
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/utils"
 	agentRepo "neomaster/internal/repository/agent"
-	mysqlRepo "neomaster/internal/repository/mysql"
 	agentService "neomaster/internal/service/agent"
 )
 
@@ -34,8 +34,8 @@ type TestSuite struct {
 	DB              *gorm.DB
 	RouterManager   *router.Router
 	AgentRepository agentRepo.AgentRepository
-	UserRepository  *mysqlRepo.UserRepository
-	RoleRepository  *mysqlRepo.RoleRepository
+	UserRepository  *system2.UserRepository
+	RoleRepository  *system2.RoleRepository
 	AgentService    agentService.AgentManagerService
 	SessionService  *MockSessionService
 	t               *testing.T
@@ -71,8 +71,8 @@ func NewTestSuite(t *testing.T) *TestSuite {
 
 	// 初始化Repository
 	agentRepository := agentRepo.NewAgentRepository(db)
-	userRepository := mysqlRepo.NewUserRepository(db)
-	roleRepository := mysqlRepo.NewRoleRepository(db)
+	userRepository := system2.NewUserRepository(db)
+	roleRepository := system2.NewRoleRepository(db)
 
 	// 初始化Service - 简化版本，只创建必要的服务用于测试
 	agentSvc := agentService.NewAgentService(agentRepository)

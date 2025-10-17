@@ -8,6 +8,7 @@
 package router
 
 import (
+	"neomaster/internal/repository/mysql/system"
 	"time"
 
 	"neomaster/internal/app/master/middleware"
@@ -17,7 +18,6 @@ import (
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
 	agentRepo "neomaster/internal/repository/agent"
-	"neomaster/internal/repository/mysql"
 	scanConfigRepo "neomaster/internal/repository/orchestrator"
 	redisRepo "neomaster/internal/repository/redis"
 	agentService "neomaster/internal/service/agent"
@@ -73,15 +73,15 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	sessionRepo := redisRepo.NewSessionRepository(redisClient)
 
 	// 初始化用户服务UserService
-	userRepo := mysql.NewUserRepository(db) // 纯数据访问层
+	userRepo := system.NewUserRepository(db) // 纯数据访问层
 	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
 
 	// 初始化角色服务RoleService
-	roleRepo := mysql.NewRoleRepository(db)
+	roleRepo := system.NewRoleRepository(db)
 	roleService := authService.NewRoleService(roleRepo)
 
 	// 初始化权限服务PermissionService
-	permissionRepo := mysql.NewPermissionRepository(db)
+	permissionRepo := system.NewPermissionRepository(db)
 	permissionService := authService.NewPermissionService(permissionRepo)
 
 	// 初始化RBAC服务（不依赖其他服务）

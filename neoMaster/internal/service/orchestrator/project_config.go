@@ -39,7 +39,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	orchestratorrepo "neomaster/internal/repo/mysql/orchestrator"
+	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"
 	"strings"
 	"time"
 
@@ -50,17 +50,17 @@ import (
 // ProjectConfigService 项目配置服务结构体
 // 负责处理项目配置相关的业务逻辑，协调各个Repository
 type ProjectConfigService struct {
-	projectRepo  *orchestratorrepo.ProjectConfigRepository  // 项目配置仓库
-	workflowRepo *orchestratorrepo.WorkflowConfigRepository // 工作流配置仓库
-	scanToolRepo *orchestratorrepo.ScanToolRepository       // 扫描工具仓库
+	projectRepo  *orchestratorRepo.ProjectConfigRepository  // 项目配置仓库
+	workflowRepo *orchestratorRepo.WorkflowConfigRepository // 工作流配置仓库
+	scanToolRepo *orchestratorRepo.ScanToolRepository       // 扫描工具仓库
 }
 
 // NewProjectConfigService 创建项目配置服务实例
 // 注入必要的Repository依赖，遵循依赖注入原则
 func NewProjectConfigService(
-	projectRepo *orchestratorrepo.ProjectConfigRepository,
-	workflowRepo *orchestratorrepo.WorkflowConfigRepository,
-	scanToolRepo *orchestratorrepo.ScanToolRepository,
+	projectRepo *orchestratorRepo.ProjectConfigRepository,
+	workflowRepo *orchestratorRepo.WorkflowConfigRepository,
+	scanToolRepo *orchestratorRepo.ScanToolRepository,
 ) *ProjectConfigService {
 	return &ProjectConfigService{
 		projectRepo:  projectRepo,

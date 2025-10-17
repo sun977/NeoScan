@@ -42,7 +42,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	orchestratorrepo "neomaster/internal/repo/mysql/orchestrator"
+	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"
 	"strings"
 	"time"
 
@@ -54,13 +54,13 @@ import (
 // ScanRuleService 扫描规则服务结构体
 // 负责处理扫描规则相关的业务逻辑
 type ScanRuleService struct {
-	scanRuleRepo *orchestratorrepo.ScanRuleRepository // 扫描规则仓库
+	scanRuleRepo *orchestratorRepo.ScanRuleRepository // 扫描规则仓库
 	ruleEngine   *rule_engine.RuleEngine              // 规则引擎实例
 }
 
 // NewScanRuleService 创建扫描规则服务实例
 // 注入必要的Repository依赖，遵循依赖注入原则
-func NewScanRuleService(scanRuleRepo *orchestratorrepo.ScanRuleRepository) *ScanRuleService {
+func NewScanRuleService(scanRuleRepo *orchestratorRepo.ScanRuleRepository) *ScanRuleService {
 	// 创建规则引擎实例
 	ruleEngine := rule_engine.NewRuleEngine(time.Hour)
 

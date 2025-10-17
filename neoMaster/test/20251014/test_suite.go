@@ -10,6 +10,7 @@ package test
 import (
 	"context"
 	"fmt"
+	agentRepo "neomaster/internal/repository/mysql/agent"
 	system2 "neomaster/internal/repository/mysql/system"
 	"testing"
 	"time"
@@ -25,7 +26,6 @@ import (
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/utils"
-	agentRepo "neomaster/internal/repository/agent"
 	agentService "neomaster/internal/service/agent"
 )
 

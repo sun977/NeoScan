@@ -12,7 +12,7 @@ import (
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	agentRepository "neomaster/internal/repository/agent"
+	agentRepository "neomaster/internal/repository/mysql/agent"
 	"time"
 )
 

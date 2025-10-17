@@ -53,7 +53,7 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	}
 	// 验证hostname长度
 	if len(req.Hostname) > 255 {
-		return fmt.Errorf("Hostname too long")
+		return fmt.Errorf("hostname too long")
 	}
 	if req.IPAddress == "" {
 		return fmt.Errorf("ip_address is required")
@@ -70,7 +70,7 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	}
 	// 验证version长度
 	if len(req.Version) > 50 {
-		return fmt.Errorf("Version too long")
+		return fmt.Errorf("version too long")
 	}
 	if req.OS == "" {
 		return fmt.Errorf("os is required")
@@ -80,19 +80,19 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	}
 	// 验证CPU核心数不能为负数或零
 	if req.CPUCores <= 0 {
-		return fmt.Errorf("Invalid CPU cores")
+		return fmt.Errorf("invalid CPU cores")
 	}
 	// 验证memory_total不能为负数
 	if req.MemoryTotal < 0 {
-		return fmt.Errorf("Invalid memory total")
+		return fmt.Errorf("invalid memory total")
 	}
 	// 验证disk_total不能为负数
 	if req.DiskTotal < 0 {
-		return fmt.Errorf("Invalid disk total")
+		return fmt.Errorf("invalid disk total")
 	}
 	// 验证capabilities不能为空
 	if len(req.Capabilities) == 0 {
-		return fmt.Errorf("At least one capability is required")
+		return fmt.Errorf("at least one capability is required")
 	}
 	// 验证capabilities包含有效值
 	validCapabilities := map[string]bool{
@@ -105,7 +105,7 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	}
 	for _, capability := range req.Capabilities {
 		if !validCapabilities[capability] {
-			return fmt.Errorf("Invalid capability: %s", capability)
+			return fmt.Errorf("invalid capability: %s", capability)
 		}
 	}
 	return nil
@@ -114,10 +114,10 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 // validateHeartbeatRequest 验证Agent心跳请求参数
 func (h *AgentHandler) validateHeartbeatRequest(req *agentModel.HeartbeatRequest) error {
 	if req.AgentID == "" {
-		return fmt.Errorf("Agent ID is required")
+		return fmt.Errorf("agent ID is required")
 	}
 	if req.Status == "" {
-		return fmt.Errorf("Status is required")
+		return fmt.Errorf("status is required")
 	}
 	// 验证状态值是否有效
 	validStatuses := []agentModel.AgentStatus{
@@ -134,34 +134,34 @@ func (h *AgentHandler) validateHeartbeatRequest(req *agentModel.HeartbeatRequest
 		}
 	}
 	if !isValidStatus {
-		return fmt.Errorf("Invalid status")
+		return fmt.Errorf("invalid status")
 	}
 
 	// 验证性能指标数据（如果提供）
 	if req.Metrics != nil {
 		if req.Metrics.CPUUsage < 0 || req.Metrics.CPUUsage > 100 {
-			return fmt.Errorf("Invalid CPU usage")
+			return fmt.Errorf("invalid CPU usage")
 		}
 		if req.Metrics.MemoryUsage < 0 || req.Metrics.MemoryUsage > 100 {
-			return fmt.Errorf("Invalid memory usage")
+			return fmt.Errorf("invalid memory usage")
 		}
 		if req.Metrics.DiskUsage < 0 || req.Metrics.DiskUsage > 100 {
-			return fmt.Errorf("Invalid disk usage")
+			return fmt.Errorf("invalid disk usage")
 		}
 		if req.Metrics.NetworkBytesSent < 0 {
-			return fmt.Errorf("Invalid network bytes sent")
+			return fmt.Errorf("invalid network bytes sent")
 		}
 		if req.Metrics.NetworkBytesRecv < 0 {
-			return fmt.Errorf("Invalid network bytes received")
+			return fmt.Errorf("invalid network bytes received")
 		}
 		if req.Metrics.RunningTasks < 0 {
-			return fmt.Errorf("Invalid running tasks")
+			return fmt.Errorf("invalid running tasks")
 		}
 		if req.Metrics.CompletedTasks < 0 {
-			return fmt.Errorf("Invalid completed tasks")
+			return fmt.Errorf("invalid completed tasks")
 		}
 		if req.Metrics.FailedTasks < 0 {
-			return fmt.Errorf("Invalid failed tasks")
+			return fmt.Errorf("invalid failed tasks")
 		}
 	}
 	return nil

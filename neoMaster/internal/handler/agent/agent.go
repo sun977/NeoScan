@@ -25,11 +25,11 @@ import (
 
 // AgentHandler Agent处理器
 type AgentHandler struct {
-	agentService agentService.AgentService // 修复：使用接口类型而不是指针
+	agentService agentService.AgentManagerService // 修复：使用接口类型而不是指针
 }
 
 // NewAgentHandler 创建Agent处理器实例
-func NewAgentHandler(agentService agentService.AgentService) *AgentHandler {
+func NewAgentHandler(agentService agentService.AgentManagerService) *AgentHandler {
 	return &AgentHandler{
 		agentService: agentService,
 	}

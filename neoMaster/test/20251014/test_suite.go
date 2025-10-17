@@ -36,7 +36,7 @@ type TestSuite struct {
 	AgentRepository agentRepo.AgentRepository
 	UserRepository  *mysqlRepo.UserRepository
 	RoleRepository  *mysqlRepo.RoleRepository
-	AgentService    agentService.AgentService
+	AgentService    agentService.AgentManagerService
 	SessionService  *MockSessionService
 	t               *testing.T
 }

@@ -11,7 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	system2 "neomaster/internal/model/system"
-	mysqlrepo "neomaster/internal/repository/mysql/system"
+	mysqlrepo "neomaster/internal/repo/mysql/system"
 	"net/http"
 	"net/http/httptest"
 	"strconv"

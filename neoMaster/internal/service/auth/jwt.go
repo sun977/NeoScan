@@ -9,9 +9,9 @@ import (
 	"neomaster/internal/model/system"
 	"time" // 用于处理时间相关操作，如令牌过期时间计算
 
-	"neomaster/internal/pkg/auth"         // 导入JWT工具包，提供底层JWT操作
-	"neomaster/internal/pkg/logger"       // 导入日志管理器
-	"neomaster/internal/repository/redis" // 导入Redis会话仓库，用于缓存用户密码版本
+	"neomaster/internal/pkg/auth"   // 导入JWT工具包，提供底层JWT操作
+	"neomaster/internal/pkg/logger" // 导入日志管理器
+	"neomaster/internal/repo/redis" // 导入Redis会话仓库，用于缓存用户密码版本
 
 	"github.com/golang-jwt/jwt/v5" // 导入JWT库，用于令牌解析和验证
 )

@@ -63,20 +63,20 @@ func (r *agentRepository) Create(agentData *agentModel.Agent) error {
 
 	result := r.db.Create(agentData)
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.Create", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.Create", "", map[string]interface{}{
 			"operation": "create_agent",
 			"option":    "agentRepository.Create",
-			"func_name": "repository.agent.Create",
+			"func_name": "repo.agent.Create",
 			"agent_id":  agentData.AgentID,
 			"hostname":  agentData.Hostname,
 		})
 		return result.Error
 	}
 
-	logger.LogInfo("Agent记录创建成功", "", 0, "", "repository.agent.Create", "", map[string]interface{}{
+	logger.LogInfo("Agent记录创建成功", "", 0, "", "repo.agent.Create", "", map[string]interface{}{
 		"operation": "create_agent",
 		"option":    "agentRepository.Create",
-		"func_name": "repository.agent.Create",
+		"func_name": "repo.agent.Create",
 		"agent_id":  agentData.AgentID,
 		"hostname":  agentData.Hostname,
 	})
@@ -96,10 +96,10 @@ func (r *agentRepository) GetByID(agentID string) (*agentModel.Agent, error) {
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, nil // 返回nil表示未找到，不是错误
 		}
-		logger.LogError(result.Error, "", 0, "", "repository.agent.GetByID", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.GetByID", "", map[string]interface{}{
 			"operation": "get_agent_by_id",
 			"option":    "agentRepository.GetByID",
-			"func_name": "repository.agent.GetByID",
+			"func_name": "repo.agent.GetByID",
 			"agent_id":  agentID,
 		})
 		return nil, result.Error
@@ -119,10 +119,10 @@ func (r *agentRepository) GetByHostname(hostname string) (*agentModel.Agent, err
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, nil // 返回nil表示未找到，不是错误
 		}
-		logger.LogError(result.Error, "", 0, "", "repository.agent.GetByHostname", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.GetByHostname", "", map[string]interface{}{
 			"operation": "get_agent_by_hostname",
 			"option":    "agentRepository.GetByHostname",
-			"func_name": "repository.agent.GetByHostname",
+			"func_name": "repo.agent.GetByHostname",
 			"hostname":  hostname,
 		})
 		return nil, result.Error
@@ -140,20 +140,20 @@ func (r *agentRepository) Update(agentData *agentModel.Agent) error {
 
 	result := r.db.Save(agentData)
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.Update", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.Update", "", map[string]interface{}{
 			"operation": "update_agent",
 			"option":    "agentRepository.Update",
-			"func_name": "repository.agent.Update",
+			"func_name": "repo.agent.Update",
 			"agent_id":  agentData.AgentID,
 			"hostname":  agentData.Hostname,
 		})
 		return result.Error
 	}
 
-	logger.LogInfo("Agent记录更新成功", "", 0, "", "repository.agent.Update", "", map[string]interface{}{
+	logger.LogInfo("Agent记录更新成功", "", 0, "", "repo.agent.Update", "", map[string]interface{}{
 		"operation": "update_agent",
 		"option":    "agentRepository.Update",
-		"func_name": "repository.agent.Update",
+		"func_name": "repo.agent.Update",
 		"agent_id":  agentData.AgentID,
 		"hostname":  agentData.Hostname,
 	})
@@ -173,10 +173,10 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 		})
 
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.UpdateStatus", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.UpdateStatus", "", map[string]interface{}{
 			"operation": "update_agent_status",
 			"option":    "agentRepository.UpdateStatus",
-			"func_name": "repository.agent.UpdateStatus",
+			"func_name": "repo.agent.UpdateStatus",
 			"agent_id":  agentID,
 			"status":    string(status),
 		})
@@ -186,10 +186,10 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 	// 检查是否真的更新了记录
 	if result.RowsAffected == 0 {
 		err := fmt.Errorf("Agent not found")
-		logger.LogError(err, "", 0, "", "repository.agent.UpdateStatus", "", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "repo.agent.UpdateStatus", "", map[string]interface{}{
 			"operation": "update_agent_status",
 			"option":    "agentRepository.UpdateStatus",
-			"func_name": "repository.agent.UpdateStatus",
+			"func_name": "repo.agent.UpdateStatus",
 			"agent_id":  agentID,
 			"status":    string(status),
 			"message":   "No rows affected, agent not found",
@@ -197,10 +197,10 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 		return err
 	}
 
-	logger.LogInfo("Agent状态更新成功", "", 0, "", "repository.agent.UpdateStatus", "", map[string]interface{}{
+	logger.LogInfo("Agent状态更新成功", "", 0, "", "repo.agent.UpdateStatus", "", map[string]interface{}{
 		"operation": "update_agent_status",
 		"option":    "agentRepository.UpdateStatus",
-		"func_name": "repository.agent.UpdateStatus",
+		"func_name": "repo.agent.UpdateStatus",
 		"agent_id":  agentID,
 		"status":    string(status),
 	})
@@ -220,10 +220,10 @@ func (r *agentRepository) UpdateLastHeartbeat(agentID string) error {
 		})
 
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.UpdateLastHeartbeat", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.UpdateLastHeartbeat", "", map[string]interface{}{
 			"operation": "update_heartbeat",
 			"option":    "agentRepository.UpdateLastHeartbeat",
-			"func_name": "repository.agent.UpdateLastHeartbeat",
+			"func_name": "repo.agent.UpdateLastHeartbeat",
 			"agent_id":  agentID,
 		})
 		return result.Error
@@ -232,20 +232,20 @@ func (r *agentRepository) UpdateLastHeartbeat(agentID string) error {
 	// 检查是否真的更新了记录
 	if result.RowsAffected == 0 {
 		err := fmt.Errorf("Agent not found")
-		logger.LogError(err, "", 0, "", "repository.agent.UpdateLastHeartbeat", "", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "repo.agent.UpdateLastHeartbeat", "", map[string]interface{}{
 			"operation": "update_heartbeat",
 			"option":    "agentRepository.UpdateLastHeartbeat",
-			"func_name": "repository.agent.UpdateLastHeartbeat",
+			"func_name": "repo.agent.UpdateLastHeartbeat",
 			"agent_id":  agentID,
 			"message":   "No rows affected, agent not found",
 		})
 		return err
 	}
 
-	logger.LogInfo("Agent心跳时间更新成功", "", 0, "", "repository.agent.UpdateLastHeartbeat", "", map[string]interface{}{
+	logger.LogInfo("Agent心跳时间更新成功", "", 0, "", "repo.agent.UpdateLastHeartbeat", "", map[string]interface{}{
 		"operation": "update_heartbeat",
 		"option":    "agentRepository.UpdateLastHeartbeat",
-		"func_name": "repository.agent.UpdateLastHeartbeat",
+		"func_name": "repo.agent.UpdateLastHeartbeat",
 		"agent_id":  agentID,
 	})
 
@@ -261,19 +261,19 @@ func (r *agentRepository) CreateMetrics(metrics *agentModel.AgentMetrics) error 
 
 	result := r.db.Create(metrics)
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.CreateMetrics", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.CreateMetrics", "", map[string]interface{}{
 			"operation": "create_agent_metrics",
 			"option":    "agentRepository.CreateMetrics",
-			"func_name": "repository.agent.CreateMetrics",
+			"func_name": "repo.agent.CreateMetrics",
 			"agent_id":  metrics.AgentID,
 		})
 		return result.Error
 	}
 
-	logger.LogInfo("Agent性能指标创建成功", "", 0, "", "repository.agent.CreateMetrics", "", map[string]interface{}{
+	logger.LogInfo("Agent性能指标创建成功", "", 0, "", "repo.agent.CreateMetrics", "", map[string]interface{}{
 		"operation": "create_agent_metrics",
 		"option":    "agentRepository.CreateMetrics",
-		"func_name": "repository.agent.CreateMetrics",
+		"func_name": "repo.agent.CreateMetrics",
 		"agent_id":  metrics.AgentID,
 	})
 
@@ -293,10 +293,10 @@ func (r *agentRepository) GetLatestMetrics(agentID string) (*agentModel.AgentMet
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, nil // 没有找到记录，返回nil而不是错误
 		}
-		logger.LogError(result.Error, "", 0, "", "repository.agent.GetLatestMetrics", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.GetLatestMetrics", "", map[string]interface{}{
 			"operation": "get_latest_metrics",
 			"option":    "agentRepository.GetLatestMetrics",
-			"func_name": "repository.agent.GetLatestMetrics",
+			"func_name": "repo.agent.GetLatestMetrics",
 			"agent_id":  agentID,
 		})
 		return nil, result.Error
@@ -327,27 +327,27 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 			// 不存在记录，创建新记录
 			createResult := r.db.Create(metrics)
 			if createResult.Error != nil {
-				logger.LogError(createResult.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+				logger.LogError(createResult.Error, "", 0, "", "repo.agent.UpdateAgentMetrics", "", map[string]interface{}{
 					"operation": "create_agent_metrics",
 					"option":    "agentRepository.UpdateAgentMetrics",
-					"func_name": "repository.agent.UpdateAgentMetrics",
+					"func_name": "repo.agent.UpdateAgentMetrics",
 					"agent_id":  agentID,
 				})
 				return createResult.Error
 			}
 
-			logger.LogInfo("Agent性能指标创建成功", "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+			logger.LogInfo("Agent性能指标创建成功", "", 0, "", "repo.agent.UpdateAgentMetrics", "", map[string]interface{}{
 				"operation": "create_agent_metrics",
 				"option":    "agentRepository.UpdateAgentMetrics",
-				"func_name": "repository.agent.UpdateAgentMetrics",
+				"func_name": "repo.agent.UpdateAgentMetrics",
 				"agent_id":  agentID,
 			})
 		} else {
 			// 查询出错
-			logger.LogError(result.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+			logger.LogError(result.Error, "", 0, "", "repo.agent.UpdateAgentMetrics", "", map[string]interface{}{
 				"operation": "query_agent_metrics",
 				"option":    "agentRepository.UpdateAgentMetrics",
-				"func_name": "repository.agent.UpdateAgentMetrics",
+				"func_name": "repo.agent.UpdateAgentMetrics",
 				"agent_id":  agentID,
 			})
 			return result.Error
@@ -378,19 +378,19 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 		updateResult := r.db.Model(&existingMetrics).Updates(updateFields)
 
 		if updateResult.Error != nil {
-			logger.LogError(updateResult.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+			logger.LogError(updateResult.Error, "", 0, "", "repo.agent.UpdateAgentMetrics", "", map[string]interface{}{
 				"operation": "update_agent_metrics",
 				"option":    "agentRepository.UpdateAgentMetrics",
-				"func_name": "repository.agent.UpdateAgentMetrics",
+				"func_name": "repo.agent.UpdateAgentMetrics",
 				"agent_id":  agentID,
 			})
 			return updateResult.Error
 		}
 
-		logger.LogInfo("Agent性能指标更新成功", "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{
+		logger.LogInfo("Agent性能指标更新成功", "", 0, "", "repo.agent.UpdateAgentMetrics", "", map[string]interface{}{
 			"operation": "update_agent_metrics",
 			"option":    "agentRepository.UpdateAgentMetrics",
-			"func_name": "repository.agent.UpdateAgentMetrics",
+			"func_name": "repo.agent.UpdateAgentMetrics",
 			"agent_id":  agentID,
 		})
 	}
@@ -404,29 +404,29 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 func (r *agentRepository) Delete(agentID string) error {
 	result := r.db.Where("agent_id = ?", agentID).Delete(&agentModel.Agent{})
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.Delete", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.Delete", "", map[string]interface{}{
 			"operation": "delete_agent",
 			"option":    "agentRepository.Delete",
-			"func_name": "repository.agent.Delete",
+			"func_name": "repo.agent.Delete",
 			"agent_id":  agentID,
 		})
 		return result.Error
 	}
 
 	if result.RowsAffected == 0 {
-		logger.LogInfo("Agent记录不存在，无需删除", "", 0, "", "repository.agent.Delete", "", map[string]interface{}{
+		logger.LogInfo("Agent记录不存在，无需删除", "", 0, "", "repo.agent.Delete", "", map[string]interface{}{
 			"operation": "delete_agent",
 			"option":    "agentRepository.Delete",
-			"func_name": "repository.agent.Delete",
+			"func_name": "repo.agent.Delete",
 			"agent_id":  agentID,
 		})
 		return nil // 不存在也不算错误
 	}
 
-	logger.LogInfo("Agent记录删除成功", "", 0, "", "repository.agent.Delete", "", map[string]interface{}{
+	logger.LogInfo("Agent记录删除成功", "", 0, "", "repo.agent.Delete", "", map[string]interface{}{
 		"operation": "delete_agent",
 		"option":    "agentRepository.Delete",
-		"func_name": "repository.agent.Delete",
+		"func_name": "repo.agent.Delete",
 		"agent_id":  agentID,
 	})
 
@@ -475,10 +475,10 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
-		logger.LogError(err, "", 0, "", "repository.agent.GetList", "", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "repo.agent.GetList", "", map[string]interface{}{
 			"operation": "get_agent_list",
 			"option":    "agentRepository.GetList",
-			"func_name": "repository.agent.GetList",
+			"func_name": "repo.agent.GetList",
 		})
 		return nil, 0, err
 	}
@@ -488,18 +488,18 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 
 	// 获取分页数据
 	if err := query.Offset(offset).Limit(pageSize).Find(&agents).Error; err != nil {
-		logger.LogError(err, "", 0, "", "repository.agent.GetList", "", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "repo.agent.GetList", "", map[string]interface{}{
 			"operation": "get_agent_list",
 			"option":    "agentRepository.GetList",
-			"func_name": "repository.agent.GetList",
+			"func_name": "repo.agent.GetList",
 		})
 		return nil, 0, err
 	}
 
-	logger.LogInfo("Agent列表获取成功", "", 0, "", "repository.agent.GetList", "", map[string]interface{}{
+	logger.LogInfo("Agent列表获取成功", "", 0, "", "repo.agent.GetList", "", map[string]interface{}{
 		"operation": "get_agent_list",
 		"option":    "agentRepository.GetList",
-		"func_name": "repository.agent.GetList",
+		"func_name": "repo.agent.GetList",
 		"count":     len(agents),
 		"total":     total,
 	})
@@ -515,10 +515,10 @@ func (r *agentRepository) GetByStatus(status agentModel.AgentStatus) ([]*agentMo
 
 	result := r.db.Where("status = ?", status).Find(&agents)
 	if result.Error != nil {
-		logger.LogError(result.Error, "", 0, "", "repository.agent.GetByStatus", "", map[string]interface{}{
+		logger.LogError(result.Error, "", 0, "", "repo.agent.GetByStatus", "", map[string]interface{}{
 			"operation": "get_agents_by_status",
 			"option":    "agentRepository.GetByStatus",
-			"func_name": "repository.agent.GetByStatus",
+			"func_name": "repo.agent.GetByStatus",
 			"status":    string(status),
 		})
 		return nil, result.Error

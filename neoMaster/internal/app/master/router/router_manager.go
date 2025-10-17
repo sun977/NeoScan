@@ -8,9 +8,9 @@
 package router
 
 import (
-	agentRepo "neomaster/internal/repository/mysql/agent"
-	"neomaster/internal/repository/mysql/orchestrator"
-	"neomaster/internal/repository/mysql/system"
+	agentRepo "neomaster/internal/repo/mysql/agent"
+	"neomaster/internal/repo/mysql/orchestrator"
+	"neomaster/internal/repo/mysql/system"
 	"time"
 
 	"neomaster/internal/app/master/middleware"
@@ -19,7 +19,7 @@ import (
 	scanConfigHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
-	redisRepo "neomaster/internal/repository/redis"
+	redisRepo "neomaster/internal/repo/redis"
 	agentService "neomaster/internal/service/agent"
 	authService "neomaster/internal/service/auth"
 	scanConfigService "neomaster/internal/service/orchestrator"

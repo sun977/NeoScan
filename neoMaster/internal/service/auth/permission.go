@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"neomaster/internal/model/system"
-	systemrepo "neomaster/internal/repository/mysql/system"
+	systemrepo "neomaster/internal/repo/mysql/system"
 	"time"
 
 	"neomaster/internal/pkg/logger"
@@ -195,7 +195,7 @@ func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit
 			"limit":     limit,
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, 0, fmt.Errorf("failed to get permission list from repository: %w", err)
+		return nil, 0, fmt.Errorf("failed to get permission list from repo: %w", err)
 	}
 	if permissions == nil {
 		permissions = make([]*system.Permission, 0)

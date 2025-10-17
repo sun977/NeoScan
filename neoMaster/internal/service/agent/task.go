@@ -10,7 +10,7 @@ package agent
 
 import (
 	"fmt"
-	agentRepository "neomaster/internal/repository/mysql/agent"
+	agentRepository "neomaster/internal/repo/mysql/agent"
 
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"

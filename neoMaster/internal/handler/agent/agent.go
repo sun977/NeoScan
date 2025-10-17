@@ -25,11 +25,10 @@ import (
 
 // AgentHandler Agent处理器
 type AgentHandler struct {
-	agentManagerService agentService.AgentManagerService // Agent管理服务
+	agentManagerService agentService.AgentManagerService // Agent管理服务（包含分组功能）
 	agentMonitorService agentService.AgentMonitorService // Agent监控服务
 	agentConfigService  agentService.AgentConfigService  // Agent配置服务
 	agentTaskService    agentService.AgentTaskService    // Agent任务服务
-	agentGroupService   agentService.AgentGroupService   // Agent分组服务
 }
 
 // NewAgentHandler 创建Agent处理器实例
@@ -38,14 +37,12 @@ func NewAgentHandler(
 	agentMonitorService agentService.AgentMonitorService,
 	agentConfigService agentService.AgentConfigService,
 	agentTaskService agentService.AgentTaskService,
-	agentGroupService agentService.AgentGroupService,
 ) *AgentHandler {
 	return &AgentHandler{
 		agentManagerService: agentManagerService,
 		agentMonitorService: agentMonitorService,
 		agentConfigService:  agentConfigService,
 		agentTaskService:    agentTaskService,
-		agentGroupService:   agentGroupService,
 	}
 }
 

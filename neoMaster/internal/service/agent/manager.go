@@ -3,7 +3,7 @@
  * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent基础管理核心业务逻辑，遵循"好品味"原则 - 只管Agent的生命周期
- * @func: Agent注册、查询、状态更新、删除、Agent分组管理
+ * @func: Agent注册、查询、状态更新、删除、分组管理、打标签
  */
 package agent
 
@@ -17,7 +17,7 @@ import (
 )
 
 // AgentManagerService Agent基础管理服务接口
-// 只负责Agent的基础CRUD操作，遵循单一职责原则
+// 负责Agent的基础CRUD操作和分组管理，遵循单一职责原则
 type AgentManagerService interface {
 	// Agent基础管理 - 核心职责
 	RegisterAgent(req *agentModel.RegisterAgentRequest) (*agentModel.RegisterAgentResponse, error)
@@ -25,6 +25,21 @@ type AgentManagerService interface {
 	GetAgentInfo(agentID string) (*agentModel.AgentInfo, error)
 	UpdateAgentStatus(agentID string, status agentModel.AgentStatus) error
 	DeleteAgent(agentID string) error
+
+	// Agent分组管理
+	CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error)
+	GetAgentGroups() ([]*agentModel.AgentGroupResponse, error)                      // 获取所有分组
+	GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error)           // 获取指定分组
+	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error // 更新分组信息
+	DeleteAgentGroup(groupID string) error                                          // 删除分组
+	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error
+	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
+	GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
+
+	// Agent标签管理（后续补充）
+	// AddAgentTag(req *agentModel.AgentTagRequest) error
+	// RemoveAgentTag(req *agentModel.AgentTagRequest) error
+	// GetAgentTags(agentID string) ([]string, error)
 }
 
 // agentManagerService Agent基础管理服务实现
@@ -228,6 +243,106 @@ func (s *agentManagerService) UpdateAgentStatus(agentID string, status agentMode
 	})
 
 	return nil
+}
+
+// ========== Agent分组管理功能 ==========
+
+// CreateAgentGroup 创建Agent分组服务
+func (s *agentManagerService) CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error) {
+	// TODO: 实现Agent分组创建
+	logger.LogInfo("创建Agent分组", "", 0, "", "service.agent.manager.CreateAgentGroup", "", map[string]interface{}{
+		"operation":  "create_agent_group",
+		"option":     "agentManagerService.CreateAgentGroup",
+		"func_name":  "service.agent.manager.CreateAgentGroup",
+		"group_name": req.Name,
+	})
+	return nil, fmt.Errorf("功能暂未实现")
+}
+
+// GetAgentGroups 获取所有Agent分组服务
+func (s *agentManagerService) GetAgentGroups() ([]*agentModel.AgentGroupResponse, error) {
+	// TODO: 实现获取所有分组
+	logger.LogInfo("获取所有Agent分组", "", 0, "", "service.agent.manager.GetAgentGroups", "", map[string]interface{}{
+		"operation": "get_agent_groups",
+		"option":    "agentManagerService.GetAgentGroups",
+		"func_name": "service.agent.manager.GetAgentGroups",
+	})
+	return nil, fmt.Errorf("功能暂未实现")
+}
+
+// GetAgentGroup 获取指定Agent分组服务
+func (s *agentManagerService) GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error) {
+	// TODO: 实现获取指定分组
+	logger.LogInfo("获取指定Agent分组", "", 0, "", "service.agent.manager.GetAgentGroup", "", map[string]interface{}{
+		"operation": "get_agent_group",
+		"option":    "agentManagerService.GetAgentGroup",
+		"func_name": "service.agent.manager.GetAgentGroup",
+		"group_id":  groupID,
+	})
+	return nil, fmt.Errorf("功能暂未实现")
+}
+
+// UpdateAgentGroup 更新Agent分组服务
+func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error {
+	// TODO: 实现分组信息更新
+	logger.LogInfo("更新Agent分组", "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
+		"operation":  "update_agent_group",
+		"option":     "agentManagerService.UpdateAgentGroup",
+		"func_name":  "service.agent.manager.UpdateAgentGroup",
+		"group_id":   groupID,
+		"group_name": req.Name,
+	})
+	return fmt.Errorf("功能暂未实现")
+}
+
+// DeleteAgentGroup 删除Agent分组服务
+func (s *agentManagerService) DeleteAgentGroup(groupID string) error {
+	// TODO: 实现分组删除
+	logger.LogInfo("删除Agent分组", "", 0, "", "service.agent.manager.DeleteAgentGroup", "", map[string]interface{}{
+		"operation": "delete_agent_group",
+		"option":    "agentManagerService.DeleteAgentGroup",
+		"func_name": "service.agent.manager.DeleteAgentGroup",
+		"group_id":  groupID,
+	})
+	return fmt.Errorf("功能暂未实现")
+}
+
+// AddAgentToGroup 添加Agent到分组服务
+func (s *agentManagerService) AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error {
+	// TODO: 实现添加Agent到分组
+	logger.LogInfo("添加Agent到分组", "", 0, "", "service.agent.manager.AddAgentToGroup", "", map[string]interface{}{
+		"operation": "add_agent_to_group",
+		"option":    "agentManagerService.AddAgentToGroup",
+		"func_name": "service.agent.manager.AddAgentToGroup",
+		"group_id":  req.GroupID,
+		"agent_id":  req.AgentID,
+	})
+	return fmt.Errorf("功能暂未实现")
+}
+
+// RemoveAgentFromGroup 从分组移除Agent服务
+func (s *agentManagerService) RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error {
+	// TODO: 实现从分组移除Agent
+	logger.LogInfo("从分组移除Agent", "", 0, "", "service.agent.manager.RemoveAgentFromGroup", "", map[string]interface{}{
+		"operation": "remove_agent_from_group",
+		"option":    "agentManagerService.RemoveAgentFromGroup",
+		"func_name": "service.agent.manager.RemoveAgentFromGroup",
+		"group_id":  req.GroupID,
+		"agent_id":  req.AgentID,
+	})
+	return fmt.Errorf("功能暂未实现")
+}
+
+// GetGroupMembers 获取分组成员服务
+func (s *agentManagerService) GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) {
+	// TODO: 实现获取分组成员
+	logger.LogInfo("获取分组成员", "", 0, "", "service.agent.manager.GetGroupMembers", "", map[string]interface{}{
+		"operation": "get_group_members",
+		"option":    "agentManagerService.GetGroupMembers",
+		"func_name": "service.agent.manager.GetGroupMembers",
+		"group_id":  groupID,
+	})
+	return nil, fmt.Errorf("功能暂未实现")
 }
 
 // DeleteAgent 删除Agent服务

@@ -11,7 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	system2 "neomaster/internal/repository/mysql/system"
+	system2 "neomaster/internal/repo/mysql/system"
 
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/auth"

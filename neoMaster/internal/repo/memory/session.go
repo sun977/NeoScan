@@ -4,9 +4,9 @@
  * @date: 2025.09.25
  * @description: 会话数据交互层(内存存储,适合单实例部署)
  * @func:单纯数据访问,不应该包含业务逻辑
- * @note: 尚未启用，和 neoMaster\internal\repository\redis\session.go 保持一致(可在配置文件中配置,二选一)
+ * @note: 尚未启用，和 neoMaster\internal\repo\redis\session.go 保持一致(可在配置文件中配置,二选一)
  */
-// internal/repository/memory/session.go
+// internal/repo/memory/session.go
 package memory
 
 import (

@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 	"neomaster/internal/model/system"
-	system2 "neomaster/internal/repository/mysql/system"
+	system2 "neomaster/internal/repo/mysql/system"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,7 +21,7 @@ import (
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/database"
-	redisRepo "neomaster/internal/repository/redis"
+	redisRepo "neomaster/internal/repo/redis"
 	authService "neomaster/internal/service/auth"
 
 	"github.com/go-redis/redis/v8"

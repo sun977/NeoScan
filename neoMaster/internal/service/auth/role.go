@@ -33,7 +33,7 @@ import (
 	"errors"
 	"fmt"
 	"neomaster/internal/model/system"
-	systemrepo "neomaster/internal/repository/mysql/system"
+	systemrepo "neomaster/internal/repo/mysql/system"
 	"time"
 
 	"neomaster/internal/pkg/logger"
@@ -269,7 +269,7 @@ func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*sy
 			"limit":     limit,
 			"timestamp": logger.NowFormatted(),
 		})
-		return nil, 0, fmt.Errorf("failed to get role list from repository: %w", err)
+		return nil, 0, fmt.Errorf("failed to get role list from repo: %w", err)
 	}
 
 	// 数据完整性检查

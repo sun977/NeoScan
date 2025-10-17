@@ -21,7 +21,7 @@ import (
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	"neomaster/internal/repository/redis"
+	"neomaster/internal/repo/redis"
 )
 
 // TokenGenerator 令牌生成器接口 - 解耦JWTService依赖

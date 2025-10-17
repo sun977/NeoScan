@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"neomaster/internal/model/system"
-	system2 "neomaster/internal/repository/mysql/system"
+	systemrepo "neomaster/internal/repository/mysql/system"
 	"time"
 
 	"neomaster/internal/pkg/logger"
@@ -14,11 +14,11 @@ import (
 // PermissionService 权限服务
 // 仅处理权限自身的增删改查，不与角色分配、RBAC、用户授权等逻辑重叠
 type PermissionService struct {
-	permissionRepo *system2.PermissionRepository
+	permissionRepo *systemrepo.PermissionRepository
 }
 
 // NewPermissionService 创建权限服务
-func NewPermissionService(permissionRepo *system2.PermissionRepository) *PermissionService {
+func NewPermissionService(permissionRepo *systemrepo.PermissionRepository) *PermissionService {
 	return &PermissionService{permissionRepo: permissionRepo}
 }
 

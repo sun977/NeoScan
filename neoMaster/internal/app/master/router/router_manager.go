@@ -9,6 +9,7 @@ package router
 
 import (
 	agentRepo "neomaster/internal/repository/mysql/agent"
+	"neomaster/internal/repository/mysql/orchestrator"
 	"neomaster/internal/repository/mysql/system"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	scanConfigHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
-	scanConfigRepo "neomaster/internal/repository/orchestrator"
 	redisRepo "neomaster/internal/repository/redis"
 	agentService "neomaster/internal/service/agent"
 	authService "neomaster/internal/service/auth"
@@ -113,10 +113,10 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	sessionHandler := systemHandler.NewSessionHandler(sessionService)
 
 	// 初始化扫描配置相关Repository
-	projectConfigRepo := scanConfigRepo.NewProjectConfigRepository(db)
-	workflowConfigRepo := scanConfigRepo.NewWorkflowConfigRepository(db)
-	scanToolRepo := scanConfigRepo.NewScanToolRepository(db)
-	scanRuleRepo := scanConfigRepo.NewScanRuleRepository(db)
+	projectConfigRepo := orchestrator.NewProjectConfigRepository(db)
+	workflowConfigRepo := orchestrator.NewWorkflowConfigRepository(db)
+	scanToolRepo := orchestrator.NewScanToolRepository(db)
+	scanRuleRepo := orchestrator.NewScanRuleRepository(db)
 
 	// 初始化Agent相关Repository和Service
 	agentRepository := agentRepo.NewAgentRepository(db)

@@ -42,30 +42,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	orchestratorrepo "neomaster/internal/repository/mysql/orchestrator"
 	"strings"
 	"time"
 
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-	scanConfigRepo "neomaster/internal/repository/orchestrator"
 )
 
 // WorkflowService 工作流服务结构体
 // 负责处理工作流相关的业务逻辑，协调各个Repository
 type WorkflowService struct {
-	workflowRepo *scanConfigRepo.WorkflowConfigRepository // 工作流配置仓库
-	projectRepo  *scanConfigRepo.ProjectConfigRepository  // 项目配置仓库
-	scanToolRepo *scanConfigRepo.ScanToolRepository       // 扫描工具仓库
-	scanRuleRepo *scanConfigRepo.ScanRuleRepository       // 扫描规则仓库
+	workflowRepo *orchestratorrepo.WorkflowConfigRepository // 工作流配置仓库
+	projectRepo  *orchestratorrepo.ProjectConfigRepository  // 项目配置仓库
+	scanToolRepo *orchestratorrepo.ScanToolRepository       // 扫描工具仓库
+	scanRuleRepo *orchestratorrepo.ScanRuleRepository       // 扫描规则仓库
 }
 
 // NewWorkflowService 创建工作流服务实例
 // 注入必要的Repository依赖，遵循依赖注入原则
 func NewWorkflowService(
-	workflowRepo *scanConfigRepo.WorkflowConfigRepository,
-	projectRepo *scanConfigRepo.ProjectConfigRepository,
-	scanToolRepo *scanConfigRepo.ScanToolRepository,
-	scanRuleRepo *scanConfigRepo.ScanRuleRepository,
+	workflowRepo *orchestratorrepo.WorkflowConfigRepository,
+	projectRepo *orchestratorrepo.ProjectConfigRepository,
+	scanToolRepo *orchestratorrepo.ScanToolRepository,
+	scanRuleRepo *orchestratorrepo.ScanRuleRepository,
 ) *WorkflowService {
 	return &WorkflowService{
 		workflowRepo: workflowRepo,

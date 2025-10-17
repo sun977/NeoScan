@@ -36,10 +36,10 @@ type AgentManagerService interface {
 	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
 	GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
 
-	// Agent标签管理（后续补充）
-	// AddAgentTag(req *agentModel.AgentTagRequest) error
-	// RemoveAgentTag(req *agentModel.AgentTagRequest) error
-	// GetAgentTags(agentID string) ([]string, error)
+	// Agent标签管理
+	AddAgentTag(req *agentModel.AgentTagRequest) error
+	RemoveAgentTag(req *agentModel.AgentTagRequest) error
+	GetAgentTags(agentID string) ([]string, error)
 }
 
 // agentManagerService Agent基础管理服务实现
@@ -474,4 +474,94 @@ func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
 	}
+}
+
+// ==================== Agent标签管理方法 ====================
+
+// AddAgentTag 为Agent添加标签
+func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error {
+	// 记录操作日志
+	logger.Info("开始为Agent添加标签",
+		"path", "AddAgentTag",
+		"operation", "add_agent_tag",
+		"option", "agentManagerService.AddAgentTag",
+		"func_name", "service.agent.manager.AddAgentTag",
+		"agent_id", req.AgentID,
+		"tag", req.Tag,
+	)
+
+	// TODO: 实现Agent标签添加逻辑
+	// 1. 验证Agent是否存在
+	// 2. 验证标签格式和长度
+	// 3. 检查标签是否已存在
+	// 4. 将标签添加到数据库
+	// 5. 更新Agent的标签列表
+
+	logger.Warn("Agent标签添加功能暂未实现",
+		"path", "AddAgentTag",
+		"operation", "add_agent_tag",
+		"option", "agentManagerService.AddAgentTag",
+		"func_name", "service.agent.manager.AddAgentTag",
+		"agent_id", req.AgentID,
+		"tag", req.Tag,
+	)
+
+	return fmt.Errorf("Agent标签添加功能暂未实现")
+}
+
+// RemoveAgentTag 移除Agent标签
+func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) error {
+	// 记录操作日志
+	logger.Info("开始移除Agent标签",
+		"path", "RemoveAgentTag",
+		"operation", "remove_agent_tag",
+		"option", "agentManagerService.RemoveAgentTag",
+		"func_name", "service.agent.manager.RemoveAgentTag",
+		"agent_id", req.AgentID,
+		"tag", req.Tag,
+	)
+
+	// TODO: 实现Agent标签移除逻辑
+	// 1. 验证Agent是否存在
+	// 2. 验证标签是否存在
+	// 3. 从数据库中移除标签
+	// 4. 更新Agent的标签列表
+
+	logger.Warn("Agent标签移除功能暂未实现",
+		"path", "RemoveAgentTag",
+		"operation", "remove_agent_tag",
+		"option", "agentManagerService.RemoveAgentTag",
+		"func_name", "service.agent.manager.RemoveAgentTag",
+		"agent_id", req.AgentID,
+		"tag", req.Tag,
+	)
+
+	return fmt.Errorf("Agent标签移除功能暂未实现")
+}
+
+// GetAgentTags 获取Agent的所有标签
+func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
+	// 记录操作日志
+	logger.Info("开始获取Agent标签列表",
+		"path", "GetAgentTags",
+		"operation", "get_agent_tags",
+		"option", "agentManagerService.GetAgentTags",
+		"func_name", "service.agent.manager.GetAgentTags",
+		"agent_id", agentID,
+	)
+
+	// TODO: 实现Agent标签获取逻辑
+	// 1. 验证Agent是否存在
+	// 2. 从数据库中查询Agent的所有标签
+	// 3. 返回标签列表
+
+	logger.Warn("Agent标签获取功能暂未实现",
+		"path", "GetAgentTags",
+		"operation", "get_agent_tags",
+		"option", "agentManagerService.GetAgentTags",
+		"func_name", "service.agent.manager.GetAgentTags",
+		"agent_id", agentID,
+	)
+
+	return nil, fmt.Errorf("Agent标签获取功能暂未实现")
 }

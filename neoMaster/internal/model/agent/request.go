@@ -86,3 +86,9 @@ type AgentGroupMemberRequest struct {
 	AgentID string `json:"agent_id" validate:"required"` // Agent业务ID，必填
 	GroupID string `json:"group_id" validate:"required"` // 分组ID，必填
 }
+
+// AgentTagRequest Agent标签操作请求结构
+type AgentTagRequest struct {
+	AgentID string `json:"agent_id" validate:"required"` // Agent业务ID，必填
+	Tag     string `json:"tag" validate:"required"`      // 标签名称，必填
+}

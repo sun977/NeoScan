@@ -13,6 +13,7 @@ import (
 
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	agentRepository "neomaster/internal/repository/agent"
 )
 
@@ -61,8 +62,19 @@ func NewAgentService(agentRepo agentRepository.AgentRepository) AgentService {
 // RegisterAgent Agent注册服务
 // 处理Agent注册请求，生成唯一ID和Token
 func (s *agentService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*agentModel.RegisterAgentResponse, error) {
+	// 参数验证
+	if err := validateRegisterRequest(req); err != nil {
+		logger.LogError(err, "", 0, "", "service.agent.RegisterAgent", "", map[string]interface{}{
+			"operation": "register_agent",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.RegisterAgent",
+			"hostname":  req.Hostname,
+		})
+		return nil, err
+	}
+
 	// 生成Agent唯一ID
-	agentID := generateAgentID(req.Hostname, req.IPAddress)
+	agentID := generateAgentID(req.Hostname)
 
 	// 检查Agent是否已存在
 	existingAgent, err := s.agentRepo.GetByHostname(req.Hostname)
@@ -77,40 +89,19 @@ func (s *agentService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*age
 	}
 
 	if existingAgent != nil {
-		// Agent已存在，更新信息
-		existingAgent.IPAddress = req.IPAddress
-		existingAgent.Port = req.Port
-		existingAgent.Version = req.Version
-		existingAgent.OS = req.OS
-		existingAgent.Arch = req.Arch
-		existingAgent.CPUCores = req.CPUCores
-		existingAgent.MemoryTotal = req.MemoryTotal
-		existingAgent.DiskTotal = req.DiskTotal
-		existingAgent.ContainerID = req.ContainerID
-		existingAgent.PID = req.PID
-		existingAgent.Capabilities = req.Capabilities
-		existingAgent.Tags = req.Tags
-		existingAgent.Remark = req.Remark
-		existingAgent.Status = agentModel.AgentStatusOnline
-		existingAgent.LastHeartbeat = time.Now()
-
-		if err := s.agentRepo.Update(existingAgent); err != nil {
-			logger.LogError(err, "", 0, "", "service.agent.RegisterAgent", "", map[string]interface{}{
+		// Agent已存在，返回409冲突错误
+		logger.LogError(
+			fmt.Errorf("agent with hostname %s already exists", req.Hostname),
+			"", 0, "", "service.agent.RegisterAgent", "",
+			map[string]interface{}{
 				"operation": "register_agent",
-				"option":    "agentService.RegisterAgent",
+				"option":    "duplicate_hostname_check",
 				"func_name": "service.agent.RegisterAgent",
+				"hostname":  req.Hostname,
 				"agent_id":  existingAgent.AgentID,
-			})
-			return nil, fmt.Errorf("更新已存在Agent失败: %v", err)
-		}
-
-		return &agentModel.RegisterAgentResponse{
-			AgentID:     existingAgent.AgentID,
-			GRPCToken:   existingAgent.GRPCToken,
-			TokenExpiry: time.Now().Add(24 * time.Hour), // Token 24小时后过期
-			Status:      "updated",
-			Message:     "Agent信息已更新",
-		}, nil
+			},
+		)
+		return nil, fmt.Errorf("agent with hostname %s already exists", req.Hostname)
 	}
 
 	// 创建新Agent
@@ -417,9 +408,78 @@ func (s *agentService) RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequ
 }
 
 // generateAgentID 生成Agent唯一ID
-// 基于主机名和IP地址生成唯一标识
-func generateAgentID(hostname, ipAddress string) string {
-	return fmt.Sprintf("agent_%s_%s_%d", hostname, ipAddress, time.Now().Unix())
+// 基于主机名和时间生成唯一标识
+func generateAgentID(hostname string) string {
+	// 使用UUID生成固定长度的agent_id，避免超过数据库字段限制
+	// 格式：agent_uuid，总长度约42字符，远小于数据库的100字符限制
+	uuid, err := utils.GenerateUUID()
+	if err != nil {
+		// 如果UUID生成失败，使用时间戳作为后备方案，但要截断hostname避免过长
+		shortHostname := hostname
+		if len(hostname) > 20 {
+			shortHostname = hostname[:20]
+		}
+		return fmt.Sprintf("agent_%s_%d", shortHostname, time.Now().Unix())
+	}
+	return fmt.Sprintf("agent_%s", uuid)
+}
+
+// validateRegisterRequest 验证Agent注册请求参数
+// 参数: req - Agent注册请求结构体指针
+// 返回: error - 验证失败时的错误信息
+func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
+	// 检查hostname长度
+	if len(req.Hostname) > 255 {
+		return fmt.Errorf("Hostname too long")
+	}
+	
+	// 检查version长度
+	if len(req.Version) > 50 {
+		return fmt.Errorf("Version too long")
+	}
+	
+	// 检查CPU核心数
+	if req.CPUCores < 0 {
+		return fmt.Errorf("Invalid CPU cores")
+	}
+	
+	// 检查内存总量
+	if req.MemoryTotal < 0 {
+		return fmt.Errorf("Invalid memory total")
+	}
+	
+	// 检查磁盘总量
+	if req.DiskTotal < 0 {
+		return fmt.Errorf("Invalid disk total")
+	}
+	
+	// 检查端口范围
+	if req.Port < 1 || req.Port > 65535 {
+		return fmt.Errorf("port must be between 1 and 65535")
+	}
+	
+	// 检查capabilities是否为空
+	if len(req.Capabilities) == 0 {
+		return fmt.Errorf("At least one capability is required")
+	}
+	
+	// 检查capabilities是否包含有效值
+	validCapabilities := map[string]bool{
+		"port_scan":          true,
+		"service_scan":       true,
+		"vulnerability_scan": true,
+		"vuln_scan":          true, // 添加测试用例中使用的简写形式
+		"web_scan":           true,
+		"network_scan":       true,
+	}
+	
+	for _, capability := range req.Capabilities {
+		if !validCapabilities[capability] {
+			return fmt.Errorf("Invalid capability")
+		}
+	}
+	
+	return nil
 }
 
 // generateGRPCToken 生成GRPC通信Token

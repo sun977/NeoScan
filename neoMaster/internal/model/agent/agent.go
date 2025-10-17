@@ -68,6 +68,42 @@ func (s StringSlice) Value() (driver.Value, error) {
 	return jsonStr, nil
 }
 
+// PluginStatusJSON 插件状态JSON类型
+type PluginStatusJSON map[string]interface{}
+
+// Scan 实现sql.Scanner接口
+func (p *PluginStatusJSON) Scan(value interface{}) error {
+	if value == nil {
+		*p = PluginStatusJSON{}
+		return nil
+	}
+
+	var str string
+	switch v := value.(type) {
+	case string:
+		str = v
+	case []byte:
+		str = string(v)
+	default:
+		return fmt.Errorf("无法将 %T 转换为 PluginStatusJSON", value)
+	}
+
+	if str == "" {
+		*p = PluginStatusJSON{}
+		return nil
+	}
+
+	return json.Unmarshal([]byte(str), p)
+}
+
+// Value 实现driver.Valuer接口
+func (p PluginStatusJSON) Value() (driver.Value, error) {
+	if len(p) == 0 {
+		return "{}", nil
+	}
+	return json.Marshal(p)
+}
+
 // ConfigTemplateJSON 配置模板JSON类型
 type ConfigTemplateJSON map[string]interface{}
 
@@ -432,7 +468,7 @@ type AgentMetrics struct {
 	FailedTasks       int                    `json:"failed_tasks" gorm:"comment:失败任务数"`
 	WorkStatus        AgentWorkStatus        `json:"work_status" gorm:"size:20;comment:工作状态:idle-空闲,working-工作中,exception-异常"`
 	ScanType          string                 `json:"scan_type" gorm:"size:50;comment:当前扫描类型"`
-	PluginStatus      map[string]interface{} `json:"plugin_status" gorm:"type:json;comment:插件状态信息"`
+	PluginStatus      PluginStatusJSON       `json:"plugin_status" gorm:"type:json;comment:插件状态信息"`
 	Timestamp         time.Time              `json:"timestamp" gorm:"index;comment:指标时间戳"`
 }
 

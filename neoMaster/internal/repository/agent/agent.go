@@ -309,6 +309,11 @@ func (r *agentRepository) GetLatestMetrics(agentID string) (*agentModel.AgentMet
 // 参数: agentID - Agent的业务ID, metrics - 性能指标数据指针
 // 返回: error - 更新过程中的错误信息
 func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error {
+	// 防御性编程：检查输入参数
+	if metrics == nil {
+		return fmt.Errorf("metrics cannot be nil")
+	}
+	
 	// 设置AgentID和时间戳
 	metrics.AgentID = agentID
 	metrics.Timestamp = time.Now()
@@ -349,7 +354,8 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 		}
 	} else {
 		// 存在记录，更新现有记录
-		updateResult := r.db.Model(&existingMetrics).Updates(map[string]interface{}{
+		// 构建更新字段映射，避免空指针访问
+		updateFields := map[string]interface{}{
 			"cpu_usage":          metrics.CPUUsage,
 			"memory_usage":       metrics.MemoryUsage,
 			"disk_usage":         metrics.DiskUsage,
@@ -361,9 +367,15 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 			"failed_tasks":       metrics.FailedTasks,
 			"work_status":        metrics.WorkStatus,
 			"scan_type":          metrics.ScanType,
-			"plugin_status":      metrics.PluginStatus,
 			"timestamp":          metrics.Timestamp,
-		})
+		}
+		
+		// 安全处理PluginStatus字段
+		if metrics.PluginStatus != nil {
+			updateFields["plugin_status"] = metrics.PluginStatus
+		}
+
+		updateResult := r.db.Model(&existingMetrics).Updates(updateFields)
 
 		if updateResult.Error != nil {
 			logger.LogError(updateResult.Error, "", 0, "", "repository.agent.UpdateAgentMetrics", "", map[string]interface{}{

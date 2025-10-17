@@ -9,10 +9,10 @@ package agent
 
 import (
 	"fmt"
+	agentRepository "neomaster/internal/repository/mysql/agent"
 
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
-	agentRepository "neomaster/internal/repository/agent"
 )
 
 // AgentConfigService Agent配置服务接口

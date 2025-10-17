@@ -120,7 +120,13 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 
 	// 初始化Agent相关Repository和Service
 	agentRepository := agentRepo.NewAgentRepository(db)
-	agentSvc := agentService.NewAgentService(agentRepository)
+
+	// 初始化拆分后的Agent服务
+	agentManagerService := agentService.NewAgentManagerService(agentRepository)
+	agentMonitorService := agentService.NewAgentMonitorService(agentRepository)
+	agentConfigService := agentService.NewAgentConfigService(agentRepository)
+	agentTaskService := agentService.NewAgentTaskService(agentRepository)
+	agentGroupService := agentService.NewAgentGroupService(agentRepository)
 
 	// 初始化扫描配置相关Service
 	projectConfigService := scanConfigService.NewProjectConfigService(projectConfigRepo, workflowConfigRepo, scanToolRepo)
@@ -129,7 +135,13 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	scanRuleService := scanConfigService.NewScanRuleService(scanRuleRepo)
 
 	// 初始化Agent相关Handler
-	agentHdl := agentHandler.NewAgentHandler(agentSvc)
+	agentHdl := agentHandler.NewAgentHandler(
+		agentManagerService,
+		agentMonitorService,
+		agentConfigService,
+		agentTaskService,
+		agentGroupService,
+	)
 
 	// 初始化扫描配置相关Handler
 	projectConfigHandler := scanConfigHandler.NewProjectConfigHandler(projectConfigService)

@@ -25,13 +25,27 @@ import (
 
 // AgentHandler Agent处理器
 type AgentHandler struct {
-	agentService agentService.AgentManagerService // 修复：使用接口类型而不是指针
+	agentManagerService agentService.AgentManagerService // Agent管理服务
+	agentMonitorService agentService.AgentMonitorService // Agent监控服务
+	agentConfigService  agentService.AgentConfigService  // Agent配置服务
+	agentTaskService    agentService.AgentTaskService    // Agent任务服务
+	agentGroupService   agentService.AgentGroupService   // Agent分组服务
 }
 
 // NewAgentHandler 创建Agent处理器实例
-func NewAgentHandler(agentService agentService.AgentManagerService) *AgentHandler {
+func NewAgentHandler(
+	agentManagerService agentService.AgentManagerService,
+	agentMonitorService agentService.AgentMonitorService,
+	agentConfigService agentService.AgentConfigService,
+	agentTaskService agentService.AgentTaskService,
+	agentGroupService agentService.AgentGroupService,
+) *AgentHandler {
 	return &AgentHandler{
-		agentService: agentService,
+		agentManagerService: agentManagerService,
+		agentMonitorService: agentMonitorService,
+		agentConfigService:  agentConfigService,
+		agentTaskService:    agentTaskService,
+		agentGroupService:   agentGroupService,
 	}
 }
 
@@ -243,8 +257,8 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		return
 	}
 
-	// 调用服务层处理业务逻辑
-	response, err := h.agentService.RegisterAgent(&req)
+	// 调用服务层注册Agent
+	response, err := h.agentManagerService.RegisterAgent(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 
@@ -339,7 +353,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	}
 
 	// 调用服务层获取Agent信息
-	agentInfo, err := h.agentService.GetAgentInfo(agentID)
+	agentInfo, err := h.agentManagerService.GetAgentInfo(agentID)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		logger.LogError(
@@ -459,7 +473,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	}
 
 	// 调用服务层获取Agent列表
-	response, err := h.agentService.GetAgentList(&req)
+	response, err := h.agentManagerService.GetAgentList(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		logger.LogError(
@@ -613,7 +627,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	}
 
 	// 调用服务层更新Agent状态
-	err := h.agentService.UpdateAgentStatus(agentID, req.Status)
+	err := h.agentManagerService.UpdateAgentStatus(agentID, req.Status)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		logger.LogError(
@@ -728,7 +742,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 	}
 
 	// 调用服务层处理心跳
-	response, err := h.agentService.ProcessHeartbeat(&req)
+	response, err := h.agentMonitorService.ProcessHeartbeat(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		logger.LogError(
@@ -828,7 +842,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	}
 
 	// 调用服务层删除Agent
-	err := h.agentService.DeleteAgent(agentID)
+	err := h.agentManagerService.DeleteAgent(agentID)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		logger.LogError(

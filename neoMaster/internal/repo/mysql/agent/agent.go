@@ -209,7 +209,7 @@ func (r *agentRepository) UpdateStatus(agentID string, status agentModel.AgentSt
 }
 
 // UpdateLastHeartbeat 更新Agent最后心跳时间
-// 参数: agentID - Agent的业务ID
+// 参数: agentID - Agent的业务ID (同时更新 updated_at 和 last_heartbeat 字段)
 // 返回: error - 更新过程中的错误信息
 func (r *agentRepository) UpdateLastHeartbeat(agentID string) error {
 	result := r.db.Model(&agentModel.Agent{}).
@@ -313,7 +313,7 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 	if metrics == nil {
 		return fmt.Errorf("metrics cannot be nil")
 	}
-	
+
 	// 设置AgentID和时间戳
 	metrics.AgentID = agentID
 	metrics.Timestamp = time.Now()
@@ -369,8 +369,8 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 			"scan_type":          metrics.ScanType,
 			"timestamp":          metrics.Timestamp,
 		}
-		
-		// 安全处理PluginStatus字段
+
+		// 安全处理PluginStatus字段 这是一个 JSON 字段 {"nmap": {"pid": 12345, "status": "running"}, "nuclei": {"status": "idle"}}
 		if metrics.PluginStatus != nil {
 			updateFields["plugin_status"] = metrics.PluginStatus
 		}

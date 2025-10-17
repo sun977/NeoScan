@@ -33,7 +33,7 @@ import (
 	"errors"
 	"fmt"
 	"neomaster/internal/model/system"
-	system2 "neomaster/internal/repository/mysql/system"
+	systemrepo "neomaster/internal/repository/mysql/system"
 	"time"
 
 	"neomaster/internal/pkg/logger"
@@ -42,11 +42,11 @@ import (
 // RoleService 角色服务
 // 负责角色相关的业务逻辑，包括角色创建、获取角色信息等
 type RoleService struct {
-	roleRepo *system2.RoleRepository // 角色数据仓库
+	roleRepo *systemrepo.RoleRepository // 角色数据仓库
 }
 
 // NewRoleService 创建新的角色服务实例
-func NewRoleService(roleRepo *system2.RoleRepository) *RoleService {
+func NewRoleService(roleRepo *systemrepo.RoleRepository) *RoleService {
 	return &RoleService{
 		roleRepo: roleRepo,
 	}

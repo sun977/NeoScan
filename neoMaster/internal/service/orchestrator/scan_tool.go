@@ -38,23 +38,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	orchestratorrepo "neomaster/internal/repository/mysql/orchestrator"
 	"strings"
 	"time"
 
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
-	scanConfigRepo "neomaster/internal/repository/orchestrator"
 )
 
 // ScanToolService 扫描工具服务结构体
 // 负责处理扫描工具相关的业务逻辑
 type ScanToolService struct {
-	scanToolRepo *scanConfigRepo.ScanToolRepository // 扫描工具仓库
+	scanToolRepo *orchestratorrepo.ScanToolRepository // 扫描工具仓库
 }
 
 // NewScanToolService 创建扫描工具服务实例
 // 注入必要的Repository依赖，遵循依赖注入原则
-func NewScanToolService(scanToolRepo *scanConfigRepo.ScanToolRepository) *ScanToolService {
+func NewScanToolService(scanToolRepo *orchestratorrepo.ScanToolRepository) *ScanToolService {
 	return &ScanToolService{
 		scanToolRepo: scanToolRepo,
 	}

@@ -43,6 +43,7 @@ func NewAgentMonitorService(agentRepo agentRepository.AgentRepository) AgentMoni
 func (s *agentMonitorService) ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agentModel.HeartbeatResponse, error) {
 	// 1. 更新Agent心跳状态信息到agents表
 	// 只更新last_heartbeat、updated_at、status字段，其他字段在注册时已确定
+	// 更新 status 字段 - agents 表
 	err := s.agentRepo.UpdateStatus(req.AgentID, req.Status)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{
@@ -54,7 +55,7 @@ func (s *agentMonitorService) ProcessHeartbeat(req *agentModel.HeartbeatRequest)
 		return nil, err
 	}
 
-	// 更新最后心跳时间
+	// 更新最后心跳时间 - agents 表 (同时更新 updated_at 和 last_heartbeat 字段)
 	err = s.agentRepo.UpdateLastHeartbeat(req.AgentID)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{

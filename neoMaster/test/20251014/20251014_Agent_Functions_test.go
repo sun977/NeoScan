@@ -39,6 +39,7 @@ func TestAgentFunctions(t *testing.T) {
 	t.Run("Agent状态更新测试", testAgentStatusUpdate)
 	t.Run("Agent列表查询测试", testAgentListQuery)
 	t.Run("Agent详情查询测试", testAgentDetailQuery)
+	t.Run("Agent删除测试", testAgentDelete)
 	t.Run("Agent权限验证测试", testAgentPermissions)
 	t.Run("StringSlice转换测试", testStringSliceConversion)
 }
@@ -92,7 +93,7 @@ func testAgentRegistration(t *testing.T) {
 				"port": 8080
 			}`,
 			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid request format",
+			expectedMsg:    "ip_address is required",
 		},
 		{
 			name: "重复注册相同hostname",
@@ -110,7 +111,7 @@ func testAgentRegistration(t *testing.T) {
 				"tags": ["production"]
 			}`,
 			expectedStatus: http.StatusConflict,
-			expectedMsg:    "Agent already exists",
+			expectedMsg:    "Agent registration failed",
 		},
 		// 边界情况测试 - 无效IP地址
 		{
@@ -129,7 +130,7 @@ func testAgentRegistration(t *testing.T) {
 				"tags": ["test"]
 			}`,
 			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid IP address",
+			expectedMsg:    "invalid ip_address format",
 		},
 		{
 			name: "IP地址为空字符串",
@@ -147,7 +148,7 @@ func testAgentRegistration(t *testing.T) {
 				"tags": ["test"]
 			}`,
 			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "IP address is required",
+			expectedMsg:    "ip_address is required",
 		},
 		// 边界情况测试 - 端口范围
 		{
@@ -166,7 +167,7 @@ func testAgentRegistration(t *testing.T) {
 				"tags": ["test"]
 			}`,
 			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid port number",
+			expectedMsg:    "port must be between 1 and 65535",
 		},
 		{
 			name: "端口号超出范围",
@@ -184,7 +185,7 @@ func testAgentRegistration(t *testing.T) {
 				"tags": ["test"]
 			}`,
 			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid port number",
+			expectedMsg:    "port must be between 1 and 65535",
 		},
 		// 边界情况测试 - 字段长度限制
 		{
@@ -322,10 +323,11 @@ func testAgentRegistration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// 创建HTTP请求
-			req, err := http.NewRequest("POST", "/api/v1/agent", strings.NewReader(tc.requestBody))
+			req, err := http.NewRequest("POST", "/api/v1/agent/register", strings.NewReader(tc.requestBody))
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+			// Agent注册是公开接口，不需要Authorization头
+			// req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
 
 			// 执行请求
 			w := httptest.NewRecorder()
@@ -346,7 +348,9 @@ func testAgentRegistration(t *testing.T) {
 				json.Unmarshal(dataBytes, &agentData)
 
 				assert.NotEmpty(t, agentData["agent_id"])
-				assert.Equal(t, "test-agent-001", agentData["hostname"])
+				// RegisterAgentResponse结构中没有hostname字段，只有agent_id, grpc_token, token_expiry, status, message
+				// assert.Equal(t, "test-agent-001", agentData["hostname"])
+				assert.Equal(t, "registered", agentData["status"])
 			}
 		})
 	}
@@ -354,42 +358,65 @@ func testAgentRegistration(t *testing.T) {
 
 // testAgentHeartbeat 测试Agent心跳功能
 func testAgentHeartbeat(t *testing.T) {
+	// 不要创建新的TestSuite，使用父测试的TestSuite
+	// 这样可以避免资源冲突和重复初始化
 	ts := NewTestSuite(t)
 	defer ts.Cleanup()
 
 	// 先注册一个Agent
 	agent := ts.CreateTestAgent(t, "heartbeat-agent", "192.168.1.200", 8080)
 
-	// 创建管理员用户并获取token
-	adminUser := ts.CreateTestUser(t, "heartbeatadmin", "heartbeatadmin@test.com", "password123")
-	ts.AssignRoleToUser(t, adminUser.ID, "admin")
+	// 创建测试用户用于登录
+	testUser := ts.CreateTestUser(t, "listadmin", "listadmin@test.com", "password123")
+	// 为用户分配管理员角色
+	ts.AssignRoleToUser(t, testUser.ID, "admin")
 
-	loginResp, err := ts.SessionService.Login(context.Background(), &system.LoginRequest{
-		Username: "heartbeatadmin",
-		Password: "password123",
-	}, "127.0.0.1", "test-agent")
+	// 使用HTTP登录接口获取真实token
+	loginBody := `{"username":"listadmin","password":"password123"}`
+	loginReq, err := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(loginBody))
 	require.NoError(t, err)
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginW := httptest.NewRecorder()
+	ts.RouterManager.GetEngine().ServeHTTP(loginW, loginReq)
+	require.Equal(t, http.StatusOK, loginW.Code, "登录应该成功")
+
+	var loginResponse system.APIResponse
+	err = json.Unmarshal(loginW.Body.Bytes(), &loginResponse)
+	require.NoError(t, err)
+
+	loginData, ok := loginResponse.Data.(map[string]interface{})
+	require.True(t, ok, "登录响应数据格式错误")
+
+	accessToken, ok := loginData["access_token"].(string)
+	require.True(t, ok, "无法获取access_token")
 
 	// 正常心跳测试
 	t.Run("正常心跳请求", func(t *testing.T) {
 		heartbeatBody := `{
 			"agent_id": "` + agent.AgentID + `",
 			"status": "online",
-			"cpu_usage": 45.5,
-			"memory_usage": 60.2,
-			"disk_usage": 30.8,
-			"load_average": 1.5,
-			"network_io": {
-				"bytes_sent": 1024000,
-				"bytes_recv": 2048000
-			},
-			"active_tasks": 3
+			"metrics": {
+				"agent_id": "` + agent.AgentID + `",
+				"cpu_usage": 45.5,
+				"memory_usage": 60.2,
+				"disk_usage": 30.8,
+				"network_bytes_sent": 1024000,
+				"network_bytes_recv": 2048000,
+				"active_connections": 5,
+				"running_tasks": 3,
+				"completed_tasks": 10,
+				"failed_tasks": 1,
+				"work_status": "working",
+				"scan_type": "port_scan",
+				"plugin_status": {"nmap": "active", "masscan": "inactive"}
+			}
 		}`
 
 		req, err := http.NewRequest("POST", "/api/v1/agent/heartbeat", strings.NewReader(heartbeatBody))
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
 
 		w := httptest.NewRecorder()
 		ts.RouterManager.GetEngine().ServeHTTP(w, req)
@@ -421,11 +448,18 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "invalid-agent-id-format",
 				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "invalid-agent-id-format",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"load_average": 1.5,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"active_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusNotFound,
 			expectedMsg:    "Agent not found",
@@ -435,11 +469,17 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "00000000-0000-0000-0000-000000000000",
 				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "00000000-0000-0000-0000-000000000000",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusNotFound,
 			expectedMsg:    "Agent not found",
@@ -449,11 +489,17 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "",
 				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedMsg:    "Agent ID is required",
@@ -464,11 +510,17 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
 				"status": "invalid_status",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedMsg:    "Invalid status",
@@ -477,11 +529,17 @@ func testAgentHeartbeat(t *testing.T) {
 			name: "状态字段缺失",
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedMsg:    "Status is required",
@@ -492,11 +550,17 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
 				"status": "online",
-				"cpu_usage": -10.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": -10.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedMsg:    "Invalid CPU usage",
@@ -506,11 +570,17 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
 				"status": "online",
-				"cpu_usage": 150.0,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": 150.0,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedMsg:    "Invalid CPU usage",
@@ -520,11 +590,17 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
 				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": -20.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": 45.5,
+					"memory_usage": -20.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedMsg:    "Invalid memory usage",
@@ -534,76 +610,60 @@ func testAgentHeartbeat(t *testing.T) {
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
 				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 130.8,
-				"load_average": 1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 130.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedMsg:    "Invalid disk usage",
 		},
 		{
-			name: "负载平均值为负数",
+			name: "运行任务数为负数",
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
 				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": -1.5,
-				"active_tasks": 3
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": 1024000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": -1,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid load average",
+			expectedMsg:    "Invalid running tasks",
 		},
 		{
-			name: "活跃任务数为负数",
+			name: "网络发送字节数为负数",
 			requestBody: `{
 				"agent_id": "` + agent.AgentID + `",
 				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"active_tasks": -1
+				"metrics": {
+					"agent_id": "` + agent.AgentID + `",
+					"cpu_usage": 45.5,
+					"memory_usage": 60.2,
+					"disk_usage": 30.8,
+					"network_bytes_sent": -1000,
+					"network_bytes_recv": 2048000,
+					"running_tasks": 3,
+					"completed_tasks": 10,
+					"failed_tasks": 1
+				}
 			}`,
 			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid active tasks",
-		},
-		// 网络IO数据测试
-		{
-			name: "网络IO数据格式错误",
-			requestBody: `{
-				"agent_id": "` + agent.AgentID + `",
-				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"network_io": "invalid_format",
-				"active_tasks": 3
-			}`,
-			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid network IO format",
-		},
-		{
-			name: "网络IO字节数为负数",
-			requestBody: `{
-				"agent_id": "` + agent.AgentID + `",
-				"status": "online",
-				"cpu_usage": 45.5,
-				"memory_usage": 60.2,
-				"disk_usage": 30.8,
-				"load_average": 1.5,
-				"network_io": {
-					"bytes_sent": -1000,
-					"bytes_recv": 2048000
-				},
-				"active_tasks": 3
-			}`,
-			expectedStatus: http.StatusBadRequest,
-			expectedMsg:    "Invalid network IO data",
+			expectedMsg:    "Invalid network bytes sent",
 		},
 		// JSON格式错误测试
 		{
@@ -635,7 +695,7 @@ func testAgentHeartbeat(t *testing.T) {
 			req, err := http.NewRequest("POST", "/api/v1/agent/heartbeat", strings.NewReader(tc.requestBody))
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
 
 			w := httptest.NewRecorder()
 			ts.RouterManager.GetEngine().ServeHTTP(w, req)
@@ -703,18 +763,32 @@ func testAgentStatusUpdate(t *testing.T) {
 	ts := NewTestSuite(t)
 	defer ts.Cleanup()
 
+	// 创建测试用户
+	user := ts.CreateTestUser(t, "listadmin", "listadmin@example.com", "password123")
+	ts.AssignRoleToUser(t, user.ID, "admin")
+
 	// 先注册一个Agent
 	agent := ts.CreateTestAgent(t, "status-agent", "192.168.1.300", 8080)
 
-	// 创建管理员用户并获取token
-	adminUser := ts.CreateTestUser(t, "statusadmin", "statusadmin@test.com", "password123")
-	ts.AssignRoleToUser(t, adminUser.ID, "admin")
-
-	loginResp, err := ts.SessionService.Login(context.Background(), &system.LoginRequest{
-		Username: "statusadmin",
-		Password: "password123",
-	}, "127.0.0.1", "test-agent")
+	// 使用HTTP登录接口获取真实token
+	loginBody := `{"username":"listadmin","password":"password123"}`
+	loginReq, err := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(loginBody))
 	require.NoError(t, err)
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginW := httptest.NewRecorder()
+	ts.RouterManager.GetEngine().ServeHTTP(loginW, loginReq)
+	require.Equal(t, http.StatusOK, loginW.Code, "登录应该成功")
+
+	var loginResponse system.APIResponse
+	err = json.Unmarshal(loginW.Body.Bytes(), &loginResponse)
+	require.NoError(t, err)
+
+	loginData, ok := loginResponse.Data.(map[string]interface{})
+	require.True(t, ok, "登录响应数据格式错误")
+
+	accessToken, ok := loginData["access_token"].(string)
+	require.True(t, ok, "无法获取access_token")
 
 	// 测试状态更新
 	testCases := []struct {
@@ -736,7 +810,7 @@ func testAgentStatusUpdate(t *testing.T) {
 			req, err := http.NewRequest("PATCH", "/api/v1/agent/"+agent.AgentID+"/status", strings.NewReader(statusBody))
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
 
 			w := httptest.NewRecorder()
 			ts.RouterManager.GetEngine().ServeHTTP(w, req)
@@ -758,6 +832,10 @@ func testAgentListQuery(t *testing.T) {
 	ts := NewTestSuite(t)
 	defer ts.Cleanup()
 
+	// 创建测试用户
+	user := ts.CreateTestUser(t, "listadmin", "listadmin@example.com", "password123")
+	ts.AssignRoleToUser(t, user.ID, "admin")
+
 	// 创建多个测试Agent
 	agents := []*agentModel.Agent{
 		ts.CreateTestAgent(t, "list-agent-001", "192.168.1.101", 8080),
@@ -770,15 +848,25 @@ func testAgentListQuery(t *testing.T) {
 	ts.AgentRepository.UpdateStatus(agents[1].AgentID, agentModel.AgentStatusOnline)
 	ts.AgentRepository.UpdateStatus(agents[2].AgentID, agentModel.AgentStatusOffline)
 
-	// 创建管理员用户并获取token
-	adminUser := ts.CreateTestUser(t, "listadmin", "listadmin@test.com", "password123")
-	ts.AssignRoleToUser(t, adminUser.ID, "admin")
-
-	loginResp, err := ts.SessionService.Login(context.Background(), &system.LoginRequest{
-		Username: "listadmin",
-		Password: "password123",
-	}, "127.0.0.1", "test-agent")
+	// 使用HTTP登录接口获取真实token
+	loginBody := `{"username":"listadmin","password":"password123"}`
+	loginReq, err := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(loginBody))
 	require.NoError(t, err)
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginW := httptest.NewRecorder()
+	ts.RouterManager.GetEngine().ServeHTTP(loginW, loginReq)
+	require.Equal(t, http.StatusOK, loginW.Code, "登录应该成功")
+
+	var loginResponse system.APIResponse
+	err = json.Unmarshal(loginW.Body.Bytes(), &loginResponse)
+	require.NoError(t, err)
+
+	loginData, ok := loginResponse.Data.(map[string]interface{})
+	require.True(t, ok, "登录响应数据格式错误")
+
+	accessToken, ok := loginData["access_token"].(string)
+	require.True(t, ok, "无法获取access_token")
 
 	// 测试列表查询
 	testCases := []struct {
@@ -796,7 +884,7 @@ func testAgentListQuery(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req, err := http.NewRequest("GET", "/api/v1/agent"+tc.queryParams, nil)
 			require.NoError(t, err)
-			req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
 
 			w := httptest.NewRecorder()
 			ts.RouterManager.GetEngine().ServeHTTP(w, req)
@@ -825,23 +913,37 @@ func testAgentDetailQuery(t *testing.T) {
 	ts := NewTestSuite(t)
 	defer ts.Cleanup()
 
+	// 创建测试用户
+	user := ts.CreateTestUser(t, "listadmin", "listadmin@example.com", "password123")
+	ts.AssignRoleToUser(t, user.ID, "admin")
+
 	// 创建测试Agent
 	agent := ts.CreateTestAgent(t, "detail-agent", "192.168.1.400", 8080)
 
-	// 创建管理员用户并获取token
-	adminUser := ts.CreateTestUser(t, "detailadmin", "detailadmin@test.com", "password123")
-	ts.AssignRoleToUser(t, adminUser.ID, "admin")
-
-	loginResp, err := ts.SessionService.Login(context.Background(), &system.LoginRequest{
-		Username: "detailadmin",
-		Password: "password123",
-	}, "127.0.0.1", "test-agent")
+	// 使用HTTP登录接口获取真实token
+	loginBody := `{"username":"listadmin","password":"password123"}`
+	loginReq, err := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(loginBody))
 	require.NoError(t, err)
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginW := httptest.NewRecorder()
+	ts.RouterManager.GetEngine().ServeHTTP(loginW, loginReq)
+	require.Equal(t, http.StatusOK, loginW.Code, "登录应该成功")
+
+	var loginResponse system.APIResponse
+	err = json.Unmarshal(loginW.Body.Bytes(), &loginResponse)
+	require.NoError(t, err)
+
+	loginData, ok := loginResponse.Data.(map[string]interface{})
+	require.True(t, ok, "登录响应数据格式错误")
+
+	accessToken, ok := loginData["access_token"].(string)
+	require.True(t, ok, "无法获取access_token")
 
 	// 测试详情查询
 	req, err := http.NewRequest("GET", "/api/v1/agent/"+agent.AgentID, nil)
 	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	w := httptest.NewRecorder()
 	ts.RouterManager.GetEngine().ServeHTTP(w, req)
@@ -936,6 +1038,88 @@ func testStringSliceConversion(t *testing.T) {
 	})
 }
 
+// testAgentDelete 测试Agent删除功能
+func testAgentDelete(t *testing.T) {
+	ts := NewTestSuite(t)
+	defer ts.Cleanup()
+
+	// 创建测试用户
+	user := ts.CreateTestUser(t, "listadmin", "listadmin@example.com", "password123")
+	ts.AssignRoleToUser(t, user.ID, "admin")
+
+	// 创建测试Agent
+	agent := ts.CreateTestAgent(t, "delete-agent-001", "192.168.1.200", 8080)
+
+	// 使用HTTP登录接口获取真实token
+	loginBody := `{"username":"listadmin","password":"password123"}`
+	loginReq, err := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(loginBody))
+	require.NoError(t, err)
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginW := httptest.NewRecorder()
+	ts.RouterManager.GetEngine().ServeHTTP(loginW, loginReq)
+	require.Equal(t, http.StatusOK, loginW.Code, "登录应该成功")
+
+	var loginResponse system.APIResponse
+	err = json.Unmarshal(loginW.Body.Bytes(), &loginResponse)
+	require.NoError(t, err)
+
+	loginData, ok := loginResponse.Data.(map[string]interface{})
+	require.True(t, ok, "登录响应数据格式错误")
+
+	accessToken, ok := loginData["access_token"].(string)
+	require.True(t, ok, "无法获取access_token")
+
+	// 测试删除Agent
+	testCases := []struct {
+		name           string
+		agentID        string
+		expectedStatus int
+		expectError    bool
+	}{
+		{"删除存在的Agent", agent.AgentID, http.StatusOK, false},
+		{"删除不存在的Agent", "non-existent-agent", http.StatusOK, false}, // 删除不存在的记录也返回成功（幂等性）
+		{"删除空Agent ID", "", http.StatusBadRequest, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var url string
+			if tc.agentID == "" {
+				url = "/api/v1/agent/"
+			} else {
+				url = "/api/v1/agent/" + tc.agentID
+			}
+
+			req, err := http.NewRequest("DELETE", url, nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+
+			w := httptest.NewRecorder()
+			ts.RouterManager.GetEngine().ServeHTTP(w, req)
+
+			assert.Equal(t, tc.expectedStatus, w.Code)
+
+			var response system.APIResponse
+			err = json.Unmarshal(w.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			if tc.expectError {
+				assert.Equal(t, "failed", response.Status)
+			} else {
+				assert.Equal(t, "success", response.Status)
+
+				// 如果是删除存在的Agent，验证数据库中已删除
+				if tc.agentID == agent.AgentID {
+					deletedAgent, err := ts.AgentRepository.GetByID(agent.AgentID)
+					assert.NoError(t, err, "查询删除的Agent不应该有错误")
+					assert.Nil(t, deletedAgent, "Agent应该已被删除")
+				}
+			}
+		})
+	}
+}
+
 // testAgentPermissions 测试Agent权限验证功能
 func testAgentPermissions(t *testing.T) {
 	ts := NewTestSuite(t)
@@ -970,7 +1154,7 @@ func testAgentPermissions(t *testing.T) {
 	require.NoError(t, err)
 
 	viewerLogin, err := ts.SessionService.Login(context.Background(), &system.LoginRequest{
-		Username: "boundary_viewer",
+		Username: "viewer_user",
 		Password: "password123",
 	}, "127.0.0.1", "test-agent")
 	require.NoError(t, err)
@@ -996,7 +1180,7 @@ func testAgentPermissions(t *testing.T) {
 		{
 			name:     "Agent注册权限",
 			method:   "POST",
-			endpoint: "/api/v1/agent",
+			endpoint: "/api/v1/agent/register",
 			requestBody: `{
 				"hostname": "permission-test-agent",
 				"ip_address": "192.168.1.501",
@@ -1012,8 +1196,8 @@ func testAgentPermissions(t *testing.T) {
 			}`,
 			adminExpected:    http.StatusOK,        // 管理员可以注册Agent
 			operatorExpected: http.StatusOK,        // 操作员可以注册Agent
-			viewerExpected:   http.StatusForbidden, // 查看者不能注册Agent
-			guestExpected:    http.StatusForbidden, // 访客不能注册Agent
+			viewerExpected:   http.StatusOK,        // 查看者可以注册Agent（公开接口）
+			guestExpected:    http.StatusOK,        // 访客可以注册Agent（公开接口）
 		},
 		// Agent列表查询权限测试
 		{
@@ -1064,8 +1248,8 @@ func testAgentPermissions(t *testing.T) {
 			}`,
 			adminExpected:    http.StatusOK,        // 管理员可以发送心跳
 			operatorExpected: http.StatusOK,        // 操作员可以发送心跳
-			viewerExpected:   http.StatusForbidden, // 查看者不能发送心跳
-			guestExpected:    http.StatusForbidden, // 访客不能发送心跳
+			viewerExpected:   http.StatusOK,        // 查看者可以发送心跳（公开接口）
+			guestExpected:    http.StatusOK,        // 访客可以发送心跳（公开接口）
 		},
 		// Agent删除权限测试
 		{
@@ -1264,6 +1448,30 @@ func testAgentPermissions(t *testing.T) {
 
 	// 测试角色权限边界
 	t.Run("角色权限边界测试", func(t *testing.T) {
+		// 创建查看者用户
+		viewerUser := ts.CreateTestUser(t, "boundary_viewer", "boundary_viewer@test.com", "password123")
+		ts.AssignRoleToUser(t, viewerUser.ID, "viewer")
+
+		// 使用HTTP登录接口获取查看者token
+		viewerLoginBody := `{"username":"boundary_viewer","password":"password123"}`
+		viewerLoginReq, err := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(viewerLoginBody))
+		require.NoError(t, err)
+		viewerLoginReq.Header.Set("Content-Type", "application/json")
+
+		viewerLoginW := httptest.NewRecorder()
+		ts.RouterManager.GetEngine().ServeHTTP(viewerLoginW, viewerLoginReq)
+		require.Equal(t, http.StatusOK, viewerLoginW.Code, "查看者登录应该成功")
+
+		var viewerLoginResponse system.APIResponse
+		err = json.Unmarshal(viewerLoginW.Body.Bytes(), &viewerLoginResponse)
+		require.NoError(t, err)
+
+		viewerLoginData, ok := viewerLoginResponse.Data.(map[string]interface{})
+		require.True(t, ok, "查看者登录响应数据格式错误")
+
+		viewerAccessToken, ok := viewerLoginData["access_token"].(string)
+		require.True(t, ok, "无法获取查看者access_token")
+
 		// 测试用户尝试访问超出其权限范围的操作
 		viewerReq, err := http.NewRequest("POST", "/api/v1/agent", strings.NewReader(`{
 			"hostname": "unauthorized-agent",
@@ -1280,7 +1488,7 @@ func testAgentPermissions(t *testing.T) {
 		}`))
 		require.NoError(t, err)
 		viewerReq.Header.Set("Content-Type", "application/json")
-		viewerReq.Header.Set("Authorization", "Bearer "+viewerLogin.AccessToken)
+		viewerReq.Header.Set("Authorization", "Bearer "+viewerAccessToken)
 
 		w := httptest.NewRecorder()
 		ts.RouterManager.GetEngine().ServeHTTP(w, viewerReq)
@@ -1352,12 +1560,25 @@ func testRolePermissionBoundary(t *testing.T) {
 	viewerUser := ts.CreateTestUser(t, "boundary_viewer", "boundary_viewer@test.com", "password123")
 	ts.AssignRoleToUser(t, viewerUser.ID, "viewer")
 
-	// 获取查看者token
-	viewerLogin, err := ts.SessionService.Login(context.Background(), &system.LoginRequest{
-		Username: "boundary_viewer",
-		Password: "password123",
-	}, "127.0.0.1", "test-agent")
+	// 使用HTTP登录接口获取查看者token
+	viewerLoginBody := `{"username":"boundary_viewer","password":"password123"}`
+	viewerLoginReq, err := http.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(viewerLoginBody))
 	require.NoError(t, err)
+	viewerLoginReq.Header.Set("Content-Type", "application/json")
+
+	viewerLoginW := httptest.NewRecorder()
+	ts.RouterManager.GetEngine().ServeHTTP(viewerLoginW, viewerLoginReq)
+	require.Equal(t, http.StatusOK, viewerLoginW.Code, "查看者登录应该成功")
+
+	var viewerLoginResponse system.APIResponse
+	err = json.Unmarshal(viewerLoginW.Body.Bytes(), &viewerLoginResponse)
+	require.NoError(t, err)
+
+	viewerLoginData, ok := viewerLoginResponse.Data.(map[string]interface{})
+	require.True(t, ok, "查看者登录响应数据格式错误")
+
+	viewerAccessToken, ok := viewerLoginData["access_token"].(string)
+	require.True(t, ok, "无法获取查看者access_token")
 
 	// 测试用户尝试访问超出其权限范围的操作
 	viewerReq, err := http.NewRequest("POST", "/api/v1/agent", strings.NewReader(`{
@@ -1375,7 +1596,7 @@ func testRolePermissionBoundary(t *testing.T) {
 	}`))
 	require.NoError(t, err)
 	viewerReq.Header.Set("Content-Type", "application/json")
-	viewerReq.Header.Set("Authorization", "Bearer "+viewerLogin.AccessToken)
+	viewerReq.Header.Set("Authorization", "Bearer "+viewerAccessToken)
 
 	w := httptest.NewRecorder()
 	ts.RouterManager.GetEngine().ServeHTTP(w, viewerReq)

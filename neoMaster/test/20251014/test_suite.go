@@ -83,7 +83,10 @@ func NewTestSuite(t *testing.T) *TestSuite {
 
 	// 初始化路由管理器 - 需要数据库、Redis和JWT密钥
 	// 为测试创建一个简单的Redis客户端（可以是mock）
-	redisClient := &redis.Client{} // 简化的Redis客户端，测试时可能不需要真实连接
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379", // 测试用Redis地址
+		DB:   0,                // 使用默认数据库
+	})
 	jwtSecret := "test-jwt-secret-key-for-testing-only"
 	routerManager := router.NewRouter(db, redisClient, jwtSecret)
 	

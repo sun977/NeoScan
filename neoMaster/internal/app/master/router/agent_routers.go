@@ -33,6 +33,7 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.GET("/:id", r.agentHandler.GetAgentInfo)               // 根据ID获取Agent信息
 		agentManageGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // 更新Agent状态 - PATCH 对现有资源进行部分修改
 		agentManageGroup.DELETE("/:id", r.agentHandler.DeleteAgent)             // 删除Agent
+		// agentManageGroup.DELETE("/", r.agentHandler.DeleteAgent)                // 删除Agent - 处理空ID情况
 
 		// ==================== Agent状态管理路由（占位符，待后续实现） ====================
 		agentManageGroup.POST("/:id/start", r.agentStartPlaceholder)     // 启动Agent

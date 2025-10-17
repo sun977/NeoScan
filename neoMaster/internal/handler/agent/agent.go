@@ -9,6 +9,7 @@ package agent
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -32,6 +33,127 @@ func NewAgentHandler(agentService agentService.AgentService) *AgentHandler {
 	return &AgentHandler{
 		agentService: agentService,
 	}
+}
+
+// validateRegisterRequest 验证Agent注册请求参数
+func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
+	if req.Hostname == "" {
+		return fmt.Errorf("hostname is required")
+	}
+	// 验证hostname长度
+	if len(req.Hostname) > 255 {
+		return fmt.Errorf("Hostname too long")
+	}
+	if req.IPAddress == "" {
+		return fmt.Errorf("ip_address is required")
+	}
+	// 验证IP地址格式
+	if net.ParseIP(req.IPAddress) == nil {
+		return fmt.Errorf("invalid ip_address format")
+	}
+	if req.Port <= 0 || req.Port > 65535 {
+		return fmt.Errorf("port must be between 1 and 65535")
+	}
+	if req.Version == "" {
+		return fmt.Errorf("version is required")
+	}
+	// 验证version长度
+	if len(req.Version) > 50 {
+		return fmt.Errorf("Version too long")
+	}
+	if req.OS == "" {
+		return fmt.Errorf("os is required")
+	}
+	if req.Arch == "" {
+		return fmt.Errorf("arch is required")
+	}
+	// 验证CPU核心数不能为负数或零
+	if req.CPUCores <= 0 {
+		return fmt.Errorf("Invalid CPU cores")
+	}
+	// 验证memory_total不能为负数
+	if req.MemoryTotal < 0 {
+		return fmt.Errorf("Invalid memory total")
+	}
+	// 验证disk_total不能为负数
+	if req.DiskTotal < 0 {
+		return fmt.Errorf("Invalid disk total")
+	}
+	// 验证capabilities不能为空
+	if len(req.Capabilities) == 0 {
+		return fmt.Errorf("At least one capability is required")
+	}
+	// 验证capabilities包含有效值
+	validCapabilities := map[string]bool{
+		"port_scan":          true,
+		"service_scan":       true,
+		"vulnerability_scan": true,
+		"vuln_scan":          true,
+		"web_scan":           true,
+		"network_scan":       true,
+	}
+	for _, capability := range req.Capabilities {
+		if !validCapabilities[capability] {
+			return fmt.Errorf("Invalid capability: %s", capability)
+		}
+	}
+	return nil
+}
+
+// validateHeartbeatRequest 验证Agent心跳请求参数
+func (h *AgentHandler) validateHeartbeatRequest(req *agentModel.HeartbeatRequest) error {
+	if req.AgentID == "" {
+		return fmt.Errorf("Agent ID is required")
+	}
+	if req.Status == "" {
+		return fmt.Errorf("Status is required")
+	}
+	// 验证状态值是否有效
+	validStatuses := []agentModel.AgentStatus{
+		agentModel.AgentStatusOnline,
+		agentModel.AgentStatusOffline,
+		agentModel.AgentStatusException,
+		agentModel.AgentStatusMaintenance,
+	}
+	isValidStatus := false
+	for _, validStatus := range validStatuses {
+		if req.Status == validStatus {
+			isValidStatus = true
+			break
+		}
+	}
+	if !isValidStatus {
+		return fmt.Errorf("Invalid status")
+	}
+
+	// 验证性能指标数据（如果提供）
+	if req.Metrics != nil {
+		if req.Metrics.CPUUsage < 0 || req.Metrics.CPUUsage > 100 {
+			return fmt.Errorf("Invalid CPU usage")
+		}
+		if req.Metrics.MemoryUsage < 0 || req.Metrics.MemoryUsage > 100 {
+			return fmt.Errorf("Invalid memory usage")
+		}
+		if req.Metrics.DiskUsage < 0 || req.Metrics.DiskUsage > 100 {
+			return fmt.Errorf("Invalid disk usage")
+		}
+		if req.Metrics.NetworkBytesSent < 0 {
+			return fmt.Errorf("Invalid network bytes sent")
+		}
+		if req.Metrics.NetworkBytesRecv < 0 {
+			return fmt.Errorf("Invalid network bytes received")
+		}
+		if req.Metrics.RunningTasks < 0 {
+			return fmt.Errorf("Invalid running tasks")
+		}
+		if req.Metrics.CompletedTasks < 0 {
+			return fmt.Errorf("Invalid completed tasks")
+		}
+		if req.Metrics.FailedTasks < 0 {
+			return fmt.Errorf("Invalid failed tasks")
+		}
+	}
+	return nil
 }
 
 // RegisterAgent Agent注册处理器
@@ -89,7 +211,33 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
-			Message: "Invalid request format",
+			Message: "Invalid JSON format",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 验证必填字段
+	if err := h.validateRegisterRequest(&req); err != nil {
+		logger.LogError(
+			err,
+			XRequestID,
+			0, // AgentID - 在注册阶段还没有agent ID
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":  "register_agent",
+				"option":     "validateRegisterRequest",
+				"func_name":  "handler.agent.RegisterAgent",
+				"user_agent": userAgent,
+				"hostname":   req.Hostname,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: err.Error(),
 			Error:   err.Error(),
 		})
 		return
@@ -99,6 +247,12 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	response, err := h.agentService.RegisterAgent(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
+
+		// 检查是否是重复注册错误 - 修复错误检查逻辑
+		if strings.Contains(err.Error(), "already exists") {
+			statusCode = http.StatusConflict
+		}
+
 		logger.LogError(
 			err,
 			XRequestID,
@@ -418,6 +572,46 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 		return
 	}
 
+	// 验证状态值是否有效
+	validStatuses := []agentModel.AgentStatus{
+		agentModel.AgentStatusOnline,
+		agentModel.AgentStatusOffline,
+		agentModel.AgentStatusException,
+		agentModel.AgentStatusMaintenance,
+	}
+	isValidStatus := false
+	for _, validStatus := range validStatuses {
+		if req.Status == validStatus {
+			isValidStatus = true
+			break
+		}
+	}
+	if !isValidStatus {
+		logger.LogError(
+			fmt.Errorf("invalid status: %s", req.Status),
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"PATCH",
+			map[string]interface{}{
+				"operation":  "update_agent_status",
+				"option":     "statusValidation",
+				"func_name":  "handler.agent.UpdateAgentStatus",
+				"user_agent": userAgent,
+				"agent_id":   agentID,
+				"status":     string(req.Status),
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid status value",
+			Error:   fmt.Sprintf("status '%s' is not valid", req.Status),
+		})
+		return
+	}
+
 	// 调用服务层更新Agent状态
 	err := h.agentService.UpdateAgentStatus(agentID, req.Status)
 	if err != nil {
@@ -502,6 +696,32 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "Invalid heartbeat request format",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 验证必填字段
+	if err := h.validateHeartbeatRequest(&req); err != nil {
+		logger.LogError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":  "process_heartbeat",
+				"option":     "validateHeartbeatRequest",
+				"func_name":  "handler.agent.ProcessHeartbeat",
+				"user_agent": userAgent,
+				"agent_id":   req.AgentID,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: err.Error(),
 			Error:   err.Error(),
 		})
 		return

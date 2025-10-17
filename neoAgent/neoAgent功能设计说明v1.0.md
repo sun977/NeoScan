@@ -58,13 +58,6 @@ neoAgent/
 │   │   ├── client/             # gRPC客户端
 │   │   ├── server/             # gRPC服务端
 │   │   └── interceptor/        # 拦截器
-│   └── modules/                 # 功能模块
-│       ├── scan/               # 扫描模块
-│       ├── virusKill/          # 病毒查杀模块
-│       ├── core/               # 核心模块
-│       ├── logs/               # 日志模块
-│       ├── plugins/            # 插件模块
-│       └── runner/             # 运行调度模块
 ├── pkg/                         # 公共库
 │   ├── logger/                 # 日志库
 │   ├── utils/                  # 工具库

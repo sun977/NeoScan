@@ -357,21 +357,49 @@ func (s *agentManagerService) GetGroupMembers(groupID string) ([]*agentModel.Age
 }
 
 // DeleteAgent 删除Agent服务
+// 参数: agentID - Agent唯一标识符
+// 返回: error - 删除失败时返回错误信息
 func (s *agentManagerService) DeleteAgent(agentID string) error {
-	err := s.agentRepo.Delete(agentID)
-	if err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.manager.DeleteAgent", "", map[string]interface{}{
+	// 输入验证：检查agentID是否为空
+	if agentID == "" {
+		err := fmt.Errorf("agentID不能为空")
+		logger.LogError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
 			"operation": "delete_agent",
-			"option":    "agentManagerService.DeleteAgent",
+			"option":    "input_validation",
+			"func_name": "service.agent.manager.DeleteAgent",
+			"agent_id":  agentID,
+		})
+		return err
+	}
+
+	// 存在性验证：检查Agent是否存在
+	_, err := s.agentRepo.GetByID(agentID)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+			"operation": "delete_agent",
+			"option":    "existence_validation",
+			"func_name": "service.agent.manager.DeleteAgent",
+			"agent_id":  agentID,
+		})
+		return fmt.Errorf("Agent不存在或查询失败: %v", err)
+	}
+
+	// 执行删除操作
+	err = s.agentRepo.Delete(agentID)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+			"operation": "delete_agent",
+			"option":    "repository_delete",
 			"func_name": "service.agent.manager.DeleteAgent",
 			"agent_id":  agentID,
 		})
 		return fmt.Errorf("删除Agent失败: %v", err)
 	}
 
-	logger.LogInfo("Agent删除成功", "", 0, "", "service.agent.manager.DeleteAgent", "", map[string]interface{}{
+	// 记录删除成功日志
+	logger.LogInfo("Agent删除成功", "", 0, "", "delete_agent", "", map[string]interface{}{
 		"operation": "delete_agent",
-		"option":    "agentManagerService.DeleteAgent",
+		"option":    "delete_success",
 		"func_name": "service.agent.manager.DeleteAgent",
 		"agent_id":  agentID,
 	})

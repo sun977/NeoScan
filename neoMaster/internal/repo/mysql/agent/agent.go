@@ -24,6 +24,7 @@ type AgentRepository interface {
 	Create(agentData *agentModel.Agent) error
 	GetByID(agentID string) (*agentModel.Agent, error)
 	GetByHostname(hostname string) (*agentModel.Agent, error)
+	GetByHostnameAndPort(hostname string, port int) (*agentModel.Agent, error) // 根据主机名和端口获取Agent
 	Update(agentData *agentModel.Agent) error
 	Delete(agentID string) error
 
@@ -117,6 +118,31 @@ func (r *agentRepository) GetByID(agentID string) (*agentModel.Agent, error) {
 			"option":    "agentRepository.GetByID",
 			"func_name": "repo.agent.GetByID",
 			"agent_id":  agentID,
+		})
+		return nil, result.Error
+	}
+
+	return &agentData, nil
+}
+
+// GetByHostnameAndPort 根据主机名和端口获取Agent
+// 参数: hostname - 主机名, port - 端口号
+// 返回: *agentModel.Agent - Agent数据, error - 错误信息
+// 用于支持一机多Agent部署场景，通过hostname+port唯一标识Agent
+func (r *agentRepository) GetByHostnameAndPort(hostname string, port int) (*agentModel.Agent, error) {
+	var agentData agentModel.Agent
+
+	result := r.db.Where("hostname = ? AND port = ?", hostname, port).First(&agentData)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil // 返回nil表示未找到，不是错误
+		}
+		logger.LogError(result.Error, "", 0, "", "repo.agent.GetByHostnameAndPort", "", map[string]interface{}{
+			"operation": "get_agent_by_hostname_and_port",
+			"option":    "agentRepository.GetByHostnameAndPort",
+			"func_name": "repo.agent.GetByHostnameAndPort",
+			"hostname":  hostname,
+			"port":      port,
 		})
 		return nil, result.Error
 	}
@@ -546,11 +572,12 @@ func (r *agentRepository) GetByStatus(status agentModel.AgentStatus) ([]*agentMo
 // ==================== Agent能力管理方法 ====================
 
 // IsValidCapabilityId 判断能力ID是否有效 - agent_scan_type
-// 参数: capabilityId - 能力ID
+// 参数: capabilityId - 能力ID（字符串形式的数字ID）
 // 返回: bool - 是否有效
 func (r *agentRepository) IsValidCapabilityId(capabilityId string) bool {
 	var count int64
-	result := r.db.Model(&agentModel.ScanType{}).Where("JSON_CONTAINS(capabilities, ?)", `"`+capabilityId+`"`).Count(&count)
+	// 直接查询ScanType表的id字段，验证该ID是否存在且激活
+	result := r.db.Model(&agentModel.ScanType{}).Where("id = ? AND is_active = ?", capabilityId, 1).Count(&count)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidCapabilityId", "", map[string]interface{}{
 			"operation":    "validate_capability_id",
@@ -568,7 +595,8 @@ func (r *agentRepository) IsValidCapabilityId(capabilityId string) bool {
 // 返回: bool - 是否有效
 func (r *agentRepository) IsValidCapabilityByName(capability string) bool {
 	var count int64
-	result := r.db.Model(&agentModel.ScanType{}).Where("JSON_CONTAINS(capabilities, ?)", `"`+capability+`"`).Count(&count)
+	// 查询ScanType表的name字段，验证该名称是否存在且激活
+	result := r.db.Model(&agentModel.ScanType{}).Where("name = ? AND is_active = ?", capability, true).Count(&count)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidCapabilityByName", "", map[string]interface{}{
 			"operation":  "validate_capability_name",
@@ -784,7 +812,7 @@ func (r *agentRepository) GetCapabilities(agentID string) []string {
 // 返回: bool - 是否有效
 func (r *agentRepository) IsValidTagId(tagId string) bool {
 	var count int64
-	result := r.db.Model(&agentModel.TagType{}).Where("JSON_CONTAINS(tags, ?)", `"`+tagId+`"`).Count(&count)
+	result := r.db.Model(&agentModel.TagType{}).Where("id = ?", tagId).Count(&count)
 	if result.Error != nil {
 		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidTagId", "", map[string]interface{}{
 			"operation": "validate_tag_id",

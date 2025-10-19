@@ -68,7 +68,7 @@ func NewAgentManagerService(agentRepo agentRepository.AgentRepository) AgentMana
 // 处理Agent注册请求，生成唯一ID和Token
 func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*agentModel.RegisterAgentResponse, error) {
 	// 参数验证
-	if err := validateRegisterRequest(req); err != nil {
+	if err := s.validateRegisterRequest(req); err != nil {
 		logger.LogError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "parameter_validation",
@@ -81,14 +81,15 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	// 生成Agent唯一ID
 	agentID := generateAgentID(req.Hostname)
 
-	// 检查Agent是否已存在
-	existingAgent, err := s.agentRepo.GetByHostname(req.Hostname)
+	// 检查Agent是否已存在（基于hostname+port的组合）
+	existingAgent, err := s.agentRepo.GetByHostnameAndPort(req.Hostname, req.Port)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "agentManagerService.RegisterAgent",
 			"func_name": "service.agent.manager.RegisterAgent",
 			"hostname":  req.Hostname,
+			"port":      req.Port,
 		})
 		return nil, fmt.Errorf("检查Agent是否存在失败: %v", err)
 	}
@@ -96,17 +97,18 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	if existingAgent != nil {
 		// Agent已存在，返回409冲突错误
 		logger.LogError(
-			fmt.Errorf("agent with hostname %s already exists", req.Hostname),
+			fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port),
 			"", 0, "", "service.agent.manager.RegisterAgent", "",
 			map[string]interface{}{
 				"operation": "register_agent",
-				"option":    "duplicate_hostname_check",
+				"option":    "duplicate_hostname_port_check",
 				"func_name": "service.agent.manager.RegisterAgent",
 				"hostname":  req.Hostname,
+				"port":      req.Port,
 				"agent_id":  existingAgent.AgentID,
 			},
 		)
-		return nil, fmt.Errorf("agent with hostname %s already exists", req.Hostname)
+		return nil, fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port)
 	}
 
 	// 创建新Agent
@@ -380,9 +382,9 @@ func (s *agentManagerService) DeleteAgent(agentID string) error {
 // generateAgentID 生成Agent唯一ID
 // 基于主机名和时间生成唯一标识
 func generateAgentID(hostname string) string {
-	// 使用UUID生成固定长度的agent_id，避免超过数据库字段限制
-	// 格式：agent_uuid，总长度约42字符，远小于数据库的100字符限制
-	uuid, err := utils.GenerateUUID()
+	// 使用简化UUID生成固定长度的agent_id，避免超过数据库字段限制
+	// 格式：agent_uuid（无连字符），总长度约38字符，远小于数据库的100字符限制
+	uuid, err := utils.GenerateSimpleUUID()
 	if err != nil {
 		// 如果UUID生成失败，使用时间戳作为后备方案，但要截断hostname避免过长
 		shortHostname := hostname
@@ -395,9 +397,9 @@ func generateAgentID(hostname string) string {
 }
 
 // validateRegisterRequest 验证Agent注册请求参数
-// 参数: req - Agent注册请求结构体指针
+// 参数: s - service实例, req - Agent注册请求结构体指针
 // 返回: error - 验证失败时的错误信息
-func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
+func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 	// 检查hostname长度
 	if len(req.Hostname) > 255 {
 		return fmt.Errorf("hostname too long")
@@ -433,19 +435,17 @@ func validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 		return fmt.Errorf("at least one capability is required")
 	}
 
-	// 检查capabilities是否包含有效值
-	validCapabilities := map[string]bool{
-		"port_scan":          true,
-		"service_scan":       true,
-		"vulnerability_scan": true,
-		"vuln_scan":          true, // 添加测试用例中使用的简写形式
-		"web_scan":           true,
-		"network_scan":       true,
+	// 检查capabilities是否包含有效值 - 委托给Repository层验证
+	for _, capabilityID := range req.Capabilities {
+		if !s.agentRepo.IsValidCapabilityId(capabilityID) {
+			return fmt.Errorf("invalid capability ID: %s", capabilityID)
+		}
 	}
 
-	for _, capability := range req.Capabilities {
-		if !validCapabilities[capability] {
-			return fmt.Errorf("invalid capability")
+	// 检查tags是否包含有效值 - 委托给Repository层验证
+	for _, tag := range req.Tags {
+		if !s.agentRepo.IsValidTagId(tag) {
+			return fmt.Errorf("invalid tag ID: %s", tag)
 		}
 	}
 

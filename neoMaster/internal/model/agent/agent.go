@@ -456,20 +456,20 @@ type AgentMetrics struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
 
-	AgentID           string                 `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID,唯一索引"`
-	CPUUsage          float64                `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
-	MemoryUsage       float64                `json:"memory_usage" gorm:"comment:内存使用率(百分比)"`
-	DiskUsage         float64                `json:"disk_usage" gorm:"comment:磁盘使用率(百分比)"`
-	NetworkBytesSent  int64                  `json:"network_bytes_sent" gorm:"comment:网络发送字节数"`
-	NetworkBytesRecv  int64                  `json:"network_bytes_recv" gorm:"comment:网络接收字节数"`
-	ActiveConnections int                    `json:"active_connections" gorm:"comment:活动连接数"`
-	RunningTasks      int                    `json:"running_tasks" gorm:"comment:正在运行的任务数"`
-	CompletedTasks    int                    `json:"completed_tasks" gorm:"comment:已完成任务数"`
-	FailedTasks       int                    `json:"failed_tasks" gorm:"comment:失败任务数"`
-	WorkStatus        AgentWorkStatus        `json:"work_status" gorm:"size:20;comment:工作状态:idle-空闲,working-工作中,exception-异常"`
-	ScanType          string                 `json:"scan_type" gorm:"size:50;comment:当前扫描类型"`
-	PluginStatus      PluginStatusJSON       `json:"plugin_status" gorm:"type:json;comment:插件状态信息"`
-	Timestamp         time.Time              `json:"timestamp" gorm:"index;comment:指标时间戳"`
+	AgentID           string           `json:"agent_id" gorm:"uniqueIndex;size:100;comment:Agent唯一标识ID,唯一索引"`
+	CPUUsage          float64          `json:"cpu_usage" gorm:"comment:CPU使用率(百分比)"`
+	MemoryUsage       float64          `json:"memory_usage" gorm:"comment:内存使用率(百分比)"`
+	DiskUsage         float64          `json:"disk_usage" gorm:"comment:磁盘使用率(百分比)"`
+	NetworkBytesSent  int64            `json:"network_bytes_sent" gorm:"comment:网络发送字节数"`
+	NetworkBytesRecv  int64            `json:"network_bytes_recv" gorm:"comment:网络接收字节数"`
+	ActiveConnections int              `json:"active_connections" gorm:"comment:活动连接数"`
+	RunningTasks      int              `json:"running_tasks" gorm:"comment:正在运行的任务数"`
+	CompletedTasks    int              `json:"completed_tasks" gorm:"comment:已完成任务数"`
+	FailedTasks       int              `json:"failed_tasks" gorm:"comment:失败任务数"`
+	WorkStatus        AgentWorkStatus  `json:"work_status" gorm:"size:20;comment:工作状态:idle-空闲,working-工作中,exception-异常"`
+	ScanType          string           `json:"scan_type" gorm:"size:50;comment:当前扫描类型"`
+	PluginStatus      PluginStatusJSON `json:"plugin_status" gorm:"type:json;comment:插件状态信息"`
+	Timestamp         time.Time        `json:"timestamp" gorm:"index;comment:指标时间戳"`
 }
 
 // TableName 定义表名

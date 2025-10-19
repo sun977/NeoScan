@@ -39,6 +39,13 @@ type AgentRepository interface {
 	// Agent查询操作
 	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
+
+	// Agent能力和标签管理
+
+	IsValidCapabilityId(capability string) bool     // 判断能力ID是否有效
+	IsValidCapabilityByName(capability string) bool // 判断能力名称是否有效
+	IsValidTagId(tag string) bool                   // 判断标签ID是否有效
+	IsValidTagByName(tag string) bool               // 判断标签名称是否有效
 }
 
 // agentRepository Agent仓库实现
@@ -525,4 +532,76 @@ func (r *agentRepository) GetByStatus(status agentModel.AgentStatus) ([]*agentMo
 	}
 
 	return agents, nil
+}
+
+// IsValidCapabilityId 判断能力ID是否有效 - agent_scan_type
+// 参数: capabilityId - 能力ID
+// 返回: bool - 是否有效
+func (r *agentRepository) IsValidCapabilityId(capabilityId string) bool {
+	var count int64
+	result := r.db.Model(&agentModel.ScanType{}).Where("JSON_CONTAINS(capabilities, ?)", `"`+capabilityId+`"`).Count(&count)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidCapabilityId", "", map[string]interface{}{
+			"operation":    "validate_capability_id",
+			"option":       "agentRepository.IsValidCapabilityId",
+			"func_name":    "repo.agent.IsValidCapabilityId",
+			"capabilityId": capabilityId,
+		})
+		return false
+	}
+	return count > 0
+}
+
+// IsValidCapabilityByName 判断能力名称是否有效 - agent_scan_type
+// 参数: capability - 能力名称
+// 返回: bool - 是否有效
+func (r *agentRepository) IsValidCapabilityByName(capability string) bool {
+	var count int64
+	result := r.db.Model(&agentModel.ScanType{}).Where("JSON_CONTAINS(capabilities, ?)", `"`+capability+`"`).Count(&count)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidCapabilityByName", "", map[string]interface{}{
+			"operation":  "validate_capability_name",
+			"option":     "agentRepository.IsValidCapabilityByName",
+			"func_name":  "repo.agent.IsValidCapabilityByName",
+			"capability": capability,
+		})
+		return false
+	}
+	return count > 0
+}
+
+// IsValidTagId 判断标签ID是否有效 - agent_tag_type
+// 参数: tagId - 标签ID
+// 返回: bool - 是否有效
+func (r *agentRepository) IsValidTagId(tagId string) bool {
+	var count int64
+	result := r.db.Model(&agentModel.TagType{}).Where("JSON_CONTAINS(tags, ?)", `"`+tagId+`"`).Count(&count)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidTagId", "", map[string]interface{}{
+			"operation": "validate_tag_id",
+			"option":    "agentRepository.IsValidTagId",
+			"func_name": "repo.agent.IsValidTagId",
+			"tagId":     tagId,
+		})
+		return false
+	}
+	return count > 0
+}
+
+// IsValidTagByName 判断标签名称是否有效 - agent_tag_type
+// 参数: tag - 标签名称
+// 返回: bool - 是否有效
+func (r *agentRepository) IsValidTagByName(tag string) bool {
+	var count int64
+	result := r.db.Model(&agentModel.TagType{}).Where("JSON_CONTAINS(tags, ?)", `"`+tag+`"`).Count(&count)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidTagByName", "", map[string]interface{}{
+			"operation": "validate_tag_name",
+			"option":    "agentRepository.IsValidTagByName",
+			"func_name": "repo.agent.IsValidTagByName",
+			"tag":       tag,
+		})
+		return false
+	}
+	return count > 0
 }

@@ -37,11 +37,15 @@ type AgentManagerService interface {
 	GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
 
 	// Agent标签管理
+	IsValidTagId(tag string) bool     // 判断标签ID是否有效
+	IsValidTagByName(tag string) bool // 判断标签名称是否有效
 	AddAgentTag(req *agentModel.AgentTagRequest) error
 	RemoveAgentTag(req *agentModel.AgentTagRequest) error
 	GetAgentTags(agentID string) ([]string, error)
 
 	// Agent能力管理
+	IsValidCapabilityId(capability string) bool     // 判断能力ID是否有效
+	IsValidCapabilityByName(capability string) bool // 判断能力名称是否有效
 	AddAgentCapability(req *agentModel.AgentCapabilityRequest) error
 	RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error
 	GetAgentCapabilities(agentID string) ([]string, error)
@@ -485,8 +489,69 @@ func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
 
 // AddAgentTag 为Agent添加标签
 func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error {
-	// 记录操作日志
-	logger.Info("开始为Agent添加标签",
+	// 输入验证 - 遵循"好品味"原则，消除特殊情况
+	if req == nil {
+		logger.Error("请求参数为空",
+			"path", "AddAgentTag",
+			"operation", "add_agent_tag",
+			"option", "agentManagerService.AddAgentTag",
+			"func_name", "service.agent.manager.AddAgentTag",
+		)
+		return fmt.Errorf("请求参数不能为空")
+	}
+
+	if req.AgentID == "" {
+		logger.Error("Agent ID为空",
+			"path", "AddAgentTag",
+			"operation", "add_agent_tag",
+			"option", "agentManagerService.AddAgentTag",
+			"func_name", "service.agent.manager.AddAgentTag",
+			"agent_id", req.AgentID,
+		)
+		return fmt.Errorf("agent ID不能为空")
+	}
+
+	if req.Tag == "" {
+		logger.Error("标签ID为空",
+			"path", "AddAgentTag",
+			"operation", "add_agent_tag",
+			"option", "agentManagerService.AddAgentTag",
+			"func_name", "service.agent.manager.AddAgentTag",
+			"agent_id", req.AgentID,
+			"tag", req.Tag,
+		)
+		return fmt.Errorf("标签ID不能为空")
+	}
+
+	// 验证标签ID是否有效
+	if !s.IsValidTagId(req.Tag) {
+		logger.Error("无效的标签ID",
+			"path", "AddAgentTag",
+			"operation", "add_agent_tag",
+			"option", "agentManagerService.AddAgentTag",
+			"func_name", "service.agent.manager.AddAgentTag",
+			"agent_id", req.AgentID,
+			"tag", req.Tag,
+		)
+		return fmt.Errorf("无效的标签ID: %s", req.Tag)
+	}
+
+	// 委托Repository层处理数据操作
+	err := s.agentRepo.AddTag(req.AgentID, req.Tag)
+	if err != nil {
+		logger.Error("添加Agent标签失败",
+			"path", "AddAgentTag",
+			"operation", "add_agent_tag",
+			"option", "agentManagerService.AddAgentTag",
+			"func_name", "service.agent.manager.AddAgentTag",
+			"agent_id", req.AgentID,
+			"tag", req.Tag,
+			"error", err.Error(),
+		)
+		return fmt.Errorf("添加Agent标签失败: %w", err)
+	}
+
+	logger.Info("Agent标签添加成功",
 		"path", "AddAgentTag",
 		"operation", "add_agent_tag",
 		"option", "agentManagerService.AddAgentTag",
@@ -495,29 +560,61 @@ func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error
 		"tag", req.Tag,
 	)
 
-	// TODO: 实现Agent标签添加逻辑
-	// 1. 验证Agent是否存在
-	// 2. 验证标签格式和长度
-	// 3. 检查标签是否已存在
-	// 4. 将标签添加到数据库
-	// 5. 更新Agent的标签列表
-
-	logger.Warn("Agent标签添加功能暂未实现",
-		"path", "AddAgentTag",
-		"operation", "add_agent_tag",
-		"option", "agentManagerService.AddAgentTag",
-		"func_name", "service.agent.manager.AddAgentTag",
-		"agent_id", req.AgentID,
-		"tag", req.Tag,
-	)
-
-	return fmt.Errorf("Agent标签添加功能暂未实现")
+	return nil
 }
 
 // RemoveAgentTag 移除Agent标签
 func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) error {
-	// 记录操作日志
-	logger.Info("开始移除Agent标签",
+	// 输入验证 - 遵循"好品味"原则，消除特殊情况
+	if req == nil {
+		logger.Error("请求参数为空",
+			"path", "RemoveAgentTag",
+			"operation", "remove_agent_tag",
+			"option", "agentManagerService.RemoveAgentTag",
+			"func_name", "service.agent.manager.RemoveAgentTag",
+		)
+		return fmt.Errorf("请求参数不能为空")
+	}
+
+	if req.AgentID == "" {
+		logger.Error("Agent ID为空",
+			"path", "RemoveAgentTag",
+			"operation", "remove_agent_tag",
+			"option", "agentManagerService.RemoveAgentTag",
+			"func_name", "service.agent.manager.RemoveAgentTag",
+			"agent_id", req.AgentID,
+		)
+		return fmt.Errorf("agent ID不能为空")
+	}
+
+	if req.Tag == "" {
+		logger.Error("标签ID为空",
+			"path", "RemoveAgentTag",
+			"operation", "remove_agent_tag",
+			"option", "agentManagerService.RemoveAgentTag",
+			"func_name", "service.agent.manager.RemoveAgentTag",
+			"agent_id", req.AgentID,
+			"tag", req.Tag,
+		)
+		return fmt.Errorf("标签ID不能为空")
+	}
+
+	// 委托Repository层处理数据操作
+	err := s.agentRepo.RemoveTag(req.AgentID, req.Tag)
+	if err != nil {
+		logger.Error("移除Agent标签失败",
+			"path", "RemoveAgentTag",
+			"operation", "remove_agent_tag",
+			"option", "agentManagerService.RemoveAgentTag",
+			"func_name", "service.agent.manager.RemoveAgentTag",
+			"agent_id", req.AgentID,
+			"tag", req.Tag,
+			"error", err.Error(),
+		)
+		return fmt.Errorf("移除Agent标签失败: %w", err)
+	}
+
+	logger.Info("Agent标签移除成功",
 		"path", "RemoveAgentTag",
 		"operation", "remove_agent_tag",
 		"option", "agentManagerService.RemoveAgentTag",
@@ -526,22 +623,7 @@ func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) er
 		"tag", req.Tag,
 	)
 
-	// TODO: 实现Agent标签移除逻辑
-	// 1. 验证Agent是否存在
-	// 2. 验证标签是否存在
-	// 3. 从数据库中移除标签
-	// 4. 更新Agent的标签列表
-
-	logger.Warn("Agent标签移除功能暂未实现",
-		"path", "RemoveAgentTag",
-		"operation", "remove_agent_tag",
-		"option", "agentManagerService.RemoveAgentTag",
-		"func_name", "service.agent.manager.RemoveAgentTag",
-		"agent_id", req.AgentID,
-		"tag", req.Tag,
-	)
-
-	return fmt.Errorf("Agent标签移除功能暂未实现")
+	return nil
 }
 
 // GetAgentTags 获取Agent的所有标签
@@ -555,28 +637,140 @@ func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
 		"agent_id", agentID,
 	)
 
-	// TODO: 实现Agent标签获取逻辑
-	// 1. 验证Agent是否存在
-	// 2. 从数据库中查询Agent的所有标签
-	// 3. 返回标签列表
+	// 输入验证 - 遵循"好品味"原则，消除特殊情况
+	if agentID == "" {
+		logger.Error("Agent ID为空",
+			"path", "GetAgentTags",
+			"operation", "get_agent_tags",
+			"option", "agentManagerService.GetAgentTags",
+			"func_name", "service.agent.manager.GetAgentTags",
+			"agent_id", agentID,
+		)
+		// 返回空切片而非nil，消除特殊情况
+		return []string{}, fmt.Errorf("agent ID不能为空")
+	}
 
-	logger.Warn("Agent标签获取功能暂未实现",
+	// 委托Repository层处理数据查询
+	tags := s.agentRepo.GetTags(agentID)
+
+	logger.Info("Agent标签列表获取成功",
 		"path", "GetAgentTags",
 		"operation", "get_agent_tags",
 		"option", "agentManagerService.GetAgentTags",
 		"func_name", "service.agent.manager.GetAgentTags",
 		"agent_id", agentID,
+		"tags_count", len(tags),
 	)
 
-	return nil, fmt.Errorf("Agent标签获取功能暂未实现")
+	// 始终返回非nil切片，遵循"好品味"原则
+	return tags, nil
+}
+
+// IsValidTagId 验证标签ID是否有效
+func (s *agentManagerService) IsValidTagId(tag string) bool {
+	// 1. 输入验证：检查ID是否为空
+	if tag == "" {
+		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidTagId", "", map[string]interface{}{
+			"operation": "validate_tag_id",
+			"option":    "agentManagerService.IsValidTagId",
+			"func_name": "service.agent.manager.IsValidTagId",
+			"tag_id":    tag,
+			"error":     "标签ID不能为空",
+		})
+		return false
+	}
+
+	// 2. 委托给Repository层进行数据库验证
+	// Repository层会检查TagType表中是否存在该ID
+	return s.agentRepo.IsValidTagId(tag)
+}
+
+// IsValidTagByName 验证标签名称是否有效
+func (s *agentManagerService) IsValidTagByName(tag string) bool {
+	// 1. 输入验证：检查名称是否为空
+	if tag == "" {
+		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidTagByName", "", map[string]interface{}{
+			"operation": "validate_tag_name",
+			"option":    "agentManagerService.IsValidTagByName",
+			"func_name": "service.agent.manager.IsValidTagByName",
+			"tag_name":  tag,
+			"error":     "标签名称不能为空",
+		})
+		return false
+	}
+
+	// 2. 委托给Repository层进行数据库验证
+	// Repository层会检查TagType表中是否存在该名称
+	return s.agentRepo.IsValidTagByName(tag)
 }
 
 // ==================== Agent能力管理方法 ====================
 
 // AddAgentCapability 为Agent添加能力
 func (s *agentManagerService) AddAgentCapability(req *agentModel.AgentCapabilityRequest) error {
-	// 记录操作日志
-	logger.Info("开始为Agent添加能力",
+	// 输入验证 - 遵循"好品味"原则，消除特殊情况
+	if req == nil {
+		logger.Error("请求参数为空",
+			"path", "AddAgentCapability",
+			"operation", "add_agent_capability",
+			"option", "agentManagerService.AddAgentCapability",
+			"func_name", "service.agent.manager.AddAgentCapability",
+		)
+		return fmt.Errorf("请求参数不能为空")
+	}
+
+	if req.AgentID == "" {
+		logger.Error("Agent ID为空",
+			"path", "AddAgentCapability",
+			"operation", "add_agent_capability",
+			"option", "agentManagerService.AddAgentCapability",
+			"func_name", "service.agent.manager.AddAgentCapability",
+			"agent_id", req.AgentID,
+		)
+		return fmt.Errorf("agent ID不能为空")
+	}
+
+	if req.Capability == "" {
+		logger.Error("能力ID为空",
+			"path", "AddAgentCapability",
+			"operation", "add_agent_capability",
+			"option", "agentManagerService.AddAgentCapability",
+			"func_name", "service.agent.manager.AddAgentCapability",
+			"agent_id", req.AgentID,
+			"capability", req.Capability,
+		)
+		return fmt.Errorf("能力ID不能为空")
+	}
+
+	// 验证能力ID是否有效
+	if !s.IsValidCapabilityId(req.Capability) {
+		logger.Error("无效的能力ID",
+			"path", "AddAgentCapability",
+			"operation", "add_agent_capability",
+			"option", "agentManagerService.AddAgentCapability",
+			"func_name", "service.agent.manager.AddAgentCapability",
+			"agent_id", req.AgentID,
+			"capability", req.Capability,
+		)
+		return fmt.Errorf("无效的能力ID: %s", req.Capability)
+	}
+
+	// 委托Repository层处理数据操作
+	err := s.agentRepo.AddCapability(req.AgentID, req.Capability)
+	if err != nil {
+		logger.Error("添加Agent能力失败",
+			"path", "AddAgentCapability",
+			"operation", "add_agent_capability",
+			"option", "agentManagerService.AddAgentCapability",
+			"func_name", "service.agent.manager.AddAgentCapability",
+			"agent_id", req.AgentID,
+			"capability", req.Capability,
+			"error", err.Error(),
+		)
+		return fmt.Errorf("添加Agent能力失败: %w", err)
+	}
+
+	logger.Info("Agent能力添加成功",
 		"path", "AddAgentCapability",
 		"operation", "add_agent_capability",
 		"option", "agentManagerService.AddAgentCapability",
@@ -585,29 +779,61 @@ func (s *agentManagerService) AddAgentCapability(req *agentModel.AgentCapability
 		"capability", req.Capability,
 	)
 
-	// TODO: 实现Agent能力添加逻辑
-	// 1. 验证Agent是否存在
-	// 2. 验证能力格式和长度
-	// 3. 检查能力是否已存在
-	// 4. 将能力添加到数据库
-	// 5. 更新Agent的能力列表
-
-	logger.Warn("Agent能力添加功能暂未实现",
-		"path", "AddAgentCapability",
-		"operation", "add_agent_capability",
-		"option", "agentManagerService.AddAgentCapability",
-		"func_name", "service.agent.manager.AddAgentCapability",
-		"agent_id", req.AgentID,
-		"capability", req.Capability,
-	)
-
-	return fmt.Errorf("Agent能力添加功能暂未实现")
+	return nil
 }
 
 // RemoveAgentCapability 移除Agent能力
 func (s *agentManagerService) RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error {
-	// 记录操作日志
-	logger.Info("开始移除Agent能力",
+	// 输入验证 - 遵循"好品味"原则，消除特殊情况
+	if req == nil {
+		logger.Error("请求参数为空",
+			"path", "RemoveAgentCapability",
+			"operation", "remove_agent_capability",
+			"option", "agentManagerService.RemoveAgentCapability",
+			"func_name", "service.agent.manager.RemoveAgentCapability",
+		)
+		return fmt.Errorf("请求参数不能为空")
+	}
+
+	if req.AgentID == "" {
+		logger.Error("Agent ID为空",
+			"path", "RemoveAgentCapability",
+			"operation", "remove_agent_capability",
+			"option", "agentManagerService.RemoveAgentCapability",
+			"func_name", "service.agent.manager.RemoveAgentCapability",
+			"agent_id", req.AgentID,
+		)
+		return fmt.Errorf("agent ID不能为空")
+	}
+
+	if req.Capability == "" {
+		logger.Error("能力ID为空",
+			"path", "RemoveAgentCapability",
+			"operation", "remove_agent_capability",
+			"option", "agentManagerService.RemoveAgentCapability",
+			"func_name", "service.agent.manager.RemoveAgentCapability",
+			"agent_id", req.AgentID,
+			"capability", req.Capability,
+		)
+		return fmt.Errorf("能力ID不能为空")
+	}
+
+	// 委托Repository层处理数据操作
+	err := s.agentRepo.RemoveCapability(req.AgentID, req.Capability)
+	if err != nil {
+		logger.Error("移除Agent能力失败",
+			"path", "RemoveAgentCapability",
+			"operation", "remove_agent_capability",
+			"option", "agentManagerService.RemoveAgentCapability",
+			"func_name", "service.agent.manager.RemoveAgentCapability",
+			"agent_id", req.AgentID,
+			"capability", req.Capability,
+			"error", err.Error(),
+		)
+		return fmt.Errorf("移除Agent能力失败: %w", err)
+	}
+
+	logger.Info("Agent能力移除成功",
 		"path", "RemoveAgentCapability",
 		"operation", "remove_agent_capability",
 		"option", "agentManagerService.RemoveAgentCapability",
@@ -616,47 +842,74 @@ func (s *agentManagerService) RemoveAgentCapability(req *agentModel.AgentCapabil
 		"capability", req.Capability,
 	)
 
-	// TODO: 实现Agent标签移除逻辑
-	// 1. 验证Agent是否存在
-	// 2. 验证标签是否存在
-	// 3. 从数据库中移除标签
-	// 4. 更新Agent的标签列表
-
-	logger.Warn("Agent能力移除功能暂未实现",
-		"path", "RemoveAgentCapability",
-		"operation", "remove_agent_capability",
-		"option", "agentManagerService.RemoveAgentCapability",
-		"func_name", "service.agent.manager.RemoveAgentCapability",
-		"agent_id", req.AgentID,
-		"capability", req.Capability,
-	)
-
-	return fmt.Errorf("Agent能力移除功能暂未实现")
+	return nil
 }
 
 // GetAgentCapabilities 获取Agent的所有能力
 func (s *agentManagerService) GetAgentCapabilities(agentID string) ([]string, error) {
-	// 记录操作日志
-	logger.Info("开始获取Agent能力列表",
+	// 输入验证 - 遵循"好品味"原则，消除特殊情况
+	if agentID == "" {
+		logger.Error("Agent ID为空",
+			"path", "GetAgentCapabilities",
+			"operation", "get_agent_capabilities",
+			"option", "agentManagerService.GetAgentCapabilities",
+			"func_name", "service.agent.manager.GetAgentCapabilities",
+			"agent_id", agentID,
+		)
+		// 返回空切片而非nil，消除特殊情况
+		return []string{}, fmt.Errorf("agent ID不能为空")
+	}
+
+	// 委托Repository层处理数据查询
+	capabilities := s.agentRepo.GetCapabilities(agentID)
+
+	logger.Info("Agent能力列表获取成功",
 		"path", "GetAgentCapabilities",
 		"operation", "get_agent_capabilities",
 		"option", "agentManagerService.GetAgentCapabilities",
 		"func_name", "service.agent.manager.GetAgentCapabilities",
 		"agent_id", agentID,
+		"capabilities_count", len(capabilities),
 	)
 
-	// TODO: 实现Agent标签获取逻辑
-	// 1. 验证Agent是否存在
-	// 2. 从数据库中查询Agent的所有标签
-	// 3. 返回标签列表
+	// 始终返回非nil切片，遵循"好品味"原则
+	return capabilities, nil
+}
 
-	logger.Warn("Agent能力获取功能暂未实现",
-		"path", "GetAgentCapabilities",
-		"operation", "get_agent_capabilities",
-		"option", "agentManagerService.GetAgentCapabilities",
-		"func_name", "service.agent.manager.GetAgentCapabilities",
-		"agent_id", agentID,
-	)
+// IsValidCapabilityId 判断能力ID是否有效
+func (s *agentManagerService) IsValidCapabilityId(capability string) bool {
+	// 1. 输入验证：检查ID是否为空
+	if capability == "" {
+		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityId", "", map[string]interface{}{
+			"operation":     "validate_capability_id",
+			"option":        "agentManagerService.IsValidCapabilityId",
+			"func_name":     "service.agent.manager.IsValidCapabilityId",
+			"capability_id": capability,
+			"error":         "能力ID不能为空",
+		})
+		return false
+	}
 
-	return nil, fmt.Errorf("Agent能力获取功能暂未实现")
+	// 2. 委托给Repository层进行数据库验证
+	// Repository层会检查ScanType表中是否存在该ID
+	return s.agentRepo.IsValidCapabilityId(capability)
+}
+
+// IsValidCapabilityByName 判断能力名称是否有效
+func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
+	// 1. 输入验证：检查名称是否为空
+	if capability == "" {
+		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityByName", "", map[string]interface{}{
+			"operation":       "validate_capability_name",
+			"option":          "agentManagerService.IsValidCapabilityByName",
+			"func_name":       "service.agent.manager.IsValidCapabilityByName",
+			"capability_name": capability,
+			"error":           "能力名称不能为空",
+		})
+		return false
+	}
+
+	// 2. 委托给Repository层进行数据库验证
+	// Repository层会检查ScanType表中是否存在该名称
+	return s.agentRepo.IsValidCapabilityByName(capability)
 }

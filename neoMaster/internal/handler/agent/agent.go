@@ -94,17 +94,9 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	if len(req.Capabilities) == 0 {
 		return fmt.Errorf("at least one capability is required")
 	}
-	// 验证capabilities包含有效值
-	validCapabilities := map[string]bool{
-		"port_scan":          true,
-		"service_scan":       true,
-		"vulnerability_scan": true,
-		"vuln_scan":          true,
-		"web_scan":           true,
-		"network_scan":       true,
-	}
+	// 验证capabilities包含有效值 - 委托Service层处理业务逻辑
 	for _, capability := range req.Capabilities {
-		if !validCapabilities[capability] {
+		if !h.agentManagerService.IsValidCapabilityByName(capability) {
 			return fmt.Errorf("invalid capability: %s", capability)
 		}
 	}

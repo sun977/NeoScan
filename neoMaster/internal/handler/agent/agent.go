@@ -557,7 +557,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			0,
 			clientIP,
 			pathUrl,
-			"PUT",
+			"PATCH",
 			map[string]interface{}{
 				"operation":  "update_agent_status",
 				"option":     "ShouldBindJSON",
@@ -625,7 +625,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 			0,
 			clientIP,
 			pathUrl,
-			"PUT",
+			"PATCH",
 			map[string]interface{}{
 				"operation":   "update_agent_status",
 				"option":      "agentService.UpdateAgentStatus",
@@ -664,8 +664,12 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
-		Code:    http.StatusOK,
-		Status:  "success",
+		Code:   http.StatusOK,
+		Status: "success",
+		Data: map[string]interface{}{
+			"agent_id":   agentID,
+			"new_status": req.Status,
+		},
 		Message: "Agent status updated successfully",
 	})
 }
@@ -880,6 +884,9 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "Agent deleted successfully",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+		},
 	})
 }
 

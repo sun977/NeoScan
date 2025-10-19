@@ -3,7 +3,7 @@
  * @author: Sun977
  * @date: 2025.10.14
  * @description: Agent基础管理核心业务逻辑，遵循"好品味"原则 - 只管Agent的生命周期
- * @func: Agent注册、查询、状态更新、删除、分组管理、打标签
+ * @func: Agent注册、查询、状态更新、删除、分组管理、标签管理、能力管理
  */
 package agent
 
@@ -40,6 +40,11 @@ type AgentManagerService interface {
 	AddAgentTag(req *agentModel.AgentTagRequest) error
 	RemoveAgentTag(req *agentModel.AgentTagRequest) error
 	GetAgentTags(agentID string) ([]string, error)
+
+	// Agent能力管理
+	AddAgentCapability(req *agentModel.AgentCapabilityRequest) error
+	RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error
+	GetAgentCapabilities(agentID string) ([]string, error)
 }
 
 // agentManagerService Agent基础管理服务实现
@@ -564,4 +569,94 @@ func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
 	)
 
 	return nil, fmt.Errorf("Agent标签获取功能暂未实现")
+}
+
+// ==================== Agent能力管理方法 ====================
+
+// AddAgentCapability 为Agent添加能力
+func (s *agentManagerService) AddAgentCapability(req *agentModel.AgentCapabilityRequest) error {
+	// 记录操作日志
+	logger.Info("开始为Agent添加能力",
+		"path", "AddAgentCapability",
+		"operation", "add_agent_capability",
+		"option", "agentManagerService.AddAgentCapability",
+		"func_name", "service.agent.manager.AddAgentCapability",
+		"agent_id", req.AgentID,
+		"capability", req.Capability,
+	)
+
+	// TODO: 实现Agent能力添加逻辑
+	// 1. 验证Agent是否存在
+	// 2. 验证能力格式和长度
+	// 3. 检查能力是否已存在
+	// 4. 将能力添加到数据库
+	// 5. 更新Agent的能力列表
+
+	logger.Warn("Agent能力添加功能暂未实现",
+		"path", "AddAgentCapability",
+		"operation", "add_agent_capability",
+		"option", "agentManagerService.AddAgentCapability",
+		"func_name", "service.agent.manager.AddAgentCapability",
+		"agent_id", req.AgentID,
+		"capability", req.Capability,
+	)
+
+	return fmt.Errorf("Agent能力添加功能暂未实现")
+}
+
+// RemoveAgentCapability 移除Agent能力
+func (s *agentManagerService) RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error {
+	// 记录操作日志
+	logger.Info("开始移除Agent能力",
+		"path", "RemoveAgentCapability",
+		"operation", "remove_agent_capability",
+		"option", "agentManagerService.RemoveAgentCapability",
+		"func_name", "service.agent.manager.RemoveAgentCapability",
+		"agent_id", req.AgentID,
+		"capability", req.Capability,
+	)
+
+	// TODO: 实现Agent标签移除逻辑
+	// 1. 验证Agent是否存在
+	// 2. 验证标签是否存在
+	// 3. 从数据库中移除标签
+	// 4. 更新Agent的标签列表
+
+	logger.Warn("Agent能力移除功能暂未实现",
+		"path", "RemoveAgentCapability",
+		"operation", "remove_agent_capability",
+		"option", "agentManagerService.RemoveAgentCapability",
+		"func_name", "service.agent.manager.RemoveAgentCapability",
+		"agent_id", req.AgentID,
+		"capability", req.Capability,
+	)
+
+	return fmt.Errorf("Agent能力移除功能暂未实现")
+}
+
+// GetAgentCapabilities 获取Agent的所有能力
+func (s *agentManagerService) GetAgentCapabilities(agentID string) ([]string, error) {
+	// 记录操作日志
+	logger.Info("开始获取Agent能力列表",
+		"path", "GetAgentCapabilities",
+		"operation", "get_agent_capabilities",
+		"option", "agentManagerService.GetAgentCapabilities",
+		"func_name", "service.agent.manager.GetAgentCapabilities",
+		"agent_id", agentID,
+	)
+
+	// TODO: 实现Agent标签获取逻辑
+	// 1. 验证Agent是否存在
+	// 2. 从数据库中查询Agent的所有标签
+	// 3. 返回标签列表
+
+	logger.Warn("Agent能力获取功能暂未实现",
+		"path", "GetAgentCapabilities",
+		"operation", "get_agent_capabilities",
+		"option", "agentManagerService.GetAgentCapabilities",
+		"func_name", "service.agent.manager.GetAgentCapabilities",
+		"agent_id", agentID,
+	)
+
+	return nil, fmt.Errorf("Agent能力获取功能暂未实现")
 }

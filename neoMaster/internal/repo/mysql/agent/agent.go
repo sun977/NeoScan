@@ -40,12 +40,21 @@ type AgentRepository interface {
 	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
 
-	// Agent能力和标签管理
+	// Agent能力管理
+	IsValidCapabilityId(capability string) bool                 // 判断能力ID是否有效
+	IsValidCapabilityByName(capability string) bool             // 判断能力名称是否有效
+	AddCapability(agentID string, capabilityID string) error    // 添加Agent能力
+	RemoveCapability(agentID string, capabilityID string) error // 移除Agent能力
+	HasCapability(agentID string, capabilityID string) bool     // 判断Agent是否有指定能力
+	GetCapabilities(agentID string) []string                    // 获取Agent所有能力ID列表
 
-	IsValidCapabilityId(capability string) bool     // 判断能力ID是否有效
-	IsValidCapabilityByName(capability string) bool // 判断能力名称是否有效
-	IsValidTagId(tag string) bool                   // 判断标签ID是否有效
-	IsValidTagByName(tag string) bool               // 判断标签名称是否有效
+	// Agent标签管理
+	IsValidTagId(tag string) bool                 // 判断标签ID是否有效
+	IsValidTagByName(tag string) bool             // 判断标签名称是否有效
+	AddTag(agentID string, tagID string) error    // 添加Agent标签
+	RemoveTag(agentID string, tagID string) error // 移除Agent标签
+	HasTag(agentID string, tagID string) bool     // 判断Agent是否有指定标签
+	GetTags(agentID string) []string              // 获取Agent所有标签ID列表
 }
 
 // agentRepository Agent仓库实现
@@ -534,6 +543,8 @@ func (r *agentRepository) GetByStatus(status agentModel.AgentStatus) ([]*agentMo
 	return agents, nil
 }
 
+// ==================== Agent能力管理方法 ====================
+
 // IsValidCapabilityId 判断能力ID是否有效 - agent_scan_type
 // 参数: capabilityId - 能力ID
 // 返回: bool - 是否有效
@@ -570,6 +581,204 @@ func (r *agentRepository) IsValidCapabilityByName(capability string) bool {
 	return count > 0
 }
 
+// AddCapability 为Agent添加能力
+// 参数: agentID - Agent ID, capabilityID - 能力ID
+// 返回: error - 错误信息
+func (r *agentRepository) AddCapability(agentID string, capabilityID string) error {
+	// 1. 验证能力ID是否有效
+	if !r.IsValidCapabilityId(capabilityID) {
+		logger.LogError(nil, "", 0, "", "repo.agent.AddCapability", "", map[string]interface{}{
+			"operation":    "add_capability",
+			"option":       "agentRepository.AddCapability",
+			"func_name":    "repo.agent.AddCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+			"error":        "invalid_capability_id",
+		})
+		return fmt.Errorf("无效的能力ID: %s", capabilityID)
+	}
+
+	// 2. 检查Agent是否存在并获取完整信息
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.AddCapability", "", map[string]interface{}{
+			"operation":    "add_capability",
+			"option":       "agentRepository.AddCapability",
+			"func_name":    "repo.agent.AddCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+		})
+		return fmt.Errorf("Agent不存在: %s", agentID)
+	}
+
+	// 3. 检查能力是否已存在（避免重复添加）
+	if agent.HasCapability(capabilityID) {
+		logger.LogInfo("Agent已具有该能力，跳过添加", "", 0, "", "repo.agent.AddCapability", "", map[string]interface{}{
+			"operation":    "add_capability",
+			"option":       "agentRepository.AddCapability",
+			"func_name":    "repo.agent.AddCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+			"status":       "already_exists",
+		})
+		return nil // 已存在不算错误，直接返回成功
+	}
+
+	// 4. 使用Agent模型方法添加能力
+	agent.AddCapability(capabilityID)
+
+	// 5. 更新数据库中的capabilities字段
+	if err := r.db.Model(&agent).Select("capabilities").Updates(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.AddCapability", "", map[string]interface{}{
+			"operation":    "add_capability",
+			"option":       "agentRepository.AddCapability",
+			"func_name":    "repo.agent.AddCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+		})
+		return fmt.Errorf("更新Agent能力失败: %v", err)
+	}
+
+	logger.LogInfo("Agent能力添加成功", "", 0, "", "repo.agent.AddCapability", "", map[string]interface{}{
+		"operation":    "add_capability",
+		"option":       "agentRepository.AddCapability",
+		"func_name":    "repo.agent.AddCapability",
+		"agentID":      agentID,
+		"capabilityID": capabilityID,
+		"status":       "success",
+	})
+
+	return nil
+}
+
+// RemoveCapability 移除Agent能力
+// 参数: agentID - Agent ID, capabilityID - 能力ID
+// 返回: error - 错误信息
+func (r *agentRepository) RemoveCapability(agentID string, capabilityID string) error {
+	// 1. 检查Agent是否存在并获取完整信息
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.RemoveCapability", "", map[string]interface{}{
+			"operation":    "remove_capability",
+			"option":       "agentRepository.RemoveCapability",
+			"func_name":    "repo.agent.RemoveCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+		})
+		return fmt.Errorf("Agent不存在: %s", agentID)
+	}
+
+	// 2. 检查能力是否存在（幂等性处理）
+	if !agent.HasCapability(capabilityID) {
+		logger.LogInfo("Agent不具有该能力，跳过移除", "", 0, "", "repo.agent.RemoveCapability", "", map[string]interface{}{
+			"operation":    "remove_capability",
+			"option":       "agentRepository.RemoveCapability",
+			"func_name":    "repo.agent.RemoveCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+			"status":       "not_exists",
+		})
+		return nil // 不存在不算错误，直接返回成功
+	}
+
+	// 3. 使用Agent模型方法移除能力
+	agent.RemoveCapability(capabilityID)
+
+	// 4. 更新数据库中的capabilities字段
+	if err := r.db.Model(&agent).Select("capabilities").Updates(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.RemoveCapability", "", map[string]interface{}{
+			"operation":    "remove_capability",
+			"option":       "agentRepository.RemoveCapability",
+			"func_name":    "repo.agent.RemoveCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+		})
+		return fmt.Errorf("更新Agent能力失败: %v", err)
+	}
+
+	logger.LogInfo("Agent能力移除成功", "", 0, "", "repo.agent.RemoveCapability", "", map[string]interface{}{
+		"operation":    "remove_capability",
+		"option":       "agentRepository.RemoveCapability",
+		"func_name":    "repo.agent.RemoveCapability",
+		"agentID":      agentID,
+		"capabilityID": capabilityID,
+		"status":       "success",
+	})
+
+	return nil
+}
+
+// HasCapability 判断Agent是否具有指定能力
+// 参数: agentID - Agent ID, capabilityID - 能力ID
+// 返回: bool - 是否具有能力
+func (r *agentRepository) HasCapability(agentID string, capabilityID string) bool {
+	// 1. 输入验证 - 避免无效查询
+	if agentID == "" || capabilityID == "" {
+		logger.LogInfo("输入参数为空，返回false", "", 0, "", "repo.agent.HasCapability", "", map[string]interface{}{
+			"operation":    "has_capability",
+			"option":       "agentRepository.HasCapability",
+			"func_name":    "repo.agent.HasCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+			"status":       "invalid_input",
+		})
+		return false
+	}
+
+	// 2. 查询Agent信息（获取Agent的完整信息，包括capabilities字段）
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.HasCapability", "", map[string]interface{}{
+			"operation":    "has_capability",
+			"option":       "agentRepository.HasCapability",
+			"func_name":    "repo.agent.HasCapability",
+			"agentID":      agentID,
+			"capabilityID": capabilityID,
+		})
+		return false
+	}
+
+	// 3. 使用Agent模型方法检查能力（在内存中进行检查）
+	return agent.HasCapability(capabilityID)
+}
+
+// GetCapabilities 获取Agent的能力列表
+// 参数: agentID - Agent ID
+// 返回: []string - 能力列表
+func (r *agentRepository) GetCapabilities(agentID string) []string {
+	// 1. 输入验证 - 避免无效查询
+	if agentID == "" {
+		logger.LogInfo("Agent ID为空，返回空列表", "", 0, "", "repo.agent.GetCapabilities", "", map[string]interface{}{
+			"operation": "get_capabilities",
+			"option":    "agentRepository.GetCapabilities",
+			"func_name": "repo.agent.GetCapabilities",
+			"agentID":   agentID,
+			"status":    "invalid_input",
+		})
+		return []string{} // 返回空切片而不是nil
+	}
+
+	// 2. 检查Agent是否存在并获取完整信息
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetCapabilities", "", map[string]interface{}{
+			"operation": "get_capabilities",
+			"option":    "agentRepository.GetCapabilities",
+			"func_name": "repo.agent.GetCapabilities",
+			"agentID":   agentID,
+		})
+		return []string{} // 返回空切片而不是nil
+	}
+
+	// 3. 返回Agent的能力列表（确保不返回nil）
+	if agent.Capabilities == nil {
+		return []string{}
+	}
+	return agent.Capabilities
+}
+
+// ==================== Agent标签管理方法 ====================
+
 // IsValidTagId 判断标签ID是否有效 - agent_tag_type
 // 参数: tagId - 标签ID
 // 返回: bool - 是否有效
@@ -604,4 +813,215 @@ func (r *agentRepository) IsValidTagByName(tag string) bool {
 		return false
 	}
 	return count > 0
+}
+
+// AddTag 添加标签 - agents
+// 参数: agentID - Agent ID, tagID - 标签ID
+// 返回: error - 错误信息
+func (r *agentRepository) AddTag(agentID string, tagID string) error {
+	// 1. 验证标签ID是否有效
+	if !r.IsValidTagId(tagID) {
+		logger.LogError(nil, "", 0, "", "repo.agent.AddTag", "", map[string]interface{}{
+			"operation": "add_tag",
+			"option":    "agentRepository.AddTag",
+			"func_name": "repo.agent.AddTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+			"error":     "invalid_tag_id",
+		})
+		return fmt.Errorf("无效的标签ID: %s", tagID)
+	}
+
+	// 2. 检查Agent是否存在并获取完整信息
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.AddTag", "", map[string]interface{}{
+			"operation": "add_tag",
+			"option":    "agentRepository.AddTag",
+			"func_name": "repo.agent.AddTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+		})
+		return fmt.Errorf("Agent不存在: %s", agentID)
+	}
+
+	// 3. 检查标签是否已存在（避免重复添加）
+	if agent.HasTag(tagID) {
+		logger.LogInfo("Agent已具有该标签，跳过添加", "", 0, "", "repo.agent.AddTag", "", map[string]interface{}{
+			"operation": "add_tag",
+			"option":    "agentRepository.AddTag",
+			"func_name": "repo.agent.AddTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+			"status":    "already_exists",
+		})
+		return nil // 已存在不算错误，直接返回成功
+	}
+
+	// 4. 使用Agent模型方法添加标签
+	agent.AddTag(tagID)
+
+	// 5. 更新数据库中的tags字段
+	if err := r.db.Model(&agent).Select("tags").Updates(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.AddTag", "", map[string]interface{}{
+			"operation": "add_tag",
+			"option":    "agentRepository.AddTag",
+			"func_name": "repo.agent.AddTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+		})
+		return fmt.Errorf("更新Agent标签失败: %v", err)
+	}
+
+	logger.LogInfo("Agent标签添加成功", "", 0, "", "repo.agent.AddTag", "", map[string]interface{}{
+		"operation": "add_tag",
+		"option":    "agentRepository.AddTag",
+		"func_name": "repo.agent.AddTag",
+		"agentID":   agentID,
+		"tagID":     tagID,
+		"status":    "success",
+	})
+
+	return nil
+}
+
+// RemoveTag 移除标签 - agents
+// 参数: agentID - Agent ID, tagID - 标签ID
+// 返回: error - 错误信息
+func (r *agentRepository) RemoveTag(agentID string, tagID string) error {
+	// 1. 验证标签ID不为空
+	if tagID == "" {
+		logger.LogError(nil, "", 0, "", "repo.agent.RemoveTag", "", map[string]interface{}{
+			"operation": "remove_tag",
+			"option":    "agentRepository.RemoveTag",
+			"func_name": "repo.agent.RemoveTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+			"error":     "empty_tag_id",
+		})
+		return fmt.Errorf("标签ID不能为空")
+	}
+
+	// 2. 检查Agent是否存在并获取完整信息
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.RemoveTag", "", map[string]interface{}{
+			"operation": "remove_tag",
+			"option":    "agentRepository.RemoveTag",
+			"func_name": "repo.agent.RemoveTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+		})
+		return fmt.Errorf("Agent不存在: %s", agentID)
+	}
+
+	// 3. 检查标签是否存在（幂等性处理）
+	if !agent.HasTag(tagID) {
+		logger.LogInfo("Agent未具有该标签，跳过移除", "", 0, "", "repo.agent.RemoveTag", "", map[string]interface{}{
+			"operation": "remove_tag",
+			"option":    "agentRepository.RemoveTag",
+			"func_name": "repo.agent.RemoveTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+			"status":    "not_exists",
+		})
+		return nil // 不存在不算错误，直接返回成功
+	}
+
+	// 4. 使用Agent模型方法移除标签
+	agent.RemoveTag(tagID)
+
+	// 5. 更新数据库中的tags字段
+	if err := r.db.Model(&agent).Select("tags").Updates(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.RemoveTag", "", map[string]interface{}{
+			"operation": "remove_tag",
+			"option":    "agentRepository.RemoveTag",
+			"func_name": "repo.agent.RemoveTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+		})
+		return fmt.Errorf("更新Agent标签失败: %v", err)
+	}
+
+	logger.LogInfo("Agent标签移除成功", "", 0, "", "repo.agent.RemoveTag", "", map[string]interface{}{
+		"operation": "remove_tag",
+		"option":    "agentRepository.RemoveTag",
+		"func_name": "repo.agent.RemoveTag",
+		"agentID":   agentID,
+		"tagID":     tagID,
+		"status":    "success",
+	})
+
+	return nil
+}
+
+// HasTag 判断Agent是否具有指定标签
+// 参数: agentID - Agent ID, tagID - 标签ID
+// 返回: bool - 是否具有标签
+func (r *agentRepository) HasTag(agentID string, tagID string) bool {
+	// 1. 输入验证 - 避免无效查询
+	if agentID == "" || tagID == "" {
+		logger.LogInfo("输入参数为空，返回false", "", 0, "", "repo.agent.HasTag", "", map[string]interface{}{
+			"operation": "has_tag",
+			"option":    "agentRepository.HasTag",
+			"func_name": "repo.agent.HasTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+			"status":    "invalid_input",
+		})
+		return false
+	}
+
+	// 2. 查询Agent信息
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.HasTag", "", map[string]interface{}{
+			"operation": "has_tag",
+			"option":    "agentRepository.HasTag",
+			"func_name": "repo.agent.HasTag",
+			"agentID":   agentID,
+			"tagID":     tagID,
+		})
+		return false
+	}
+
+	// 3. 使用Agent模型方法检查标签
+	return agent.HasTag(tagID)
+}
+
+// GetTags 获取Agent的标签列表
+// 参数: agentID - Agent ID
+// 返回: []string - 标签ID列表，始终返回非nil切片
+func (r *agentRepository) GetTags(agentID string) []string {
+	// 1. 输入验证：避免空值查询
+	if agentID == "" {
+		logger.LogError(nil, "", 0, "", "repo.agent.GetTags", "", map[string]interface{}{
+			"operation": "get_tags",
+			"option":    "agentRepository.GetTags",
+			"func_name": "repo.agent.GetTags",
+			"agentID":   agentID,
+			"error":     "agentID不能为空",
+		})
+		return []string{} // 返回空切片而非nil
+	}
+
+	// 2. 检查Agent是否存在并获取完整信息
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetTags", "", map[string]interface{}{
+			"operation": "get_tags",
+			"option":    "agentRepository.GetTags",
+			"func_name": "repo.agent.GetTags",
+			"agentID":   agentID,
+		})
+		return []string{} // 返回空切片而非nil
+	}
+
+	// 3. 处理Agent.Tags为nil的情况，确保返回值一致性
+	if agent.Tags == nil {
+		return []string{}
+	}
+
+	// 4. 返回Agent的标签ID列表
+	return agent.Tags
 }

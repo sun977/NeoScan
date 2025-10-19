@@ -94,10 +94,10 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	if len(req.Capabilities) == 0 {
 		return fmt.Errorf("at least one capability is required")
 	}
-	// 验证capabilities包含有效值 - 委托Service层处理业务逻辑
-	for _, capability := range req.Capabilities {
-		if !h.agentManagerService.IsValidCapabilityByName(capability) {
-			return fmt.Errorf("invalid capability: %s", capability)
+	// 验证capabilities包含有效值(根据CapabilityID验证) - 委托Service层处理业务逻辑
+	for _, capabilityID := range req.Capabilities {
+		if !h.agentManagerService.IsValidCapabilityId(capabilityID) {
+			return fmt.Errorf("invalid capability ID: %s", capabilityID)
 		}
 	}
 	return nil

@@ -226,7 +226,7 @@ func TimeToMillis(t time.Time) int64 {
 
 // ==================== JSON转换 ====================
 
-// StructToJSON 结构体转JSON字符串
+// StructToJSON 结构体转JSON字符串 - json序列化
 // 参数: data - 待转换的数据
 // 返回: JSON字符串和错误信息
 func StructToJSON(data interface{}) (string, error) {
@@ -237,7 +237,7 @@ func StructToJSON(data interface{}) (string, error) {
 	return string(bytes), nil
 }
 
-// JSONToStruct JSON字符串转结构体
+// JSONToStruct JSON字符串转结构体 - json反序列化
 // 参数: jsonStr - JSON字符串, target - 目标结构体指针
 // 返回: 错误信息
 func JSONToStruct(jsonStr string, target interface{}) error {
@@ -648,7 +648,7 @@ func PostgreSQLArrayToStringSlice(pgArray string) ([]string, error) {
 	// 按逗号分割
 	parts := strings.Split(pgArray, ",")
 	result := make([]string, len(parts))
-	
+
 	for i, part := range parts {
 		// 去除前后空格和引号
 		result[i] = strings.Trim(strings.TrimSpace(part), "\"")

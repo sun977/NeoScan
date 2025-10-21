@@ -129,8 +129,12 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("database.redis.password", "NEOSCAN_REDIS_PASSWORD")
 	v.BindEnv("database.redis.database", "NEOSCAN_REDIS_DATABASE")
 
-	// JWT配置
-	v.BindEnv("jwt.secret", "NEOSCAN_JWT_SECRET")
+	// JWT配置 (更新为嵌套在security下的路径)
+	v.BindEnv("security.jwt.secret", "NEOSCAN_JWT_SECRET")
+	v.BindEnv("security.jwt.access_token_expire", "NEOSCAN_JWT_ACCESS_TOKEN_EXPIRE")
+	v.BindEnv("security.jwt.refresh_token_expire", "NEOSCAN_JWT_REFRESH_TOKEN_EXPIRE")
+	v.BindEnv("security.jwt.issuer", "NEOSCAN_JWT_ISSUER")
+	v.BindEnv("security.jwt.algorithm", "NEOSCAN_JWT_ALGORITHM")
 
 	// 安全配置
 	v.BindEnv("security.cors.allow_origins", "NEOSCAN_CORS_ALLOW_ORIGINS")
@@ -177,12 +181,12 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("redis host is required")
 	}
 
-	// 验证JWT配置
-	if config.JWT.Secret == "" {
+	// 验证JWT配置 (更新为嵌套在security下的路径)
+	if config.Security.JWT.Secret == "" {
 		return fmt.Errorf("jwt secret is required")
 	}
 
-	if len(config.JWT.Secret) < 32 {
+	if len(config.Security.JWT.Secret) < 32 {
 		return fmt.Errorf("jwt secret must be at least 32 characters long")
 	}
 

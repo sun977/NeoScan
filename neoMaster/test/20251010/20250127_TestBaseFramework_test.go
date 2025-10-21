@@ -93,9 +93,9 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	// 创建JWT管理器
 	// 注意：配置文件中的过期时间已经是time.Duration格式（如24h），不需要再乘以time.Hour
 	jwtManager := pkgAuth.NewJWTManager(
-		cfg.JWT.Secret,
-		cfg.JWT.AccessTokenExpire,
-		cfg.JWT.RefreshTokenExpire,
+		cfg.Security.JWT.Secret,
+		cfg.Security.JWT.AccessTokenExpire,
+		cfg.Security.JWT.RefreshTokenExpire,
 	)
 
 	// 初始化测试配置
@@ -168,7 +168,7 @@ func SetupTestEnvironment(t *testing.T) *TestSuite {
 	var routerManager *router.Router
 	if middlewareManager != nil {
 		// 不创建应用实例，直接创建路由管理器
-		routerManager = router.NewRouter(testConfig.DB, testConfig.Redis, testConfig.Cfg.JWT.Secret)
+		routerManager = router.NewRouter(testConfig.DB, testConfig.Redis, testConfig.Cfg.Security.JWT.Secret)
 		routerManager.SetupRoutes()
 	}
 

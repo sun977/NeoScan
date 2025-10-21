@@ -172,8 +172,8 @@ third_party:
 		t.Errorf("Expected database name 'test_db', got '%s'", config.Database.MySQL.Database)
 	}
 
-	if config.JWT.Secret != "test_jwt_secret_key_at_least_32_chars" {
-		t.Errorf("Expected JWT secret, got '%s'", config.JWT.Secret)
+	if config.Security.JWT.Secret != "test_jwt_secret_key_at_least_32_chars" {
+		t.Errorf("Expected JWT secret, got '%s'", config.Security.JWT.Secret)
 	}
 
 	if config.App.Environment != "test" {
@@ -351,8 +351,8 @@ third_party:
 		t.Errorf("Expected mysql host 'env_mysql_host' (from env), got '%s'", config.Database.MySQL.Host)
 	}
 
-	if config.JWT.Secret != "env_jwt_secret_key_at_least_32_chars" {
-		t.Errorf("Expected JWT secret from env, got '%s'", config.JWT.Secret)
+	if config.Security.JWT.Secret != "env_jwt_secret_key_at_least_32_chars" {
+		t.Errorf("Expected JWT secret from env, got '%s'", config.Security.JWT.Secret)
 	}
 }
 
@@ -381,8 +381,10 @@ func TestConfigValidation(t *testing.T) {
 						Host: "localhost",
 					},
 				},
-				JWT: JWTConfig{
-					Secret: "test_jwt_secret_key_at_least_32_chars",
+				Security: SecurityConfig{
+					JWT: JWTConfig{
+						Secret: "test_jwt_secret_key_at_least_32_chars",
+					},
 				},
 				Log: LogConfig{
 					Level:  "info",
@@ -422,8 +424,10 @@ func TestConfigValidation(t *testing.T) {
 						Host: "localhost",
 					},
 				},
-				JWT: JWTConfig{
-					Secret: "short", // 太短的密钥
+				Security: SecurityConfig{
+					JWT: JWTConfig{
+						Secret: "short", // 太短的密钥
+					},
 				},
 				Log: LogConfig{
 					Level:  "info",

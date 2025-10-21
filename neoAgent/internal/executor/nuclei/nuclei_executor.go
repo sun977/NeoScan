@@ -172,7 +172,7 @@ func (e *NucleiExecutor) Initialize(config *base.ExecutorConfig) error {
 	e.config = config
 
 	// 解析Nuclei特定配置
-	if nucleiConfig, ok := config.Settings["nuclei"]; ok {
+	if nucleiConfig, ok := config.Custom["nuclei"]; ok {
 		if err := e.parseNucleiConfig(nucleiConfig); err != nil {
 			return fmt.Errorf("parse nuclei config: %w", err)
 		}
@@ -587,13 +587,12 @@ func (e *NucleiExecutor) convertToStandardResults(nucleiResults []NucleiResult) 
 
 			vulnerability := base.Vulnerability{
 				ID:          vuln.TemplateID,
-				Title:       vuln.Info.Name,
+				Name:        vuln.Info.Name,
 				Description: vuln.Info.Description,
 				Severity:    severity,
 				CVSS:        cvssScore,
 				References:  vuln.Info.Reference,
 				Solution:    "", // nuclei通常不提供解决方案
-				Timestamp:   vuln.Timestamp,
 				Extra: map[string]interface{}{
 					"template_path":     vuln.TemplatePath,
 					"matched_at":        vuln.MatchedAt,
@@ -615,10 +614,8 @@ func (e *NucleiExecutor) convertToStandardResults(nucleiResults []NucleiResult) 
 		}
 
 		result := base.ScanResult{
-			Target:             host,
-			Status:             "scanned",
-			HasVulnerabilities: len(vulnerabilities) > 0,
-			Vulnerabilities:    vulnerabilities,
+			Target:          host,
+			Vulnerabilities: vulnerabilities,
 			Extra: map[string]interface{}{
 				"vulnerability_count": len(vulnerabilities),
 				"scan_type":           "nuclei",
@@ -790,7 +787,7 @@ func (e *NucleiExecutor) UpdateConfig(config *base.ExecutorConfig) error {
 	e.config.UpdatedAt = time.Now()
 
 	// 重新解析Nuclei配置
-	if nucleiConfig, ok := config.Settings["nuclei"]; ok {
+	if nucleiConfig, ok := config.Custom["nuclei"]; ok {
 		if err := e.parseNucleiConfig(nucleiConfig); err != nil {
 			return fmt.Errorf("parse nuclei config: %w", err)
 		}

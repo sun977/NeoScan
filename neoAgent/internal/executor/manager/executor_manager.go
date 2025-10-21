@@ -599,7 +599,7 @@ func (m *ExecutorManager) initializeExecutors() error {
 				Type:           executorType,
 				MaxConcurrency: 5,
 				TaskTimeout:    30 * time.Minute,
-				Settings:       make(map[string]interface{}),
+				Custom:         make(map[string]interface{}),
 			}
 		}
 		

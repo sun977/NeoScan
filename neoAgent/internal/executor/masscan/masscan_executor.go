@@ -181,7 +181,7 @@ func (e *MasscanExecutor) Initialize(config *base.ExecutorConfig) error {
 	e.config = config
 	
 	// 解析Masscan特定配置
-	if masscanConfig, ok := config.Settings["masscan"]; ok {
+	if masscanConfig, ok := config.Custom["masscan"]; ok {
 		if err := e.parseMasscanConfig(masscanConfig); err != nil {
 			return fmt.Errorf("parse masscan config: %w", err)
 		}
@@ -591,7 +591,6 @@ func (e *MasscanExecutor) convertToStandardResults(masscanResults []MasscanScanR
 		openPorts := len(masscanResult.Ports)
 		
 		// 判断是否有潜在的安全风险（占位符逻辑）
-		hasVulnerabilities := false
 		vulnerabilities := make([]base.Vulnerability, 0)
 		
 		// 检查常见的高风险端口
@@ -601,16 +600,14 @@ func (e *MasscanExecutor) convertToStandardResults(masscanResults []MasscanScanR
 				case 21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 993, 995, 1433, 3306, 3389, 5432, 5900:
 					// 这些是常见的服务端口，可能需要进一步检查
 					if e.isHighRiskPort(port.Port) {
-						hasVulnerabilities = true
 						vulnerabilities = append(vulnerabilities, base.Vulnerability{
 							ID:          fmt.Sprintf("OPEN_PORT_%d", port.Port),
-							Title:       fmt.Sprintf("High-risk port %d is open", port.Port),
+							Name:        fmt.Sprintf("High-risk port %d is open", port.Port),
 							Description: fmt.Sprintf("Port %d/%s is open and may pose security risks", port.Port, port.Protocol),
 							Severity:    e.getPortRiskLevel(port.Port),
 							CVSS:        e.getPortCVSS(port.Port),
 							References:  []string{},
 							Solution:    "Consider closing unnecessary ports or implementing proper access controls",
-							Timestamp:   time.Now(),
 						})
 					}
 				}
@@ -618,10 +615,8 @@ func (e *MasscanExecutor) convertToStandardResults(masscanResults []MasscanScanR
 		}
 		
 		result := base.ScanResult{
-			Target:             masscanResult.Host,
-			Status:             masscanResult.Status,
-			HasVulnerabilities: hasVulnerabilities,
-			Vulnerabilities:    vulnerabilities,
+			Target:          masscanResult.Host,
+			Vulnerabilities: vulnerabilities,
 			Extra: map[string]interface{}{
 				"ports":         masscanResult.Ports,
 				"open_ports":    openPorts,
@@ -794,7 +789,7 @@ func (e *MasscanExecutor) UpdateConfig(config *base.ExecutorConfig) error {
 	e.config.UpdatedAt = time.Now()
 	
 	// 重新解析Masscan配置
-	if masscanConfig, ok := config.Settings["masscan"]; ok {
+	if masscanConfig, ok := config.Custom["masscan"]; ok {
 		if err := e.parseMasscanConfig(masscanConfig); err != nil {
 			return fmt.Errorf("parse masscan config: %w", err)
 		}

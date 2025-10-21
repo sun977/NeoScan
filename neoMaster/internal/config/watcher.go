@@ -320,7 +320,7 @@ func SecurityConfigReloadCallback(oldConfig, newConfig *Config) error {
 	}
 
 	if oldConfig.Security.RateLimit.Enabled != newConfig.Security.RateLimit.Enabled ||
-		oldConfig.Security.RateLimit.RequestsPerMinute != newConfig.Security.RateLimit.RequestsPerMinute {
+		oldConfig.Security.RateLimit.RequestsPerSecond != newConfig.Security.RateLimit.RequestsPerSecond {
 		log.Println("Rate limit configuration changed")
 		// 这里可以添加重新配置限流中间件的逻辑
 	}

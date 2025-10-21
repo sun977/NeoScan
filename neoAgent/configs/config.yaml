@@ -181,3 +181,28 @@ security:
   encryption_key: ""  # 从环境变量 ENCRYPTION_KEY 获取
   ip_whitelist: []
   enable_ip_whitelist: false
+
+# ---------- 其他配置 ----------
+# 插件模块配置
+plugins:
+  enabled: true
+  path: "./plugins"
+  auto_load: true
+  max_concurrent: 5
+
+# Scan模块配置(需要包含各个扫描子模块的配置，如资产扫描、漏洞扫描、端口扫描等)
+scan:
+  enabled: true
+  asset_scan:
+    enabled: true
+    interval: "12h"
+    targets: []
+  vulnerability_scan:
+    enabled: true
+    interval: "24h"
+    targets: []
+  port_scan:
+    enabled: true
+    interval: "4h"
+    targets: []
+

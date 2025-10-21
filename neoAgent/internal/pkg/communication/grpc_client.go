@@ -9,6 +9,7 @@ package communication
 
 import (
 	"context"
+	"neoagent/internal/model/communication"
 	"time"
 
 	"google.golang.org/grpc"
@@ -24,24 +25,24 @@ type GRPCClient interface {
 	Reconnect() error             // 重新连接
 
 	// ==================== Agent注册和认证 ====================
-	RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*RegisterResponse, error)
-	AuthenticateAgent(ctx context.Context, authData *AuthData) (*AuthResponse, error)
+	RegisterAgent(ctx context.Context, agentInfo *communication.AgentInfo) (*communication.RegisterResponse, error)
+	AuthenticateAgent(ctx context.Context, authData *communication.AuthData) (*communication.AuthResponse, error)
 
 	// ==================== 心跳和状态同步 ====================
-	SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*HeartbeatResponse, error)
-	SyncStatus(ctx context.Context, status *AgentStatus) (*SyncResponse, error)
+	SendHeartbeat(ctx context.Context, heartbeat *communication.Heartbeat) (*communication.HeartbeatResponse, error)
+	SyncStatus(ctx context.Context, status *communication.AgentStatus) (*communication.SyncResponse, error)
 
 	// ==================== 数据上报 ====================
-	ReportMetrics(ctx context.Context, metrics *PerformanceMetrics) (*ReportResponse, error)
-	ReportTaskResult(ctx context.Context, result *TaskResult) (*ReportResponse, error)
-	ReportAlert(ctx context.Context, alert *Alert) (*ReportResponse, error)
+	ReportMetrics(ctx context.Context, metrics *communication.PerformanceMetrics) (*communication.ReportResponse, error)
+	ReportTaskResult(ctx context.Context, result *communication.TaskResult) (*communication.ReportResponse, error)
+	ReportAlert(ctx context.Context, alert *communication.Alert) (*communication.ReportResponse, error)
 
 	// ==================== 配置同步 ====================
-	SyncConfig(ctx context.Context, request *ConfigSyncRequest) (*ConfigSyncResponse, error)
+	SyncConfig(ctx context.Context, request *communication.ConfigSyncRequest) (*communication.ConfigSyncResponse, error)
 
 	// ==================== 命令处理 ====================
-	ReceiveCommands(ctx context.Context) (<-chan *Command, error) // 接收Master命令流
-	SendCommandResponse(ctx context.Context, response *CommandResponse) error
+	ReceiveCommands(ctx context.Context) (<-chan *communication.Command, error) // 接收Master命令流
+	SendCommandResponse(ctx context.Context, response *communication.CommandResponse) error
 }
 
 // grpcClient gRPC客户端实现
@@ -127,9 +128,9 @@ func (c *grpcClient) Reconnect() error {
 // ==================== Agent注册和认证实现 ====================
 
 // RegisterAgent Agent注册
-func (c *grpcClient) RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*RegisterResponse, error) {
+func (c *grpcClient) RegisterAgent(ctx context.Context, agentInfo *communication.AgentInfo) (*communication.RegisterResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现Agent注册gRPC调用
@@ -138,7 +139,7 @@ func (c *grpcClient) RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*
 	// 3. 返回注册结果
 
 	// 占位符实现
-	response := &RegisterResponse{
+	response := &communication.RegisterResponse{
 		Success:   true,
 		AgentID:   "agent-" + time.Now().Format("20060102150405"),
 		Token:     "placeholder-token",
@@ -150,9 +151,9 @@ func (c *grpcClient) RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*
 }
 
 // AuthenticateAgent Agent认证
-func (c *grpcClient) AuthenticateAgent(ctx context.Context, authData *AuthData) (*AuthResponse, error) {
+func (c *grpcClient) AuthenticateAgent(ctx context.Context, authData *communication.AuthData) (*communication.AuthResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现Agent认证gRPC调用
@@ -161,7 +162,7 @@ func (c *grpcClient) AuthenticateAgent(ctx context.Context, authData *AuthData) 
 	// 3. 返回认证结果
 
 	// 占位符实现
-	response := &AuthResponse{
+	response := &communication.AuthResponse{
 		Success:     true,
 		AccessToken: "placeholder-access-token",
 		ExpiresAt:   time.Now().Add(24 * time.Hour),
@@ -175,9 +176,9 @@ func (c *grpcClient) AuthenticateAgent(ctx context.Context, authData *AuthData) 
 // ==================== 心跳和状态同步实现 ====================
 
 // SendHeartbeat 发送心跳
-func (c *grpcClient) SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*HeartbeatResponse, error) {
+func (c *grpcClient) SendHeartbeat(ctx context.Context, heartbeat *communication.Heartbeat) (*communication.HeartbeatResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现心跳发送gRPC调用
@@ -186,7 +187,7 @@ func (c *grpcClient) SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*
 	// 3. 返回心跳结果
 
 	// 占位符实现
-	response := &HeartbeatResponse{
+	response := &communication.HeartbeatResponse{
 		Success:       true,
 		NextHeartbeat: time.Now().Add(30 * time.Second),
 		Message:       "SendHeartbeat gRPC调用待实现",
@@ -197,9 +198,9 @@ func (c *grpcClient) SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*
 }
 
 // SyncStatus 同步状态
-func (c *grpcClient) SyncStatus(ctx context.Context, status *AgentStatus) (*SyncResponse, error) {
+func (c *grpcClient) SyncStatus(ctx context.Context, status *communication.AgentStatus) (*communication.SyncResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现状态同步gRPC调用
@@ -208,7 +209,7 @@ func (c *grpcClient) SyncStatus(ctx context.Context, status *AgentStatus) (*Sync
 	// 3. 返回同步结果
 
 	// 占位符实现
-	response := &SyncResponse{
+	response := &communication.SyncResponse{
 		Success:   true,
 		Message:   "SyncStatus gRPC调用待实现",
 		Timestamp: time.Now(),
@@ -220,9 +221,9 @@ func (c *grpcClient) SyncStatus(ctx context.Context, status *AgentStatus) (*Sync
 // ==================== 数据上报实现 ====================
 
 // ReportMetrics 上报性能指标
-func (c *grpcClient) ReportMetrics(ctx context.Context, metrics *PerformanceMetrics) (*ReportResponse, error) {
+func (c *grpcClient) ReportMetrics(ctx context.Context, metrics *communication.PerformanceMetrics) (*communication.ReportResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现性能指标上报gRPC调用
@@ -231,7 +232,7 @@ func (c *grpcClient) ReportMetrics(ctx context.Context, metrics *PerformanceMetr
 	// 3. 返回上报结果
 
 	// 占位符实现
-	response := &ReportResponse{
+	response := &communication.ReportResponse{
 		Success:   true,
 		Message:   "ReportMetrics gRPC调用待实现",
 		Timestamp: time.Now(),
@@ -241,9 +242,9 @@ func (c *grpcClient) ReportMetrics(ctx context.Context, metrics *PerformanceMetr
 }
 
 // ReportTaskResult 上报任务结果
-func (c *grpcClient) ReportTaskResult(ctx context.Context, result *TaskResult) (*ReportResponse, error) {
+func (c *grpcClient) ReportTaskResult(ctx context.Context, result *communication.TaskResult) (*communication.ReportResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现任务结果上报gRPC调用
@@ -252,7 +253,7 @@ func (c *grpcClient) ReportTaskResult(ctx context.Context, result *TaskResult) (
 	// 3. 返回上报结果
 
 	// 占位符实现
-	response := &ReportResponse{
+	response := &communication.ReportResponse{
 		Success:   true,
 		Message:   "ReportTaskResult gRPC调用待实现",
 		Timestamp: time.Now(),
@@ -262,9 +263,9 @@ func (c *grpcClient) ReportTaskResult(ctx context.Context, result *TaskResult) (
 }
 
 // ReportAlert 上报告警
-func (c *grpcClient) ReportAlert(ctx context.Context, alert *Alert) (*ReportResponse, error) {
+func (c *grpcClient) ReportAlert(ctx context.Context, alert *communication.Alert) (*communication.ReportResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现告警上报gRPC调用
@@ -273,7 +274,7 @@ func (c *grpcClient) ReportAlert(ctx context.Context, alert *Alert) (*ReportResp
 	// 3. 返回上报结果
 
 	// 占位符实现
-	response := &ReportResponse{
+	response := &communication.ReportResponse{
 		Success:   true,
 		Message:   "ReportAlert gRPC调用待实现",
 		Timestamp: time.Now(),
@@ -285,9 +286,9 @@ func (c *grpcClient) ReportAlert(ctx context.Context, alert *Alert) (*ReportResp
 // ==================== 配置同步实现 ====================
 
 // SyncConfig 同步配置
-func (c *grpcClient) SyncConfig(ctx context.Context, request *ConfigSyncRequest) (*ConfigSyncResponse, error) {
+func (c *grpcClient) SyncConfig(ctx context.Context, request *communication.ConfigSyncRequest) (*communication.ConfigSyncResponse, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现配置同步gRPC调用
@@ -296,7 +297,7 @@ func (c *grpcClient) SyncConfig(ctx context.Context, request *ConfigSyncRequest)
 	// 3. 返回配置数据
 
 	// 占位符实现
-	response := &ConfigSyncResponse{
+	response := &communication.ConfigSyncResponse{
 		Success:       true,
 		ConfigVersion: "v1.0.0",
 		Configs:       make(map[string]interface{}),
@@ -310,9 +311,9 @@ func (c *grpcClient) SyncConfig(ctx context.Context, request *ConfigSyncRequest)
 // ==================== 命令处理实现 ====================
 
 // ReceiveCommands 接收Master命令流
-func (c *grpcClient) ReceiveCommands(ctx context.Context) (<-chan *Command, error) {
+func (c *grpcClient) ReceiveCommands(ctx context.Context) (<-chan *communication.Command, error) {
 	if !c.IsConnected() {
-		return nil, ErrNotConnected
+		return nil, communication.ErrNotConnected
 	}
 
 	// TODO: 实现命令接收gRPC流调用
@@ -322,7 +323,7 @@ func (c *grpcClient) ReceiveCommands(ctx context.Context) (<-chan *Command, erro
 	// 4. 返回命令通道
 
 	// 占位符实现
-	commandChan := make(chan *Command, 10)
+	commandChan := make(chan *communication.Command, 10)
 
 	// 启动模拟命令接收goroutine
 	go func() {
@@ -338,7 +339,7 @@ func (c *grpcClient) ReceiveCommands(ctx context.Context) (<-chan *Command, erro
 				return
 			case <-ticker.C:
 				// 模拟接收到命令
-				command := &Command{
+				command := &communication.Command{
 					ID:        "cmd-" + time.Now().Format("20060102150405"),
 					Type:      "heartbeat",
 					Payload:   map[string]interface{}{"action": "ping"},
@@ -358,9 +359,9 @@ func (c *grpcClient) ReceiveCommands(ctx context.Context) (<-chan *Command, erro
 }
 
 // SendCommandResponse 发送命令响应
-func (c *grpcClient) SendCommandResponse(ctx context.Context, response *CommandResponse) error {
+func (c *grpcClient) SendCommandResponse(ctx context.Context, response *communication.CommandResponse) error {
 	if !c.IsConnected() {
-		return ErrNotConnected
+		return communication.ErrNotConnected
 	}
 
 	// TODO: 实现命令响应发送gRPC调用

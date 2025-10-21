@@ -152,7 +152,7 @@ func (e *NmapExecutor) Initialize(config *base.ExecutorConfig) error {
 	e.config = config
 
 	// 解析Nmap特定配置
-	if nmapConfig, ok := config.Settings["nmap"]; ok {
+	if nmapConfig, ok := config.Custom["nmap"]; ok {
 		if err := e.parseNmapConfig(nmapConfig); err != nil {
 			return fmt.Errorf("parse nmap config: %w", err)
 		}
@@ -505,7 +505,6 @@ func (e *NmapExecutor) parseNmapOutput(output string) ([]NmapScanResult, error) 
 				// 提取端口号
 				portParts := strings.Split(portInfo, "/")
 				if len(portParts) >= 2 {
-					port := portParts[0]
 					protocol := portParts[1]
 
 					currentHost.Ports = append(currentHost.Ports, NmapPort{
@@ -541,7 +540,6 @@ func (e *NmapExecutor) convertToStandardResults(nmapResults []NmapScanResult) []
 		}
 
 		// 判断是否有漏洞（占位符逻辑）
-		hasVulnerabilities := false
 		vulnerabilities := make([]base.Vulnerability, 0)
 
 		// 检查常见的不安全端口
@@ -549,26 +547,22 @@ func (e *NmapExecutor) convertToStandardResults(nmapResults []NmapScanResult) []
 			if port.State == "open" {
 				switch port.Port {
 				case 21, 23, 53, 135, 139, 445, 1433, 3389:
-					hasVulnerabilities = true
 					vulnerabilities = append(vulnerabilities, base.Vulnerability{
 						ID:          fmt.Sprintf("OPEN_PORT_%d", port.Port),
-						Title:       fmt.Sprintf("Open %s port %d", port.Protocol, port.Port),
+						Name:        fmt.Sprintf("Open %s port %d", port.Protocol, port.Port),
 						Description: fmt.Sprintf("Port %d/%s is open and may pose security risks", port.Port, port.Protocol),
 						Severity:    "medium",
 						CVSS:        5.0,
 						References:  []string{},
 						Solution:    "Consider closing unnecessary ports or implementing proper access controls",
-						Timestamp:   time.Now(),
 					})
 				}
 			}
 		}
 
 		result := base.ScanResult{
-			Target:             nmapResult.Host,
-			Status:             nmapResult.Status,
-			HasVulnerabilities: hasVulnerabilities,
-			Vulnerabilities:    vulnerabilities,
+			Target:          nmapResult.Host,
+			Vulnerabilities: vulnerabilities,
 			Extra: map[string]interface{}{
 				"ports":      nmapResult.Ports,
 				"open_ports": openPorts,
@@ -707,7 +701,7 @@ func (e *NmapExecutor) UpdateConfig(config *base.ExecutorConfig) error {
 	e.config.UpdatedAt = time.Now()
 
 	// 重新解析Nmap配置
-	if nmapConfig, ok := config.Settings["nmap"]; ok {
+	if nmapConfig, ok := config.Custom["nmap"]; ok {
 		if err := e.parseNmapConfig(nmapConfig); err != nil {
 			return fmt.Errorf("parse nmap config: %w", err)
 		}

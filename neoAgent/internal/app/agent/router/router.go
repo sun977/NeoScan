@@ -11,28 +11,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"neoagent/internal/app/agent/middleware"
 	"neoagent/internal/handler/communication"
 	"neoagent/internal/handler/monitor"
 	"neoagent/internal/handler/task"
 	"neoagent/internal/pkg/logger"
+
+	"github.com/gin-gonic/gin"
 )
 
 // RouterConfig 路由配置
 type RouterConfig struct {
 	// 是否启用调试模式
 	Debug bool `json:"debug"`
-	
+
 	// API版本
 	APIVersion string `json:"api_version"`
-	
+
 	// 路由前缀
 	Prefix string `json:"prefix"`
-	
+
 	// 是否启用中间件
 	EnableMiddleware bool `json:"enable_middleware"`
-	
+
 	// 中间件配置
 	MiddlewareConfig *MiddlewareConfig `json:"middleware_config"`
 }
@@ -41,32 +42,32 @@ type RouterConfig struct {
 type MiddlewareConfig struct {
 	// 认证中间件配置
 	Auth *middleware.AuthConfig `json:"auth"`
-	
+
 	// 日志中间件配置
 	Logging *middleware.LoggingConfig `json:"logging"`
-	
+
 	// CORS中间件配置
 	CORS *middleware.CORSConfig `json:"cors"`
-	
+
 	// 限流中间件配置
 	RateLimit *middleware.RateLimitConfig `json:"rate_limit"`
 }
 
 // Router Agent路由器
 type Router struct {
-	engine   *gin.Engine
-	config   *RouterConfig
-	logger   *logger.LoggerManager
-	
+	engine *gin.Engine
+	config *RouterConfig
+	logger *logger.LoggerManager
+
 	// 中间件
 	authMiddleware      *middleware.AuthMiddleware
 	loggingMiddleware   *middleware.LoggingMiddleware
 	corsMiddleware      *middleware.CORSMiddleware
 	rateLimitMiddleware *middleware.RateLimitMiddleware
-	
+
 	// 处理器
-	taskHandler         task.AgentTaskHandler
-	monitorHandler      monitor.AgentMonitorHandler
+	taskHandler          task.AgentTaskHandler
+	monitorHandler       monitor.AgentMonitorHandler
 	communicationHandler communication.MasterCommunicationHandler
 }
 
@@ -81,33 +82,33 @@ func NewRouter(config *RouterConfig) *Router {
 			MiddlewareConfig: &MiddlewareConfig{},
 		}
 	}
-	
+
 	// 设置Gin模式
 	if config.Debug {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	
+
 	engine := gin.New()
-	
+
 	router := &Router{
 		engine: engine,
 		config: config,
 		logger: logger.LoggerInstance,
 	}
-	
+
 	// 初始化中间件
 	if config.EnableMiddleware {
 		router.initMiddleware()
 	}
-	
+
 	// 初始化处理器
 	router.initHandlers()
-	
+
 	// 注册路由
 	router.registerRoutes()
-	
+
 	return router
 }
 
@@ -118,19 +119,19 @@ func (r *Router) initMiddleware() {
 	// 2. 日志中间件
 	// 3. CORS中间件
 	// 4. 限流中间件
-	
+
 	if r.config.MiddlewareConfig.Auth != nil {
 		r.authMiddleware = middleware.NewAuthMiddleware(r.config.MiddlewareConfig.Auth)
 	}
-	
+
 	if r.config.MiddlewareConfig.Logging != nil {
 		r.loggingMiddleware = middleware.NewLoggingMiddleware(r.config.MiddlewareConfig.Logging)
 	}
-	
+
 	if r.config.MiddlewareConfig.CORS != nil {
 		r.corsMiddleware = middleware.NewCORSMiddleware(r.config.MiddlewareConfig.CORS)
 	}
-	
+
 	if r.config.MiddlewareConfig.RateLimit != nil {
 		r.rateLimitMiddleware = middleware.NewRateLimitMiddleware(r.config.MiddlewareConfig.RateLimit)
 	}
@@ -142,7 +143,7 @@ func (r *Router) initHandlers() {
 	// 1. 任务处理器
 	// 2. 监控处理器
 	// 3. 通信处理器
-	
+
 	// 这里使用占位符实现，实际应该通过依赖注入
 	r.taskHandler = task.NewAgentTaskHandler()
 	r.monitorHandler = monitor.NewAgentMonitorHandler()
@@ -156,22 +157,22 @@ func (r *Router) registerRoutes() {
 	// 2. 任务管理路由
 	// 3. 监控路由
 	// 4. 通信路由
-	
+
 	// 注册全局中间件
 	r.registerGlobalMiddleware()
-	
+
 	// 注册健康检查路由
 	r.registerHealthRoutes()
-	
+
 	// 注册API路由组
 	apiGroup := r.engine.Group(r.config.Prefix + "/" + r.config.APIVersion)
-	
+
 	// 注册任务管理路由
 	r.registerTaskRoutes(apiGroup)
-	
+
 	// 注册监控路由
 	r.registerMonitorRoutes(apiGroup)
-	
+
 	// 注册通信路由
 	r.registerCommunicationRoutes(apiGroup)
 }
@@ -180,17 +181,17 @@ func (r *Router) registerRoutes() {
 func (r *Router) registerGlobalMiddleware() {
 	// 恢复中间件
 	r.engine.Use(gin.Recovery())
-	
+
 	// CORS中间件
 	if r.corsMiddleware != nil {
 		r.engine.Use(r.corsMiddleware.Handler())
 	}
-	
+
 	// 日志中间件
 	if r.loggingMiddleware != nil {
 		r.engine.Use(r.loggingMiddleware.Handler())
 	}
-	
+
 	// 限流中间件
 	if r.rateLimitMiddleware != nil {
 		r.engine.Use(r.rateLimitMiddleware.Handler())
@@ -212,19 +213,19 @@ func (r *Router) registerTaskRoutes(group *gin.RouterGroup) {
 	if r.authMiddleware != nil {
 		taskGroup.Use(r.authMiddleware.Handler())
 	}
-	
+
 	// 任务管理接口
 	taskGroup.POST("", r.taskHandler.CreateTask)
 	taskGroup.GET("/:id", r.taskHandler.GetTask)
 	taskGroup.DELETE("/:id", r.taskHandler.DeleteTask)
 	taskGroup.GET("", r.taskHandler.GetTaskList)
-	
+
 	// 任务控制接口
 	taskGroup.POST("/:id/start", r.taskHandler.StartTask)
 	taskGroup.POST("/:id/stop", r.taskHandler.StopTask)
 	taskGroup.POST("/:id/pause", r.taskHandler.PauseTask)
 	taskGroup.POST("/:id/resume", r.taskHandler.ResumeTask)
-	
+
 	// 任务结果接口
 	taskGroup.GET("/:id/result", r.taskHandler.GetTaskResult)
 	taskGroup.GET("/:id/logs", r.taskHandler.GetTaskLog)
@@ -238,21 +239,21 @@ func (r *Router) registerMonitorRoutes(group *gin.RouterGroup) {
 	if r.authMiddleware != nil {
 		monitorGroup.Use(r.authMiddleware.Handler())
 	}
-	
+
 	// 性能指标接口
 	monitorGroup.GET("/metrics", r.monitorHandler.GetPerformanceMetrics)
 	monitorGroup.GET("/system", r.monitorHandler.GetSystemInfo)
 	monitorGroup.GET("/resources", r.monitorHandler.GetResourceUsage)
-	
+
 	// 健康检查接口
 	monitorGroup.GET("/health", r.monitorHandler.GetHealthStatus)
 	monitorGroup.POST("/health/check", r.monitorHandler.PerformHealthCheck)
-	
+
 	// 告警接口
 	monitorGroup.GET("/alerts", r.monitorHandler.GetAlerts)
 	monitorGroup.POST("/alerts", r.monitorHandler.CreateAlert)
 	monitorGroup.PUT("/alerts/:id/ack", r.monitorHandler.AcknowledgeAlert)
-	
+
 	// 日志接口
 	monitorGroup.GET("/logs", r.monitorHandler.GetLogs)
 	monitorGroup.PUT("/logs/level", r.monitorHandler.SetLogLevel)
@@ -266,28 +267,28 @@ func (r *Router) registerCommunicationRoutes(group *gin.RouterGroup) {
 	if r.authMiddleware != nil {
 		commGroup.Use(r.authMiddleware.Handler())
 	}
-	
+
 	// Agent注册和认证
 	commGroup.POST("/register", r.communicationHandler.RegisterToMaster)
 	commGroup.POST("/authenticate", r.communicationHandler.AuthenticateWithMaster)
-	
+
 	// 心跳和状态同步
 	commGroup.POST("/heartbeat", r.communicationHandler.SendHeartbeat)
 	commGroup.PUT("/status", r.communicationHandler.SyncStatus)
-	
+
 	// 数据上报
 	commGroup.POST("/report/metrics", r.communicationHandler.ReportMetrics)
 	commGroup.POST("/report/results", r.communicationHandler.ReportTaskResult)
 	commGroup.POST("/report/alerts", r.communicationHandler.ReportAlert)
-	
+
 	// 配置同步
 	commGroup.GET("/config", r.communicationHandler.SyncConfig)
 	commGroup.PUT("/config", r.communicationHandler.ApplyConfig)
-	
+
 	// 命令接收和响应
 	commGroup.GET("/commands", r.communicationHandler.ReceiveCommand)
 	commGroup.POST("/commands/:id/response", r.communicationHandler.SendCommandResponse)
-	
+
 	// 连接管理
 	commGroup.POST("/connect", r.communicationHandler.CheckConnection)
 	commGroup.POST("/reconnect", r.communicationHandler.ReconnectToMaster)
@@ -305,7 +306,7 @@ func (r *Router) handleHealth(c *gin.Context) {
 // Ping处理器
 func (r *Router) handlePing(c *gin.Context) {
 	c.JSON(200, gin.H{
-		"message": "pong",
+		"message":   "pong",
 		"timestamp": time.Now().Unix(),
 	})
 }
@@ -329,28 +330,28 @@ func (r *Router) UpdateConfig(config *RouterConfig) error {
 	if config == nil {
 		return fmt.Errorf("config cannot be nil")
 	}
-	
+
 	r.config = config
-	
+
 	// 更新中间件配置
 	if r.authMiddleware != nil && config.MiddlewareConfig.Auth != nil {
 		r.authMiddleware.UpdateConfig(config.MiddlewareConfig.Auth)
 	}
-	
+
 	if r.loggingMiddleware != nil && config.MiddlewareConfig.Logging != nil {
 		r.loggingMiddleware.UpdateConfig(config.MiddlewareConfig.Logging)
 	}
-	
+
 	if r.corsMiddleware != nil && config.MiddlewareConfig.CORS != nil {
 		r.corsMiddleware.UpdateConfig(config.MiddlewareConfig.CORS)
 	}
-	
+
 	if r.rateLimitMiddleware != nil && config.MiddlewareConfig.RateLimit != nil {
 		r.rateLimitMiddleware.UpdateConfig(config.MiddlewareConfig.RateLimit)
 	}
-	
+
 	logger.Info("Router config updated")
-	
+
 	return nil
 }
 

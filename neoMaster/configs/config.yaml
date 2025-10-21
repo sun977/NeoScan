@@ -1,6 +1,24 @@
 # NeoScan Master 配置文件
 # 开发环境配置
 
+# 应用配置
+app:
+  name: "NeoScan Master"
+  version: "1.0.0"
+  environment: "development"
+  debug: true
+  timezone: "Asia/Shanghai"
+  language: "zh-CN"
+
+  # 功能开关
+  features:
+    user_registration: true
+    email_verification: false
+    password_reset: true
+    two_factor_auth: false
+    audit_log: true
+    api_documentation: true
+
 # 服务器配置
 server:
   host: "0.0.0.0"
@@ -62,24 +80,56 @@ log:
   caller: false    # 显示调用者信息[默认false,设置为true时,会增加字段file(显示调用日志函数的源代码文件的完整路径)和function(显示调用日志函数的完整函数名（包含包路径),但是打印的都是logger发起的]
   stack_trace: true   # 显示堆栈信息
 
-# 安全配置
-security:
+# 中间件配置
+middleware:
+  # 认证中间件
+  auth:
+    auth_method: "none"
+    api_key: ""
+    api_key_header: "X-API-Key"
+    jwt_secret: ""
+    whitelist_ips: []
+    skip_paths:
+      - "/api/v1/health"
+      - "/api/v1/metrics"
+
+  # 日志中间件
+  logging:
+    enable_request_log: true
+    enable_response_log: true
+    log_request_body: false
+    log_response_body: false
+    slow_request_threshold: "1s"
+    skip_paths:
+      - "/api/v1/health"
+      - "/api/v1/metrics"
+    max_request_body_size: 1024
+    max_response_body_size: 1024
+
+  # CORS中间件
   cors:
-    allow_origins: ["*"]
-    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    allow_headers: ["*"]
-    expose_headers: ["Content-Length"]
-    allow_credentials: true
-    max_age: 12h
-  
-  rate_limit:
     enabled: true
-    requests_per_minute: 100
-    burst: 200
-  
-  csrf:
+    allow_all_origins: true
+    allow_origins: []
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"]
+    allow_headers: ["Origin","Content-Type","Accept","Authorization","X-Requested-With"]
+    expose_headers: []
+    allow_credentials: false
+    max_age: "12h"
+
+  # 限流中间件
+  rate_limit:
     enabled: false
-    secret: ""  # 通过环境变量设置
+    requests_per_second: 100
+    burst_size: 200
+    strategy: "token_bucket"
+    window_size: "1m"
+    status_code: 429
+    message: "Rate limit exceeded"
+    skip_paths:
+      - "/api/v1/health"
+      - "/api/v1/metrics"
+    skip_ips: []
 
 # 会话配置
 session:
@@ -131,23 +181,14 @@ monitor:
     enabled: true
     path: "/debug/pprof"
 
-# 应用配置
-app:
-  name: "NeoScan Master"
-  version: "1.0.0"
-  environment: "development"
-  debug: true
-  timezone: "Asia/Shanghai"
-  language: "zh-CN"
-  
-  # 功能开关
-  features:
-    user_registration: true
-    email_verification: false
-    password_reset: true
-    two_factor_auth: false
-    audit_log: true
-    api_documentation: true
+## 安全配置
+#security:
+#  api_key: ""  # 从环境变量 AGENT_API_KEY 获取
+#  jwt_secret: ""  # 从环境变量 JWT_SECRET 获取
+#  jwt_expiration: "24h"
+#  encryption_key: ""  # 从环境变量 ENCRYPTION_KEY 获取
+#  ip_whitelist: []
+#  enable_ip_whitelist: false
 
 # 第三方服务配置
 third_party:

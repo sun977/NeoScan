@@ -16,23 +16,23 @@ import (
 // AgentMonitorService Agent监控服务接口
 type AgentMonitorService interface {
 	// ==================== 性能指标收集（✅ Agent端独立实现，定期上报给Master） ====================
-	CollectMetrics(ctx context.Context) (*PerformanceMetrics, error)     // 收集性能指标
-	GetCurrentMetrics(ctx context.Context) (*PerformanceMetrics, error)  // 获取当前性能指标
+	CollectMetrics(ctx context.Context) (*PerformanceMetrics, error)                              // 收集性能指标
+	GetCurrentMetrics(ctx context.Context) (*PerformanceMetrics, error)                           // 获取当前性能指标
 	GetHistoryMetrics(ctx context.Context, duration time.Duration) ([]*PerformanceMetrics, error) // 获取历史性能指标
-	
+
 	// ==================== 健康检查（🟡 混合实现 - Agent自检 + 响应Master检查） ====================
-	HealthCheck(ctx context.Context) (*HealthStatus, error)              // 执行健康检查
-	GetHealthStatus(ctx context.Context) (*HealthStatus, error)          // 获取健康状态
-	
+	HealthCheck(ctx context.Context) (*HealthStatus, error)     // 执行健康检查
+	GetHealthStatus(ctx context.Context) (*HealthStatus, error) // 获取健康状态
+
 	// ==================== 监控告警（🔴 需要向Master端上报） ====================
-	CheckAlerts(ctx context.Context) ([]*Alert, error)                   // 检查告警条件
-	SendAlert(ctx context.Context, alert *Alert) error                   // 发送告警到Master端
-	GetAlertHistory(ctx context.Context) ([]*Alert, error)               // 获取告警历史
-	
+	CheckAlerts(ctx context.Context) ([]*Alert, error)     // 检查告警条件
+	SendAlert(ctx context.Context, alert *Alert) error     // 发送告警到Master端
+	GetAlertHistory(ctx context.Context) ([]*Alert, error) // 获取告警历史
+
 	// ==================== 日志管理（🟡 混合实现 - Agent收集 + Master查询） ====================
 	CollectLogs(ctx context.Context, level string, limit int) ([]string, error) // 收集日志
-	GetLogStream(ctx context.Context, follow bool) (<-chan string, error)        // 获取日志流
-	RotateLogs(ctx context.Context) error                                         // 轮转日志文件
+	GetLogStream(ctx context.Context, follow bool) (<-chan string, error)       // 获取日志流
+	RotateLogs(ctx context.Context) error                                       // 轮转日志文件
 }
 
 // agentMonitorService Agent监控服务实现
@@ -198,14 +198,14 @@ func (s *agentMonitorService) GetLogStream(ctx context.Context, follow bool) (<-
 	// 3. 实时推送日志内容
 	// 4. 处理follow模式
 	logChan := make(chan string, 100)
-	
+
 	// 占位符实现
 	go func() {
 		defer close(logChan)
 		logChan <- "GetLogStream功能待实现 - 需要实现日志流获取逻辑"
 		logChan <- fmt.Sprintf("Follow模式: %v", follow)
 	}()
-	
+
 	return logChan, nil
 }
 

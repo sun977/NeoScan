@@ -1,0 +1,171 @@
+# NeoAgent Docker Compose Configuration
+# @author: sun977
+# @date: 2025.10.21
+# @description: Agent端Docker Compose配置文件
+
+version: '3.8'
+
+services:
+  # NeoAgent服务
+  neoagent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: neoagent
+    hostname: neoagent
+    restart: unless-stopped
+    ports:
+      - "${AGENT_PORT:-8081}:8081"
+    environment:
+      # 基础配置
+      - ENVIRONMENT=production
+      - SERVER_PORT=8081
+      - SERVER_HOST=0.0.0.0
+      - SERVER_DEBUG=false
+      
+      # 日志配置
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=json
+      - LOG_OUTPUT=file
+      - LOG_FILE_PATH=/app/logs/agent.log
+      
+      # 数据库配置
+      - DB_TYPE=${DB_TYPE:-sqlite}
+      - DB_DSN=${DB_DSN:-/app/data/agent.db}
+      
+      # Master连接配置
+      - MASTER_ADDRESS=${MASTER_ADDRESS:-neomaster}
+      - MASTER_PORT=${MASTER_PORT:-8080}
+      - MASTER_PROTOCOL=${MASTER_PROTOCOL:-http}
+      - MASTER_ENABLE_TLS=${MASTER_ENABLE_TLS:-false}
+      
+      # Agent配置
+      - AGENT_ID=${AGENT_ID:-}
+      - AGENT_NAME=${AGENT_NAME:-neoagent}
+      - AGENT_TYPE=scanner
+      - AGENT_TAGS=scanner,security,docker
+      - AGENT_AUTO_REGISTER=${AGENT_AUTO_REGISTER:-true}
+      
+      # 安全配置
+      - AGENT_API_KEY=${AGENT_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      
+      # 工具路径配置
+      - NMAP_PATH=/usr/bin/nmap
+      - NUCLEI_PATH=/usr/local/bin/nuclei
+      - MASSCAN_PATH=/usr/bin/masscan
+      - NUCLEI_TEMPLATES_DIR=/app/nuclei-templates
+      
+      # 资源限制
+      - EXECUTOR_CPU_LIMIT=2.0
+      - EXECUTOR_MEMORY_LIMIT=2048
+      - EXECUTOR_PROCESSES_LIMIT=50
+      
+      # 监控配置
+      - MONITOR_ENABLED=true
+      - MONITOR_INTERVAL=30s
+    
+    volumes:
+      # 持久化数据
+      - agent_data:/app/data
+      - agent_logs:/app/logs
+      - agent_work:/app/work
+      - agent_temp:/app/temp
+      
+      # 配置文件 (可选)
+      - ./configs:/app/configs:ro
+      
+      # Nuclei模板 (可选，用于自定义模板)
+      - ./nuclei-templates:/app/nuclei-templates:ro
+    
+    networks:
+      - neoscan
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # 依赖服务 (如果需要)
+    depends_on:
+      - redis
+    
+    # 标签
+    labels:
+      - "com.neoscan.service=agent"
+      - "com.neoscan.version=1.0.0"
+      - "com.neoscan.environment=production"
+
+  # Redis服务 (用于缓存和消息队列)
+  redis:
+    image: redis:7-alpine
+    container_name: neoagent-redis
+    hostname: redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    command: >
+      sh -c "
+        if [ -n \"$$REDIS_PASSWORD\" ]; then
+          redis-server --requirepass $$REDIS_PASSWORD --appendonly yes
+        else
+          redis-server --appendonly yes
+        fi
+      "
+    volumes:
+      - redis_data:/data
+    networks:
+      - neoscan
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+# 网络配置
+networks:
+  neoscan:
+    driver: bridge
+    name: neoscan-network
+
+# 数据卷配置
+volumes:
+  agent_data:
+    driver: local
+    name: neoagent-data
+  agent_logs:
+    driver: local
+    name: neoagent-logs
+  agent_work:
+    driver: local
+    name: neoagent-work
+  agent_temp:
+    driver: local
+    name: neoagent-temp
+  redis_data:
+    driver: local
+    name: neoagent-redis-data

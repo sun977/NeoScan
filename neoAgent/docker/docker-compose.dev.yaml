@@ -1,0 +1,171 @@
+# NeoAgent Development Docker Compose Configuration
+# @author: sun977
+# @date: 2025.10.21
+# @description: Agent端开发环境Docker Compose配置文件
+
+version: '3.8'
+
+services:
+  # NeoAgent开发服务
+  neoagent-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: neoagent-dev
+    hostname: neoagent-dev
+    restart: unless-stopped
+    ports:
+      - "${AGENT_PORT:-8081}:8081"
+      - "${DEBUG_PORT:-6060}:6060"  # pprof调试端口
+    environment:
+      # 基础配置
+      - ENVIRONMENT=development
+      - SERVER_PORT=8081
+      - SERVER_HOST=0.0.0.0
+      - SERVER_DEBUG=true
+      
+      # 日志配置
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=text
+      - LOG_OUTPUT=console
+      - VERBOSE_LOGGING=true
+      
+      # 数据库配置
+      - DB_TYPE=sqlite
+      - DB_DSN=/app/data/agent_dev.db
+      
+      # Master连接配置
+      - MASTER_ADDRESS=${MASTER_ADDRESS:-localhost}
+      - MASTER_PORT=${MASTER_PORT:-8080}
+      - MASTER_PROTOCOL=http
+      - MASTER_ENABLE_TLS=false
+      
+      # Agent配置
+      - AGENT_ID=dev-agent-001
+      - AGENT_NAME=neoagent-dev
+      - AGENT_TYPE=scanner
+      - AGENT_TAGS=scanner,security,development
+      - AGENT_AUTO_REGISTER=true
+      
+      # 安全配置 (开发环境使用固定值)
+      - AGENT_API_KEY=dev-api-key-12345
+      - JWT_SECRET=dev-jwt-secret-67890
+      - ENCRYPTION_KEY=dev-encryption-key-32-characters
+      
+      # 工具路径配置
+      - NMAP_PATH=/usr/bin/nmap
+      - NUCLEI_PATH=/usr/local/bin/nuclei
+      - MASSCAN_PATH=/usr/bin/masscan
+      - NUCLEI_TEMPLATES_DIR=/app/nuclei-templates
+      
+      # 开发配置
+      - DEV_MODE=true
+      - ENABLE_PPROF=true
+      - DEBUG_PORT=6060
+      
+      # 资源限制 (开发环境较宽松)
+      - EXECUTOR_CPU_LIMIT=4.0
+      - EXECUTOR_MEMORY_LIMIT=4096
+      - EXECUTOR_PROCESSES_LIMIT=100
+      
+      # 监控配置
+      - MONITOR_ENABLED=true
+      - MONITOR_INTERVAL=10s
+    
+    volumes:
+      # 源代码挂载 (用于热重载)
+      - ..:/app
+      - /app/vendor  # 排除vendor目录
+      
+      # 持久化数据
+      - agent_dev_data:/app/data
+      - agent_dev_logs:/app/logs
+      - agent_dev_work:/app/work
+      - agent_dev_temp:/app/temp
+      
+      # Go模块缓存
+      - go_mod_cache:/go/pkg/mod
+    
+    networks:
+      - neoscan-dev
+    
+    # 工作目录
+    working_dir: /app
+    
+    # 开发环境不需要健康检查
+    # healthcheck:
+    #   disable: true
+    
+    # 依赖服务
+    depends_on:
+      - redis-dev
+    
+    # 标签
+    labels:
+      - "com.neoscan.service=agent"
+      - "com.neoscan.version=dev"
+      - "com.neoscan.environment=development"
+
+  # Redis开发服务
+  redis-dev:
+    image: redis:7-alpine
+    container_name: neoagent-redis-dev
+    hostname: redis-dev
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6380}:6379"  # 使用不同端口避免冲突
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - neoscan-dev
+    labels:
+      - "com.neoscan.service=redis"
+      - "com.neoscan.version=dev"
+      - "com.neoscan.environment=development"
+
+  # 可选：数据库管理工具
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: neoagent-redis-commander
+    hostname: redis-commander
+    restart: unless-stopped
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8082}:8081"
+    environment:
+      - REDIS_HOSTS=local:redis-dev:6379
+    networks:
+      - neoscan-dev
+    depends_on:
+      - redis-dev
+    labels:
+      - "com.neoscan.service=redis-commander"
+      - "com.neoscan.version=dev"
+      - "com.neoscan.environment=development"
+
+# 网络配置
+networks:
+  neoscan-dev:
+    driver: bridge
+    name: neoscan-dev-network
+
+# 数据卷配置
+volumes:
+  agent_dev_data:
+    driver: local
+    name: neoagent-dev-data
+  agent_dev_logs:
+    driver: local
+    name: neoagent-dev-logs
+  agent_dev_work:
+    driver: local
+    name: neoagent-dev-work
+  agent_dev_temp:
+    driver: local
+    name: neoagent-dev-temp
+  redis_dev_data:
+    driver: local
+    name: neoagent-redis-dev-data
+  go_mod_cache:
+    driver: local
+    name: neoagent-go-mod-cache

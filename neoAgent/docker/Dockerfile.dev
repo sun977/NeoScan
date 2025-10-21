@@ -1,0 +1,75 @@
+# NeoAgent Development Dockerfile
+# @author: sun977
+# @date: 2025.10.21
+# @description: Agent端开发环境Docker镜像构建文件
+
+FROM golang:1.22-alpine
+
+# 安装开发工具和依赖
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    gcc \
+    musl-dev \
+    curl \
+    wget \
+    nmap \
+    nmap-scripts \
+    masscan \
+    vim \
+    bash \
+    && rm -rf /var/cache/apk/*
+
+# 安装Nuclei
+RUN wget -q https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_3.2.0_linux_amd64.zip \
+    && unzip nuclei_3.2.0_linux_amd64.zip \
+    && mv nuclei /usr/local/bin/ \
+    && rm nuclei_3.2.0_linux_amd64.zip \
+    && chmod +x /usr/local/bin/nuclei
+
+# 下载Nuclei模板
+RUN nuclei -update-templates
+
+# 安装开发工具
+RUN go install github.com/cosmtrek/air@latest \
+    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
+    && go install golang.org/x/tools/cmd/goimports@latest
+
+# 设置工作目录
+WORKDIR /app
+
+# 创建必要的目录
+RUN mkdir -p \
+    /app/work \
+    /app/temp \
+    /app/logs \
+    /app/data \
+    /app/nuclei-templates
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 设置环境变量
+ENV ENVIRONMENT=development
+ENV SERVER_PORT=8081
+ENV SERVER_DEBUG=true
+ENV LOG_LEVEL=debug
+ENV LOG_OUTPUT=console
+ENV AGENT_WORK_DIR=/app/work
+ENV AGENT_TEMP_DIR=/app/temp
+ENV AGENT_LOG_DIR=/app/logs
+ENV AGENT_DATA_DIR=/app/data
+ENV NUCLEI_TEMPLATES_DIR=/app/nuclei-templates
+ENV NMAP_PATH=/usr/bin/nmap
+ENV NUCLEI_PATH=/usr/local/bin/nuclei
+ENV MASSCAN_PATH=/usr/bin/masscan
+ENV DEV_MODE=true
+ENV VERBOSE_LOGGING=true
+
+# 暴露端口
+EXPOSE 8081 6060
+
+# 使用air进行热重载开发
+CMD ["air", "-c", ".air.toml"]

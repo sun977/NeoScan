@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"neoagent/internal/model/communication"
 	"net/http"
 	"time"
 )
@@ -26,30 +27,30 @@ type HTTPClient interface {
 	Delete(ctx context.Context, url string, headers map[string]string) (*http.Response, error)
 
 	// ==================== Agent注册和认证 ====================
-	RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*RegisterResponse, error)
-	AuthenticateAgent(ctx context.Context, authData *AuthData) (*AuthResponse, error)
-	RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
+	RegisterAgent(ctx context.Context, agentInfo *communication.AgentInfo) (*communication.RegisterResponse, error)
+	AuthenticateAgent(ctx context.Context, authData *communication.AuthData) (*communication.AuthResponse, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*communication.AuthResponse, error)
 
 	// ==================== 心跳和状态同步 ====================
-	SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*HeartbeatResponse, error)
-	SyncStatus(ctx context.Context, status *AgentStatus) (*SyncResponse, error)
+	SendHeartbeat(ctx context.Context, heartbeat *communication.Heartbeat) (*communication.HeartbeatResponse, error)
+	SyncStatus(ctx context.Context, status *communication.AgentStatus) (*communication.SyncResponse, error)
 
 	// ==================== 数据上报 ====================
-	ReportMetrics(ctx context.Context, metrics *PerformanceMetrics) (*ReportResponse, error)
-	ReportTaskResult(ctx context.Context, result *TaskResult) (*ReportResponse, error)
-	ReportAlert(ctx context.Context, alert *Alert) (*ReportResponse, error)
+	ReportMetrics(ctx context.Context, metrics *communication.PerformanceMetrics) (*communication.ReportResponse, error)
+	ReportTaskResult(ctx context.Context, result *communication.TaskResult) (*communication.ReportResponse, error)
+	ReportAlert(ctx context.Context, alert *communication.Alert) (*communication.ReportResponse, error)
 
 	// ==================== 配置同步 ====================
-	SyncConfig(ctx context.Context, request *ConfigSyncRequest) (*ConfigSyncResponse, error)
-	GetConfig(ctx context.Context, agentID string) (*AgentConfig, error)
+	SyncConfig(ctx context.Context, request *communication.ConfigSyncRequest) (*communication.ConfigSyncResponse, error)
+	GetConfig(ctx context.Context, agentID string) (*communication.AgentConfig, error)
 
 	// ==================== 命令处理 ====================
-	PollCommands(ctx context.Context, agentID string) ([]*Command, error)
-	SendCommandResponse(ctx context.Context, response *CommandResponse) error
-	GetCommandStatus(ctx context.Context, commandID string) (*CommandStatus, error)
+	PollCommands(ctx context.Context, agentID string) ([]*communication.Command, error)
+	SendCommandResponse(ctx context.Context, response *communication.CommandResponse) error
+	GetCommandStatus(ctx context.Context, commandID string) (*communication.CommandStatus, error)
 
 	// ==================== 任务管理 ====================
-	GetTasks(ctx context.Context, agentID string) ([]*Task, error)
+	GetTasks(ctx context.Context, agentID string) ([]*communication.Task, error)
 	UpdateTaskStatus(ctx context.Context, taskID string, status string, progress float64) error
 
 	// ==================== 连接管理 ====================
@@ -181,7 +182,7 @@ func (c *httpClient) doRequest(ctx context.Context, method, url string, data int
 // ==================== Agent注册和认证实现 ====================
 
 // RegisterAgent Agent注册
-func (c *httpClient) RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*RegisterResponse, error) {
+func (c *httpClient) RegisterAgent(ctx context.Context, agentInfo *communication.AgentInfo) (*communication.RegisterResponse, error) {
 	// TODO: 实现Agent注册HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/register
 	// 2. 处理响应
@@ -193,7 +194,7 @@ func (c *httpClient) RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*
 	}
 	defer resp.Body.Close()
 
-	var result RegisterResponse
+	var result communication.RegisterResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode register response: %w", err)
 	}
@@ -205,7 +206,7 @@ func (c *httpClient) RegisterAgent(ctx context.Context, agentInfo *AgentInfo) (*
 }
 
 // AuthenticateAgent Agent认证
-func (c *httpClient) AuthenticateAgent(ctx context.Context, authData *AuthData) (*AuthResponse, error) {
+func (c *httpClient) AuthenticateAgent(ctx context.Context, authData *communication.AuthData) (*communication.AuthResponse, error) {
 	// TODO: 实现Agent认证HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/auth
 	// 2. 处理认证响应
@@ -218,7 +219,7 @@ func (c *httpClient) AuthenticateAgent(ctx context.Context, authData *AuthData) 
 	}
 	defer resp.Body.Close()
 
-	var result AuthResponse
+	var result communication.AuthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode auth response: %w", err)
 	}
@@ -235,7 +236,7 @@ func (c *httpClient) AuthenticateAgent(ctx context.Context, authData *AuthData) 
 }
 
 // RefreshToken 刷新令牌
-func (c *httpClient) RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error) {
+func (c *httpClient) RefreshToken(ctx context.Context, refreshToken string) (*communication.AuthResponse, error) {
 	// TODO: 实现令牌刷新HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/refresh
 	// 2. 处理刷新响应
@@ -249,7 +250,7 @@ func (c *httpClient) RefreshToken(ctx context.Context, refreshToken string) (*Au
 	}
 	defer resp.Body.Close()
 
-	var result AuthResponse
+	var result communication.AuthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode refresh response: %w", err)
 	}
@@ -268,7 +269,7 @@ func (c *httpClient) RefreshToken(ctx context.Context, refreshToken string) (*Au
 // ==================== 心跳和状态同步实现 ====================
 
 // SendHeartbeat 发送心跳
-func (c *httpClient) SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*HeartbeatResponse, error) {
+func (c *httpClient) SendHeartbeat(ctx context.Context, heartbeat *communication.Heartbeat) (*communication.HeartbeatResponse, error) {
 	// TODO: 实现心跳发送HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/{id}/heartbeat
 	// 2. 处理心跳响应
@@ -281,7 +282,7 @@ func (c *httpClient) SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*
 	}
 	defer resp.Body.Close()
 
-	var result HeartbeatResponse
+	var result communication.HeartbeatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode heartbeat response: %w", err)
 	}
@@ -293,7 +294,7 @@ func (c *httpClient) SendHeartbeat(ctx context.Context, heartbeat *Heartbeat) (*
 }
 
 // SyncStatus 同步状态
-func (c *httpClient) SyncStatus(ctx context.Context, status *AgentStatus) (*SyncResponse, error) {
+func (c *httpClient) SyncStatus(ctx context.Context, status *communication.AgentStatus) (*communication.SyncResponse, error) {
 	// TODO: 实现状态同步HTTP调用
 	// 1. 发送PUT请求到 /api/v1/agents/{id}/status
 	// 2. 处理同步响应
@@ -306,7 +307,7 @@ func (c *httpClient) SyncStatus(ctx context.Context, status *AgentStatus) (*Sync
 	}
 	defer resp.Body.Close()
 
-	var result SyncResponse
+	var result communication.SyncResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode sync response: %w", err)
 	}
@@ -320,7 +321,7 @@ func (c *httpClient) SyncStatus(ctx context.Context, status *AgentStatus) (*Sync
 // ==================== 数据上报实现 ====================
 
 // ReportMetrics 上报性能指标
-func (c *httpClient) ReportMetrics(ctx context.Context, metrics *PerformanceMetrics) (*ReportResponse, error) {
+func (c *httpClient) ReportMetrics(ctx context.Context, metrics *communication.PerformanceMetrics) (*communication.ReportResponse, error) {
 	// TODO: 实现性能指标上报HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/{id}/metrics
 	// 2. 处理上报响应
@@ -333,7 +334,7 @@ func (c *httpClient) ReportMetrics(ctx context.Context, metrics *PerformanceMetr
 	}
 	defer resp.Body.Close()
 
-	var result ReportResponse
+	var result communication.ReportResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode report response: %w", err)
 	}
@@ -345,7 +346,7 @@ func (c *httpClient) ReportMetrics(ctx context.Context, metrics *PerformanceMetr
 }
 
 // ReportTaskResult 上报任务结果
-func (c *httpClient) ReportTaskResult(ctx context.Context, result *TaskResult) (*ReportResponse, error) {
+func (c *httpClient) ReportTaskResult(ctx context.Context, result *communication.TaskResult) (*communication.ReportResponse, error) {
 	// TODO: 实现任务结果上报HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/{id}/tasks/{task_id}/result
 	// 2. 处理上报响应
@@ -358,7 +359,7 @@ func (c *httpClient) ReportTaskResult(ctx context.Context, result *TaskResult) (
 	}
 	defer resp.Body.Close()
 
-	var response ReportResponse
+	var response communication.ReportResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("decode report response: %w", err)
 	}
@@ -370,7 +371,7 @@ func (c *httpClient) ReportTaskResult(ctx context.Context, result *TaskResult) (
 }
 
 // ReportAlert 上报告警
-func (c *httpClient) ReportAlert(ctx context.Context, alert *Alert) (*ReportResponse, error) {
+func (c *httpClient) ReportAlert(ctx context.Context, alert *communication.Alert) (*communication.ReportResponse, error) {
 	// TODO: 实现告警上报HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/{id}/alerts
 	// 2. 处理上报响应
@@ -383,7 +384,7 @@ func (c *httpClient) ReportAlert(ctx context.Context, alert *Alert) (*ReportResp
 	}
 	defer resp.Body.Close()
 
-	var result ReportResponse
+	var result communication.ReportResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode report response: %w", err)
 	}
@@ -397,7 +398,7 @@ func (c *httpClient) ReportAlert(ctx context.Context, alert *Alert) (*ReportResp
 // ==================== 配置同步实现 ====================
 
 // SyncConfig 同步配置
-func (c *httpClient) SyncConfig(ctx context.Context, request *ConfigSyncRequest) (*ConfigSyncResponse, error) {
+func (c *httpClient) SyncConfig(ctx context.Context, request *communication.ConfigSyncRequest) (*communication.ConfigSyncResponse, error) {
 	// TODO: 实现配置同步HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/{id}/config/sync
 	// 2. 处理配置响应
@@ -410,7 +411,7 @@ func (c *httpClient) SyncConfig(ctx context.Context, request *ConfigSyncRequest)
 	}
 	defer resp.Body.Close()
 
-	var result ConfigSyncResponse
+	var result communication.ConfigSyncResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode config response: %w", err)
 	}
@@ -422,7 +423,7 @@ func (c *httpClient) SyncConfig(ctx context.Context, request *ConfigSyncRequest)
 }
 
 // GetConfig 获取配置
-func (c *httpClient) GetConfig(ctx context.Context, agentID string) (*AgentConfig, error) {
+func (c *httpClient) GetConfig(ctx context.Context, agentID string) (*communication.AgentConfig, error) {
 	// TODO: 实现获取配置HTTP调用
 	// 1. 发送GET请求到 /api/v1/agents/{id}/config
 	// 2. 处理配置响应
@@ -435,7 +436,7 @@ func (c *httpClient) GetConfig(ctx context.Context, agentID string) (*AgentConfi
 	}
 	defer resp.Body.Close()
 
-	var result AgentConfig
+	var result communication.AgentConfig
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode config response: %w", err)
 	}
@@ -449,7 +450,7 @@ func (c *httpClient) GetConfig(ctx context.Context, agentID string) (*AgentConfi
 // ==================== 命令处理实现 ====================
 
 // PollCommands 轮询命令
-func (c *httpClient) PollCommands(ctx context.Context, agentID string) ([]*Command, error) {
+func (c *httpClient) PollCommands(ctx context.Context, agentID string) ([]*communication.Command, error) {
 	// TODO: 实现命令轮询HTTP调用
 	// 1. 发送GET请求到 /api/v1/agents/{id}/commands
 	// 2. 处理命令响应
@@ -462,14 +463,14 @@ func (c *httpClient) PollCommands(ctx context.Context, agentID string) ([]*Comma
 	}
 	defer resp.Body.Close()
 
-	var result []*Command
+	var result []*communication.Command
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode commands response: %w", err)
 	}
 
 	// 占位符实现
 	if len(result) == 0 {
-		result = []*Command{
+		result = []*communication.Command{
 			{
 				ID:        "placeholder-cmd",
 				Type:      "heartbeat",
@@ -484,7 +485,7 @@ func (c *httpClient) PollCommands(ctx context.Context, agentID string) ([]*Comma
 }
 
 // SendCommandResponse 发送命令响应
-func (c *httpClient) SendCommandResponse(ctx context.Context, response *CommandResponse) error {
+func (c *httpClient) SendCommandResponse(ctx context.Context, response *communication.CommandResponse) error {
 	// TODO: 实现命令响应发送HTTP调用
 	// 1. 发送POST请求到 /api/v1/agents/{id}/commands/{cmd_id}/response
 	// 2. 处理响应确认
@@ -505,7 +506,7 @@ func (c *httpClient) SendCommandResponse(ctx context.Context, response *CommandR
 }
 
 // GetCommandStatus 获取命令状态
-func (c *httpClient) GetCommandStatus(ctx context.Context, commandID string) (*CommandStatus, error) {
+func (c *httpClient) GetCommandStatus(ctx context.Context, commandID string) (*communication.CommandStatus, error) {
 	// TODO: 实现获取命令状态HTTP调用
 	// 1. 发送GET请求到 /api/v1/commands/{id}/status
 	// 2. 处理状态响应
@@ -518,7 +519,7 @@ func (c *httpClient) GetCommandStatus(ctx context.Context, commandID string) (*C
 	}
 	defer resp.Body.Close()
 
-	var result CommandStatus
+	var result communication.CommandStatus
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode command status response: %w", err)
 	}
@@ -532,7 +533,7 @@ func (c *httpClient) GetCommandStatus(ctx context.Context, commandID string) (*C
 // ==================== 任务管理实现 ====================
 
 // GetTasks 获取任务列表
-func (c *httpClient) GetTasks(ctx context.Context, agentID string) ([]*Task, error) {
+func (c *httpClient) GetTasks(ctx context.Context, agentID string) ([]*communication.Task, error) {
 	// TODO: 实现获取任务列表HTTP调用
 	// 1. 发送GET请求到 /api/v1/agents/{id}/tasks
 	// 2. 处理任务响应
@@ -545,7 +546,7 @@ func (c *httpClient) GetTasks(ctx context.Context, agentID string) ([]*Task, err
 	}
 	defer resp.Body.Close()
 
-	var result []*Task
+	var result []*communication.Task
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode tasks response: %w", err)
 	}

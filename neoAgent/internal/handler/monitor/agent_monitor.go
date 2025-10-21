@@ -22,19 +22,41 @@ type AgentMonitorHandler interface {
 	GetSystemInfo(c *gin.Context)         // 获取系统信息
 	GetResourceUsage(c *gin.Context)      // 获取资源使用情况
 
+	// 系统指标详细接口
+	GetSystemMetrics(c *gin.Context)  // 获取系统指标
+	GetCPUMetrics(c *gin.Context)     // 获取CPU指标
+	GetMemoryMetrics(c *gin.Context)  // 获取内存指标
+	GetDiskMetrics(c *gin.Context)    // 获取磁盘指标
+	GetNetworkMetrics(c *gin.Context) // 获取网络指标
+
+	// ==================== 进程监控 ====================
+	GetProcessList(c *gin.Context) // 获取进程列表
+	GetProcessInfo(c *gin.Context) // 获取进程信息
+
+	// ==================== 服务监控 ====================
+	GetServiceStatus(c *gin.Context) // 获取服务状态
+
 	// ==================== 健康检查（🟡 混合实现） ====================
 	GetHealthStatus(c *gin.Context)    // 获取健康状态 [响应Master端GET /:id/health]
 	PerformHealthCheck(c *gin.Context) // 执行健康检查
+
+	// ==================== 性能监控 ====================
+	GetSystemLoad(c *gin.Context) // 获取系统负载
 
 	// ==================== 监控告警（🔴 需要向Master端上报） ====================
 	GetAlerts(c *gin.Context)        // 获取告警信息 [响应Master端GET /:id/alerts]
 	CreateAlert(c *gin.Context)      // 创建告警
 	AcknowledgeAlert(c *gin.Context) // 确认告警
 
+	// ==================== 监控配置管理 ====================
+	UpdateMonitorConfig(c *gin.Context) // 更新监控配置
+	GetMonitorConfig(c *gin.Context)    // 获取监控配置
+
 	// ==================== 日志管理（🟡 混合实现） ====================
-	GetLogs(c *gin.Context)     // 获取日志 [响应Master端GET /:id/logs]
-	SetLogLevel(c *gin.Context) // 设置日志级别
-	RotateLogs(c *gin.Context)  // 轮转日志
+	GetLogs(c *gin.Context)       // 获取日志 [响应Master端GET /:id/logs]
+	GetLogMetrics(c *gin.Context) // 获取日志指标
+	SetLogLevel(c *gin.Context)   // 设置日志级别
+	RotateLogs(c *gin.Context)    // 轮转日志
 }
 
 // agentMonitorHandler Agent监控处理器实现
@@ -577,6 +599,362 @@ func (h *agentMonitorHandler) RotateLogs(c *gin.Context) {
 			"old_log_size":  "50MB",
 			"new_log_file":  "agent-" + time.Now().Format("20060102-150405") + ".log",
 			"rotated_at":    time.Now(),
+		},
+	})
+}
+
+// ==================== 系统指标详细接口实现 ====================
+
+// GetSystemMetrics 获取系统指标
+// @Summary 获取系统指标
+// @Description 获取系统整体指标信息
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "系统指标信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/system/metrics [get]
+func (h *agentMonitorHandler) GetSystemMetrics(c *gin.Context) {
+	// TODO: 实现系统指标获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetSystemMetrics处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"cpu_usage":    "45.2%",
+			"memory_usage": "68.5%",
+			"disk_usage":   "32.1%",
+			"uptime":       "72h35m",
+		},
+	})
+}
+
+// GetCPUMetrics 获取CPU指标
+// @Summary 获取CPU指标
+// @Description 获取CPU使用率和相关指标
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "CPU指标信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/cpu/metrics [get]
+func (h *agentMonitorHandler) GetCPUMetrics(c *gin.Context) {
+	// TODO: 实现CPU指标获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetCPUMetrics处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"usage_percent": 45.2,
+			"cores":         8,
+			"load_avg_1m":   1.25,
+			"load_avg_5m":   1.18,
+			"load_avg_15m":  1.32,
+		},
+	})
+}
+
+// GetMemoryMetrics 获取内存指标
+// @Summary 获取内存指标
+// @Description 获取内存使用情况和相关指标
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "内存指标信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/memory/metrics [get]
+func (h *agentMonitorHandler) GetMemoryMetrics(c *gin.Context) {
+	// TODO: 实现内存指标获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetMemoryMetrics处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"total_mb":      16384,
+			"used_mb":       11223,
+			"free_mb":       5161,
+			"usage_percent": 68.5,
+			"swap_total_mb": 8192,
+			"swap_used_mb":  1024,
+		},
+	})
+}
+
+// GetDiskMetrics 获取磁盘指标
+// @Summary 获取磁盘指标
+// @Description 获取磁盘使用情况和相关指标
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "磁盘指标信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/disk/metrics [get]
+func (h *agentMonitorHandler) GetDiskMetrics(c *gin.Context) {
+	// TODO: 实现磁盘指标获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetDiskMetrics处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"total_gb":      500,
+			"used_gb":       160,
+			"free_gb":       340,
+			"usage_percent": 32.1,
+			"read_iops":     125,
+			"write_iops":    89,
+		},
+	})
+}
+
+// GetNetworkMetrics 获取网络指标
+// @Summary 获取网络指标
+// @Description 获取网络流量和相关指标
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "网络指标信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/network/metrics [get]
+func (h *agentMonitorHandler) GetNetworkMetrics(c *gin.Context) {
+	// TODO: 实现网络指标获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetNetworkMetrics处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"bytes_sent":     1024000,
+			"bytes_received": 2048000,
+			"packets_sent":   1500,
+			"packets_recv":   2200,
+			"errors":         0,
+			"drops":          0,
+		},
+	})
+}
+
+// ==================== 进程监控实现 ====================
+
+// GetProcessList 获取进程列表
+// @Summary 获取进程列表
+// @Description 获取系统运行的进程列表
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "进程列表"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/processes [get]
+func (h *agentMonitorHandler) GetProcessList(c *gin.Context) {
+	// TODO: 实现进程列表获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetProcessList处理器待实现",
+		"timestamp": time.Now(),
+		"data": []gin.H{
+			{
+				"pid":         1234,
+				"name":        "neoAgent",
+				"cpu_percent": 2.5,
+				"memory_mb":   128,
+				"status":      "running",
+			},
+			{
+				"pid":         5678,
+				"name":        "system",
+				"cpu_percent": 0.1,
+				"memory_mb":   64,
+				"status":      "sleeping",
+			},
+		},
+	})
+}
+
+// GetProcessInfo 获取进程信息
+// @Summary 获取进程信息
+// @Description 获取指定进程的详细信息
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Param pid path int true "进程ID"
+// @Success 200 {object} map[string]interface{} "进程详细信息"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "进程不存在"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/processes/{pid} [get]
+func (h *agentMonitorHandler) GetProcessInfo(c *gin.Context) {
+	// TODO: 实现进程信息获取逻辑
+	pid := c.Param("pid")
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetProcessInfo处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"pid":          pid,
+			"name":         "neoAgent",
+			"cpu_percent":  2.5,
+			"memory_mb":    128,
+			"status":       "running",
+			"start_time":   "2024-01-01T10:00:00Z",
+			"command_line": "./neoAgent",
+			"working_dir":  "/opt/neoscan",
+			"open_files":   15,
+			"connections":  3,
+		},
+	})
+}
+
+// ==================== 服务监控实现 ====================
+
+// GetServiceStatus 获取服务状态
+// @Summary 获取服务状态
+// @Description 获取系统服务运行状态
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "服务状态信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/services [get]
+func (h *agentMonitorHandler) GetServiceStatus(c *gin.Context) {
+	// TODO: 实现服务状态获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetServiceStatus处理器待实现",
+		"timestamp": time.Now(),
+		"data": []gin.H{
+			{
+				"name":        "neoAgent",
+				"status":      "running",
+				"pid":         1234,
+				"uptime":      "72h35m",
+				"memory_mb":   128,
+				"cpu_percent": 2.5,
+			},
+			{
+				"name":        "ssh",
+				"status":      "running",
+				"pid":         890,
+				"uptime":      "168h12m",
+				"memory_mb":   8,
+				"cpu_percent": 0.1,
+			},
+		},
+	})
+}
+
+// ==================== 性能监控实现 ====================
+
+// GetSystemLoad 获取系统负载
+// @Summary 获取系统负载
+// @Description 获取系统负载平均值
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "系统负载信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/performance/load [get]
+func (h *agentMonitorHandler) GetSystemLoad(c *gin.Context) {
+	// TODO: 实现系统负载获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetSystemLoad处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"load_avg_1m":   1.25,
+			"load_avg_5m":   1.18,
+			"load_avg_15m":  1.32,
+			"cpu_cores":     8,
+			"running_procs": 2,
+			"total_procs":   156,
+		},
+	})
+}
+
+// ==================== 日志管理扩展实现 ====================
+
+// GetLogMetrics 获取日志指标
+// @Summary 获取日志指标
+// @Description 获取日志相关的统计指标
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "日志指标信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/logs/metrics [get]
+func (h *agentMonitorHandler) GetLogMetrics(c *gin.Context) {
+	// TODO: 实现日志指标获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetLogMetrics处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"total_logs":    15420,
+			"error_logs":    23,
+			"warn_logs":     156,
+			"info_logs":     14890,
+			"debug_logs":    351,
+			"log_file_size": "45.2MB",
+			"last_rotation": "2024-01-01T06:00:00Z",
+		},
+	})
+}
+
+// ==================== 监控配置管理实现 ====================
+
+// UpdateMonitorConfig 更新监控配置
+// @Summary 更新监控配置
+// @Description 更新Agent监控相关配置参数
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Param config body map[string]interface{} true "监控配置"
+// @Success 200 {object} map[string]interface{} "配置更新成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/config [put]
+func (h *agentMonitorHandler) UpdateMonitorConfig(c *gin.Context) {
+	// TODO: 实现监控配置更新逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "UpdateMonitorConfig处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"updated_at": time.Now(),
+			"config": gin.H{
+				"metrics_interval": 30,
+				"alert_threshold":  80,
+				"log_level":        "INFO",
+				"retention_days":   7,
+				"enable_alerts":    true,
+			},
+		},
+	})
+}
+
+// GetMonitorConfig 获取监控配置
+// @Summary 获取监控配置
+// @Description 获取当前Agent监控配置信息
+// @Tags 监控管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "监控配置信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/monitor/config [get]
+func (h *agentMonitorHandler) GetMonitorConfig(c *gin.Context) {
+	// TODO: 实现监控配置获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetMonitorConfig处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"config": gin.H{
+				"metrics_interval": 30,
+				"alert_threshold":  80,
+				"log_level":        "INFO",
+				"retention_days":   7,
+				"enable_alerts":    true,
+				"max_log_size":     "100MB",
+				"backup_count":     5,
+			},
+			"last_updated": "2024-01-01T10:00:00Z",
 		},
 	})
 }

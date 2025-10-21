@@ -9,8 +9,6 @@ package router
 
 import (
 	"fmt"
-	"time"
-
 	"neoagent/internal/app/agent/middleware"
 	"neoagent/internal/handler/communication"
 	"neoagent/internal/handler/monitor"
@@ -152,33 +150,33 @@ func (r *Router) initHandlers() {
 
 // registerRoutes 注册路由
 func (r *Router) registerRoutes() {
-	// TODO: 注册所有路由
-	// 1. 健康检查路由
-	// 2. 任务管理路由
-	// 3. 监控路由
-	// 4. 通信路由
+	logger.Info("开始注册路由")
 
 	// 注册全局中间件
 	r.registerGlobalMiddleware()
 
 	// 注册健康检查路由
-	r.registerHealthRoutes()
+	r.setupHealthRoutes()
 
 	// 注册API路由组
 	apiGroup := r.engine.Group(r.config.Prefix + "/" + r.config.APIVersion)
 
 	// 注册任务管理路由
-	r.registerTaskRoutes(apiGroup)
+	setupTaskRoutes(apiGroup)
 
 	// 注册监控路由
-	r.registerMonitorRoutes(apiGroup)
+	setupMonitorRoutes(apiGroup)
 
 	// 注册通信路由
-	r.registerCommunicationRoutes(apiGroup)
+	setupCommunicationRoutes(r.engine)
+
+	logger.Info("路由注册完成")
 }
 
 // registerGlobalMiddleware 注册全局中间件
 func (r *Router) registerGlobalMiddleware() {
+	logger.Info("开始注册全局中间件")
+
 	// 恢复中间件
 	r.engine.Use(gin.Recovery())
 
@@ -196,128 +194,8 @@ func (r *Router) registerGlobalMiddleware() {
 	if r.rateLimitMiddleware != nil {
 		r.engine.Use(r.rateLimitMiddleware.Handler())
 	}
-}
 
-// registerHealthRoutes 注册健康检查路由
-func (r *Router) registerHealthRoutes() {
-	// 健康检查路由（不需要认证）
-	r.engine.GET("/health", r.handleHealth)
-	r.engine.GET("/ping", r.handlePing)
-	r.engine.GET("/version", r.handleVersion)
-}
-
-// registerTaskRoutes 注册任务管理路由
-func (r *Router) registerTaskRoutes(group *gin.RouterGroup) {
-	// 任务路由组（需要认证）
-	taskGroup := group.Group("/tasks")
-	if r.authMiddleware != nil {
-		taskGroup.Use(r.authMiddleware.Handler())
-	}
-
-	// 任务管理接口
-	taskGroup.POST("", r.taskHandler.CreateTask)
-	taskGroup.GET("/:id", r.taskHandler.GetTask)
-	taskGroup.DELETE("/:id", r.taskHandler.DeleteTask)
-	taskGroup.GET("", r.taskHandler.GetTaskList)
-
-	// 任务控制接口
-	taskGroup.POST("/:id/start", r.taskHandler.StartTask)
-	taskGroup.POST("/:id/stop", r.taskHandler.StopTask)
-	taskGroup.POST("/:id/pause", r.taskHandler.PauseTask)
-	taskGroup.POST("/:id/resume", r.taskHandler.ResumeTask)
-
-	// 任务结果接口
-	taskGroup.GET("/:id/result", r.taskHandler.GetTaskResult)
-	taskGroup.GET("/:id/logs", r.taskHandler.GetTaskLog)
-	taskGroup.GET("/:id/status", r.taskHandler.GetTaskStatus)
-}
-
-// registerMonitorRoutes 注册监控路由
-func (r *Router) registerMonitorRoutes(group *gin.RouterGroup) {
-	// 监控路由组（需要认证）
-	monitorGroup := group.Group("/monitor")
-	if r.authMiddleware != nil {
-		monitorGroup.Use(r.authMiddleware.Handler())
-	}
-
-	// 性能指标接口
-	monitorGroup.GET("/metrics", r.monitorHandler.GetPerformanceMetrics)
-	monitorGroup.GET("/system", r.monitorHandler.GetSystemInfo)
-	monitorGroup.GET("/resources", r.monitorHandler.GetResourceUsage)
-
-	// 健康检查接口
-	monitorGroup.GET("/health", r.monitorHandler.GetHealthStatus)
-	monitorGroup.POST("/health/check", r.monitorHandler.PerformHealthCheck)
-
-	// 告警接口
-	monitorGroup.GET("/alerts", r.monitorHandler.GetAlerts)
-	monitorGroup.POST("/alerts", r.monitorHandler.CreateAlert)
-	monitorGroup.PUT("/alerts/:id/ack", r.monitorHandler.AcknowledgeAlert)
-
-	// 日志接口
-	monitorGroup.GET("/logs", r.monitorHandler.GetLogs)
-	monitorGroup.PUT("/logs/level", r.monitorHandler.SetLogLevel)
-	monitorGroup.POST("/logs/rotate", r.monitorHandler.RotateLogs)
-}
-
-// registerCommunicationRoutes 注册通信路由
-func (r *Router) registerCommunicationRoutes(group *gin.RouterGroup) {
-	// 通信路由组（需要认证）
-	commGroup := group.Group("/communication")
-	if r.authMiddleware != nil {
-		commGroup.Use(r.authMiddleware.Handler())
-	}
-
-	// Agent注册和认证
-	commGroup.POST("/register", r.communicationHandler.RegisterToMaster)
-	commGroup.POST("/authenticate", r.communicationHandler.AuthenticateWithMaster)
-
-	// 心跳和状态同步
-	commGroup.POST("/heartbeat", r.communicationHandler.SendHeartbeat)
-	commGroup.PUT("/status", r.communicationHandler.SyncStatus)
-
-	// 数据上报
-	commGroup.POST("/report/metrics", r.communicationHandler.ReportMetrics)
-	commGroup.POST("/report/results", r.communicationHandler.ReportTaskResult)
-	commGroup.POST("/report/alerts", r.communicationHandler.ReportAlert)
-
-	// 配置同步
-	commGroup.GET("/config", r.communicationHandler.SyncConfig)
-	commGroup.PUT("/config", r.communicationHandler.ApplyConfig)
-
-	// 命令接收和响应
-	commGroup.GET("/commands", r.communicationHandler.ReceiveCommand)
-	commGroup.POST("/commands/:id/response", r.communicationHandler.SendCommandResponse)
-
-	// 连接管理
-	commGroup.POST("/connect", r.communicationHandler.CheckConnection)
-	commGroup.POST("/reconnect", r.communicationHandler.ReconnectToMaster)
-}
-
-// 健康检查处理器
-func (r *Router) handleHealth(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"status":    "ok",
-		"timestamp": time.Now().Unix(),
-		"service":   "neoagent",
-	})
-}
-
-// Ping处理器
-func (r *Router) handlePing(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"message":   "pong",
-		"timestamp": time.Now().Unix(),
-	})
-}
-
-// 版本处理器
-func (r *Router) handleVersion(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"version":    "1.0.0",
-		"build_time": "2025-01-14",
-		"git_commit": "unknown",
-	})
+	logger.Info("全局中间件注册完成")
 }
 
 // GetEngine 获取Gin引擎

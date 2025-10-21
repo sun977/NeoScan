@@ -29,10 +29,28 @@ type AgentTaskHandler interface {
 	PauseTask(c *gin.Context)     // 暂停任务执行
 	ResumeTask(c *gin.Context)    // 恢复任务执行
 	GetTaskStatus(c *gin.Context) // 获取任务执行状态
+	CancelTask(c *gin.Context)    // 取消任务执行
+
+	// ==================== 任务查询和监控 ====================
+	ListTasks(c *gin.Context)       // 列出所有任务
+	GetTaskProgress(c *gin.Context) // 获取任务进度
+	GetTaskLogs(c *gin.Context)     // 获取任务日志（复数形式）
+
+	// ==================== 任务配置管理 ====================
+	UpdateTaskConfig(c *gin.Context)   // 更新任务配置
+	UpdateTaskPriority(c *gin.Context) // 更新任务优先级
+
+	// ==================== 任务队列管理 ====================
+	GetTaskQueue(c *gin.Context)   // 获取任务队列
+	ClearTaskQueue(c *gin.Context) // 清空任务队列
+
+	// ==================== 任务统计监控 ====================
+	GetTaskStats(c *gin.Context) // 获取任务统计信息
+	GetTaskMetrics(c *gin.Context)      // 获取任务指标信息
 
 	// ==================== 任务结果管理 ====================
 	GetTaskResult(c *gin.Context) // 获取任务执行结果
-	GetTaskLog(c *gin.Context)    // 获取任务执行日志
+	GetTaskLog(c *gin.Context)    // 获取任务执行日志（单数形式）
 	CleanupTask(c *gin.Context)   // 清理任务资源
 }
 
@@ -563,6 +581,356 @@ func (h *agentTaskHandler) CleanupTask(c *gin.Context) {
 				"memory":     "256MB",
 				"processes":  3,
 			},
+		},
+	})
+}
+
+// ==================== 任务执行控制扩展实现 ====================
+
+// CancelTask 取消任务执行
+// @Summary 取消任务执行
+// @Description 取消正在执行或等待执行的任务
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Param task_id path string true "任务ID"
+// @Success 200 {object} map[string]interface{} "任务取消成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "任务不存在"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/{task_id}/cancel [post]
+func (h *agentTaskHandler) CancelTask(c *gin.Context) {
+	// TODO: 实现任务取消逻辑
+	taskID := c.Param("task_id")
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "CancelTask处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"task_id":       taskID,
+			"cancel_status": "cancelled",
+			"cancelled_at":  time.Now(),
+			"reason":        "用户取消",
+		},
+	})
+}
+
+// ==================== 任务查询和监控实现 ====================
+
+// ListTasks 列出所有任务
+// @Summary 列出所有任务
+// @Description 获取所有任务的列表信息
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Param status query string false "任务状态过滤"
+// @Param limit query int false "返回数量限制"
+// @Param offset query int false "偏移量"
+// @Success 200 {object} map[string]interface{} "任务列表"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/list [get]
+func (h *agentTaskHandler) ListTasks(c *gin.Context) {
+	// TODO: 实现任务列表获取逻辑
+	status := c.Query("status")
+	limit := parseIntParam(c, "limit", 10)
+	offset := parseIntParam(c, "offset", 0)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "ListTasks处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"tasks": []gin.H{
+				{
+					"task_id":    "task-001",
+					"name":       "扫描任务1",
+					"status":     "running",
+					"progress":   45.5,
+					"created_at": "2024-01-01T10:00:00Z",
+				},
+				{
+					"task_id":    "task-002",
+					"name":       "扫描任务2",
+					"status":     "completed",
+					"progress":   100.0,
+					"created_at": "2024-01-01T09:00:00Z",
+				},
+			},
+			"total":  2,
+			"limit":  limit,
+			"offset": offset,
+			"filter": gin.H{
+				"status": status,
+			},
+		},
+	})
+}
+
+// GetTaskProgress 获取任务进度
+// @Summary 获取任务进度
+// @Description 获取指定任务的执行进度信息
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Param task_id path string true "任务ID"
+// @Success 200 {object} map[string]interface{} "任务进度信息"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "任务不存在"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/{task_id}/progress [get]
+func (h *agentTaskHandler) GetTaskProgress(c *gin.Context) {
+	// TODO: 实现任务进度获取逻辑
+	taskID := c.Param("task_id")
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetTaskProgress处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"task_id":          taskID,
+			"progress_percent": 67.5,
+			"current_step":     "端口扫描",
+			"total_steps":      5,
+			"completed_steps":  3,
+			"estimated_time":   "15分钟",
+			"start_time":       "2024-01-01T10:00:00Z",
+			"last_update":      time.Now(),
+		},
+	})
+}
+
+// GetTaskLogs 获取任务日志（复数形式）
+// @Summary 获取任务日志
+// @Description 获取指定任务的执行日志信息
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Param task_id path string true "任务ID"
+// @Param level query string false "日志级别过滤"
+// @Param limit query int false "返回数量限制"
+// @Success 200 {object} map[string]interface{} "任务日志信息"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "任务不存在"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/{task_id}/logs [get]
+func (h *agentTaskHandler) GetTaskLogs(c *gin.Context) {
+	// TODO: 实现任务日志获取逻辑
+	taskID := c.Param("task_id")
+	level := c.Query("level")
+	limit := parseIntParam(c, "limit", 100)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetTaskLogs处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"task_id": taskID,
+			"logs": []gin.H{
+				{
+					"timestamp": "2024-01-01T10:00:01Z",
+					"level":     "INFO",
+					"message":   "任务开始执行",
+				},
+				{
+					"timestamp": "2024-01-01T10:00:05Z",
+					"level":     "INFO",
+					"message":   "开始端口扫描",
+				},
+				{
+					"timestamp": "2024-01-01T10:00:10Z",
+					"level":     "WARN",
+					"message":   "发现开放端口: 80, 443",
+				},
+			},
+			"total": 3,
+			"limit": limit,
+			"filter": gin.H{
+				"level": level,
+			},
+		},
+	})
+}
+
+// ==================== 任务配置管理实现 ====================
+
+// UpdateTaskConfig 更新任务配置
+// @Summary 更新任务配置
+// @Description 更新指定任务的配置参数
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Param task_id path string true "任务ID"
+// @Param config body map[string]interface{} true "任务配置"
+// @Success 200 {object} map[string]interface{} "配置更新成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "任务不存在"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/{task_id}/config [put]
+func (h *agentTaskHandler) UpdateTaskConfig(c *gin.Context) {
+	// TODO: 实现任务配置更新逻辑
+	taskID := c.Param("task_id")
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "UpdateTaskConfig处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"task_id":    taskID,
+			"updated_at": time.Now(),
+			"config": gin.H{
+				"timeout":     300,
+				"retry_count": 3,
+				"priority":    "high",
+			},
+		},
+	})
+}
+
+// UpdateTaskPriority 更新任务优先级
+// @Summary 更新任务优先级
+// @Description 更新指定任务的执行优先级
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Param task_id path string true "任务ID"
+// @Param priority body map[string]interface{} true "优先级信息"
+// @Success 200 {object} map[string]interface{} "优先级更新成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 404 {object} map[string]interface{} "任务不存在"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/{task_id}/priority [put]
+func (h *agentTaskHandler) UpdateTaskPriority(c *gin.Context) {
+	// TODO: 实现任务优先级更新逻辑
+	taskID := c.Param("task_id")
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "UpdateTaskPriority处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"task_id":    taskID,
+			"priority":   "high",
+			"updated_at": time.Now(),
+		},
+	})
+}
+
+// ==================== 任务队列管理实现 ====================
+
+// GetTaskQueue 获取任务队列
+// @Summary 获取任务队列
+// @Description 获取当前任务队列状态和排队任务
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "任务队列信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/queue [get]
+func (h *agentTaskHandler) GetTaskQueue(c *gin.Context) {
+	// TODO: 实现任务队列获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetTaskQueue处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"queue_size":     3,
+			"running_tasks":  2,
+			"pending_tasks":  1,
+			"max_concurrent": 5,
+			"queue": []gin.H{
+				{
+					"task_id":  "task-003",
+					"priority": "high",
+					"status":   "pending",
+					"position": 1,
+				},
+			},
+		},
+	})
+}
+
+// ClearTaskQueue 清空任务队列
+// @Summary 清空任务队列
+// @Description 清空所有等待中的任务队列
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "队列清空成功"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/queue/clear [post]
+func (h *agentTaskHandler) ClearTaskQueue(c *gin.Context) {
+	// TODO: 实现任务队列清空逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "ClearTaskQueue处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"cleared_tasks": 3,
+			"cleared_at":    time.Now(),
+		},
+	})
+}
+
+// ==================== 任务统计监控实现 ====================
+
+// GetTaskStats 获取任务统计信息
+// @Summary 获取任务统计信息
+// @Description 获取任务执行的统计数据
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "任务统计信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/stats [get]
+func (h *agentTaskHandler) GetTaskStats(c *gin.Context) {
+	// TODO: 实现任务统计获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetTaskStats处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"total_tasks":     156,
+			"completed_tasks": 142,
+			"failed_tasks":    8,
+			"running_tasks":   2,
+			"pending_tasks":   4,
+			"success_rate":    91.0,
+			"avg_duration":    "5m30s",
+			"last_24h": gin.H{
+				"completed": 25,
+				"failed":    2,
+				"created":   28,
+			},
+		},
+	})
+}
+
+// GetTaskMetrics 获取任务指标信息
+// @Summary 获取任务指标信息
+// @Description 获取任务执行的详细指标和性能数据
+// @Tags 任务管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "任务指标信息"
+// @Failure 500 {object} map[string]interface{} "内部服务器错误"
+// @Router /agent/tasks/metrics [get]
+func (h *agentTaskHandler) GetTaskMetrics(c *gin.Context) {
+	// TODO: 实现任务指标获取逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "GetTaskMetrics处理器待实现",
+		"timestamp": time.Now(),
+		"data": gin.H{
+			"metrics": gin.H{
+				"total_tasks":      100,
+				"running_tasks":    5,
+				"completed_tasks":  85,
+				"failed_tasks":     10,
+				"avg_duration":     "2m30s",
+				"success_rate":     85.0,
+				"cpu_usage":        "15%",
+				"memory_usage":     "256MB",
+				"disk_io":          "10MB/s",
+				"network_io":       "5MB/s",
+			},
+			"period": "last_24h",
 		},
 	})
 }

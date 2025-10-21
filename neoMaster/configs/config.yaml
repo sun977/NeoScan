@@ -118,7 +118,7 @@ mail:
   from_name: "NeoScan System"
 
 # 监控配置
-monitoring:
+monitor:
   metrics:
     enabled: true
     path: "/metrics"

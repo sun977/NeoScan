@@ -121,18 +121,8 @@ middleware:
     enabled: true
     allow_all_origins: true
     allow_origins: []
-    allow_methods:
-      - "GET"
-      - "POST"
-      - "PUT"
-      - "DELETE"
-      - "OPTIONS"
-    allow_headers:
-      - "Origin"
-      - "Content-Type"
-      - "Accept"
-      - "Authorization"
-      - "X-Requested-With"
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"]
+    allow_headers: ["Origin","Content-Type","Accept","Authorization","X-Requested-With"]
     expose_headers: []
     allow_credentials: false
     max_age: "12h"

@@ -16,14 +16,14 @@ import (
 // AgentControlService Agent控制服务接口
 type AgentControlService interface {
 	// ==================== Agent进程控制（🔴 需要响应Master端命令） ====================
-	StartAgent(ctx context.Context) error                    // 启动Agent进程 [响应Master端POST /:id/start]
-	StopAgent(ctx context.Context) error                     // 停止Agent进程 [响应Master端POST /:id/stop]
-	RestartAgent(ctx context.Context) error                  // 重启Agent进程 [响应Master端POST /:id/restart]
+	StartAgent(ctx context.Context) error                     // 启动Agent进程 [响应Master端POST /:id/start]
+	StopAgent(ctx context.Context) error                      // 停止Agent进程 [响应Master端POST /:id/stop]
+	RestartAgent(ctx context.Context) error                   // 重启Agent进程 [响应Master端POST /:id/restart]
 	GetAgentStatus(ctx context.Context) (*AgentStatus, error) // 获取Agent实时状态 [响应Master端GET /:id/status]
-	
+
 	// ==================== Agent配置管理（🟡 混合实现 - 接收Master端配置推送） ====================
 	ApplyConfig(ctx context.Context, config *AgentConfig) error // 应用Master端推送的配置 [响应Master端PUT /:id/config]
-	
+
 	// ==================== Agent通信和控制（🔴 需要响应Master端通信） ====================
 	ExecuteCommand(ctx context.Context, command *Command) (*CommandResult, error) // 执行Master端发送的控制命令 [响应Master端POST /:id/command]
 	GetCommandStatus(ctx context.Context, cmdID string) (*CommandStatus, error)   // 获取命令执行状态 [响应Master端GET /:id/command/:cmd_id]
@@ -170,9 +170,9 @@ func (s *agentControlService) ResetConfig(ctx context.Context) error {
 
 // AgentStatus Agent状态信息
 type AgentStatus struct {
-	Status    string    `json:"status"`     // Agent状态：running, stopped, error
-	Message   string    `json:"message"`    // 状态描述信息
-	Timestamp time.Time `json:"timestamp"`  // 状态更新时间
+	Status    string    `json:"status"`    // Agent状态：running, stopped, error
+	Message   string    `json:"message"`   // 状态描述信息
+	Timestamp time.Time `json:"timestamp"` // 状态更新时间
 	// TODO: 添加更多状态字段
 	// CPUUsage    float64 `json:"cpu_usage"`    // CPU使用率
 	// MemoryUsage float64 `json:"memory_usage"` // 内存使用率
@@ -189,10 +189,10 @@ type AgentConfig struct {
 
 // Command Master端发送的控制命令
 type Command struct {
-	ID        string                 `json:"id"`         // 命令ID
-	Type      string                 `json:"type"`       // 命令类型
-	Params    map[string]interface{} `json:"params"`     // 命令参数
-	Timestamp time.Time              `json:"timestamp"`  // 命令时间戳
+	ID        string                 `json:"id"`        // 命令ID
+	Type      string                 `json:"type"`      // 命令类型
+	Params    map[string]interface{} `json:"params"`    // 命令参数
+	Timestamp time.Time              `json:"timestamp"` // 命令时间戳
 }
 
 // CommandResult 命令执行结果

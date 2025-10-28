@@ -1,14 +1,16 @@
 /**
- * 中间件:认证相关中间件
- * @author: sun977
- * @date: 2025.10.10
- * @description: 定义认证相关中间件
+ * 统一认证中间件
+ * @author: Sun977
+ * @date: 2025.10.28
+ * @description: 提供多种认证策略，支持IP白名单、跳过路径、JWT和API Key认证
  * @func:
- *   - GinJWTAuthMiddleware: Gin JWT认证中间件
+ *   - GinAuthMiddleware: 统一认证中间件
+ *   - GinJWTAuthMiddleware: JWT认证中间件（向后兼容）
  *   - GinUserActiveMiddleware: 检查用户是否活跃中间件
  *   - GinAdminRoleMiddleware: 检查用户是否具有管理员角色中间件
  *   - GinRequireAnyRole: 检查用户是否具有任意角色中间件[未使用]
  *   - extractTokenFromGinHeader: 从Gin请求头中提取JWT令牌
+ *   - extractTokenFromHeader: 从请求头中提取JWT令牌
  */
 package middleware
 
@@ -19,16 +21,256 @@ import (
 	"net/http"
 	"strings"
 
+	"neomaster/internal/config"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // =============================================================================
-// JWT认证相关中间件
+// 统一认证中间件
 // =============================================================================
+
+// GinAuthMiddleware 统一认证中间件
+// 支持多种认证策略：IP白名单、跳过路径、JWT认证、API Key认证
+// 参数: authConfig - 认证配置
+// 返回: Gin中间件函数
+// 认证顺序：统一认证中间件 GinAuthMiddleware ，按优先级处理：跳过路径 → IP白名单 → API Key → JWT
+func GinAuthMiddleware(authConfig *config.AuthConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestPath := c.Request.URL.Path
+		clientIP := utils.GetClientIP(c)
+
+		// 记录认证请求
+		logger.Info("Authentication request", map[string]interface{}{
+			"path":      requestPath,
+			"client_ip": clientIP,
+			"method":    c.Request.Method,
+			"func_name": "middleware.auth.GinAuthMiddleware",
+		})
+
+		// 1. 检查跳过路径
+		if isPathSkipped(requestPath, authConfig.SkipPaths) {
+			logger.Debug("Path skipped authentication", map[string]interface{}{
+				"path":      requestPath,
+				"func_name": "middleware.auth.GinAuthMiddleware",
+			})
+			c.Next()
+			return
+		}
+
+		// 2. 检查IP白名单（如果启用）
+		if authConfig.EnableIPWhitelist && len(authConfig.WhitelistIPs) > 0 {
+			if utils.IsIPInWhitelist(clientIP, authConfig.WhitelistIPs) {
+				logger.Info("IP whitelist authentication passed", map[string]interface{}{
+					"client_ip": clientIP,
+					"func_name": "middleware.auth.GinAuthMiddleware",
+				})
+				c.Next()
+				return
+			}
+			logger.Debug("IP not in whitelist", map[string]interface{}{
+				"client_ip": clientIP,
+				"func_name": "middleware.auth.GinAuthMiddleware",
+			})
+		}
+
+		// 3. 根据认证方法进行认证
+		switch strings.ToLower(authConfig.AuthMethod) {
+		case "jwt":
+			if !validateJWTAuth(c, authConfig) {
+				return // 认证失败，已在函数内处理响应
+			}
+		case "api_key":
+			if !validateAPIKeyAuth(c, authConfig) {
+				return // 认证失败，已在函数内处理响应
+			}
+		case "none":
+			// 无认证要求
+			logger.Debug("No authentication required", map[string]interface{}{
+				"path":      requestPath,
+				"func_name": "middleware.auth.GinAuthMiddleware",
+			})
+		default:
+			logger.Error("Unknown authentication method", map[string]interface{}{
+				"auth_method": authConfig.AuthMethod,
+				"func_name":   "middleware.auth.GinAuthMiddleware",
+			})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Internal Server Error",
+				"message": "Invalid authentication configuration",
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// isPathSkipped 检查路径是否在跳过列表中
+func isPathSkipped(requestPath string, skipPaths []string) bool {
+	for _, skipPath := range skipPaths {
+		if strings.HasPrefix(requestPath, skipPath) {
+			return true
+		}
+	}
+	return false
+}
+
+// validateJWTAuth 验证JWT认证
+func validateJWTAuth(c *gin.Context, authConfig *config.AuthConfig) bool {
+	tokenString := extractTokenFromHeader(c)
+	if tokenString == "" {
+		logger.Warn("JWT token missing", map[string]interface{}{
+			"path":      c.Request.URL.Path,
+			"func_name": "middleware.auth.validateJWTAuth",
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Unauthorized",
+			"message": "Missing or invalid authorization header",
+		})
+		c.Abort()
+		return false
+	}
+
+	// 解析和验证JWT令牌
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return []byte(authConfig.APIKey), nil // 使用APIKey作为JWT密钥
+	})
+
+	if err != nil || !token.Valid {
+		logger.Warn("JWT token validation failed", map[string]interface{}{
+			"error":     err.Error(),
+			"func_name": "middleware.auth.validateJWTAuth",
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Unauthorized",
+			"message": "Invalid or expired token",
+		})
+		c.Abort()
+		return false
+	}
+
+	// 将用户信息存储到上下文中
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		c.Set("user_id", claims["user_id"])
+		c.Set("username", claims["username"])
+	}
+
+	logger.Info("JWT authentication passed", map[string]interface{}{
+		"func_name": "middleware.auth.validateJWTAuth",
+	})
+	return true
+}
+
+// validateAPIKeyAuth 验证API Key认证
+func validateAPIKeyAuth(c *gin.Context, authConfig *config.AuthConfig) bool {
+	apiKey := c.GetHeader(authConfig.APIKeyHeader)
+	if apiKey == "" {
+		logger.Warn("API key missing", map[string]interface{}{
+			"header":    authConfig.APIKeyHeader,
+			"func_name": "middleware.auth.validateAPIKeyAuth",
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Unauthorized",
+			"message": "Missing API key",
+		})
+		c.Abort()
+		return false
+	}
+
+	if apiKey != authConfig.APIKey {
+		logger.Warn("API key validation failed", map[string]interface{}{
+			"func_name": "middleware.auth.validateAPIKeyAuth",
+		})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Unauthorized",
+			"message": "Invalid API key",
+		})
+		c.Abort()
+		return false
+	}
+
+	logger.Info("API key authentication passed", map[string]interface{}{
+		"func_name": "middleware.auth.validateAPIKeyAuth",
+	})
+	return true
+}
+
+// extractTokenFromHeader 从请求头中提取JWT令牌
+// 支持格式: "Authorization: Bearer <token>"
+// 参数: c - Gin上下文
+// 返回: JWT令牌字符串，如果不存在或格式错误则返回空字符串
+func extractTokenFromHeader(c *gin.Context) string {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		return ""
+	}
+
+	// 检查Bearer前缀
+	const bearerPrefix = "Bearer "
+	if !strings.HasPrefix(authHeader, bearerPrefix) {
+		return ""
+	}
+
+	// 提取令牌
+	return strings.TrimSpace(authHeader[len(bearerPrefix):])
+}
+
+// =============================================================================
+// JWT认证相关中间件（向后兼容）
+// =============================================================================
+
+// GinJWTAuthMiddleware JWT认证中间件（向后兼容）
+// 验证请求头中的JWT令牌
+// 支持Bearer Token格式: "Authorization: Bearer <token>"
+func GinJWTAuthMiddleware(secretKey string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 从请求头中提取令牌
+		tokenString := extractTokenFromHeader(c)
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Unauthorized",
+				"message": "Missing or invalid authorization header",
+			})
+			c.Abort()
+			return
+		}
+
+		// 解析和验证JWT令牌
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			// 验证签名方法
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return []byte(secretKey), nil
+		})
+
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Unauthorized",
+				"message": "Invalid or expired token",
+			})
+			c.Abort()
+			return
+		}
+
+		// 将用户信息存储到上下文中
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			c.Set("user_id", claims["user_id"])
+			c.Set("username", claims["username"])
+		}
+
+		c.Next()
+	}
+}
 
 // GinJWTAuthMiddleware Gin JWT认证中间件
 // 验证请求头中的JWT令牌，并将用户信息存储到Gin上下文中
@@ -39,49 +281,6 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		clientIP := utils.GetClientIP(c)
 		XRequestID := c.GetHeader("X-Request-ID")
 		userAgent := c.GetHeader("User-Agent")
-		requestPath := c.Request.URL.Path
-
-		// 记录认证请求
-		logger.Info("Authentication request", map[string]interface{}{
-			"path":         requestPath,
-			"client_ip":    clientIP,
-			"method":       c.Request.Method,
-			"user_agent":   userAgent,
-			"X-Request-ID": XRequestID,
-			"func_name":    "middleware.auth.GinJWTAuthMiddleware",
-		})
-
-		// 检查跳过路径(配置了路径就直接跳过认证)
-		if m.isPathSkipped(requestPath, m.securityConfig.Auth.SkipPaths) {
-			// 跳过认证专用用户 sysuser uid 2
-			c.Set("user_id", uint(2))
-			c.Set("username", "syswuser")
-			logger.Debug("Path skipped authentication", map[string]interface{}{
-				"path":      requestPath,
-				"func_name": "middleware.auth.GinJWTAuthMiddleware",
-			})
-			c.Next()
-			return
-		}
-
-		// 检查IP白名单(先判断是否启用白名单跳过功能)
-		if m.securityConfig.Auth.EnableIPWhitelist && len(m.securityConfig.Auth.WhitelistIPs) > 0 {
-			if utils.IsIPInWhitelist(clientIP, m.securityConfig.Auth.WhitelistIPs) {
-				// 跳过认证专用用户 sysuser uid 2
-				c.Set("user_id", uint(2))
-				c.Set("username", "sysuser")
-				logger.Info("IP whitelist authentication passed ", map[string]interface{}{
-					"client_ip": clientIP,
-					"func_name": "middleware.auth.GinAuthMiddleware",
-				})
-				c.Next()
-				return
-			}
-			logger.Debug("IP not in whitelist ", map[string]interface{}{
-				"client_ip": clientIP,
-				"func_name": "middleware.auth.GinAuthMiddleware",
-			})
-		}
 
 		// 从请求头中提取访问令牌
 		accessToken, err := m.extractTokenFromGinHeader(c)
@@ -408,14 +607,4 @@ func (m *MiddlewareManager) extractTokenFromGinHeader(c *gin.Context) (string, e
 	}
 
 	return token, nil
-}
-
-// isPathSkipped 检查路径是否在跳过列表中
-func (m *MiddlewareManager) isPathSkipped(requestPath string, skipPaths []string) bool {
-	for _, skipPath := range skipPaths {
-		if strings.HasPrefix(requestPath, skipPath) {
-			return true
-		}
-	}
-	return false
 }

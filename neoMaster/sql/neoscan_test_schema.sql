@@ -1,7 +1,7 @@
 -- NeoScan 数据库建表SQL脚本
--- 数据库: neoscan_test
+-- 数据库: neoscan_dev
 -- 版本: MySQL 8.0
--- 生成时间: 2025-09-25
+-- 生成时间: 2025-10-28
 -- 说明: 根据GORM模型定义生成的建表语句
 
 -- 创建数据库（如果不存在）
@@ -143,12 +143,20 @@ WHERE r.name = 'guest' AND p.name IN ('user:read', 'role:read', 'permission:read
 -- 创建默认管理员用户（密码需要在应用中加密后更新）
 INSERT INTO `users` (`username`, `email`, `password`, `nickname`, `status`) VALUES
 ('admin', 'admin@neoscan.com', '$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ', '系统管理员', 1);
+INSERT INTO `users` (`username`, `email`, `password`, `nickname`, `status`) VALUES
+('sysuser', 'sysuser@neoscan.com', '$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ', '系统用户-仅系统使用', 1);
 
 -- 为默认管理员分配管理员角色
 INSERT INTO `user_roles` (`user_id`, `role_id`) 
 SELECT u.id, r.id 
 FROM `users` u, `roles` r 
 WHERE u.username = 'admin' AND r.name = 'admin';
+
+-- 为默认系统用户分配系统用户角色
+INSERT INTO `user_roles` (`user_id`, `role_id`) 
+SELECT u.id, r.id 
+FROM `users` u, `roles` r 
+WHERE u.username = 'sysuser' AND r.name = 'admin';
 
 -- 创建性能优化索引
 -- 用户表额外索引

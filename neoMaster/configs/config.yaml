@@ -10,14 +10,14 @@ app:
   timezone: "Asia/Shanghai"
   language: "zh-CN"
 
-  # 功能开关
+  # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:
-    user_registration: true
-    email_verification: false
-    password_reset: true
-    two_factor_auth: false
-    audit_log: true
-    api_documentation: true
+    user_registration: true       # 用户注册功能
+    email_verification: false     # 邮箱验证功能
+    password_reset: true          # 密码重置功能
+    two_factor_auth: false        # 双因素认证功能    
+    audit_log: true               # 审计日志功能
+    api_documentation: true       # API文档功能
 
 # 服务器配置
 server:

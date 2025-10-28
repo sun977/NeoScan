@@ -134,11 +134,108 @@ func (tbl *TokenBucketLimiter) cleanupExpiredBuckets() {
 }
 
 // GinRateLimitMiddleware 默认限流中间件
-// 使用默认配置的限流策略，保持向后兼容性
+// 使用配置文件中的限流策略
 func (m *MiddlewareManager) GinRateLimitMiddleware() gin.HandlerFunc {
-	// 创建默认限流器：每秒20个请求，突发30个
-	limiter := NewTokenBucketLimiter(20, 30, 5*time.Minute)
-	return m.GinRateLimitMiddlewareWithLimiter(limiter)
+	return func(c *gin.Context) {
+		// 检查是否启用限流
+		if !m.securityConfig.RateLimit.Enabled {
+			c.Next()
+			return
+		}
+
+		// 检查是否跳过限流
+		if m.shouldSkipRateLimit(c) {
+			c.Next()
+			return
+		}
+
+		// 获取客户端IP作为限流key
+		clientIP := utils.GetClientIP(c)
+
+		// 根据配置创建限流器
+		limiter := m.getRateLimiter()
+
+		// 检查是否允许请求
+		if !limiter.Allow(clientIP) {
+			// 记录限流日志
+			logger.LogWarn("Rate limit exceeded for client", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
+				"operation": "rate_limit_exceeded",
+				"option":    "block_request",
+				"func_name": "middleware.ratelimit.GinRateLimitMiddleware",
+				"method":    c.Request.Method,
+			})
+
+			// 返回配置的限流错误
+			c.JSON(m.securityConfig.RateLimit.StatusCode, gin.H{
+				"error":   "Rate limit exceeded",
+				"message": m.securityConfig.RateLimit.Message,
+				"code":    "RATE_LIMIT_EXCEEDED",
+			})
+			c.Abort()
+			return
+		}
+
+		// 记录通过限流的日志
+		logger.LogInfo("Request passed rate limit check", "", 0, clientIP, c.Request.URL.Path, c.Request.Method, map[string]interface{}{
+			"operation": "rate_limit_check",
+			"option":    "allow_request",
+			"func_name": "middleware.ratelimit.GinRateLimitMiddleware",
+		})
+
+		// 继续处理请求
+		c.Next()
+	}
+}
+
+// shouldSkipRateLimit 检查是否应该跳过限流
+func (m *MiddlewareManager) shouldSkipRateLimit(c *gin.Context) bool {
+	path := c.Request.URL.Path
+
+	// 检查跳过路径
+	for _, skipPath := range m.securityConfig.RateLimit.SkipPaths {
+		if path == skipPath {
+			return true
+		}
+	}
+
+	// 检查跳过IP
+	clientIP := utils.GetClientIP(c)
+	for _, skipIP := range m.securityConfig.RateLimit.SkipIPs {
+		if clientIP == skipIP {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getRateLimiter 根据配置获取限流器
+func (m *MiddlewareManager) getRateLimiter() RateLimiter {
+	config := &m.securityConfig.RateLimit
+
+	// 解析窗口大小字符串为time.Duration
+	windowSize, err := time.ParseDuration(config.WindowSize)
+	if err != nil {
+		// 如果解析失败，使用默认值
+		windowSize = 15 * time.Minute
+	}
+
+	// 根据策略创建不同的限流器
+	switch config.Strategy {
+	case "token_bucket":
+		return NewTokenBucketLimiter(
+			config.RequestsPerSecond,
+			config.BurstSize,
+			windowSize,
+		)
+	default:
+		// 默认使用令牌桶算法
+		return NewTokenBucketLimiter(
+			config.RequestsPerSecond,
+			config.BurstSize,
+			windowSize,
+		)
+	}
 }
 
 // GinRateLimitMiddlewareWithLimiter 通用限流中间件

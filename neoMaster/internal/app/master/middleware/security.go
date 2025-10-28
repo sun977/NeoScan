@@ -12,9 +12,11 @@
 package middleware
 
 import (
+	"fmt"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +25,12 @@ import (
 // 处理跨域请求，设置必要的CORS头部信息
 func (m *MiddlewareManager) GinCORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 检查是否启用CORS
+		if !m.securityConfig.CORS.Enabled {
+			c.Next()
+			return
+		}
+
 		// 获取客户端IP和请求来源
 		clientIP := utils.GetClientIP(c)
 		origin := c.Request.Header.Get("Origin")
@@ -36,28 +44,7 @@ func (m *MiddlewareManager) GinCORSMiddleware() gin.HandlerFunc {
 		})
 
 		// 设置CORS头部
-		// 允许的来源（生产环境应该配置具体的域名）
-		if origin != "" {
-			c.Header("Access-Control-Allow-Origin", origin)
-		} else {
-			c.Header("Access-Control-Allow-Origin", "*")
-		}
-
-		// 允许的HTTP方法
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-
-		// 允许的请求头
-		c.Header("Access-Control-Allow-Headers",
-			"Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-
-		// 允许发送凭据（cookies等）
-		c.Header("Access-Control-Allow-Credentials", "true")
-
-		// 预检请求的缓存时间（秒）
-		c.Header("Access-Control-Max-Age", "86400")
-
-		// 允许客户端访问的响应头
-		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type")
+		m.setCORSHeaders(c, origin)
 
 		// 处理预检请求（OPTIONS方法）
 		if c.Request.Method == "OPTIONS" {
@@ -185,11 +172,64 @@ func (m *MiddlewareManager) GinRequestIDMiddleware() gin.HandlerFunc {
 	}
 }
 
-// // generateRequestID 生成请求ID
-// // 使用时间戳和随机数生成唯一的请求标识符
-// func generateRequestID() string {
-// 	// 简单的请求ID生成策略：时间戳(纳秒) + 随机后缀
-// 	// 生产环境建议使用更强的UUID生成算法
-// 	requestID, _ := utils.GenerateUUID()
-// 	return requestID
-// }
+// setCORSHeaders 设置CORS头部
+func (m *MiddlewareManager) setCORSHeaders(c *gin.Context, origin string) {
+	corsConfig := &m.securityConfig.CORS
+
+	// 设置允许的源
+	if corsConfig.AllowAllOrigins {
+		c.Header("Access-Control-Allow-Origin", "*")
+	} else if origin != "" && m.isOriginAllowed(origin) {
+		c.Header("Access-Control-Allow-Origin", origin)
+	}
+
+	// 设置允许的方法
+	if len(corsConfig.AllowMethods) > 0 {
+		methods := strings.Join(corsConfig.AllowMethods, ", ")
+		c.Header("Access-Control-Allow-Methods", methods)
+	}
+
+	// 设置允许的头部
+	if len(corsConfig.AllowHeaders) > 0 {
+		headers := strings.Join(corsConfig.AllowHeaders, ", ")
+		c.Header("Access-Control-Allow-Headers", headers)
+	}
+
+	// 设置暴露的头部
+	if len(corsConfig.ExposeHeaders) > 0 {
+		exposeHeaders := strings.Join(corsConfig.ExposeHeaders, ", ")
+		c.Header("Access-Control-Expose-Headers", exposeHeaders)
+	}
+
+	// 设置是否允许凭证
+	if corsConfig.AllowCredentials {
+		c.Header("Access-Control-Allow-Credentials", "true")
+	}
+
+	// 设置缓存时间
+	if corsConfig.MaxAge > 0 {
+		maxAge := int(corsConfig.MaxAge.Seconds())
+		c.Header("Access-Control-Max-Age", fmt.Sprintf("%d", maxAge))
+	}
+}
+
+// isOriginAllowed 检查源是否被允许
+func (m *MiddlewareManager) isOriginAllowed(origin string) bool {
+	corsConfig := &m.securityConfig.CORS
+
+	if corsConfig.AllowAllOrigins {
+		return true
+	}
+
+	if origin == "" {
+		return false
+	}
+
+	for _, allowedOrigin := range corsConfig.AllowOrigins {
+		if allowedOrigin == "*" || allowedOrigin == origin {
+			return true
+		}
+	}
+
+	return false
+}

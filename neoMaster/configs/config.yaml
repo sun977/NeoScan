@@ -93,12 +93,12 @@ security:
 
   # 认证中间件
   auth:
-    auth_method: "none"   # 认证方式 none, api_key, jwt
-    api_key: ""           # 认证密钥
-    api_key_header: ""
-    whitelist_ips: []
-    enable_ip_whitelist: false
-    skip_paths:
+    auth_method: "jwt"   # 认证方式 none, api_key, jwt [未启用]
+    api_key: ""           # 认证密钥  [未启用]
+    api_key_header: ""    # 认证密钥头  [未启用]
+    whitelist_ips: ["9.9.9.9"]             # IP白名单 
+    enable_ip_whitelist: true    # 是否启用IP白名单
+    skip_paths:                   # 请求路径白名单 [这些路径是公共接口本身就没有过jwt认证中间件,跳过功能先保留]
       - "/api/health"
       - "/api/ready"
       - "/api/live"
@@ -123,7 +123,7 @@ security:
     allow_headers: ["Origin","Content-Type","Accept","Authorization","X-Requested-With"]
     expose_headers: []
     allow_credentials: false
-    max_age: "12h"
+    max_age: "12h"    # 12小时 支持时间单位: ms, s, m, h, d
 
   # 限流中间件
   rate_limit:
@@ -131,7 +131,7 @@ security:
     requests_per_second: 100
     burst_size: 200
     strategy: "token_bucket"
-    window_size: "1m"
+    window_size: "1m"  # 1分钟
     status_code: 429
     message: "Rate limit exceeded"
     skip_paths:

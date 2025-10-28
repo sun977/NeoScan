@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"neomaster/internal/app/master/middleware"
+	"neomaster/internal/config"
 	agentHandler "neomaster/internal/handler/agent"
 	authHandler "neomaster/internal/handler/auth"
 	scanConfigHandler "neomaster/internal/handler/orchestrator"
@@ -52,7 +53,7 @@ type Router struct {
 }
 
 // NewRouter 创建路由管理器实例
-func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router {
+func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, securityConfig *config.SecurityConfig) *Router {
 	// 初始化工具包
 	jwtManager := authPkg.NewJWTManager(jwtSecret, time.Hour, 24*time.Hour)
 	passwordConfig := &authPkg.PasswordConfig{
@@ -100,7 +101,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string) *Router
 	passwordService := authService.NewPasswordService(userService, sessionService, passwordManager, time.Hour*24)
 
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
-	middlewareManager := middleware.NewMiddlewareManager(sessionService, rbacService, jwtService)
+	middlewareManager := middleware.NewMiddlewareManager(sessionService, rbacService, jwtService, securityConfig)
 
 	// 初始化处理器(控制器是服务集合,先初始化服务,然后服务装填成控制器)
 	loginHandler := authHandler.NewLoginHandler(sessionService)

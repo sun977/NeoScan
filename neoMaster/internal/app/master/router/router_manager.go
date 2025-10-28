@@ -53,7 +53,11 @@ type Router struct {
 }
 
 // NewRouter 创建路由管理器实例
-func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, securityConfig *config.SecurityConfig) *Router {
+func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *Router {
+	// 内部提取需要的配置
+	jwtSecret := config.Security.JWT.Secret
+	securityConfig := &config.Security
+
 	// 初始化工具包
 	jwtManager := authPkg.NewJWTManager(jwtSecret, time.Hour, 24*time.Hour)
 	passwordConfig := &authPkg.PasswordConfig{

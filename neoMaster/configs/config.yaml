@@ -93,8 +93,8 @@ security:
 
   # 认证中间件
   auth:
-    auth_method: "none"
-    api_key: ""
+    auth_method: "none"   # 认证方式 none, api_key, jwt
+    api_key: ""           # 认证密钥
     api_key_header: ""
     whitelist_ips: []
     enable_ip_whitelist: false

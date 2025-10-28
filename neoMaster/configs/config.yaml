@@ -59,13 +59,6 @@ database:
     pool_timeout: 4s
     idle_timeout: 300s
 
-## JWT配置
-#jwt:
-#  secret: "neoscan_jwt_secret_key_at_least_32_characters_long"  # 通过环境变量设置
-#  issuer: "neoscan"
-#  access_token_expire: 24h
-#  refresh_token_expire: 168h  # 7天
-#  algorithm: "HS256"
 
 # 日志配置
 log:

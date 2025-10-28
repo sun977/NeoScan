@@ -140,7 +140,8 @@ func NewApp() (*App, error) {
 
 	// 初始化路由器
 	// router := router.NewRouter(db, redisClient, cfg.JWT.Secret) 【这里可以直接引入配置文件而不是配置文件部分】
-	router := router.NewRouter(db, redisClient, cfg.Security.JWT.Secret, &cfg.Security)
+	// router := router.NewRouter(db, redisClient, cfg.Security.JWT.Secret, &cfg.Security)
+	router := router.NewRouter(db, redisClient, cfg)
 
 	// 设置路由
 	router.SetupRoutes()

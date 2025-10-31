@@ -47,13 +47,12 @@ func InitLogger(cfg *config.LogConfig) (*LoggerManager, error) {
 
 	// 设置日志输出
 	if err := setLogOutput(logger, cfg); err != nil {
+		// 默认让hook机制处理所有日志 [neoMaster\internal\pkg\logger\hooks.go]
 		return nil, fmt.Errorf("failed to set log output: %w", err)
 	}
 
 	// 添加FileHook以支持不同类型的日志输出到不同文件
 	logger.AddHook(NewFileHook(cfg))
-	// // 设置为不输出到默认位置，让Hook处理所有日志
-	// logger.SetOutput(io.Discard)
 
 	// 设置调用者信息
 	logger.SetReportCaller(cfg.Caller)

@@ -218,7 +218,7 @@ func (m *DefaultExecutorManager) ExecuteTask(ctx context.Context, request *ScanR
 func (m *DefaultExecutorManager) executeTaskAsync(taskInfo *TaskInfo) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.LogError(fmt.Errorf("Task %s panicked: %v", taskInfo.Request.TaskID, r), "executor.manager.executeTaskAsync", 0, "", "", "", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("Task %s panicked: %v", taskInfo.Request.TaskID, r), "executor.manager.executeTaskAsync", 0, "", "", "", map[string]interface{}{
 				"operation": "execute_task",
 				"option":    "panic_recovery",
 				"func_name": "executor.manager.executeTaskAsync",
@@ -239,7 +239,7 @@ func (m *DefaultExecutorManager) executeTaskAsync(taskInfo *TaskInfo) {
 	m.mutex.Unlock()
 
 	if err != nil {
-		logger.LogError(fmt.Errorf("Task %s failed: %v", taskInfo.Request.TaskID, err), "executor.manager.executeTaskAsync", 0, "", "", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("Task %s failed: %v", taskInfo.Request.TaskID, err), "executor.manager.executeTaskAsync", 0, "", "", "", map[string]interface{}{
 			"operation": "execute_task",
 			"option":    "execution_failed",
 			"func_name": "executor.manager.executeTaskAsync",

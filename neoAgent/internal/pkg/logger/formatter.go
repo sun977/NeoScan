@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"neoagent/internal/pkg/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"neoagent/internal/pkg/utils"
 )
 
 // FormatTimestamp 格式化时间戳为统一的毫秒精度格式
@@ -149,6 +150,43 @@ type SecurityLogEntry struct {
 	Action      string                 `json:"action"`       // 采取的行动
 	Result      string                 `json:"result"`       // 处理结果
 	ExtraFields map[string]interface{} `json:"extra_fields"` // 额外字段
+}
+
+// LogHTTPRequest 记录标准HTTP请求日志（非Gin框架）
+// 用于记录标准HTTP处理器的请求日志
+func LogHTTPRequest(r *http.Request, statusCode int, responseTime time.Duration, requestID string, userID uint) {
+	if LoggerInstance == nil {
+		return
+	}
+
+	// 构建访问日志条目（移除未使用的Timestamp字段）
+	entry := AccessLogEntry{
+		Method:       r.Method,
+		Path:         r.URL.Path,
+		Query:        r.URL.RawQuery,
+		StatusCode:   statusCode,
+		ResponseTime: responseTime.Milliseconds(),
+		ClientIP:     utils.GetClientIPFromRequest(r),
+		UserAgent:    r.UserAgent(),
+		UserID:       userID,
+		RequestID:    requestID,
+		RequestSize:  r.ContentLength,
+	}
+
+	// 记录日志（移除重复的timestamp字段，使用logrus自带的时间戳）
+	LoggerInstance.logger.WithFields(logrus.Fields{
+		"type":          AccessLog,
+		"method":        entry.Method,
+		"path":          entry.Path,
+		"query":         entry.Query,
+		"status_code":   entry.StatusCode,
+		"response_time": entry.ResponseTime,
+		"client_ip":     entry.ClientIP,
+		"user_agent":    entry.UserAgent,
+		"user_id":       entry.UserID,
+		"request_id":    entry.RequestID,
+		"request_size":  entry.RequestSize,
+	}).Info("HTTP request processed")
 }
 
 // LogAccessRequest 记录HTTP访问日志
@@ -566,43 +604,6 @@ func LogSecurityEvent(eventType, severity, source, target, action, result string
 	default:
 		LoggerInstance.logger.WithFields(fields).Info(fmt.Sprintf("Security event: %s - %s", eventType, result))
 	}
-}
-
-// LogHTTPRequest 记录标准HTTP请求日志（非Gin框架）
-// 用于记录标准HTTP处理器的请求日志
-func LogHTTPRequest(r *http.Request, statusCode int, responseTime time.Duration, requestID string, userID uint) {
-	if LoggerInstance == nil {
-		return
-	}
-
-	// 构建访问日志条目（移除未使用的Timestamp字段）
-	entry := AccessLogEntry{
-		Method:       r.Method,
-		Path:         r.URL.Path,
-		Query:        r.URL.RawQuery,
-		StatusCode:   statusCode,
-		ResponseTime: responseTime.Milliseconds(),
-		ClientIP:     utils.GetClientIPFromRequest(r),
-		UserAgent:    r.UserAgent(),
-		UserID:       userID,
-		RequestID:    requestID,
-		RequestSize:  r.ContentLength,
-	}
-
-	// 记录日志（移除重复的timestamp字段，使用logrus自带的时间戳）
-	LoggerInstance.logger.WithFields(logrus.Fields{
-		"type":          AccessLog,
-		"method":        entry.Method,
-		"path":          entry.Path,
-		"query":         entry.Query,
-		"status_code":   entry.StatusCode,
-		"response_time": entry.ResponseTime,
-		"client_ip":     entry.ClientIP,
-		"user_agent":    entry.UserAgent,
-		"user_id":       entry.UserID,
-		"request_id":    entry.RequestID,
-		"request_size":  entry.RequestSize,
-	}).Info("HTTP request processed")
 }
 
 // LogLevel 日志级别类型，封装logrus.Level避免Handler层直接依赖logrus

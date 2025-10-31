@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"neomaster/internal/config"
+
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -35,10 +36,10 @@ func NewFileHook(logConfig *config.LogConfig) *FileHook {
 			},
 		},
 	}
-	
+
 	// 初始化默认writer
 	hook.initDefaultWriter()
-	
+
 	return hook
 }
 
@@ -75,7 +76,7 @@ func (hook *FileHook) Fire(entry *logrus.Entry) error {
 			logType = t
 		}
 	}
-	
+
 	// 获取对应类型的writer
 	writer := hook.getWriter(logType)
 	if writer == nil {
@@ -85,13 +86,13 @@ func (hook *FileHook) Fire(entry *logrus.Entry) error {
 			return nil
 		}
 	}
-	
+
 	// 格式化日志
 	formatted, err := hook.formatter.Format(entry)
 	if err != nil {
 		return err
 	}
-	
+
 	// 写入到对应文件
 	hook.mutex.Lock()
 	defer hook.mutex.Unlock()
@@ -103,17 +104,17 @@ func (hook *FileHook) Fire(entry *logrus.Entry) error {
 func (hook *FileHook) getWriter(logType string) io.Writer {
 	hook.mutex.Lock()
 	defer hook.mutex.Unlock()
-	
+
 	// 如果已经存在，直接返回
 	if writer, exists := hook.writers[logType]; exists {
 		return writer
 	}
-	
+
 	// 根据日志类型创建对应的文件writer
 	var filename string
 	// 使用配置中的file_path获取日志目录
 	logDir := filepath.Dir(hook.logConfig.FilePath)
-	
+
 	switch logType {
 	case "access":
 		filename = filepath.Join(logDir, "access.log")
@@ -131,10 +132,10 @@ func (hook *FileHook) getWriter(logType string) io.Writer {
 		// 对于未知类型，使用默认writer
 		return hook.writers["default"]
 	}
-	
+
 	// 确保日志目录存在
 	_ = os.MkdirAll(filepath.Dir(filename), 0755)
-	
+
 	// 创建新的lumberjack logger
 	writer := &lumberjack.Logger{
 		Filename:   filename,
@@ -143,9 +144,9 @@ func (hook *FileHook) getWriter(logType string) io.Writer {
 		MaxAge:     hook.logConfig.MaxAge,
 		Compress:   hook.logConfig.Compress,
 	}
-	
+
 	// 保存到writers map中
 	hook.writers[logType] = writer
-	
+
 	return writer
 }

@@ -12,9 +12,9 @@ app:
 
   # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:
-    user_registration: true       # 用户注册功能
+    user_registration: true       # 用户注册功能[完成]
     email_verification: false     # 邮箱验证功能
-    password_reset: true          # 密码重置功能
+    password_reset: true          # 密码重置功能[完成]
     two_factor_auth: false        # 双因素认证功能    
     audit_log: true               # 审计日志功能
     api_documentation: true       # API文档功能

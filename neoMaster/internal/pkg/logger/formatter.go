@@ -3,6 +3,7 @@ package logger
 
 import (
 	"fmt"
+	"neomaster/internal/pkg/utils"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -51,9 +52,13 @@ type AccessLogEntry struct {
 	ClientIP     string    `json:"client_ip"`     // 客户端IP
 	UserAgent    string    `json:"user_agent"`    // 用户代理
 	UserID       uint      `json:"user_id"`       // 用户ID（如果已认证）
+	Username     string    `json:"username"`      // 用户名
 	RequestID    string    `json:"request_id"`    // 请求追踪ID
 	RequestSize  int64     `json:"request_size"`  // 请求大小
 	ResponseSize int64     `json:"response_size"` // 响应大小
+	Referer      string    `json:"referer"`       // Referer头
+	IsSlow       bool      `json:"is_slow"`       // 是否为慢请求
+	URL          string    `json:"url"`           // 完整URL
 }
 
 // BusinessLogEntry 业务日志条目结构
@@ -109,9 +114,24 @@ type AuditLogEntry struct {
 
 // LogAccessRequest 记录HTTP访问日志
 // 用于记录所有HTTP请求的详细信息，包括请求参数、响应时间、状态码等
-func LogAccessRequest(c *gin.Context, startTime time.Time, requestID string, userID uint) {
+func LogAccessRequest(c *gin.Context, startTime time.Time, requestID string, userID uint, extraFields map[string]interface{}) {
 	if LoggerInstance == nil {
 		return
+	}
+
+	// 从extraFields中提取特定字段
+	username := ""
+	referer := ""
+	isSlow := false
+
+	if u, ok := extraFields["username"].(string); ok {
+		username = u
+	}
+	if r, ok := extraFields["referer"].(string); ok {
+		referer = r
+	}
+	if s, ok := extraFields["is_slow"].(bool); ok {
+		isSlow = s
 	}
 
 	// 计算响应时间
@@ -124,16 +144,20 @@ func LogAccessRequest(c *gin.Context, startTime time.Time, requestID string, use
 		Query:        c.Request.URL.RawQuery,
 		StatusCode:   c.Writer.Status(),
 		ResponseTime: responseTime,
-		ClientIP:     c.ClientIP(),
+		ClientIP:     utils.GetClientIP(c),
 		UserAgent:    c.Request.UserAgent(),
 		UserID:       userID,
+		Username:     username,
 		RequestID:    requestID,
 		RequestSize:  c.Request.ContentLength,
 		ResponseSize: int64(c.Writer.Size()),
+		Referer:      referer,
+		IsSlow:       isSlow,
+		URL:          c.Request.URL.String(),
 	}
 
 	// 记录日志（移除重复的timestamp字段，使用logrus自带的时间戳）
-	LoggerInstance.logger.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"type":          AccessLog,
 		"method":        entry.Method,
 		"path":          entry.Path,
@@ -143,10 +167,34 @@ func LogAccessRequest(c *gin.Context, startTime time.Time, requestID string, use
 		"client_ip":     entry.ClientIP,
 		"user_agent":    entry.UserAgent,
 		"user_id":       entry.UserID,
+		"username":      entry.Username,
 		"request_id":    entry.RequestID,
 		"request_size":  entry.RequestSize,
 		"response_size": entry.ResponseSize,
-	}).Info("HTTP request processed")
+		"referer":       entry.Referer,
+		"is_slow":       entry.IsSlow,
+		"url":           entry.URL,
+	}
+
+	// 添加额外字段
+	for k, v := range extraFields {
+		// 跳过已经处理过的字段
+		switch k {
+		case "username", "referer", "is_slow":
+			continue
+		default:
+			fields[k] = v
+		}
+	}
+
+	// 根据状态码选择日志级别
+	if entry.StatusCode >= 500 {
+		LoggerInstance.logger.WithFields(fields).Error("HTTP request processed")
+	} else if entry.StatusCode >= 400 {
+		LoggerInstance.logger.WithFields(fields).Warn("HTTP request processed")
+	} else {
+		LoggerInstance.logger.WithFields(fields).Info("HTTP request processed")
+	}
 }
 
 // LogBusinessOperation 记录业务操作日志
@@ -188,6 +236,8 @@ func LogBusinessOperation(operation string, userID uint, username, clientIP, req
 	if result == "success" {
 		LoggerInstance.logger.WithFields(fields).Info(fmt.Sprintf("Business operation: %s", operation))
 	} else {
+		// 标记为业务错误，以便FileHook可以正确路由
+		fields["is_business_error"] = true
 		LoggerInstance.logger.WithFields(fields).Warn(fmt.Sprintf("Business operation failed: %s", operation))
 	}
 }

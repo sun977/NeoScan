@@ -65,7 +65,15 @@ log:
   level: "debug"  # debug, info, warn, error, fatal, panic
   format: "json"  # json, text  # 日志格式
   output: "file"  # stdout, stderr, file  # 日志输出位置
-  file_path: "logs/app.log"  # 日志文件路径(仅当output为file时生效)
+  file_path: "logs/app.log"  # 日志文件路径(仅当output为file时生效) 
+  # 配置项的目录部分作为所有日志文件的存储目录例如,如果file_path设置为logs/app.log,那么所有日志文件都会存储在logs目录下,同时所有日志都支持轮转约束配置
+  # 默认日志：logs/app.log
+  # 业务日志：logs/business.log
+  # 访问日志：logs/access.log
+  # 错误日志：logs/error.log
+  # 系统日志：logs/system.log
+  # 审计日志：logs/audit.log
+  # 调试日志：logs/debug.log
   max_size: 100  # MB  # 日志文件最大大小(MB)
   max_backups: 5  # 日志文件最大备份数
   max_age: 30  # days  # 日志文件最大保存时间(天)

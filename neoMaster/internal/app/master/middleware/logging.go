@@ -76,7 +76,7 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 
 		// 记录访问日志
 		duration := time.Since(start)
-		statusCode := c.Writer.Status()
+		// statusCode := c.Writer.Status()
 
 		// 检查是否为慢请求
 		isSlowRequest := duration > m.securityConfig.Logging.SlowRequestThreshold
@@ -98,9 +98,6 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 		// 构建日志数据
 		logData := map[string]interface{}{
 			"operation":     "http_request",
-			"method":        c.Request.Method,
-			"url":           c.Request.URL.String(),
-			"status_code":   statusCode,
 			"duration":      duration.Milliseconds(),
 			"client_ip":     clientIP,
 			"username":      username,
@@ -133,21 +130,15 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// 根据状态码和是否为慢请求决定日志级别
+		// 添加错误信息到日志数据（如果存在错误）
+		statusCode := c.Writer.Status()
 		if statusCode >= 400 {
-			// 记录错误日志
 			errorMsg := getErrorMessage(statusCode, c.Errors)
 			logData["error_message"] = errorMsg
-
-			logger.LogError(fmt.Errorf("HTTP %d: %s", statusCode, errorMsg), XRequestID, userIDUint, clientIP, "http_request", c.Request.Method, logData)
-		} else if isSlowRequest {
-			// 记录慢请求警告
-			logData["warning"] = "slow_request"
-			logger.LogBusinessOperation("http_request", userIDUint, username, clientIP, XRequestID, "warning", "Slow HTTP request detected", logData)
-		} else {
-			// 记录正常请求
-			logger.LogBusinessOperation("http_request", userIDUint, username, clientIP, XRequestID, "success", "API Request", logData)
 		}
+
+		// 记录访问日志
+		logger.LogAccessRequest(c, start, XRequestID, userIDUint, logData)
 	}
 }
 

@@ -274,8 +274,53 @@ func LogBusinessOperation(operation string, userID uint, username, clientIP, req
 	}
 }
 
+// LogBusinessError 记录业务错误日志
+// 用于记录业务错误
+func LogBusinessError(err error, requestID string, userID uint, clientIP, path, method string, extraFields map[string]interface{}) {
+	if LoggerInstance == nil {
+		return
+	}
+
+	if err == nil {
+		return
+	}
+
+	// 构建错误日志条目（移除未使用的Timestamp字段）
+	entry := ErrorLogEntry{
+		Level:     "error",
+		Error:     err.Error(),
+		RequestID: requestID,
+		UserID:    userID,
+		ClientIP:  clientIP,
+		Path:      path,
+		Method:    method,
+	}
+
+	// 构建日志字段（移除重复的timestamp字段，使用logrus自带的时间戳）
+	fields := logrus.Fields{
+		"type":       BusinessLog, // 日志类型还是属于业务日志
+		"level":      entry.Level,
+		"error":      entry.Error,
+		"request_id": entry.RequestID,
+		"user_id":    entry.UserID,
+		"client_ip":  entry.ClientIP,
+		"path":       entry.Path,
+		"method":     entry.Method,
+	}
+
+	// 添加额外字段
+	for k, v := range extraFields {
+		fields[k] = v
+	}
+
+	// // 记录错误日志
+	// LoggerInstance.logger.WithFields(fields).Error("System error occurred")
+	// 记录错误日志，包含具体的错误信息
+	LoggerInstance.logger.WithFields(fields).Errorf("System error occurred: %s", err.Error())
+}
+
 // LogError 记录错误日志
-// 用于记录系统错误、异常和业务错误
+// 用于记录系统错误和异常
 func LogError(err error, requestID string, userID uint, clientIP, path, method string, extraFields map[string]interface{}) {
 	if LoggerInstance == nil {
 		return

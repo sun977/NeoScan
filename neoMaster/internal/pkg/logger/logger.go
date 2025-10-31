@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"neomaster/internal/config"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // LoggerManager 日志管理器
@@ -51,6 +49,11 @@ func InitLogger(cfg *config.LogConfig) (*LoggerManager, error) {
 	if err := setLogOutput(logger, cfg); err != nil {
 		return nil, fmt.Errorf("failed to set log output: %w", err)
 	}
+
+	// 添加FileHook以支持不同类型的日志输出到不同文件
+	logger.AddHook(NewFileHook(cfg))
+	// // 设置为不输出到默认位置，让Hook处理所有日志
+	// logger.SetOutput(io.Discard)
 
 	// 设置调用者信息
 	logger.SetReportCaller(cfg.Caller)
@@ -99,44 +102,19 @@ func setLogFormatter(logger *logrus.Logger, cfg *config.LogConfig) error {
 }
 
 // setLogOutput 设置日志输出目标
+// 使用Hook机制实现日志分离功能，将日志输出设置为io.Discard
+// 实际的日志输出将由FileHook处理
 func setLogOutput(logger *logrus.Logger, cfg *config.LogConfig) error {
-	switch strings.ToLower(cfg.Output) {
-	case "stdout":
-		// 输出到标准输出
-		logger.SetOutput(os.Stdout)
-	case "stderr":
-		// 输出到标准错误
-		logger.SetOutput(os.Stderr)
-	case "file":
-		// 输出到文件，使用lumberjack进行日志轮转
-		if cfg.FilePath == "" {
-			return fmt.Errorf("file path is required when output is file")
-		}
-
-		// 确保日志目录存在
-		logDir := filepath.Dir(cfg.FilePath)
-		if err := os.MkdirAll(logDir, 0755); err != nil {
-			return fmt.Errorf("failed to create log directory: %w", err)
-		}
-
-		// 配置日志轮转
-		lumberjackLogger := &lumberjack.Logger{
-			Filename:   cfg.FilePath,
-			MaxSize:    cfg.MaxSize,    // MB
-			MaxBackups: cfg.MaxBackups, // 保留的备份文件数
-			MaxAge:     cfg.MaxAge,     // 保留天数
-			Compress:   cfg.Compress,   // 是否压缩
-		}
-
-		// 同时输出到文件和控制台（开发环境）
-		if cfg.Level == "debug" {
-			multiWriter := io.MultiWriter(os.Stdout, lumberjackLogger)
-			logger.SetOutput(multiWriter)
-		} else {
-			logger.SetOutput(lumberjackLogger)
-		}
-	default:
-		return fmt.Errorf("unsupported log output: %s", cfg.Output)
+	// 在调试模式下，同时输出到控制台和Hook机制
+	// 在生产模式下，只使用Hook机制
+	if strings.ToLower(cfg.Level) == "debug" {
+		// 调试模式下创建一个MultiWriter，同时写入控制台和io.Discard
+		// io.Discard确保日志主要通过Hook处理，控制台输出作为辅助
+		multiWriter := io.MultiWriter(os.Stdout, io.Discard)
+		logger.SetOutput(multiWriter)
+	} else {
+		// 非调试模式下只使用io.Discard，让Hook机制处理所有日志
+		logger.SetOutput(io.Discard)
 	}
 	return nil
 }

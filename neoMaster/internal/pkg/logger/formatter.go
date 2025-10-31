@@ -431,16 +431,16 @@ func LogHTTPRequest(r *http.Request, statusCode int, responseTime time.Duration,
 type LogLevel int
 
 const (
-// DebugLevel 调试级别
-DebugLevel LogLevel = iota
-// InfoLevel 信息级别
-InfoLevel
-// WarnLevel 警告级别
-WarnLevel
-// ErrorLevel 错误级别
-ErrorLevel
-// FatalLevel 致命错误级别
-FatalLevel
+	// DebugLevel 调试级别
+	DebugLevel LogLevel = iota
+	// InfoLevel 信息级别
+	InfoLevel
+	// WarnLevel 警告级别
+	WarnLevel
+	// ErrorLevel 错误级别
+	ErrorLevel
+	// FatalLevel 致命错误级别
+	FatalLevel
 )
 
 // toLogrusLevel 将封装的LogLevel转换为logrus.Level
@@ -460,4 +460,50 @@ func toLogrusLevel(level LogLevel) logrus.Level {
 	default:
 		return logrus.InfoLevel
 	}
+}
+
+// 示例函数展示如何使用不同类型的日志
+func ExampleUsage() {
+	// 记录访问日志
+	LoggerInstance.logger.WithFields(logrus.Fields{
+		"type":        AccessLog,
+		"method":      "GET",
+		"path":        "/api/users",
+		"status_code": 200,
+	}).Info("HTTP request processed")
+
+	// 记录业务日志
+	LoggerInstance.logger.WithFields(logrus.Fields{
+		"type":      BusinessLog,
+		"operation": "user_login",
+		"user_id":   12345,
+		"result":    "success",
+	}).Info("User login")
+
+	// 记录错误日志
+	LoggerInstance.logger.WithFields(logrus.Fields{
+		"type":  ErrorLog,
+		"error": "database connection failed",
+	}).Error("Database error occurred")
+
+	// 记录系统日志
+	LoggerInstance.logger.WithFields(logrus.Fields{
+		"type":      SystemLog,
+		"component": "database",
+		"event":     "connected",
+	}).Info("System event")
+
+	// 记录审计日志
+	LoggerInstance.logger.WithFields(logrus.Fields{
+		"type":     AuditLog,
+		"user_id":  12345,
+		"action":   "data_access",
+		"resource": "user_profile",
+	}).Info("User accessed data")
+
+	// 记录调试日志
+	LoggerInstance.logger.WithFields(logrus.Fields{
+		"type":    DebugLog,
+		"message": "debug information",
+	}).Debug("Debug information")
 }

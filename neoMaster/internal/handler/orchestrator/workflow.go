@@ -73,7 +73,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	// 解析请求体
 	var req orchestrator.WorkflowConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_workflow",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.workflow.CreateWorkflow",
@@ -93,7 +93,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 
 	// 验证请求参数
 	if err := h.validateWorkflowRequest(&req); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":     "create_workflow",
 			"option":        "validateWorkflowRequest",
 			"func_name":     "handler.orchestrator.workflow.CreateWorkflow",
@@ -115,7 +115,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	// 调用Service层创建工作流配置
 	createdWorkflow, err := h.workflowService.CreateWorkflowConfig(c.Request.Context(), &req)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":     "create_workflow",
 			"option":        "workflowService.CreateWorkflowConfig",
 			"func_name":     "handler.orchestrator.workflow.CreateWorkflow",
@@ -180,7 +180,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.GetWorkflow",
@@ -202,7 +202,7 @@ func (h *WorkflowHandler) GetWorkflow(c *gin.Context) {
 	// 调用Service层获取工作流配置
 	workflow, err := h.workflowService.GetWorkflowConfig(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow",
 			"option":      "workflowService.GetWorkflowConfig",
 			"func_name":   "handler.orchestrator.workflow.GetWorkflow",
@@ -267,7 +267,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_workflow",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.UpdateWorkflow",
@@ -289,7 +289,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	// 解析请求体
 	var req orchestrator.WorkflowConfig
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
-		logger.LogError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":   "update_workflow",
 			"option":      "ShouldBindJSON",
 			"func_name":   "handler.orchestrator.workflow.UpdateWorkflow",
@@ -310,7 +310,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 
 	// 验证请求参数
 	if err2 := h.validateWorkflowRequest(&req); err2 != nil {
-		logger.LogError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":     "update_workflow",
 			"option":        "validateWorkflowRequest",
 			"func_name":     "handler.orchestrator.workflow.UpdateWorkflow",
@@ -333,7 +333,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	// 调用Service层更新工作流配置
 	updatedWorkflow, err := h.workflowService.UpdateWorkflowConfig(c.Request.Context(), uint(id), &req)
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":     "update_workflow",
 			"option":        "workflowService.UpdateWorkflowConfig",
 			"func_name":     "handler.orchestrator.workflow.UpdateWorkflow",
@@ -405,7 +405,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_workflow",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.DeleteWorkflow",
@@ -427,7 +427,7 @@ func (h *WorkflowHandler) DeleteWorkflow(c *gin.Context) {
 	// 调用Service层删除工作流配置
 	err = h.workflowService.DeleteWorkflowConfig(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":   "delete_workflow",
 			"option":      "workflowService.DeleteWorkflowConfig",
 			"func_name":   "handler.orchestrator.workflow.DeleteWorkflow",
@@ -542,7 +542,7 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	// 调用Service层获取工作流配置列表
 	workflows, total, err := h.workflowService.ListWorkflowConfigs(c.Request.Context(), offset, limit, statusFilter, projectID, triggerTypeFilter)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":    "list_workflows",
 			"option":       "workflowService.ListWorkflowConfigs",
 			"func_name":    "handler.orchestrator.workflow.ListWorkflows",
@@ -661,7 +661,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow_status",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.GetWorkflowStatus",
@@ -683,7 +683,7 @@ func (h *WorkflowHandler) GetWorkflowStatus(c *gin.Context) {
 	// 调用Service层获取工作流状态
 	status, err := h.workflowService.GetWorkflowStatus(c.Request.Context(), idStr)
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow_status",
 			"option":      "workflowService.GetWorkflowStatus",
 			"func_name":   "handler.orchestrator.workflow.GetWorkflowStatus",
@@ -748,7 +748,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow_logs",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.GetWorkflowLogs",
@@ -784,7 +784,7 @@ func (h *WorkflowHandler) GetWorkflowLogs(c *gin.Context) {
 	// 调用Service层获取工作流日志
 	logs, err := h.workflowService.GetWorkflowLogs(c.Request.Context(), idStr, offset, limit)
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow_logs",
 			"option":      "workflowService.GetWorkflowLogs",
 			"func_name":   "handler.orchestrator.workflow.GetWorkflowLogs",
@@ -861,7 +861,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_workflow_metrics",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.GetWorkflowMetrics",
@@ -883,7 +883,7 @@ func (h *WorkflowHandler) GetWorkflowMetrics(c *gin.Context) {
 	// 调用Service层获取工作流指标
 	metrics, err := h.workflowService.GetWorkflowPerformance(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":   "get_workflow_metrics",
 			"option":      "workflowService.GetWorkflowPerformance",
 			"func_name":   "handler.orchestrator.workflow.GetWorkflowMetrics",
@@ -945,7 +945,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  action + "_workflow",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.controlWorkflow",
@@ -985,7 +985,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 	}
 
 	if serviceErr != nil {
-		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":   action + "_workflow",
 			"option":      "workflowService." + strings.Title(action) + "Workflow",
 			"func_name":   "handler.orchestrator.workflow.controlWorkflow",
@@ -1055,7 +1055,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.workflow.updateWorkflowStatus",
@@ -1083,7 +1083,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 	}
 
 	if serviceErr != nil {
-		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":   operation,
 			"option":      "workflowService.UpdateStatus",
 			"func_name":   "handler.orchestrator.workflow.updateWorkflowStatus",
@@ -1231,7 +1231,7 @@ func (h *WorkflowHandler) GetSystemScanStatistics(c *gin.Context) {
 	// 调用Service层获取系统扫描统计信息
 	statistics, err := h.workflowService.GetSystemScanStatistics(c.Request.Context())
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_scan_statistics",
 			"option":     "workflowService.GetSystemScanStatistics",
 			"func_name":  "handler.orchestrator.workflow.GetSystemScanStatistics",
@@ -1282,7 +1282,7 @@ func (h *WorkflowHandler) GetSystemPerformance(c *gin.Context) {
 	// 调用Service层获取系统性能信息
 	performance, err := h.workflowService.GetSystemPerformance(c.Request.Context())
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_performance",
 			"option":     "workflowService.GetSystemPerformance",
 			"func_name":  "handler.orchestrator.workflow.GetSystemPerformance",

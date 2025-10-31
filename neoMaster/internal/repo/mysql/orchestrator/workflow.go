@@ -74,7 +74,7 @@ func (r *WorkflowConfigRepository) CreateWorkflowConfig(ctx context.Context, con
 	err := r.db.WithContext(ctx).Create(config).Error
 	if err != nil {
 		// 记录创建失败日志
-		logger.LogError(err, "", 0, "", "workflow_config_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_create", "POST", map[string]interface{}{
 			"operation":     "create_workflow_config",
 			"workflow_name": config.Name,
 			"project_id":    config.ProjectID,
@@ -95,7 +95,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigByID(ctx context.Context, id
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogError(fmt.Errorf("workflow config not found"), "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("workflow config not found"), "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
 				"operation": "get_workflow_config_by_id",
 				"id":        id,
 				"timestamp": logger.NowFormatted(),
@@ -103,7 +103,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigByID(ctx context.Context, id
 			return nil, nil // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogError(err, "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
 			"operation": "get_workflow_config_by_id",
 			"id":        id,
 			"timestamp": logger.NowFormatted(),
@@ -130,7 +130,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigByName(ctx context.Context, 
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogError(fmt.Errorf("workflow config not found"), "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("workflow config not found"), "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
 				"operation":     "get_workflow_config_by_name",
 				"workflow_name": name,
 				"project_id":    projectID,
@@ -139,7 +139,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigByName(ctx context.Context, 
 			return nil, nil // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogError(err, "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_get", "GET", map[string]interface{}{
 			"operation":     "get_workflow_config_by_name",
 			"workflow_name": name,
 			"project_id":    projectID,
@@ -159,7 +159,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfig(ctx context.Context, con
 	err := r.db.WithContext(ctx).Save(config).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogError(err, "", uint(config.ID), "", "workflow_config_update", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(config.ID), "", "workflow_config_update", "PUT", map[string]interface{}{
 			"operation":     "update_workflow_config",
 			"workflow_name": config.Name,
 			"config_id":     config.ID,
@@ -178,7 +178,7 @@ func (r *WorkflowConfigRepository) DeleteWorkflowConfig(ctx context.Context, id 
 	err := r.db.WithContext(ctx).Delete(&orchestrator.WorkflowConfig{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
-		logger.LogError(err, "", id, "", "workflow_config_delete", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "workflow_config_delete", "DELETE", map[string]interface{}{
 			"operation": "delete_workflow_config",
 			"config_id": id,
 			"timestamp": logger.NowFormatted(),
@@ -213,7 +213,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, of
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
-		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation": "get_workflow_config_list_count",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -223,7 +223,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, of
 	// 获取分页数据
 	err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&configs).Error
 	if err != nil {
-		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation": "get_workflow_config_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -243,7 +243,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigsByProject(ctx context.Conte
 	var configs []*orchestrator.WorkflowConfig
 	err := r.db.WithContext(ctx).Where("project_config_id = ? AND status = ?", projectID, orchestrator.WorkflowStatusActive).Find(&configs).Error
 	if err != nil {
-		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation":  "get_workflow_configs_by_project",
 			"project_id": projectID,
 			"timestamp":  logger.NowFormatted(),
@@ -260,7 +260,7 @@ func (r *WorkflowConfigRepository) GetActiveWorkflowConfigs(ctx context.Context)
 	var configs []*orchestrator.WorkflowConfig
 	err := r.db.WithContext(ctx).Where("status = ?", orchestrator.WorkflowStatusActive).Find(&configs).Error
 	if err != nil {
-		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation": "get_active_workflow_configs",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -284,7 +284,7 @@ func (r *WorkflowConfigRepository) WorkflowConfigExists(ctx context.Context, nam
 
 	err := query.Count(&count).Error
 	if err != nil {
-		logger.LogError(err, "", 0, "", "workflow_config_exists", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_exists", "GET", map[string]interface{}{
 			"operation":     "workflow_config_exists",
 			"workflow_name": name,
 			"project_id":    projectID,
@@ -303,7 +303,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigsByTrigger(ctx context.Conte
 	var configs []*orchestrator.WorkflowConfig
 	err := r.db.WithContext(ctx).Where("trigger_type = ? AND status = ?", triggerType, orchestrator.WorkflowStatusActive).Find(&configs).Error
 	if err != nil {
-		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation":    "get_workflow_configs_by_trigger",
 			"trigger_type": triggerType,
 			"timestamp":    logger.NowFormatted(),
@@ -324,7 +324,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfigStatus(ctx context.Contex
 		"updated_at": time.Now(),
 	}).Error
 	if err != nil {
-		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
 			"operation": "update_workflow_config_status",
 			"config_id": id,
 			"status":    status,
@@ -369,7 +369,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfigStats(ctx context.Context
 		"updated_at":          time.Now(),
 	}).Error
 	if err != nil {
-		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
 			"operation":          "update_workflow_config_stats",
 			"config_id":          id,
 			"execution_count":    executionCount,
@@ -409,7 +409,7 @@ func (r *WorkflowConfigRepository) IncrementExecutionCount(ctx context.Context, 
 
 	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(updates).Error
 	if err != nil {
-		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
 			"operation":      "increment_execution_count",
 			"config_id":      id,
 			"success":        success,
@@ -426,7 +426,7 @@ func (r *WorkflowConfigRepository) IncrementExecutionCount(ctx context.Context, 
 func (r *WorkflowConfigRepository) BeginTx() (*gorm.DB, error) {
 	tx := r.db.Begin()
 	if tx.Error != nil {
-		logger.LogError(tx.Error, "", 0, "", "workflow_config_transaction", "BEGIN", map[string]interface{}{
+		logger.LogBusinessError(tx.Error, "", 0, "", "workflow_config_transaction", "BEGIN", map[string]interface{}{
 			"operation": "begin_transaction",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -445,7 +445,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfigWithTx(ctx context.Contex
 	err := tx.WithContext(ctx).Save(config).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogError(err, "", uint(config.ID), "", "workflow_config_update_with_tx", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(config.ID), "", "workflow_config_update_with_tx", "PUT", map[string]interface{}{
 			"operation":     "update_workflow_config_with_transaction",
 			"workflow_name": config.Name,
 			"config_id":     config.ID,
@@ -465,7 +465,7 @@ func (r *WorkflowConfigRepository) DeleteWorkflowConfigWithTx(ctx context.Contex
 	err := tx.WithContext(ctx).Delete(&orchestrator.WorkflowConfig{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
-		logger.LogError(err, "", id, "", "workflow_config_delete_with_tx", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "workflow_config_delete_with_tx", "DELETE", map[string]interface{}{
 			"operation": "delete_workflow_config_with_transaction",
 			"config_id": id,
 			"timestamp": logger.NowFormatted(),
@@ -484,7 +484,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfigFields(ctx context.Contex
 	fields["updated_at"] = time.Now()
 	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(fields).Error
 	if err != nil {
-		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
 			"operation": "update_workflow_config_fields",
 			"config_id": id,
 			"fields":    fields,

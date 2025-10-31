@@ -82,7 +82,7 @@ func NewWorkflowService(
 func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orchestrator.WorkflowConfig) (*orchestrator.WorkflowConfig, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if config == nil {
-		logger.LogError(errors.New("workflow config is nil"), "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow config is nil"), "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "create_workflow_config",
 			"error":     "nil_config",
 			"timestamp": logger.NowFormatted(),
@@ -92,7 +92,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 
 	// 业务验证 - 检查工作流名称唯一性
 	if err := s.ValidateWorkflowConfig(ctx, config); err != nil {
-		logger.LogError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
 			"operation":     "create_workflow_config",
 			"error":         "validation_failed",
 			"workflow_name": config.Name,
@@ -105,7 +105,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 	if config.ProjectID > 0 {
 		project, err := s.projectRepo.GetProjectConfigByID(ctx, uint(config.ProjectID))
 		if err != nil {
-			logger.LogError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
 				"operation":     "create_workflow_config",
 				"error":         "check_project_failed",
 				"workflow_name": config.Name,
@@ -116,7 +116,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 		}
 
 		if project == nil {
-			logger.LogError(errors.New("project config not found"), "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("project config not found"), "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
 				"operation":     "create_workflow_config",
 				"error":         "project_not_found",
 				"workflow_name": config.Name,
@@ -135,7 +135,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 	}
 	exists, err := s.workflowRepo.WorkflowConfigExists(ctx, config.Name, projectID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
 			"operation":     "create_workflow_config",
 			"error":         "check_exists_failed",
 			"workflow_name": config.Name,
@@ -145,7 +145,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 	}
 
 	if exists {
-		logger.LogError(errors.New("workflow name already exists"), "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow name already exists"), "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
 			"operation":     "create_workflow_config",
 			"error":         "name_already_exists",
 			"workflow_name": config.Name,
@@ -159,7 +159,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 
 	// 创建工作流配置
 	if err := s.workflowRepo.CreateWorkflowConfig(ctx, config); err != nil {
-		logger.LogError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
 			"operation":     "create_workflow_config",
 			"error":         "create_failed",
 			"workflow_name": config.Name,
@@ -188,7 +188,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, config *orchestrator.WorkflowConfig) (*orchestrator.WorkflowConfig, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid workflow config ID"), "", 0, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "update_workflow_config",
 			"error":     "invalid_id",
 			"id":        id,
@@ -198,7 +198,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("workflow config is nil"), "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow config is nil"), "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "update_workflow_config",
 			"error":     "nil_config",
 			"id":        id,
@@ -210,7 +210,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 	// 检查工作流配置是否存在
 	existingConfig, err := s.workflowRepo.GetWorkflowConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "update_workflow_config",
 			"error":     "get_existing_failed",
 			"id":        id,
@@ -220,7 +220,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 	}
 
 	if existingConfig == nil {
-		logger.LogError(errors.New("workflow config not found"), "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow config not found"), "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "update_workflow_config",
 			"error":     "not_found",
 			"id":        id,
@@ -238,7 +238,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 		}
 		exists, err := s.workflowRepo.WorkflowConfigExists(ctx, config.Name, projectID)
 		if err != nil {
-			logger.LogError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 				"operation":     "update_workflow_config",
 				"error":         "check_name_exists_failed",
 				"id":            id,
@@ -249,7 +249,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 		}
 
 		if exists {
-			logger.LogError(errors.New("workflow name already exists"), "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("workflow name already exists"), "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 				"operation":     "update_workflow_config",
 				"error":         "name_already_exists",
 				"id":            id,
@@ -262,7 +262,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 
 	// 业务验证
 	if err := s.ValidateWorkflowConfig(ctx, config); err != nil {
-		logger.LogError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 			"operation":     "update_workflow_config",
 			"error":         "validation_failed",
 			"id":            id,
@@ -278,7 +278,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 
 	// 更新工作流配置
 	if err := s.workflowRepo.UpdateWorkflowConfig(ctx, config); err != nil {
-		logger.LogError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_workflow_config", "SERVICE", map[string]interface{}{
 			"operation":     "update_workflow_config",
 			"error":         "update_failed",
 			"id":            id,
@@ -307,7 +307,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 func (s *WorkflowService) GetWorkflowConfig(ctx context.Context, id uint) (*orchestrator.WorkflowConfig, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid workflow config ID"), "", 0, "", "get_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", "get_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "get_workflow_config",
 			"error":     "invalid_id",
 			"id":        id,
@@ -319,7 +319,7 @@ func (s *WorkflowService) GetWorkflowConfig(ctx context.Context, id uint) (*orch
 	// 获取工作流配置
 	config, err := s.workflowRepo.GetWorkflowConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "get_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "get_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "get_workflow_config",
 			"error":     "get_failed",
 			"id":        id,
@@ -329,7 +329,7 @@ func (s *WorkflowService) GetWorkflowConfig(ctx context.Context, id uint) (*orch
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("workflow config not found"), "", id, "", "get_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow config not found"), "", id, "", "get_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "get_workflow_config",
 			"error":     "not_found",
 			"id":        id,
@@ -361,7 +361,7 @@ func (s *WorkflowService) ListWorkflowConfigs(ctx context.Context, offset, limit
 	// 获取工作流配置列表
 	configs, total, err := s.workflowRepo.GetWorkflowConfigList(ctx, offset, limit, projectID, status)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "list_workflow_configs", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "list_workflow_configs", "SERVICE", map[string]interface{}{
 			"operation": "list_workflow_configs",
 			"error":     "list_failed",
 			"offset":    offset,
@@ -381,7 +381,7 @@ func (s *WorkflowService) ListWorkflowConfigs(ctx context.Context, offset, limit
 func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid workflow config ID"), "", 0, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_workflow_config",
 			"error":     "invalid_id",
 			"id":        id,
@@ -393,7 +393,7 @@ func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) err
 	// 检查工作流配置是否存在
 	config, err := s.workflowRepo.GetWorkflowConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_workflow_config",
 			"error":     "get_failed",
 			"id":        id,
@@ -403,7 +403,7 @@ func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) err
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("workflow config not found"), "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow config not found"), "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_workflow_config",
 			"error":     "not_found",
 			"id":        id,
@@ -414,7 +414,7 @@ func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) err
 
 	// 检查工作流是否正在执行
 	if config.Status == orchestrator.WorkflowStatusActive {
-		logger.LogError(errors.New("workflow is running"), "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow is running"), "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_workflow_config",
 			"error":     "workflow_running",
 			"id":        id,
@@ -425,7 +425,7 @@ func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) err
 
 	// 删除工作流配置
 	if err := s.workflowRepo.DeleteWorkflowConfig(ctx, id); err != nil {
-		logger.LogError(err, "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_workflow_config",
 			"error":     "delete_failed",
 			"id":        id,
@@ -454,7 +454,7 @@ func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) err
 func (s *WorkflowService) ExecuteWorkflow(ctx context.Context, id uint, params map[string]interface{}) (string, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid workflow config ID"), "", 0, "", "execute_workflow", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", "execute_workflow", "SERVICE", map[string]interface{}{
 			"operation": "execute_workflow",
 			"error":     "invalid_id",
 			"id":        id,
@@ -466,7 +466,7 @@ func (s *WorkflowService) ExecuteWorkflow(ctx context.Context, id uint, params m
 	// 获取工作流配置
 	config, err := s.workflowRepo.GetWorkflowConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
 			"operation": "execute_workflow",
 			"error":     "get_config_failed",
 			"id":        id,
@@ -476,7 +476,7 @@ func (s *WorkflowService) ExecuteWorkflow(ctx context.Context, id uint, params m
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("workflow config not found"), "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow config not found"), "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
 			"operation": "execute_workflow",
 			"error":     "config_not_found",
 			"id":        id,
@@ -487,7 +487,7 @@ func (s *WorkflowService) ExecuteWorkflow(ctx context.Context, id uint, params m
 
 	// 检查工作流状态
 	if config.Status != orchestrator.WorkflowStatusActive {
-		logger.LogError(errors.New("workflow not active"), "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow not active"), "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
 			"operation": "execute_workflow",
 			"error":     "workflow_not_active",
 			"id":        id,
@@ -508,7 +508,7 @@ func (s *WorkflowService) ExecuteWorkflow(ctx context.Context, id uint, params m
 
 	// 更新执行统计
 	if err := s.workflowRepo.IncrementExecutionCount(ctx, id, true, 0.0); err != nil {
-		logger.LogError(err, "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
 			"operation":    "execute_workflow",
 			"error":        "update_stats_failed",
 			"id":           id,
@@ -795,7 +795,7 @@ func (s *WorkflowService) GetWorkflowsByProject(ctx context.Context, projectID u
 
 	workflows, err := s.workflowRepo.GetWorkflowConfigsByProject(ctx, projectID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_workflows_by_project", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_workflows_by_project", "SERVICE", map[string]interface{}{
 			"operation":  "get_workflows_by_project",
 			"error":      "get_failed",
 			"project_id": projectID,
@@ -850,7 +850,7 @@ func (s *WorkflowService) GetWorkflowPerformance(ctx context.Context, id uint) (
 func (s *WorkflowService) updateWorkflowConfigStatus(ctx context.Context, id uint, status orchestrator.WorkflowStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid workflow config ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "invalid_id",
 			"id":        id,
@@ -862,7 +862,7 @@ func (s *WorkflowService) updateWorkflowConfigStatus(ctx context.Context, id uin
 	// 检查工作流配置是否存在
 	config, err := s.workflowRepo.GetWorkflowConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "get_failed",
 			"id":        id,
@@ -872,7 +872,7 @@ func (s *WorkflowService) updateWorkflowConfigStatus(ctx context.Context, id uin
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("workflow config not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("workflow config not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "not_found",
 			"id":        id,
@@ -883,7 +883,7 @@ func (s *WorkflowService) updateWorkflowConfigStatus(ctx context.Context, id uin
 
 	// 更新状态
 	if err := s.workflowRepo.UpdateWorkflowConfigStatus(ctx, id, status); err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "update_status_failed",
 			"id":        id,
@@ -944,7 +944,7 @@ func (s *WorkflowService) GetSystemScanStatistics(ctx context.Context) (map[stri
 	// 获取所有工作流配置
 	workflows, _, err := s.ListWorkflowConfigs(ctx, 0, 1000, nil, nil, nil)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_system_scan_statistics", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_system_scan_statistics", "SERVICE", map[string]interface{}{
 			"operation": "get_system_scan_statistics",
 			"error":     err.Error(),
 			"timestamp": logger.NowFormatted(),
@@ -1032,7 +1032,7 @@ func (s *WorkflowService) GetSystemPerformance(ctx context.Context) (map[string]
 	// 获取系统统计信息作为基础数据
 	statistics, err := s.GetSystemScanStatistics(ctx)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_system_performance", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_system_performance", "SERVICE", map[string]interface{}{
 			"operation": "get_system_performance",
 			"error":     err.Error(),
 			"timestamp": logger.NowFormatted(),

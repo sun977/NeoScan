@@ -46,7 +46,7 @@ func (s *agentMonitorService) ProcessHeartbeat(req *agentModel.HeartbeatRequest)
 	// 更新 status 字段 - agents 表
 	err := s.agentRepo.UpdateStatus(req.AgentID, req.Status)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{
 			"operation": "process_heartbeat",
 			"option":    "agentRepo.UpdateStatus",
 			"func_name": "service.agent.monitor.ProcessHeartbeat",
@@ -58,7 +58,7 @@ func (s *agentMonitorService) ProcessHeartbeat(req *agentModel.HeartbeatRequest)
 	// 更新最后心跳时间 - agents 表 (同时更新 updated_at 和 last_heartbeat 字段)
 	err = s.agentRepo.UpdateLastHeartbeat(req.AgentID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{
 			"operation": "process_heartbeat",
 			"option":    "agentRepo.UpdateLastHeartbeat",
 			"func_name": "service.agent.monitor.ProcessHeartbeat",
@@ -76,7 +76,7 @@ func (s *agentMonitorService) ProcessHeartbeat(req *agentModel.HeartbeatRequest)
 		// 更新性能指标到agent_metrics表（使用upsert逻辑：存在则更新，不存在则创建）
 		err = s.agentRepo.UpdateAgentMetrics(req.AgentID, req.Metrics)
 		if err != nil {
-			logger.LogError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.ProcessHeartbeat", "", map[string]interface{}{
 				"operation": "process_heartbeat",
 				"option":    "agentRepo.UpdateAgentMetrics",
 				"func_name": "service.agent.monitor.ProcessHeartbeat",
@@ -127,7 +127,7 @@ func (s *agentMonitorService) GetAgentMetrics(agentID string) (*agentModel.Agent
 // UpdateAgentMetrics 更新Agent性能指标服务
 func (s *agentMonitorService) UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error {
 	if err := s.agentRepo.UpdateAgentMetrics(agentID, metrics); err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.monitor.UpdateAgentMetrics", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.UpdateAgentMetrics", "", map[string]interface{}{
 			"operation": "update_agent_metrics",
 			"option":    "agentMonitorService.UpdateAgentMetrics",
 			"func_name": "service.agent.monitor.UpdateAgentMetrics",

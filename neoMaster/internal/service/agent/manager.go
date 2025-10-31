@@ -69,7 +69,7 @@ func NewAgentManagerService(agentRepo agentRepository.AgentRepository) AgentMana
 func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*agentModel.RegisterAgentResponse, error) {
 	// 参数验证
 	if err := s.validateRegisterRequest(req); err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "parameter_validation",
 			"func_name": "service.agent.manager.RegisterAgent",
@@ -84,7 +84,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	// 检查Agent是否已存在（基于hostname+port的组合）
 	existingAgent, err := s.agentRepo.GetByHostnameAndPort(req.Hostname, req.Port)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "agentManagerService.RegisterAgent",
 			"func_name": "service.agent.manager.RegisterAgent",
@@ -96,7 +96,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 
 	if existingAgent != nil {
 		// Agent已存在，返回409冲突错误
-		logger.LogError(
+		logger.LogBusinessError(
 			fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port),
 			"", 0, "", "service.agent.manager.RegisterAgent", "",
 			map[string]interface{}{
@@ -135,7 +135,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	}
 
 	if err := s.agentRepo.Create(newAgent); err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "agentManagerService.RegisterAgent",
 			"func_name": "service.agent.manager.RegisterAgent",
@@ -187,7 +187,7 @@ func (s *agentManagerService) GetAgentList(req *agentModel.GetAgentListRequest) 
 	// 页码 页码大小 状态 关键字 标签 能力
 	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, keyword, req.Tags, req.Capabilities)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.manager.GetAgentList", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentList", "", map[string]interface{}{
 			"operation": "get_agent_list",
 			"option":    "agentManagerService.GetAgentList",
 			"func_name": "service.agent.manager.GetAgentList",
@@ -215,7 +215,7 @@ func (s *agentManagerService) GetAgentList(req *agentModel.GetAgentListRequest) 
 func (s *agentManagerService) GetAgentInfo(agentID string) (*agentModel.AgentInfo, error) {
 	agent, err := s.agentRepo.GetByID(agentID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.manager.GetAgentInfo", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentInfo", "", map[string]interface{}{
 			"operation": "get_agent_info",
 			"option":    "agentManagerService.GetAgentInfo",
 			"func_name": "service.agent.manager.GetAgentInfo",
@@ -235,7 +235,7 @@ func (s *agentManagerService) GetAgentInfo(agentID string) (*agentModel.AgentInf
 func (s *agentManagerService) UpdateAgentStatus(agentID string, status agentModel.AgentStatus) error {
 	err := s.agentRepo.UpdateStatus(agentID, status)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "service.agent.manager.UpdateAgentStatus", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.UpdateAgentStatus", "", map[string]interface{}{
 			"operation": "update_agent_status",
 			"option":    "agentManagerService.UpdateAgentStatus",
 			"func_name": "service.agent.manager.UpdateAgentStatus",
@@ -363,7 +363,7 @@ func (s *agentManagerService) DeleteAgent(agentID string) error {
 	// 输入验证：检查agentID是否为空
 	if agentID == "" {
 		err := fmt.Errorf("agentID不能为空")
-		logger.LogError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
 			"operation": "delete_agent",
 			"option":    "input_validation",
 			"func_name": "service.agent.manager.DeleteAgent",
@@ -375,7 +375,7 @@ func (s *agentManagerService) DeleteAgent(agentID string) error {
 	// 存在性验证：检查Agent是否存在
 	_, err := s.agentRepo.GetByID(agentID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
 			"operation": "delete_agent",
 			"option":    "existence_validation",
 			"func_name": "service.agent.manager.DeleteAgent",
@@ -387,7 +387,7 @@ func (s *agentManagerService) DeleteAgent(agentID string) error {
 	// 执行删除操作
 	err = s.agentRepo.Delete(agentID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
 			"operation": "delete_agent",
 			"option":    "repository_delete",
 			"func_name": "service.agent.manager.DeleteAgent",
@@ -698,7 +698,7 @@ func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
 func (s *agentManagerService) IsValidTagId(tag string) bool {
 	// 1. 输入验证：检查ID是否为空
 	if tag == "" {
-		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidTagId", "", map[string]interface{}{
+		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidTagId", "", map[string]interface{}{
 			"operation": "validate_tag_id",
 			"option":    "agentManagerService.IsValidTagId",
 			"func_name": "service.agent.manager.IsValidTagId",
@@ -717,7 +717,7 @@ func (s *agentManagerService) IsValidTagId(tag string) bool {
 func (s *agentManagerService) IsValidTagByName(tag string) bool {
 	// 1. 输入验证：检查名称是否为空
 	if tag == "" {
-		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidTagByName", "", map[string]interface{}{
+		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidTagByName", "", map[string]interface{}{
 			"operation": "validate_tag_name",
 			"option":    "agentManagerService.IsValidTagByName",
 			"func_name": "service.agent.manager.IsValidTagByName",
@@ -908,7 +908,7 @@ func (s *agentManagerService) GetAgentCapabilities(agentID string) ([]string, er
 func (s *agentManagerService) IsValidCapabilityId(capability string) bool {
 	// 1. 输入验证：检查ID是否为空
 	if capability == "" {
-		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityId", "", map[string]interface{}{
+		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityId", "", map[string]interface{}{
 			"operation":     "validate_capability_id",
 			"option":        "agentManagerService.IsValidCapabilityId",
 			"func_name":     "service.agent.manager.IsValidCapabilityId",
@@ -927,7 +927,7 @@ func (s *agentManagerService) IsValidCapabilityId(capability string) bool {
 func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
 	// 1. 输入验证：检查名称是否为空
 	if capability == "" {
-		logger.LogError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityByName", "", map[string]interface{}{
+		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityByName", "", map[string]interface{}{
 			"operation":       "validate_capability_name",
 			"option":          "agentManagerService.IsValidCapabilityByName",
 			"func_name":       "service.agent.manager.IsValidCapabilityByName",

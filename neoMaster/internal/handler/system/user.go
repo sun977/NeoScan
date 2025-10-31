@@ -94,7 +94,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录获取用户ID失败错误日志
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_user", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":  "create_user",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -113,7 +113,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":  "create_user",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -132,7 +132,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req system.CreateUserRequest
 	if parseErr := c.ShouldBindJSON(&req); parseErr != nil {
 		// 记录请求参数解析失败错误日志
-		logger.LogError(parseErr, XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
+		logger.LogBusinessError(parseErr, XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":  "create_user",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -153,7 +153,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	createdUser, err := h.userService.CreateUser(c.Request.Context(), &req)
 	if err != nil {
 		// 记录创建用户失败错误日志
-		logger.LogError(err, XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "create_user", "POST", map[string]interface{}{
 			"operation":       "create_user",
 			"user_id":         userID,
 			"target_username": req.Username,
@@ -232,7 +232,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
 		// 记录用户ID格式错误日志
-		logger.LogError(err, XRequestID, uint(userID), clientIP, "get_user_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "get_user_by_id", "GET", map[string]interface{}{
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
@@ -248,7 +248,7 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	user, err := h.userService.GetUserByID(c.Request.Context(), uint(userID))
 	if err != nil {
 		// 记录获取用户详细信息失败错误日志
-		logger.LogError(err, XRequestID, uint(userID), clientIP, "get_user_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "get_user_by_id", "GET", map[string]interface{}{
 			"operation":  "get_user_by_id",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -318,7 +318,7 @@ func (h *UserHandler) GetUserList(c *gin.Context) {
 	users, total, err := h.userService.GetUserList(c.Request.Context(), offset, limit)
 	if err != nil {
 		// 简化错误处理 - 只记录必要信息
-		logger.LogError(err, XRequestID, 0, clientIP, "get_user_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, "get_user_list", "GET", map[string]interface{}{
 			"page":  page,
 			"limit": limit,
 		})
@@ -358,7 +358,7 @@ func (h *UserHandler) GetUserInfoByIDforUser(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_info", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_info", "GET", map[string]interface{}{
 			"operation":  "get_user_info",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -377,7 +377,7 @@ func (h *UserHandler) GetUserInfoByIDforUser(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_info", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_info", "GET", map[string]interface{}{
 			"operation":  "get_user_info",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -445,7 +445,7 @@ func (h *UserHandler) GetUserInfoByID(c *gin.Context) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
 		// 记录用户ID格式错误日志
-		logger.LogError(err, XRequestID, uint(userID), clientIP, "get_user_info_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "get_user_info_by_id", "GET", map[string]interface{}{
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
@@ -499,7 +499,7 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 	accessToken, err := h.extractTokenFromContext(c)
 	if err != nil {
 		// 记录令牌提取失败错误日志
-		logger.LogError(err, XRequestID, 0, clientIP, "get_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, "get_user", "GET", map[string]interface{}{
 			"operation":  "get_user",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -519,7 +519,7 @@ func (h *UserHandler) GetUserInfoByAccessToken(c *gin.Context) {
 	userInfo, err := h.userService.GetCurrentUserInfo(c.Request.Context(), accessToken)
 	if err != nil {
 		// 记录获取用户信息失败错误日志
-		logger.LogError(err, XRequestID, uint(userInfo.ID), clientIP, "get_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, uint(userInfo.ID), clientIP, "get_user", "GET", map[string]interface{}{
 			"operation":  "get_user",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -565,7 +565,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_permissions", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -584,7 +584,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_permissions", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -603,7 +603,7 @@ func (h *UserHandler) GetUserPermission(c *gin.Context) {
 	permissions, err := h.userService.GetUserPermissions(c.Request.Context(), userID)
 	if err != nil {
 		// 记录获取用户权限失败错误日志
-		logger.LogError(err, XRequestID, userID, clientIP, "get_user_permissions", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "get_user_permissions", "GET", map[string]interface{}{
 			"operation":  "get_user_permissions",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -656,7 +656,7 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_roles", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_user_roles", "GET", map[string]interface{}{
 			"operation":  "get_user_roles",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -675,7 +675,7 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_roles", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "get_user_roles", "GET", map[string]interface{}{
 			"operation":  "get_user_roles",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -694,7 +694,7 @@ func (h *UserHandler) GetUserRoles(c *gin.Context) {
 	roles, err := h.userService.GetUserRoles(c.Request.Context(), userID)
 	if err != nil {
 		// 记录获取用户角色失败错误日志
-		logger.LogError(err, XRequestID, userID, clientIP, "get_user_roles", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "get_user_roles", "GET", map[string]interface{}{
 			"operation":  "get_user_roles",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -759,7 +759,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
 		// 记录用户ID格式错误日志
-		logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 			"user_id_str": userIDStr,
 			"error":       "invalid_user_id_format",
 		})
@@ -775,7 +775,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 	var req system.UpdateUserRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		// 记录请求参数解析失败日志
-		logger.LogError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
+		logger.LogBusinessError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
 			"user_id": userID,
 			"error":   "request_parse_failed",
 		})
@@ -797,7 +797,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 		switch {
 		case strings.Contains(errorMsg, "user not found"):
 			// 用户不存在，返回404
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "user_not_found",
 			})
@@ -805,7 +805,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "user not found"
 		case strings.Contains(errorMsg, "email already exists"):
 			// 邮箱冲突，返回409
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "email_conflict",
 			})
@@ -813,7 +813,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "email already exists"
 		case strings.Contains(errorMsg, "username already exists"):
 			// 用户名冲突，返回409
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "username_conflict",
 			})
@@ -821,7 +821,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "username already exists"
 		case strings.Contains(errorMsg, "role not found"):
 			// 角色不存在，返回409
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "role_not_found",
 			})
@@ -829,7 +829,7 @@ func (h *UserHandler) UpdateUserByID(c *gin.Context) {
 			message = "role not found"
 		default:
 			// 其他错误，返回500
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "update_failed",
 			})
@@ -885,7 +885,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录用户ID不存在错误日志
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "user_update_info_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "user_update_info_by_id", "GET", map[string]interface{}{
 			"operation":  "user_update_info_by_id",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -904,7 +904,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	userID, ok := userIDInterface.(uint)
 	if !ok {
 		// 记录用户ID类型转换失败错误日志
-		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "user_update_info_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "user_update_info_by_id", "GET", map[string]interface{}{
 			"operation":  "user_update_info_by_id",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -923,7 +923,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 	var req system.UpdateUserRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
 		// 记录请求参数解析失败日志
-		logger.LogError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
+		logger.LogBusinessError(bindErr, XRequestID, uint(userID), clientIP, "update_user_by_id", "PUT", map[string]interface{}{
 			"user_id": userID,
 			"error":   "request_parse_failed",
 		})
@@ -946,7 +946,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 		switch {
 		case strings.Contains(errorMsg, "user not found"):
 			// 用户不存在，返回404
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "user_not_found",
 			})
@@ -954,7 +954,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			message = "user not found"
 		case strings.Contains(errorMsg, "email already exists"):
 			// 邮箱冲突，返回409
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "email_conflict",
 			})
@@ -962,7 +962,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			message = "email already exists"
 		case strings.Contains(errorMsg, "username already exists"):
 			// 用户名冲突，返回409
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "username_conflict",
 			})
@@ -970,7 +970,7 @@ func (h *UserHandler) UserUpdateInfoByID(c *gin.Context) {
 			message = "username already exists"
 		default:
 			// 其他错误，返回500
-			logger.LogError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(userID), clientIP, "update_user_by_id", "POST", map[string]interface{}{
 				"user_id": userID,
 				"error":   "update_failed",
 			})
@@ -1105,7 +1105,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	// 本身是自己修改自己的密码，所以令牌和中间件封装的上下文中用户ID一致，所以可以这样写，节省了解析令牌时间（中间件已经解析过令牌）
 	userID, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user ID not found in context"), XRequestID, 0, clientIP, "change_password", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user ID not found in context"), XRequestID, 0, clientIP, "change_password", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"error":     "user_id_missing",
 			"timestamp": logger.NowFormatted(),
@@ -1121,7 +1121,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	// 类型断言获取用户ID
 	userIDUint, ok := userID.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user ID type"), XRequestID, userIDUint, clientIP, "change_password", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID type"), XRequestID, userIDUint, clientIP, "change_password", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"error":     "invalid_user_id_type",
 			"timestamp": logger.NowFormatted(),
@@ -1137,7 +1137,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	// 解析请求体
 	var req system.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, XRequestID, userIDUint, clientIP, "change_password", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userIDUint, clientIP, "change_password", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"error":     "invalid_request_body",
 			"timestamp": logger.NowFormatted(),
@@ -1220,7 +1220,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	// 从URL路径中获取用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		logger.LogError(errors.New("missing user ID"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(errors.New("missing user ID"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation": "activate_user",
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),
@@ -1236,7 +1236,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	// 转换用户ID为uint类型
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation": "activate_user",
 			"error":     "invalid_user_id_format",
 			"user_id":   userIDStr,
@@ -1253,7 +1253,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	// 从上下文获取当前操作用户ID（用于审计日志）
 	currentUserIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("unauthorized access"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(errors.New("unauthorized access"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation":      "activate_user",
 			"error":          "unauthorized",
 			"target_user_id": userID,
@@ -1270,7 +1270,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	// 类型断言检查
 	currentUserID, ok := currentUserIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user ID type"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID type"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation":      "activate_user",
 			"error":          "invalid_user_id_type",
 			"target_user_id": userID,
@@ -1289,7 +1289,7 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 	err = h.userService.ActivateUser(c.Request.Context(), uint(userID))
 	if err != nil {
 		// Service层已经记录了详细的错误日志，这里只记录Handler层的处理结果
-		logger.LogError(err, "", uint(currentUserID), "", "activate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(currentUserID), "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation":      "activate_user",
 			"error":          "service_call_failed",
 			"target_user_id": userID,
@@ -1345,7 +1345,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	// 从URL路径中获取用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		logger.LogError(errors.New("missing user ID"), "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(errors.New("missing user ID"), "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
 			"operation": "deactivate_user",
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),
@@ -1361,7 +1361,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	// 转换用户ID为uint类型
 	userID, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
 			"operation": "deactivate_user",
 			"error":     "invalid_user_id_format",
 			"user_id":   userIDStr,
@@ -1378,7 +1378,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	// 从上下文获取当前操作用户ID（用于审计日志）
 	currentUserIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("unauthorized access"), "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(errors.New("unauthorized access"), "", 0, "", "deactivate_user", "HANDLER", map[string]interface{}{
 			"operation":      "deactivate_user",
 			"error":          "unauthorized",
 			"target_user_id": userID,
@@ -1395,7 +1395,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	// 类型断言检查
 	currentUserID, ok := currentUserIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user ID type"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID type"), "", 0, "", "activate_user", "HANDLER", map[string]interface{}{
 			"operation":      "deactivate_user",
 			"error":          "invalid_user_id_type",
 			"target_user_id": userID,
@@ -1414,7 +1414,7 @@ func (h *UserHandler) DeactivateUser(c *gin.Context) {
 	err = h.userService.DeactivateUser(c.Request.Context(), uint(userID))
 	if err != nil {
 		// Service层已经记录了详细的错误日志，这里只记录Handler层的处理结果
-		logger.LogError(err, "", uint(currentUserID), "", "deactivate_user", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(currentUserID), "", "deactivate_user", "HANDLER", map[string]interface{}{
 			"operation":      "deactivate_user",
 			"error":          "service_call_failed",
 			"target_user_id": userID,
@@ -1474,7 +1474,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 	// 从上下文获取管理员用户ID（中间件已验证并存储）
 	adminIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "reset_user_password", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -1487,7 +1487,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 
 	adminID, ok := adminIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
 			"user_id":    adminID,
 			"client_ip":  clientIP,
@@ -1502,7 +1502,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 	// 从URL路径中获取目标用户ID
 	userIDStr := c.Param("id")
 	if userIDStr == "" {
-		logger.LogError(errors.New("missing user ID"), XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("missing user ID"), XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation": "reset_user_password",
 			"error":     "missing_user_id",
 			"timestamp": logger.NowFormatted(),
@@ -1513,7 +1513,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 
 	userID64, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
 			"target_id":  userIDStr,
 			"client_ip":  clientIP,
@@ -1527,7 +1527,7 @@ func (h *UserHandler) ResetUserPassword(c *gin.Context) {
 
 	// 调用服务层重置密码（服务层固定为 123456）
 	if rerr := h.userService.ResetUserPassword(c.Request.Context(), uint(userID64), ""); rerr != nil {
-		logger.LogError(rerr, XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
+		logger.LogBusinessError(rerr, XRequestID, adminID, clientIP, "reset_user_password", "POST", map[string]interface{}{
 			"operation":  "reset_user_password",
 			"target_id":  userID64,
 			"client_ip":  clientIP,

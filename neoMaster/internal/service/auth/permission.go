@@ -29,7 +29,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *system.Cr
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 
 	if req == nil {
-		logger.LogError(errors.New("request is nil"), "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("request is nil"), "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
 			"operation": "create_permission",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -37,7 +37,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *system.Cr
 	}
 
 	if req.Name == "" {
-		logger.LogError(errors.New("permission name is empty"), "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("permission name is empty"), "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
 			"operation": "create_permission",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -47,7 +47,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *system.Cr
 	// 重名检查
 	existing, err := s.permissionRepo.GetPermissionByName(ctx, req.Name)
 	if err == nil && existing != nil {
-		logger.LogError(errors.New("permission name already exists"), "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("permission name already exists"), "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
 			"operation": "create_permission",
 			"name":      req.Name,
 			"timestamp": logger.NowFormatted(),
@@ -65,7 +65,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *system.Cr
 	}
 
 	if err := s.permissionRepo.CreatePermission(ctx, permission); err != nil {
-		logger.LogError(err, "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
 			"operation": "create_permission_db",
 			"name":      req.Name,
 			"timestamp": logger.NowFormatted(),
@@ -90,7 +90,7 @@ func (s *PermissionService) GetPermissionByID(ctx context.Context, permissionID 
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if permissionID == 0 {
-		logger.LogError(errors.New("invalid permission ID: cannot be zero"), "", 0, clientIP, "get_permission_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid permission ID: cannot be zero"), "", 0, clientIP, "get_permission_by_id", "SERVICE", map[string]interface{}{
 			"operation":     "parameter_validation",
 			"permission_id": permissionID,
 			"timestamp":     logger.NowFormatted(),
@@ -106,7 +106,7 @@ func (s *PermissionService) GetPermissionByID(ctx context.Context, permissionID 
 
 	permission, err := s.permissionRepo.GetPermissionByID(ctx, permissionID)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "get_permission_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "get_permission_by_id", "SERVICE", map[string]interface{}{
 			"operation":     "database_query",
 			"permission_id": permissionID,
 			"timestamp":     logger.NowFormatted(),
@@ -114,7 +114,7 @@ func (s *PermissionService) GetPermissionByID(ctx context.Context, permissionID 
 		return nil, fmt.Errorf("获取权限失败: %w", err)
 	}
 	if permission == nil {
-		logger.LogError(errors.New("permission not found"), "", 0, clientIP, "get_permission_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("permission not found"), "", 0, clientIP, "get_permission_by_id", "SERVICE", map[string]interface{}{
 			"operation":     "permission_not_found",
 			"permission_id": permissionID,
 			"timestamp":     logger.NowFormatted(),
@@ -157,7 +157,7 @@ func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit
 	originalOffset := offset
 	originalLimit := limit
 	if offset < 0 {
-		logger.LogError(fmt.Errorf("invalid offset parameter: %d", offset), "", 0, clientIP, "get_permission_list", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("invalid offset parameter: %d", offset), "", 0, clientIP, "get_permission_list", "SERVICE", map[string]interface{}{
 			"operation": "get_permission_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -189,7 +189,7 @@ func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit
 
 	permissions, total, err := s.permissionRepo.GetPermissionList(ctx, offset, limit)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "get_permission_list", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "get_permission_list", "SERVICE", map[string]interface{}{
 			"operation": "get_permission_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -231,7 +231,7 @@ func (s *PermissionService) validateUpdatePermissionParams(ctx context.Context, 
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 
 	if permissionID == 0 {
-		logger.LogError(errors.New("invalid permission ID for update"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid permission ID for update"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "parameter_validation",
 			"permission_id": permissionID,
 			"error":         "permission_id_zero",
@@ -240,7 +240,7 @@ func (s *PermissionService) validateUpdatePermissionParams(ctx context.Context, 
 		return errors.New("权限ID不能为0")
 	}
 	if req == nil {
-		logger.LogError(errors.New("update request is nil"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("update request is nil"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "parameter_validation",
 			"permission_id": permissionID,
 			"error":         "request_nil",
@@ -258,7 +258,7 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 	// 权限存在校验(permission_id有效性)
 	permission, err := s.permissionRepo.GetPermissionByID(ctx, permissionID)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "permission_existence_check",
 			"permission_id": permissionID,
 			"error":         "database_query_failed",
@@ -267,7 +267,7 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 		return nil, fmt.Errorf("获取权限失败: %w", err)
 	}
 	if permission == nil {
-		logger.LogError(errors.New("permission not found for update"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("permission not found for update"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "permission_existence_check",
 			"permission_id": permissionID,
 			"error":         "permission_not_found",
@@ -278,7 +278,7 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 
 	// 系统权限保护机制
 	if permission.ID == 1 {
-		logger.LogError(errors.New("system permission cannot be updated"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("system permission cannot be updated"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "system_permission_protection",
 			"permission_id": permissionID,
 			"error":         "system_permission_update_prohibited",
@@ -293,7 +293,7 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 	// 如果数据库本身没有权限名称唯一索引,则下面代码会生效(保证权限名称唯一性)
 	exists, err := s.permissionRepo.PermissionExists(ctx, req.Name)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "permission_name_conflict_check",
 			"permission_id": permissionID,
 			"error":         "database_query_failed",
@@ -303,7 +303,7 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 	}
 	if exists {
 		// 请求中的新名字与数据库中的名字相同，则不进行更新[只修改其他属性可以不携带name字段]
-		logger.LogError(errors.New("permission name already exists"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("permission name already exists"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "permission_name_conflict_check",
 			"permission_id": permissionID,
 			"error":         "permission_name_conflict",
@@ -340,7 +340,7 @@ func (s *PermissionService) executePermissionUpdate(ctx context.Context, permiss
 	}
 
 	if err := s.permissionRepo.UpdatePermission(ctx, permission); err != nil {
-		logger.LogError(err, "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
 			"operation":     "database_update",
 			"permission_id": permission.ID,
 			"error":         "update_permission_failed",
@@ -368,7 +368,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 
 	// 参数验证
 	if permissionID == 0 {
-		logger.LogError(errors.New("invalid permission ID for deletion"), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid permission ID for deletion"), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "parameter_validation",
 			"permission_id": permissionID,
 			"error":         "permission_id_zero",
@@ -380,7 +380,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	// 开始事务 - 将所有操作都放在事务内部，避免事务外查询造成的锁冲突
 	tx := s.permissionRepo.BeginTx(ctx)
 	if tx == nil {
-		logger.LogError(errors.New("failed to begin transaction"), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("failed to begin transaction"), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "transaction_begin",
 			"permission_id": permissionID,
 			"error":         "transaction_begin_failed",
@@ -393,7 +393,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			logger.LogError(fmt.Errorf("panic during permission deletion: %v", r), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("panic during permission deletion: %v", r), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 				"operation":     "panic_recovery",
 				"permission_id": permissionID,
 				"error":         "panic_occurred",
@@ -409,7 +409,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	var count int64
 	if err := tx.WithContext(ctx).Model(&system.Permission{}).Where("id = ?", permissionID).Count(&count).Error; err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "permission_existence_check",
 			"permission_id": permissionID,
 			"error":         "database_query_failed",
@@ -419,7 +419,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	}
 	if count == 0 {
 		tx.Rollback()
-		logger.LogError(errors.New("permission not found for deletion"), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("permission not found for deletion"), "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "permission_existence_check",
 			"permission_id": permissionID,
 			"error":         "permission_not_found",
@@ -431,7 +431,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	// 2. 先删除权限角色关联记录 - role_permissions（子表）- 确保删除顺序正确
 	if err := s.permissionRepo.DeleteRolePermissionsByPermissionID(ctx, tx, permissionID); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "cascade_delete_role_permissions",
 			"permission_id": permissionID,
 			"error":         "delete_role_permissions_failed",
@@ -443,7 +443,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 	// 3. 再删除权限记录 - permissions（父表）- 使用事务内的删除操作
 	if err := tx.WithContext(ctx).Delete(&system.Permission{}, permissionID).Error; err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "delete_permission",
 			"permission_id": permissionID,
 			"error":         "delete_permission_failed",
@@ -454,7 +454,7 @@ func (s *PermissionService) DeletePermission(ctx context.Context, permissionID u
 
 	// 4. 提交事务
 	if err := tx.Commit().Error; err != nil {
-		logger.LogError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_permission", "SERVICE", map[string]interface{}{
 			"operation":     "transaction_commit",
 			"permission_id": permissionID,
 			"error":         "transaction_commit_failed",

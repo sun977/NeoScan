@@ -70,7 +70,7 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *system.User) (*au
 	// 参数验证：确保用户对象不为空
 	// 这是防御性编程的体现，避免空指针异常
 	if user == nil {
-		logger.LogError(errors.New("user cannot be nil"), "", 0, "", "token_generate", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user cannot be nil"), "", 0, "", "token_generate", "POST", map[string]interface{}{
 			"operation": "generate_tokens",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -82,7 +82,7 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *system.User) (*au
 	userWithPerms, err := s.userService.GetUserWithRolesAndPermissions(ctx, user.ID)
 	if err != nil {
 		// 使用fmt.Errorf包装错误，保留原始错误信息，便于调试
-		logger.LogError(err, "", uint(user.ID), "", "token_generate", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(user.ID), "", "token_generate", "POST", map[string]interface{}{
 			"operation": "generate_tokens",
 			"username":  user.Username,
 			"timestamp": logger.NowFormatted(),
@@ -121,7 +121,7 @@ func (s *JWTService) GenerateTokens(ctx context.Context, user *system.User) (*au
 	)
 	if err != nil {
 		// 令牌生成失败，包装错误信息返回
-		logger.LogError(err, "", uint(userWithPerms.ID), "", "token_generate", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(userWithPerms.ID), "", "token_generate", "POST", map[string]interface{}{
 			"operation": "generate_tokens",
 			"username":  userWithPerms.Username,
 			"roles":     roles,
@@ -370,7 +370,7 @@ func (s *JWTService) RevokeToken(ctx context.Context, tokenJTI string, expiratio
 	// 这里遵循了层级调用关系：Service → Repository
 	err := s.redisRepo.RevokeToken(ctx, tokenJTI, expiration)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "revoke_token", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "revoke_token", "POST", map[string]interface{}{
 			"operation": "revoke_token",
 			"jti":       tokenJTI,
 			"timestamp": logger.NowFormatted(),

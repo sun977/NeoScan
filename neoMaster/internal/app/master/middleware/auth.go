@@ -100,7 +100,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		claims, err := m.sessionService.ValidateSession(c.Request.Context(), accessToken)
 		if err != nil {
 			// 记录错误日志
-			logger.LogError(err, XRequestID, 0, clientIP, "token_validation", "GET", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, 0, clientIP, "token_validation", "GET", map[string]interface{}{
 				"operation":    "token_validation",
 				"token_prefix": accessToken[:10] + "...",
 				"client_ip":    clientIP,
@@ -123,7 +123,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 		validVersion, err := m.jwtService.ValidatePasswordVersion(c.Request.Context(), accessToken)
 		if err != nil {
 			// 记录错误日志
-			logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_check", "GET", map[string]interface{}{
+			logger.LogBusinessError(err, XRequestID, uint(claims.ID), clientIP, "password_version_check", "GET", map[string]interface{}{
 				"operation":    "password_version_check",
 				"token_prefix": accessToken[:10] + "...",
 				"client_ip":    clientIP,
@@ -137,7 +137,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 			switch {
 			case errors.Is(err, context.DeadlineExceeded):
 				// 超时错误，可能是网络问题，允许请求继续
-				logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_timeout", "GET", map[string]interface{}{
+				logger.LogBusinessError(err, XRequestID, uint(claims.ID), clientIP, "password_version_timeout", "GET", map[string]interface{}{
 					"operation":    "password_version_check",
 					"error_type":   "network_timeout",
 					"username":     claims.Username,
@@ -148,7 +148,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 
 			case errors.Is(err, redis.Nil):
 				// Redis键不存在，可能是测试环境或首次登录，允许请求继续
-				logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_not_found", "GET", map[string]interface{}{
+				logger.LogBusinessError(err, XRequestID, uint(claims.ID), clientIP, "password_version_not_found", "GET", map[string]interface{}{
 					"operation":    "password_version_check",
 					"error_type":   "not_found",
 					"username":     claims.Username,
@@ -159,7 +159,7 @@ func (m *MiddlewareManager) GinJWTAuthMiddleware() gin.HandlerFunc {
 
 			default:
 				// 其他未知错误，记录但允许请求继续
-				logger.LogError(err, XRequestID, uint(claims.ID), clientIP, "password_version_unknown_error", "GET", map[string]interface{}{
+				logger.LogBusinessError(err, XRequestID, uint(claims.ID), clientIP, "password_version_unknown_error", "GET", map[string]interface{}{
 					"operation":    "password_version_check",
 					"error_type":   "unknown",
 					"token_prefix": accessToken[:10] + "...",

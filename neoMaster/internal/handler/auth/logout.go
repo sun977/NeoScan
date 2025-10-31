@@ -52,7 +52,7 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 	accessToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
 		// 记录令牌提取失败错误日志
-		logger.LogError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":            "logout",
 			"option":               "logout",
 			"func_name":            "handler.auth.logout.Logout",
@@ -75,7 +75,7 @@ func (h *LogoutHandler) Logout(c *gin.Context) {
 	err = h.sessionService.Logout(c.Request.Context(), accessToken)
 	if err != nil {
 		// 记录登出失败错误日志
-		logger.LogError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "logout",
 			"option":     "sessionService.Logout",
 			"func_name":  "handler.auth.logout.Logout",
@@ -125,7 +125,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	accessToken, err := h.extractTokenFromHeader(c)
 	if err != nil {
 		// 记录令牌提取失败错误日志
-		logger.LogError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":            "logout_all",
 			"option":               "logout_all",
 			"func_name":            "handler.auth.logout.LogoutAll",
@@ -148,7 +148,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	user, err := h.sessionService.ValidateSession(c.Request.Context(), accessToken)
 	if err != nil {
 		// 记录令牌验证失败错误日志
-		logger.LogError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "logout_all",
 			"option":     "validateSession",
 			"func_name":  "handler.auth.logout.LogoutAll",
@@ -172,7 +172,7 @@ func (h *LogoutHandler) LogoutAll(c *gin.Context) {
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录全部登出失败错误日志
-		logger.LogError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":   "logout_all",
 			"option":      "logout_all",
 			"func_name":   "handler.auth.logout.LogoutAll",

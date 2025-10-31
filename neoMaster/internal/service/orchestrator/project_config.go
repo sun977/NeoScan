@@ -76,7 +76,7 @@ func NewProjectConfigService(
 func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *orchestrator.ProjectConfig) (*orchestrator.ProjectConfig, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if config == nil {
-		logger.LogError(errors.New("project config is nil"), "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project config is nil"), "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
 			"operation": "create_project_config",
 			"error":     "nil_config",
 			"timestamp": logger.NowFormatted(),
@@ -86,7 +86,7 @@ func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *
 
 	// 业务验证 - 检查项目名称唯一性
 	if err := s.ValidateProjectConfig(ctx, config); err != nil {
-		logger.LogError(err, "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
 			"operation":    "create_project_config",
 			"error":        "validation_failed",
 			"project_name": config.Name,
@@ -98,7 +98,7 @@ func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *
 	// 检查项目名称是否已存在
 	exists, err := s.projectRepo.ProjectConfigExists(ctx, config.Name)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
 			"operation":    "create_project_config",
 			"error":        "check_exists_failed",
 			"project_name": config.Name,
@@ -108,7 +108,7 @@ func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *
 	}
 
 	if exists {
-		logger.LogError(errors.New("project name already exists"), "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project name already exists"), "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
 			"operation":    "create_project_config",
 			"error":        "name_already_exists",
 			"project_name": config.Name,
@@ -122,7 +122,7 @@ func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *
 
 	// 创建项目配置
 	if err := s.projectRepo.CreateProjectConfig(ctx, config); err != nil {
-		logger.LogError(err, "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_project_config", "SERVICE", map[string]interface{}{
 			"operation":    "create_project_config",
 			"error":        "create_failed",
 			"project_name": config.Name,
@@ -151,7 +151,7 @@ func (s *ProjectConfigService) CreateProjectConfig(ctx context.Context, config *
 func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint, config *orchestrator.ProjectConfig) (*orchestrator.ProjectConfig, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid project config ID"), "", 0, "", "update_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid project config ID"), "", 0, "", "update_project_config", "SERVICE", map[string]interface{}{
 			"operation": "update_project_config",
 			"error":     "invalid_id",
 			"id":        id,
@@ -161,7 +161,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("project config is nil"), "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project config is nil"), "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
 			"operation": "update_project_config",
 			"error":     "nil_config",
 			"id":        id,
@@ -173,7 +173,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 	// 检查项目配置是否存在
 	existingConfig, err := s.projectRepo.GetProjectConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
 			"operation": "update_project_config",
 			"error":     "get_existing_failed",
 			"id":        id,
@@ -183,7 +183,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 	}
 
 	if existingConfig == nil {
-		logger.LogError(errors.New("project config not found"), "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project config not found"), "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
 			"operation": "update_project_config",
 			"error":     "not_found",
 			"id":        id,
@@ -196,7 +196,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 	if config.Name != existingConfig.Name {
 		exists, err := s.projectRepo.ProjectConfigExists(ctx, config.Name)
 		if err != nil {
-			logger.LogError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
 				"operation":    "update_project_config",
 				"error":        "check_name_exists_failed",
 				"id":           id,
@@ -207,7 +207,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 		}
 
 		if exists {
-			logger.LogError(errors.New("project name already exists"), "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("project name already exists"), "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
 				"operation":    "update_project_config",
 				"error":        "name_already_exists",
 				"id":           id,
@@ -220,7 +220,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 
 	// 业务验证
 	if err := s.ValidateProjectConfig(ctx, config); err != nil {
-		logger.LogError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
 			"operation":    "update_project_config",
 			"error":        "validation_failed",
 			"id":           id,
@@ -236,7 +236,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 
 	// 更新项目配置
 	if err := s.projectRepo.UpdateProjectConfig(ctx, config); err != nil {
-		logger.LogError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_project_config", "SERVICE", map[string]interface{}{
 			"operation":    "update_project_config",
 			"error":        "update_failed",
 			"id":           id,
@@ -265,7 +265,7 @@ func (s *ProjectConfigService) UpdateProjectConfig(ctx context.Context, id uint,
 func (s *ProjectConfigService) GetProjectConfig(ctx context.Context, id uint) (*orchestrator.ProjectConfig, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid project config ID"), "", 0, "", "get_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid project config ID"), "", 0, "", "get_project_config", "SERVICE", map[string]interface{}{
 			"operation": "get_project_config",
 			"error":     "invalid_id",
 			"id":        id,
@@ -277,7 +277,7 @@ func (s *ProjectConfigService) GetProjectConfig(ctx context.Context, id uint) (*
 	// 获取项目配置
 	config, err := s.projectRepo.GetProjectConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "get_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "get_project_config", "SERVICE", map[string]interface{}{
 			"operation": "get_project_config",
 			"error":     "get_failed",
 			"id":        id,
@@ -287,7 +287,7 @@ func (s *ProjectConfigService) GetProjectConfig(ctx context.Context, id uint) (*
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("project config not found"), "", id, "", "get_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project config not found"), "", id, "", "get_project_config", "SERVICE", map[string]interface{}{
 			"operation": "get_project_config",
 			"error":     "not_found",
 			"id":        id,
@@ -318,7 +318,7 @@ func (s *ProjectConfigService) ListProjectConfigs(ctx context.Context, offset, l
 	// 获取项目配置列表
 	configs, total, err := s.projectRepo.GetProjectConfigList(ctx, offset, limit, status)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "list_project_configs", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "list_project_configs", "SERVICE", map[string]interface{}{
 			"operation": "list_project_configs",
 			"error":     "list_failed",
 			"offset":    offset,
@@ -338,7 +338,7 @@ func (s *ProjectConfigService) ListProjectConfigs(ctx context.Context, offset, l
 func (s *ProjectConfigService) DeleteProjectConfig(ctx context.Context, id uint) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid project config ID"), "", 0, "", "delete_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid project config ID"), "", 0, "", "delete_project_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_project_config",
 			"error":     "invalid_id",
 			"id":        id,
@@ -350,7 +350,7 @@ func (s *ProjectConfigService) DeleteProjectConfig(ctx context.Context, id uint)
 	// 检查项目配置是否存在
 	config, err := s.projectRepo.GetProjectConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_project_config",
 			"error":     "get_failed",
 			"id":        id,
@@ -360,7 +360,7 @@ func (s *ProjectConfigService) DeleteProjectConfig(ctx context.Context, id uint)
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("project config not found"), "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project config not found"), "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_project_config",
 			"error":     "not_found",
 			"id":        id,
@@ -372,7 +372,7 @@ func (s *ProjectConfigService) DeleteProjectConfig(ctx context.Context, id uint)
 	// 检查是否有关联的工作流配置
 	workflows, err := s.workflowRepo.GetWorkflowConfigsByProject(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_project_config",
 			"error":     "check_workflows_failed",
 			"id":        id,
@@ -382,7 +382,7 @@ func (s *ProjectConfigService) DeleteProjectConfig(ctx context.Context, id uint)
 	}
 
 	if len(workflows) > 0 {
-		logger.LogError(errors.New("project has associated workflows"), "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project has associated workflows"), "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
 			"operation":      "delete_project_config",
 			"error":          "has_workflows",
 			"id":             id,
@@ -394,7 +394,7 @@ func (s *ProjectConfigService) DeleteProjectConfig(ctx context.Context, id uint)
 
 	// 删除项目配置
 	if err := s.projectRepo.DeleteProjectConfig(ctx, id); err != nil {
-		logger.LogError(err, "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_project_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_project_config",
 			"error":     "delete_failed",
 			"id":        id,
@@ -473,7 +473,7 @@ func (s *ProjectConfigService) ReloadProjectConfig(ctx context.Context, id uint)
 
 	// 重新验证配置
 	if err := s.ValidateProjectConfig(ctx, config); err != nil {
-		logger.LogError(err, "", id, "", "reload_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "reload_project_config", "SERVICE", map[string]interface{}{
 			"operation": "reload_project_config",
 			"error":     "validation_failed",
 			"id":        id,
@@ -486,7 +486,7 @@ func (s *ProjectConfigService) ReloadProjectConfig(ctx context.Context, id uint)
 	if err := s.projectRepo.UpdateProjectConfigFields(ctx, id, map[string]interface{}{
 		"updated_at": time.Now(),
 	}); err != nil {
-		logger.LogError(err, "", id, "", "reload_project_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "reload_project_config", "SERVICE", map[string]interface{}{
 			"operation": "reload_project_config",
 			"error":     "update_failed",
 			"id":        id,
@@ -539,7 +539,7 @@ func (s *ProjectConfigService) SyncProjectConfig(ctx context.Context, id uint) e
 func (s *ProjectConfigService) GetActiveProjectConfigs(ctx context.Context) ([]*orchestrator.ProjectConfig, error) {
 	configs, err := s.projectRepo.GetActiveProjectConfigs(ctx)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_active_project_configs", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_active_project_configs", "SERVICE", map[string]interface{}{
 			"operation": "get_active_project_configs",
 			"error":     "get_failed",
 			"timestamp": logger.NowFormatted(),
@@ -562,7 +562,7 @@ func (s *ProjectConfigService) GetProjectConfigsByUser(ctx context.Context, user
 	// 使用现有的ListProjectConfigs方法，传入userID过滤
 	configs, _, err := s.ListProjectConfigs(ctx, 0, 100, nil, &userID)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_project_configs_by_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_project_configs_by_user", "SERVICE", map[string]interface{}{
 			"operation": "get_project_configs_by_user",
 			"error":     "get_failed",
 			"user_id":   userID,
@@ -606,7 +606,7 @@ func (s *ProjectConfigService) SearchProjectConfigs(ctx context.Context, keyword
 func (s *ProjectConfigService) GetProjectConfigWithWorkflows(ctx context.Context, id uint) (*orchestrator.ProjectConfig, error) {
 	config, err := s.projectRepo.GetProjectConfigWithWorkflows(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "get_project_config_with_workflows", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "get_project_config_with_workflows", "SERVICE", map[string]interface{}{
 			"operation": "get_project_config_with_workflows",
 			"error":     "get_failed",
 			"id":        id,
@@ -661,7 +661,7 @@ func (s *ProjectConfigService) GetProjectConfigUsage(ctx context.Context, id uin
 func (s *ProjectConfigService) updateProjectConfigStatus(ctx context.Context, id uint, status orchestrator.ProjectConfigStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid project config ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid project config ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "invalid_id",
 			"id":        id,
@@ -673,7 +673,7 @@ func (s *ProjectConfigService) updateProjectConfigStatus(ctx context.Context, id
 	// 检查项目配置是否存在
 	config, err := s.projectRepo.GetProjectConfigByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "get_failed",
 			"id":        id,
@@ -683,7 +683,7 @@ func (s *ProjectConfigService) updateProjectConfigStatus(ctx context.Context, id
 	}
 
 	if config == nil {
-		logger.LogError(errors.New("project config not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("project config not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "not_found",
 			"id":        id,
@@ -694,7 +694,7 @@ func (s *ProjectConfigService) updateProjectConfigStatus(ctx context.Context, id
 
 	// 更新状态
 	if err := s.projectRepo.UpdateProjectConfigStatus(ctx, id, status); err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "update_status_failed",
 			"id":        id,
@@ -776,7 +776,7 @@ func (s *ProjectConfigService) GetSystemScanConfig(ctx context.Context) (map[str
 func (s *ProjectConfigService) UpdateSystemScanConfig(ctx context.Context, configData map[string]interface{}) error {
 	// 参数验证
 	if len(configData) == 0 {
-		logger.LogError(errors.New("config data is empty"), "", 0, "", "update_system_scan_config", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("config data is empty"), "", 0, "", "update_system_scan_config", "SERVICE", map[string]interface{}{
 			"operation": "update_system_scan_config",
 			"error":     "empty_config_data",
 			"timestamp": logger.NowFormatted(),
@@ -807,7 +807,7 @@ func (s *ProjectConfigService) UpdateSystemScanConfig(ctx context.Context, confi
 
 	for key := range configData {
 		if !validKeys[key] {
-			logger.LogError(fmt.Errorf("invalid config key: %s", key), "", 0, "", "update_system_scan_config", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("invalid config key: %s", key), "", 0, "", "update_system_scan_config", "SERVICE", map[string]interface{}{
 				"operation":   "update_system_scan_config",
 				"error":       "invalid_config_key",
 				"invalid_key": key,

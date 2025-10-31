@@ -61,7 +61,7 @@ func NewApp() (*App, error) {
 	if err != nil {
 		log.Printf("Warning: Failed to connect to MySQL: %v", err)
 		// 记录数据库连接失败日志
-		logger.LogError(err, "", 0, "", "db_connect", "CONNECT", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "db_connect", "CONNECT", map[string]interface{}{
 			"operation": "mysql_connect",
 			"host":      cfg.Database.MySQL.Host,
 			"port":      cfg.Database.MySQL.Port,
@@ -85,7 +85,7 @@ func NewApp() (*App, error) {
 	// if err != nil {
 	// 	log.Printf("Warning: Failed to connect to Redis: %v", err)
 	// 	// 记录Redis连接失败日志
-	// 	logger.LogError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
+	// 	logger.LogBusinessError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
 	// 		"operation": "redis_connect",
 	// 		"host":      cfg.Database.Redis.Host,
 	// 		"port":      cfg.Database.Redis.Port,
@@ -111,7 +111,7 @@ func NewApp() (*App, error) {
 		if err != nil {
 			log.Printf("Warning: Failed to connect to Redis: %v", err)
 			// 记录Redis连接失败日志
-			logger.LogError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, "", "redis_connect", "CONNECT", map[string]interface{}{
 				"operation": "redis_connect",
 				"host":      cfg.Database.Redis.Host,
 				"port":      cfg.Database.Redis.Port,

@@ -405,7 +405,7 @@ func (re *RuleEngine) ExecuteRules(context *RuleContext) (*BatchRuleResult, erro
 		result, err := re.ExecuteRule(rule.ID, context)
 		if err != nil {
 			failed++
-			logger.LogError(err, "", 0, "", "", "", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, "", "", "", map[string]interface{}{
 				"rule_id":   rule.ID,
 				"error":     err.Error(),
 				"func_name": "rule_engine.ExecuteRules",

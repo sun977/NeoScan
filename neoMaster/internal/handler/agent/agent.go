@@ -170,7 +170,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	// 检查Content-Type
 	contentType := c.GetHeader("Content-Type")
 	if contentType == "" {
-		logger.LogError(
+		logger.LogBusinessError(
 			fmt.Errorf("missing Content-Type header"),
 			XRequestID,
 			0, // AgentID - 在注册阶段还没有agent ID
@@ -196,7 +196,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	// 解析请求体
 	var req agentModel.RegisterAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0, // AgentID - 在注册阶段还没有agent ID
@@ -222,7 +222,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 
 	// 验证必填字段
 	if err := h.validateRegisterRequest(&req); err != nil {
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0, // AgentID - 在注册阶段还没有agent ID
@@ -256,7 +256,7 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 			statusCode = http.StatusConflict
 		}
 
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0, // AgentID - 在注册阶段还没有agent ID
@@ -318,7 +318,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	// 获取Agent ID
 	agentID := c.Param("id")
 	if agentID == "" {
-		logger.LogError(
+		logger.LogBusinessError(
 			fmt.Errorf("agent ID is required"),
 			XRequestID,
 			0,
@@ -345,7 +345,7 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	agentInfo, err := h.agentManagerService.GetAgentInfo(agentID)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,
@@ -465,7 +465,7 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 	response, err := h.agentManagerService.GetAgentList(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,
@@ -525,7 +525,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	// 获取Agent ID
 	agentID := c.Param("id")
 	if agentID == "" {
-		logger.LogError(
+		logger.LogBusinessError(
 			fmt.Errorf("agent ID is required"),
 			XRequestID,
 			0,
@@ -551,7 +551,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	// 解析请求体
 	var req agentModel.UpdateAgentStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,
@@ -590,7 +590,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 		}
 	}
 	if !isValidStatus {
-		logger.LogError(
+		logger.LogBusinessError(
 			fmt.Errorf("invalid status: %s", req.Status),
 			XRequestID,
 			0,
@@ -619,7 +619,7 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	err := h.agentManagerService.UpdateAgentStatus(agentID, req.Status)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,
@@ -685,7 +685,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 	// 解析请求体
 	var req agentModel.HeartbeatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,
@@ -710,7 +710,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 
 	// 验证必填字段
 	if err := h.validateHeartbeatRequest(&req); err != nil {
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,
@@ -738,7 +738,7 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 	response, err := h.agentMonitorService.ProcessHeartbeat(&req)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,
@@ -811,7 +811,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	// 获取Agent ID
 	agentID := c.Param("id")
 	if agentID == "" {
-		logger.LogError(
+		logger.LogBusinessError(
 			fmt.Errorf("agent ID is required"),
 			XRequestID,
 			0,
@@ -838,7 +838,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	err := h.agentManagerService.DeleteAgent(agentID)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
-		logger.LogError(
+		logger.LogBusinessError(
 			err,
 			XRequestID,
 			0,

@@ -67,7 +67,7 @@ func NewScanToolService(scanToolRepo *orchestratorRepo.ScanToolRepository) *Scan
 func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator.ScanTool) (*orchestrator.ScanTool, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if tool == nil {
-		logger.LogError(errors.New("scan tool is nil"), "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool is nil"), "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_tool",
 			"error":     "nil_tool",
 			"timestamp": logger.NowFormatted(),
@@ -77,7 +77,7 @@ func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator
 
 	// 业务验证 - 检查工具名称唯一性
 	if err := s.ValidateScanToolConfig(ctx, tool); err != nil {
-		logger.LogError(err, "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_tool",
 			"error":     "validation_failed",
 			"tool_name": tool.Name,
@@ -89,7 +89,7 @@ func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator
 	// 检查工具名称是否已存在
 	exists, err := s.scanToolRepo.ScanToolExists(ctx, tool.Name)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_tool",
 			"error":     "check_exists_failed",
 			"tool_name": tool.Name,
@@ -99,7 +99,7 @@ func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator
 	}
 
 	if exists {
-		logger.LogError(errors.New("scan tool name already exists"), "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool name already exists"), "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_tool",
 			"error":     "name_already_exists",
 			"tool_name": tool.Name,
@@ -113,7 +113,7 @@ func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator
 
 	// 创建扫描工具配置
 	if err := s.scanToolRepo.CreateScanTool(ctx, tool); err != nil {
-		logger.LogError(err, "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_tool",
 			"error":     "create_failed",
 			"tool_name": tool.Name,
@@ -142,7 +142,7 @@ func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator
 func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orchestrator.ScanTool) (*orchestrator.ScanTool, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan tool ID"), "", 0, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan tool ID"), "", 0, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_tool",
 			"error":     "invalid_id",
 			"id":        id,
@@ -152,7 +152,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 	}
 
 	if tool == nil {
-		logger.LogError(errors.New("scan tool is nil"), "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool is nil"), "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_tool",
 			"error":     "nil_tool",
 			"id":        id,
@@ -164,7 +164,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 	// 检查扫描工具配置是否存在
 	existingTool, err := s.scanToolRepo.GetScanToolByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_tool",
 			"error":     "get_existing_failed",
 			"id":        id,
@@ -174,7 +174,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 	}
 
 	if existingTool == nil {
-		logger.LogError(errors.New("scan tool not found"), "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool not found"), "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_tool",
 			"error":     "not_found",
 			"id":        id,
@@ -187,7 +187,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 	if tool.Name != existingTool.Name {
 		exists, err := s.scanToolRepo.ScanToolExists(ctx, tool.Name)
 		if err != nil {
-			logger.LogError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 				"operation": "update_scan_tool",
 				"error":     "check_name_exists_failed",
 				"id":        id,
@@ -198,7 +198,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 		}
 
 		if exists {
-			logger.LogError(errors.New("scan tool name already exists"), "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("scan tool name already exists"), "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 				"operation": "update_scan_tool",
 				"error":     "name_already_exists",
 				"id":        id,
@@ -211,7 +211,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 
 	// 业务验证
 	if err := s.ValidateScanToolConfig(ctx, tool); err != nil {
-		logger.LogError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_tool",
 			"error":     "validation_failed",
 			"id":        id,
@@ -227,7 +227,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 
 	// 更新扫描工具配置
 	if err := s.scanToolRepo.UpdateScanTool(ctx, tool); err != nil {
-		logger.LogError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_tool",
 			"error":     "update_failed",
 			"id":        id,
@@ -256,7 +256,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 func (s *ScanToolService) GetScanTool(ctx context.Context, id uint) (*orchestrator.ScanTool, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan tool ID"), "", 0, "", "get_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan tool ID"), "", 0, "", "get_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_tool",
 			"error":     "invalid_id",
 			"id":        id,
@@ -268,7 +268,7 @@ func (s *ScanToolService) GetScanTool(ctx context.Context, id uint) (*orchestrat
 	// 获取扫描工具配置
 	tool, err := s.scanToolRepo.GetScanToolByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "get_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "get_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_tool",
 			"error":     "get_failed",
 			"id":        id,
@@ -278,7 +278,7 @@ func (s *ScanToolService) GetScanTool(ctx context.Context, id uint) (*orchestrat
 	}
 
 	if tool == nil {
-		logger.LogError(errors.New("scan tool not found"), "", id, "", "get_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool not found"), "", id, "", "get_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_tool",
 			"error":     "not_found",
 			"id":        id,
@@ -309,7 +309,7 @@ func (s *ScanToolService) ListScanTools(ctx context.Context, offset, limit int, 
 	// 获取扫描工具配置列表
 	tools, total, err := s.scanToolRepo.GetScanToolList(ctx, offset, limit, toolType, status)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "list_scan_tools", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "list_scan_tools", "SERVICE", map[string]interface{}{
 			"operation": "list_scan_tools",
 			"error":     "list_failed",
 			"offset":    offset,
@@ -329,7 +329,7 @@ func (s *ScanToolService) ListScanTools(ctx context.Context, offset, limit int, 
 func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan tool ID"), "", 0, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan tool ID"), "", 0, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_tool",
 			"error":     "invalid_id",
 			"id":        id,
@@ -341,7 +341,7 @@ func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 	// 检查扫描工具配置是否存在
 	tool, err := s.scanToolRepo.GetScanToolByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_tool",
 			"error":     "get_failed",
 			"id":        id,
@@ -351,7 +351,7 @@ func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 	}
 
 	if tool == nil {
-		logger.LogError(errors.New("scan tool not found"), "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool not found"), "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_tool",
 			"error":     "not_found",
 			"id":        id,
@@ -362,7 +362,7 @@ func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 
 	// 检查工具是否正在使用
 	if tool.Status == orchestrator.ScanToolStatusTesting {
-		logger.LogError(errors.New("scan tool is testing"), "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool is testing"), "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_tool",
 			"error":     "tool_testing",
 			"id":        id,
@@ -373,7 +373,7 @@ func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 
 	// 删除扫描工具配置
 	if err := s.scanToolRepo.DeleteScanTool(ctx, id); err != nil {
-		logger.LogError(err, "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_tool",
 			"error":     "delete_failed",
 			"id":        id,
@@ -423,7 +423,7 @@ func (s *ScanToolService) CheckScanToolHealth(ctx context.Context, id uint) (map
 	// 获取扫描工具配置
 	tool, err := s.scanToolRepo.GetScanToolByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "check_scan_tool_health", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "check_scan_tool_health", "SERVICE", map[string]interface{}{
 			"operation": "check_scan_tool_health",
 			"error":     "get_tool_failed",
 			"id":        id,
@@ -556,7 +556,7 @@ func (s *ScanToolService) UpdateScanToolUsage(ctx context.Context, id uint, succ
 
 	// 更新使用统计
 	if err := s.scanToolRepo.IncrementUsageCount(ctx, id, true); err != nil {
-		logger.LogError(err, "", id, "", "update_scan_tool_usage", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_tool_usage", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_tool_usage",
 			"error":     "increment_usage_failed",
 			"id":        id,
@@ -569,7 +569,7 @@ func (s *ScanToolService) UpdateScanToolUsage(ctx context.Context, id uint, succ
 	if success {
 		// 更新成功统计 - 使用IncrementUsageCount方法
 		if err := s.scanToolRepo.IncrementUsageCount(ctx, id, true); err != nil {
-			logger.LogError(err, "", id, "", "update_scan_tool_usage", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", id, "", "update_scan_tool_usage", "SERVICE", map[string]interface{}{
 				"operation": "update_scan_tool_usage",
 				"error":     "increment_success_failed",
 				"id":        id,
@@ -580,7 +580,7 @@ func (s *ScanToolService) UpdateScanToolUsage(ctx context.Context, id uint, succ
 	} else {
 		// 更新失败统计 - 使用IncrementUsageCount方法
 		if err := s.scanToolRepo.IncrementUsageCount(ctx, id, false); err != nil {
-			logger.LogError(err, "", id, "", "update_scan_tool_usage", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", id, "", "update_scan_tool_usage", "SERVICE", map[string]interface{}{
 				"operation": "update_scan_tool_usage",
 				"error":     "increment_failure_failed",
 				"id":        id,
@@ -678,7 +678,7 @@ func (s *ScanToolService) GetScanToolPerformance(ctx context.Context, id uint) (
 func (s *ScanToolService) GetAvailableScanTools(ctx context.Context) ([]*orchestrator.ScanTool, error) {
 	tools, err := s.scanToolRepo.GetAvailableScanTools(ctx)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_available_scan_tools", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_available_scan_tools", "SERVICE", map[string]interface{}{
 			"operation": "get_available_scan_tools",
 			"error":     "get_failed",
 			"timestamp": logger.NowFormatted(),
@@ -696,7 +696,7 @@ func (s *ScanToolService) GetAvailableScanTools(ctx context.Context) ([]*orchest
 func (s *ScanToolService) GetScanToolsByType(ctx context.Context, toolType orchestrator.ScanToolType) ([]*orchestrator.ScanTool, error) {
 	tools, err := s.scanToolRepo.GetScanToolsByType(ctx, toolType)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_scan_tools_by_type", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_scan_tools_by_type", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_tools_by_type",
 			"error":     "get_failed",
 			"tool_type": toolType,
@@ -802,7 +802,7 @@ func (s *ScanToolService) UninstallScanTool(ctx context.Context, id uint) error 
 func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, status orchestrator.ScanToolStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan tool ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan tool ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "invalid_id",
 			"id":        id,
@@ -814,7 +814,7 @@ func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, sta
 	// 检查扫描工具配置是否存在
 	tool, err := s.scanToolRepo.GetScanToolByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "get_failed",
 			"id":        id,
@@ -824,7 +824,7 @@ func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, sta
 	}
 
 	if tool == nil {
-		logger.LogError(errors.New("scan tool not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan tool not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "not_found",
 			"id":        id,
@@ -835,7 +835,7 @@ func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, sta
 
 	// 更新状态
 	if err := s.scanToolRepo.UpdateScanToolStatus(ctx, id, status); err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "update_status_failed",
 			"id":        id,
@@ -913,7 +913,7 @@ func (s *ScanToolService) setDefaultValues(tool *orchestrator.ScanTool) {
 func (s *ScanToolService) BatchInstallScanTools(ctx context.Context, toolIDs []uint) (map[string]interface{}, error) {
 	// 参数验证
 	if len(toolIDs) == 0 {
-		logger.LogError(errors.New("tool IDs list is empty"), "", 0, "", "batch_install_scan_tools", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("tool IDs list is empty"), "", 0, "", "batch_install_scan_tools", "SERVICE", map[string]interface{}{
 			"operation": "batch_install_scan_tools",
 			"error":     "empty_tool_ids",
 			"timestamp": logger.NowFormatted(),
@@ -946,7 +946,7 @@ func (s *ScanToolService) BatchInstallScanTools(ctx context.Context, toolIDs []u
 			failureCount++
 			detail["status"] = "failed"
 			detail["error"] = err.Error()
-			logger.LogError(err, "", 0, "", "batch_install_scan_tools", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, "", "batch_install_scan_tools", "SERVICE", map[string]interface{}{
 				"operation": "batch_install_scan_tools",
 				"tool_id":   toolID,
 				"error":     err.Error(),
@@ -985,7 +985,7 @@ func (s *ScanToolService) BatchInstallScanTools(ctx context.Context, toolIDs []u
 func (s *ScanToolService) BatchUninstallScanTools(ctx context.Context, toolIDs []uint) (map[string]interface{}, error) {
 	// 参数验证
 	if len(toolIDs) == 0 {
-		logger.LogError(errors.New("tool IDs list is empty"), "", 0, "", "batch_uninstall_scan_tools", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("tool IDs list is empty"), "", 0, "", "batch_uninstall_scan_tools", "SERVICE", map[string]interface{}{
 			"operation": "batch_uninstall_scan_tools",
 			"error":     "empty_tool_ids",
 			"timestamp": logger.NowFormatted(),
@@ -1018,7 +1018,7 @@ func (s *ScanToolService) BatchUninstallScanTools(ctx context.Context, toolIDs [
 			failureCount++
 			detail["status"] = "failed"
 			detail["error"] = err.Error()
-			logger.LogError(err, "", 0, "", "batch_uninstall_scan_tools", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, "", "batch_uninstall_scan_tools", "SERVICE", map[string]interface{}{
 				"operation": "batch_uninstall_scan_tools",
 				"tool_id":   toolID,
 				"error":     err.Error(),
@@ -1063,7 +1063,7 @@ func (s *ScanToolService) GetSystemToolStatus(ctx context.Context) (map[string]i
 	// 获取所有工具
 	tools, _, err := s.ListScanTools(ctx, 0, 1000, nil, nil)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_system_tool_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_system_tool_status", "SERVICE", map[string]interface{}{
 			"operation": "get_system_tool_status",
 			"error":     err.Error(),
 			"timestamp": logger.NowFormatted(),

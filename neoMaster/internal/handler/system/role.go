@@ -52,7 +52,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		// 记录获取用户ID失败错误日志
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_role", "POST", map[string]interface{}{
 			"operation":  "create_role",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -69,7 +69,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
 			"operation":  "create_role",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -88,7 +88,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 	// 解析请求体
 	var req system.CreateRoleRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		logger.LogError(bindErr, XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(bindErr, XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
 			"operation":  "create_role",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -117,7 +117,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		// 	message = "创建角色失败: " + err.Error()
 		// }
 
-		logger.LogError(err, XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "create_role", "POST", map[string]interface{}{
 			"operation":  "create_role",
 			"user_id":    userID,
 			"role_name":  req.Name,
@@ -167,7 +167,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_role_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_role_list", "GET", map[string]interface{}{
 			"operation":  "get_role_list",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -184,7 +184,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "get_role_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "get_role_list", "GET", map[string]interface{}{
 			"operation":  "get_role_list",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -207,7 +207,7 @@ func (h *RoleHandler) GetRoleList(c *gin.Context) {
 	// 调用服务层获取角色列表
 	roles, total, err := h.roleService.GetRoleList(c.Request.Context(), offset, limit)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "get_role_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "get_role_list", "GET", map[string]interface{}{
 			"operation":  "get_role_list",
 			"user_id":    userID,
 			"page":       page,
@@ -282,7 +282,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_role_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_role_by_id", "GET", map[string]interface{}{
 			"operation":  "get_role_by_id",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -299,7 +299,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "get_role_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "get_role_by_id", "GET", map[string]interface{}{
 			"operation":  "get_role_by_id",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -319,7 +319,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 	roleIDStr := c.Param("id")
 	roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "get_role_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "get_role_by_id", "GET", map[string]interface{}{
 			"operation":  "get_role_by_id",
 			"user_id":    userID,
 			"role_id":    roleIDStr,
@@ -340,7 +340,7 @@ func (h *RoleHandler) GetRoleByID(c *gin.Context) {
 	// role, err := h.roleService.GetRoleByID(c.Request.Context(), uint(roleID))
 	role, err := h.roleService.GetRoleWithPermissions(c.Request.Context(), uint(roleID))
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "get_role_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "get_role_by_id", "GET", map[string]interface{}{
 			"operation":  "get_role_by_id",
 			"user_id":    userID,
 			"role_id":    roleID,
@@ -391,7 +391,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "update_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -408,7 +408,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -428,7 +428,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	roleIDStr := c.Param("id")
 	roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userID,
 			"role_id":    roleIDStr,
@@ -448,7 +448,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	// 解析请求体
 	var req system.UpdateRoleRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		logger.LogError(bindErr, XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(bindErr, XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userID,
 			"role_id":    roleID,
@@ -468,7 +468,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	// 调用服务层更新角色
 	role, err := h.roleService.UpdateRoleByID(c.Request.Context(), uint(roleID), &req)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "update_role", "POST", map[string]interface{}{
 			"operation":  "update_role",
 			"user_id":    userID,
 			"role_id":    roleID,
@@ -517,7 +517,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "delete_role", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "delete_role", "DELETE", map[string]interface{}{
 			"operation":  "delete_role",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -534,7 +534,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "delete_role", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "delete_role", "DELETE", map[string]interface{}{
 			"operation":  "delete_role",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -554,7 +554,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	roleIDStr := c.Param("id")
 	roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "delete_role", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "delete_role", "DELETE", map[string]interface{}{
 			"operation":  "delete_role",
 			"user_id":    userID,
 			"role_id":    roleIDStr,
@@ -574,7 +574,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	// 调用服务层删除角色
 	err = h.roleService.DeleteRole(c.Request.Context(), uint(roleID))
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "delete_role", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "delete_role", "DELETE", map[string]interface{}{
 			"operation":  "delete_role",
 			"user_id":    userID,
 			"role_id":    roleID,
@@ -621,7 +621,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "activate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "activate_role", "POST", map[string]interface{}{
 			"operation":  "activate_role",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -638,7 +638,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "activate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "activate_role", "POST", map[string]interface{}{
 			"operation":  "activate_role",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -658,7 +658,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 	roleIDStr := c.Param("id")
 	roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "activate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "activate_role", "POST", map[string]interface{}{
 			"operation":  "activate_role",
 			"user_id":    userID,
 			"role_id":    roleIDStr,
@@ -678,7 +678,7 @@ func (h *RoleHandler) ActivateRole(c *gin.Context) {
 	// 调用服务层激活角色
 	err = h.roleService.ActivateRole(c.Request.Context(), uint(roleID))
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "activate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "activate_role", "POST", map[string]interface{}{
 			"operation":  "activate_role",
 			"user_id":    userID,
 			"role_id":    roleID,
@@ -725,7 +725,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 	// 从上下文获取用户ID（中间件已验证并存储）
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "deactivate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "deactivate_role", "POST", map[string]interface{}{
 			"operation":  "deactivate_role",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -742,7 +742,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "deactivate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, userID, clientIP, "deactivate_role", "POST", map[string]interface{}{
 			"operation":  "deactivate_role",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -762,7 +762,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 	roleIDStr := c.Param("id")
 	roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "deactivate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "deactivate_role", "POST", map[string]interface{}{
 			"operation":  "deactivate_role",
 			"user_id":    userID,
 			"role_id":    roleIDStr,
@@ -782,7 +782,7 @@ func (h *RoleHandler) DeactivateRole(c *gin.Context) {
 	// 调用服务层禁用角色
 	err = h.roleService.DeactivateRole(c.Request.Context(), uint(roleID))
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "deactivate_role", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "deactivate_role", "POST", map[string]interface{}{
 			"operation":  "deactivate_role",
 			"user_id":    userID,
 			"role_id":    roleID,

@@ -1166,7 +1166,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 	// 解析请求体
 	var req orchestrator.MatchScanRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, c.Request.RequestURI, 0, "", "match_scan_rules", "HANDLER", map[string]interface{}{
+		logger.LogBusinessError(err, c.Request.RequestURI, 0, "", "match_scan_rules", "HANDLER", map[string]interface{}{
 			"func_name":  "handler.orchestrator.scan_rule_handler.MatchScanRules",
 			"operation":  "match_scan_rules",
 			"option":     "bind_request",

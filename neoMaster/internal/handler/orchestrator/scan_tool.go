@@ -70,7 +70,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	// 解析请求体
 	var req orchestrator.ScanTool
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_scan_tool",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
@@ -90,7 +90,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 
 	// 验证请求参数
 	if err := h.validateScanToolRequest(&req); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_scan_tool",
 			"option":     "validateScanToolRequest",
 			"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
@@ -112,7 +112,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	// 调用Service层创建扫描工具
 	createdTool, err := h.scanToolService.CreateScanTool(c.Request.Context(), &req)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_scan_tool",
 			"option":     "scanToolService.CreateScanTool",
 			"func_name":  "handler.orchestrator.scan_tool.CreateScanTool",
@@ -177,7 +177,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.scan_tool.GetScanTool",
@@ -199,7 +199,7 @@ func (h *ScanToolHandler) GetScanTool(c *gin.Context) {
 	// 调用Service层获取扫描工具
 	tool, err := h.scanToolService.GetScanTool(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool",
 			"option":     "scanToolService.GetScanTool",
 			"func_name":  "handler.orchestrator.scan_tool.GetScanTool",
@@ -264,7 +264,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
@@ -286,7 +286,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	// 解析请求体
 	var req orchestrator.ScanTool
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
-		logger.LogError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
@@ -307,7 +307,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 
 	// 验证请求参数
 	if err2 := h.validateScanToolRequest(&req); err2 != nil {
-		logger.LogError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "validateScanToolRequest",
 			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
@@ -330,7 +330,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	// 调用Service层更新扫描工具
 	updatedTool, err := h.scanToolService.UpdateScanTool(c.Request.Context(), uint(id), &req)
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
 			"option":     "scanToolService.UpdateScanTool",
 			"func_name":  "handler.orchestrator.scan_tool.UpdateScanTool",
@@ -402,7 +402,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_scan_tool",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.scan_tool.DeleteScanTool",
@@ -424,7 +424,7 @@ func (h *ScanToolHandler) DeleteScanTool(c *gin.Context) {
 	// 调用Service层删除扫描工具
 	err = h.scanToolService.DeleteScanTool(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_scan_tool",
 			"option":     "scanToolService.DeleteScanTool",
 			"func_name":  "handler.orchestrator.scan_tool.DeleteScanTool",
@@ -529,7 +529,7 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	// 调用Service层获取扫描工具列表
 	tools, total, err := h.scanToolService.ListScanTools(c.Request.Context(), offset, limit, typeFilter, statusFilter)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "list_scan_tools",
 			"option":     "scanToolService.ListScanTools",
 			"func_name":  "handler.orchestrator.scan_tool.ListScanTools",
@@ -613,7 +613,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "health_check_scan_tool",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.scan_tool.HealthCheckScanTool",
@@ -635,7 +635,7 @@ func (h *ScanToolHandler) HealthCheckScanTool(c *gin.Context) {
 	// 调用Service层进行健康检查
 	healthStatus, err := h.scanToolService.CheckScanToolHealth(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "health_check_scan_tool",
 			"option":     "scanToolService.CheckScanToolHealth",
 			"func_name":  "handler.orchestrator.scan_tool.HealthCheckScanTool",
@@ -714,7 +714,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool_metrics",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.scan_tool.GetScanToolMetrics",
@@ -736,7 +736,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 	// 调用Service层获取工具指标
 	metrics, err := h.scanToolService.GetScanToolPerformance(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_scan_tool_metrics",
 			"option":     "scanToolService.GetPerformanceMetrics",
 			"func_name":  "handler.orchestrator.scan_tool.GetScanToolMetrics",
@@ -798,7 +798,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrat
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.scan_tool.updateScanToolStatus",
@@ -826,7 +826,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrat
 	}
 
 	if serviceErr != nil {
-		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "scanToolService.UpdateStatus",
 			"func_name":  "handler.orchestrator.scan_tool.updateScanToolStatus",
@@ -889,7 +889,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  action + "_scan_tool",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.scan_tool.manageScanTool",
@@ -922,7 +922,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 	}
 
 	if serviceErr != nil {
-		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  action + "_scan_tool",
 			"option":     "scanToolService." + strings.Title(action) + "ScanTool",
 			"func_name":  "handler.orchestrator.scan_tool.manageScanTool",
@@ -1060,7 +1060,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 	// 解析请求参数
 	var toolIDStrs []string
 	if err := c.ShouldBindJSON(&toolIDStrs); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_install_scan_tools",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
@@ -1083,7 +1083,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 	for _, idStr := range toolIDStrs {
 		id, err := strconv.ParseUint(idStr, 10, 32)
 		if err != nil {
-			logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+			logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 				"operation":  "batch_install_scan_tools",
 				"option":     "ParseUint",
 				"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
@@ -1107,7 +1107,7 @@ func (h *ScanToolHandler) BatchInstallScanTools(c *gin.Context) {
 	// 调用Service层批量安装工具
 	result, err := h.scanToolService.BatchInstallScanTools(c.Request.Context(), toolIDs)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_install_scan_tools",
 			"option":     "scanToolService.BatchInstallScanTools",
 			"func_name":  "handler.orchestrator.scan_tool.BatchInstallScanTools",
@@ -1158,7 +1158,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 	// 解析请求参数
 	var toolIDStrs []string
 	if err := c.ShouldBindJSON(&toolIDStrs); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_uninstall_scan_tools",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
@@ -1181,7 +1181,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 	for _, idStr := range toolIDStrs {
 		id, err := strconv.ParseUint(idStr, 10, 32)
 		if err != nil {
-			logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+			logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 				"operation":  "batch_uninstall_scan_tools",
 				"option":     "ParseUint",
 				"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
@@ -1205,7 +1205,7 @@ func (h *ScanToolHandler) BatchUninstallScanTools(c *gin.Context) {
 	// 调用Service层批量卸载工具
 	result, err := h.scanToolService.BatchUninstallScanTools(c.Request.Context(), toolIDs)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "batch_uninstall_scan_tools",
 			"option":     "scanToolService.BatchUninstallScanTools",
 			"func_name":  "handler.orchestrator.scan_tool.BatchUninstallScanTools",
@@ -1256,7 +1256,7 @@ func (h *ScanToolHandler) GetSystemToolStatus(c *gin.Context) {
 	// 调用Service层获取系统工具状态
 	status, err := h.scanToolService.GetSystemToolStatus(c.Request.Context())
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_tool_status",
 			"option":     "scanToolService.GetSystemToolStatus",
 			"func_name":  "handler.orchestrator.scan_tool.GetSystemToolStatus",

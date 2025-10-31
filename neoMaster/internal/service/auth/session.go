@@ -69,7 +69,7 @@ func (s *SessionService) SetTokenGenerator(tokenGenerator TokenGenerator) {
 // userAgent: 用户代理信息，从HTTP请求头中获取
 func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, clientIP, userAgent string) (*system.LoginResponse, error) {
 	if req == nil {
-		logger.LogError(errors.New("login request cannot be nil"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("login request cannot be nil"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "request_nil",
 			"func_name":  "service.auth.session.Login",
@@ -81,7 +81,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 	}
 
 	if req.Username == "" {
-		logger.LogError(errors.New("username cannot be empty"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("username cannot be empty"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "request_username_empty",
 			"func_name":  "service.auth.session.Login",
@@ -93,7 +93,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 	}
 
 	if req.Password == "" {
-		logger.LogError(errors.New("password cannot be empty"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("password cannot be empty"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "request_password_empty",
 			"func_name":  "service.auth.session.Login",
@@ -116,7 +116,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 			user, err = s.userService.GetUserByEmail(ctx, req.Username)
 			if err != nil {
 				// 邮箱查找也失败，记录日志并返回错误
-				logger.LogError(err, "", user.ID, clientIP, "user_login", "POST", map[string]interface{}{
+				logger.LogBusinessError(err, "", user.ID, clientIP, "user_login", "POST", map[string]interface{}{
 					"operation":  "login",
 					"option":     "request_user_not_found",
 					"func_name":  "service.auth.session.Login",
@@ -130,7 +130,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 			}
 		} else {
 			// 其他数据库错误
-			logger.LogError(err, "", user.ID, clientIP, "user_login", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, "", user.ID, clientIP, "user_login", "POST", map[string]interface{}{
 				"operation":  "login",
 				"option":     "request_database_error",
 				"func_name":  "service.auth.session.Login",
@@ -146,7 +146,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 
 	// 如果用户不存在（两种方式都没找到）
 	if user == nil {
-		logger.LogError(fmt.Errorf("user not found"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("user not found"), "", 0, clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "request_user_not_found",
 			"func_name":  "service.auth.session.Login",
@@ -160,7 +160,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 
 	// 检查用户是否激活
 	if !user.IsActive() {
-		logger.LogError(errors.New("user account is not active"), "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user account is not active"), "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "request_user_account_not_active",
 			"func_name":  "service.auth.session.Login",
@@ -177,7 +177,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 	// 验证密码
 	isValid, err := s.passwordManager.VerifyPassword(req.Password, user.Password)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "VerifyPassword",
 			"func_name":  "service.auth.session.Login",
@@ -190,7 +190,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 		return nil, fmt.Errorf("failed to verify password: %w", err)
 	}
 	if !isValid {
-		logger.LogError(errors.New("password is incorrect"), "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("password is incorrect"), "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "VerifyPassword_error",
 			"func_name":  "service.auth.session.Login",
@@ -206,7 +206,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 	// 生成JWT令牌对
 	tokenPair, err := s.tokenGenerator.GenerateTokens(ctx, user)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "GenerateTokens",
 			"func_name":  "service.auth.session.Login",
@@ -230,7 +230,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 	// 获取用户角色和权限信息
 	userWithPerms, err := s.userService.GetUserWithRolesAndPermissions(ctx, user.ID)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "login",
 			"option":     "request:GetUserWithRolesAndPermissions",
 			"func_name":  "service.auth.session.Login",
@@ -274,7 +274,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 	sessionExpiration := time.Duration(tokenPair.ExpiresIn) * time.Second
 	err = s.sessionRepo.StoreSession(ctx, uint64(user.ID), sessionData, sessionExpiration)
 	if err != nil {
-		logger.LogError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(user.ID), clientIP, "user_login", "POST", map[string]interface{}{
 			"operation":  "store_session",
 			"option":     "request:StoreSession",
 			"func_name":  "service.auth.session.Login",
@@ -331,7 +331,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if accessToken == "" {
-		logger.LogError(errors.New("access token cannot be empty"), "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("access token cannot be empty"), "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout",
 			"option":    "accessToken_empty",
 			"func_name": "service.auth.session.Logout",
@@ -344,7 +344,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	// 验证访问令牌
 	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation":    "logout_all",
 			"option":       "ValidateAccessToken",
 			"func_name":    "service.auth.session.LogoutAll",
@@ -357,7 +357,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	// 获取用户信息
 	user, err := s.userService.GetUserByID(ctx, claims.UserID)
 	if err != nil {
-		logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation":    "logout_all",
 			"option":       "GetUserByID",
 			"func_name":    "service.auth.session.GetUserByID",
@@ -370,7 +370,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 
 	// 删除用户的所有会话（Redis中的会话数据）
 	if derr := s.sessionRepo.DeleteAllUserSessions(ctx, uint64(claims.UserID)); derr != nil {
-		logger.LogError(derr, "", user.ID, clientIP, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogBusinessError(derr, "", user.ID, clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout_all_delete_sessions",
 			"option":    "DeleteAllUserSessions",
 			"func_name": "service.auth.session.LogoutAll",
@@ -386,7 +386,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	// 获取用户密码版本的方法(GetUserPasswordVersion)
 	passwordV, err := s.userService.GetUserPasswordVersion(ctx, claims.UserID)
 	if err != nil {
-		logger.LogError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(claims.UserID), user.Username, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout_all_get_password_version",
 			"option":    "GetUserPasswordVersion",
 			"func_name": "service.auth.session.LogoutAll",
@@ -400,7 +400,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 	if user != nil {
 		newPasswordV := passwordV + 1
 		if err := s.userService.UpdateUserPasswordVersion(ctx, user.ID, newPasswordV); err != nil {
-			logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 				"operation": "logout_all_update_password_version",
 				"option":    "UpdateUserPasswordVersion",
 				"func_name": "service.auth.session.LogoutAll",
@@ -415,7 +415,7 @@ func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) erro
 		// 存储新的密码版本到缓存
 		expiration := 24 * time.Hour // 与refresh token有效期一致
 		if err := s.StorePasswordVersion(ctx, uint(claims.UserID), newPasswordV, expiration); err != nil {
-			logger.LogError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
+			logger.LogBusinessError(err, "", uint(claims.UserID), clientIP, "user_logout_all", "POST", map[string]interface{}{
 				"operation": "logout_all_store_password_version",
 				"option":    "StorePasswordVersion",
 				"func_name": "service.auth.session.LogoutAll",
@@ -547,7 +547,7 @@ func (s *SessionService) DeleteAllUserSessions(ctx context.Context, userID uint)
 // 返回: 错误信息
 func (s *SessionService) RevokeToken(ctx context.Context, jti string, expiration time.Duration) error {
 	if jti == "" {
-		logger.LogError(errors.New("token JTI cannot be empty"), "", 0, "", "revoke_token", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("token JTI cannot be empty"), "", 0, "", "revoke_token", "POST", map[string]interface{}{
 			"operation": "revoke_token",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -558,7 +558,7 @@ func (s *SessionService) RevokeToken(ctx context.Context, jti string, expiration
 	// 这里遵循了层级调用关系：Service → Repository
 	err := s.sessionRepo.RevokeToken(ctx, jti, expiration)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "revoke_token", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "revoke_token", "POST", map[string]interface{}{
 			"operation": "revoke_token",
 			"jti":       jti,
 			"timestamp": logger.NowFormatted(),
@@ -592,7 +592,7 @@ func (s *SessionService) IsTokenRevoked(ctx context.Context, jti string) (bool, 
 	isRevoked, err := s.sessionRepo.IsTokenRevoked(ctx, jti)
 	if err != nil {
 		// 记录错误日志，但不记录业务日志（这是一个查询操作）
-		logger.LogError(err, "", 0, "", "check_token_revoked", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "check_token_revoked", "GET", map[string]interface{}{
 			"operation": "check_token_revoked",
 			"jti":       jti,
 			"timestamp": logger.NowFormatted(),
@@ -620,7 +620,7 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 验证访问令牌[这里的claims可能为空]
 	claims, err := s.tokenGenerator.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "logout", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "logout", "POST", map[string]interface{}{
 			"operation": "logout",
 			"client_ip": clientIP,
 			"timestamp": logger.NowFormatted(),
@@ -631,7 +631,7 @@ func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 撤销令牌
 	err = s.RevokeToken(ctx, claims.ID, time.Until(time.Unix(claims.ExpiresAt.Unix(), 0)))
 	if err != nil {
-		logger.LogError(err, "", claims.UserID, clientIP, "logout", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", claims.UserID, clientIP, "logout", "POST", map[string]interface{}{
 			"operation": "logout",
 			"user_id":   claims.UserID,
 			"client_ip": clientIP,
@@ -656,7 +656,7 @@ func (s *SessionService) GetUserSessions(ctx context.Context, userID uint) ([]*s
 	}
 	sessions, err := s.sessionRepo.GetUserSessions(ctx, uint64(userID))
 	if err != nil {
-		logger.LogError(err, "", userID, "", "get_user_sessions", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, "", "get_user_sessions", "GET", map[string]interface{}{
 			"operation": "get_user_sessions",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -672,7 +672,7 @@ func (s *SessionService) DeleteUserSession(ctx context.Context, userID uint) err
 		return errors.New("userID cannot be zero")
 	}
 	if err := s.sessionRepo.DeleteSession(ctx, uint64(userID)); err != nil {
-		logger.LogError(err, "", userID, "", "delete_user_session", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, "", "delete_user_session", "POST", map[string]interface{}{
 			"operation": "delete_user_session",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),

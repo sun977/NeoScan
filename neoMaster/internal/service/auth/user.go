@@ -56,7 +56,7 @@ func NewUserService(
 func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest, clientIP string) (*system.RegisterResponse, error) {
 	// 参数验证
 	if req == nil {
-		logger.LogError(errors.New("register request is nil"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("register request is nil"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -64,7 +64,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	}
 
 	if req.Username == "" {
-		logger.LogError(errors.New("username is empty"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("username is empty"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -72,7 +72,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	}
 
 	if req.Email == "" {
-		logger.LogError(errors.New("email is empty"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("email is empty"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"username":  req.Username,
 			"timestamp": logger.NowFormatted(),
@@ -81,7 +81,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	}
 
 	if req.Password == "" {
-		logger.LogError(errors.New("password is empty"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("password is empty"), "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"username":  req.Username,
 			"timestamp": logger.NowFormatted(),
@@ -92,7 +92,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	// 检查用户名和邮箱是否已存在
 	exists, err := s.userRepo.UserExists(ctx, req.Username, req.Email)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"username":  req.Username,
 			"email":     req.Email,
@@ -102,7 +102,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	}
 
 	if exists {
-		logger.LogError(system.ErrUserOrEmailAlreadyExists, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(system.ErrUserOrEmailAlreadyExists, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"username":  req.Username,
 			"email":     req.Email,
@@ -114,7 +114,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	// 哈希密码
 	hashedPassword, err := s.passwordManager.HashPassword(req.Password)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "hash_password",
 			"username":  req.Username,
 			"email":     req.Email,
@@ -138,7 +138,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 	// 创建用户
 	err = s.userRepo.CreateUser(ctx, user)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "user_register", "POST", map[string]interface{}{
 			"operation": "register",
 			"username":  req.Username,
 			"email":     req.Email,
@@ -188,7 +188,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证
 	if req == nil {
-		logger.LogError(errors.New("request is nil"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("request is nil"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation": "create_user",
 			"error":     "request is nil",
 			"timestamp": logger.NowFormatted(),
@@ -197,7 +197,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	}
 
 	if req.Username == "" {
-		logger.LogError(errors.New("username is empty"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("username is empty"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation": "create_user",
 			"email":     req.Email,
 			"timestamp": logger.NowFormatted(),
@@ -206,7 +206,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	}
 
 	if req.Email == "" {
-		logger.LogError(errors.New("email is empty"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("email is empty"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation": "create_user",
 			"username":  req.Username,
 			"timestamp": logger.NowFormatted(),
@@ -215,7 +215,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	}
 
 	if req.Password == "" {
-		logger.LogError(errors.New("password is empty"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("password is empty"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation": "create_user",
 			"username":  req.Username,
 			"email":     req.Email,
@@ -227,7 +227,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	// 检查用户名是否已存在
 	existingUser, err := s.userRepo.GetUserByUsername(ctx, req.Username)
 	if err == nil && existingUser != nil {
-		logger.LogError(errors.New("username already exists"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("username already exists"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation":        "create_user",
 			"username":         req.Username,
 			"email":            req.Email,
@@ -240,7 +240,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	// 检查邮箱是否已存在
 	existingUser, err = s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err == nil && existingUser != nil {
-		logger.LogError(errors.New("email already exists"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("email already exists"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation":        "create_user",
 			"username":         req.Username,
 			"email":            req.Email,
@@ -253,7 +253,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	// 哈希密码（业务逻辑处理）
 	hashedPassword, err := s.passwordManager.HashPassword(req.Password)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation": "hash_password",
 			"username":  req.Username,
 			"email":     req.Email,
@@ -294,7 +294,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequ
 	// 存储到数据库
 	err = s.userRepo.CreateUser(ctx, user)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "user_create", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "user_create", "POST", map[string]interface{}{
 			"operation": "create_user_db",
 			"username":  req.Username,
 			"email":     req.Email,
@@ -326,7 +326,7 @@ func (s *UserService) GetUserIDFromToken(ctx context.Context, accessToken string
 
 	// 参数验证：访问令牌不能为空
 	if accessToken == "" {
-		logger.LogError(errors.New("access token is empty"), "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("access token is empty"), "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -337,7 +337,7 @@ func (s *UserService) GetUserIDFromToken(ctx context.Context, accessToken string
 	claims, err := s.jwtManager.ValidateAccessToken(accessToken)
 	if err != nil {
 		// 记录JWT验证失败日志
-		logger.LogError(err, "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
 			"operation": "jwt_validation",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -348,7 +348,7 @@ func (s *UserService) GetUserIDFromToken(ctx context.Context, accessToken string
 	userID := claims.UserID
 	if userID == 0 {
 		// 记录用户ID为空的错误
-		logger.LogError(errors.New("user ID is zero in token claims"), "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user ID is zero in token claims"), "", 0, "", "get_user_id_from_token", "SERVICE", map[string]interface{}{
 			"operation": "claims_validation",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -366,7 +366,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 验证访问令牌
 	if accessToken == "" {
-		logger.LogError(errors.New("access token is empty"), "", 0, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("access token is empty"), "", 0, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -376,7 +376,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	// 解析JWT令牌
 	claims, err := s.jwtManager.ValidateAccessToken(accessToken)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -388,7 +388,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	// 检查会话是否有效
 	sessionData, err := s.redisRepo.GetSession(ctx, uint64(userID))
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -397,7 +397,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	}
 
 	if sessionData == nil {
-		logger.LogError(errors.New("session not found"), "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("session not found"), "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -408,7 +408,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	// 获取用户信息
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -417,7 +417,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found"), "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found"), "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -428,7 +428,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 	// 获取用户角色和权限
 	roles, err := s.userRepo.GetUserRoles(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -439,7 +439,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 
 	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_current_user", "GET", map[string]interface{}{
 			"operation": "get_current_user",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -494,7 +494,7 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*system
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -512,7 +512,7 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*system
 	// 获取用户信息
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
 			"operation": "get_user_info_by_id",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -521,7 +521,7 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*system
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found"), "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found"), "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
 			"operation": "get_user_info_by_id",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -532,7 +532,7 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*system
 	// 获取用户角色和权限
 	roles, err := s.userRepo.GetUserRoles(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
 			"operation": "get_user_info_by_id",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -543,7 +543,7 @@ func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*system
 
 	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
 			"operation": "get_user_info_by_id",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -628,7 +628,7 @@ func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint,
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"error":     "user_id_zero",
@@ -638,7 +638,7 @@ func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint,
 	}
 
 	if req == nil {
-		logger.LogError(errors.New("update request is nil"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("update request is nil"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"error":     "request_nil",
@@ -650,7 +650,7 @@ func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint,
 	// 验证邮箱格式
 	if req.Email != "" {
 		if !s.isValidEmail(req.Email) {
-			logger.LogError(errors.New("invalid email format"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("invalid email format"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "parameter_validation",
 				"user_id":   userID,
 				"email":     req.Email,
@@ -664,7 +664,7 @@ func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint,
 	// 验证密码强度
 	if req.Password != "" {
 		if err := auth.ValidatePasswordStrength(req.Password); err != nil {
-			logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "parameter_validation",
 				"user_id":   userID,
 				"error":     "password_strength_validation_failed",
@@ -677,7 +677,7 @@ func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint,
 	// 验证状态值(激活|禁用)
 	if req.Status != nil {
 		if *req.Status < 0 || *req.Status > 2 {
-			logger.LogError(errors.New("invalid status value"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("invalid status value"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "parameter_validation",
 				"user_id":   userID,
 				"status":    *req.Status,
@@ -699,7 +699,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 	// 检查用户是否存在(User 模型字段都可以获得)
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "user_existence_check",
 			"user_id":   userID,
 			"error":     "database_query_failed",
@@ -709,7 +709,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "user_existence_check",
 			"user_id":   userID,
 			"error":     "user_not_found",
@@ -720,7 +720,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 
 	// 检查用户状态 - 已删除的用户不能更新
 	if user.DeletedAt != nil {
-		logger.LogError(errors.New("user already deleted"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user already deleted"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "user_status_check",
 			"user_id":   userID,
 			"error":     "user_already_deleted",
@@ -733,7 +733,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 	if userID == 1 {
 		// 系统管理员不能被禁用或锁定
 		if req.Status != nil && *req.Status != 1 {
-			logger.LogError(errors.New("cannot disable system admin"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("cannot disable system admin"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "business_rule_check",
 				"user_id":   userID,
 				"status":    *req.Status,
@@ -748,7 +748,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 	if req.Username != "" && req.Username != user.Username {
 		existingUser, err := s.userRepo.GetUserByUsername(ctx, req.Username)
 		if err != nil {
-			logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "username_uniqueness_check",
 				"user_id":   userID,
 				"username":  req.Username,
@@ -759,7 +759,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 			// return nil, fmt.Errorf("check username uniqueness failed: %w", err)
 		}
 		if existingUser != nil && existingUser.ID != userID {
-			logger.LogError(errors.New("username already exists"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("username already exists"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation":        "username_uniqueness_check",
 				"user_id":          userID,
 				"username":         req.Username,
@@ -776,7 +776,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 	if req.Email != "" && req.Email != user.Email {
 		existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 		if err != nil {
-			logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "email_uniqueness_check",
 				"user_id":   userID,
 				"email":     req.Email,
@@ -787,7 +787,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 			// return nil, fmt.Errorf("check email uniqueness failed: %w", err)
 		}
 		if existingUser != nil && existingUser.ID != userID {
-			logger.LogError(errors.New("email already exists"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("email already exists"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation":        "email_uniqueness_check",
 				"user_id":          userID,
 				"email":            req.Email,
@@ -804,7 +804,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 		for _, roleID := range req.RoleIDs {
 			roleExists, err := s.userRepo.UserRoleExistsByID(ctx, roleID)
 			if err != nil {
-				logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+				logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 					"operation": "role_existence_check",
 					"user_id":   userID,
 					"role_id":   roleID,
@@ -815,7 +815,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 				return nil, fmt.Errorf("check role existence failed: %w", err)
 			}
 			if !roleExists {
-				logger.LogError(errors.New("role not found"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+				logger.LogBusinessError(errors.New("role not found"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 					"operation": "role_existence_check",
 					"user_id":   userID,
 					"role_id":   roleID,
@@ -838,7 +838,7 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, 
 	// 开始事务
 	tx := s.userRepo.BeginTx(ctx)
 	if tx == nil {
-		logger.LogError(errors.New("failed to begin transaction"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("failed to begin transaction"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "transaction_begin",
 			"user_id":   user.ID,
 			"error":     "transaction_begin_failed",
@@ -850,7 +850,7 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, 
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			logger.LogError(fmt.Errorf("panic during user update: %v", r), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("panic during user update: %v", r), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "panic_recovery",
 				"user_id":   user.ID,
 				"error":     "panic_occurred",
@@ -899,7 +899,7 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, 
 		hashedPassword, err := s.passwordManager.HashPassword(req.Password)
 		if err != nil {
 			tx.Rollback()
-			logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "password_hash",
 				"user_id":   user.ID,
 				"error":     "password_hash_failed",
@@ -924,7 +924,7 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, 
 		// 先删除旧的角色关联
 		if err := s.userRepo.DeleteUserRolesByUserID(ctx, tx, user.ID); err != nil {
 			tx.Rollback()
-			logger.LogError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 				"operation": "cascade_delete_user_roles",
 				"user_id":   user.ID,
 				"error":     "delete_user_roles_failed",
@@ -945,7 +945,7 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, 
 	// 更新到数据库
 	if err := s.userRepo.UpdateUserWithTx(ctx, tx, user); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "database_update",
 			"user_id":   user.ID,
 			"error":     "update_user_failed",
@@ -956,7 +956,7 @@ func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, 
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
-		logger.LogError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "transaction_commit",
 			"user_id":   user.ID,
 			"error":     "transaction_commit_failed",
@@ -1031,7 +1031,7 @@ func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID u
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"error":     "user_id_zero",
@@ -1041,7 +1041,7 @@ func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID u
 	}
 
 	if req == nil {
-		logger.LogError(errors.New("update request is nil"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("update request is nil"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"error":     "request_nil",
@@ -1053,7 +1053,7 @@ func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID u
 	// 验证邮箱格式
 	if req.Email != "" {
 		if !s.isValidEmail(req.Email) {
-			logger.LogError(errors.New("invalid email format"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("invalid email format"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "parameter_validation",
 				"user_id":   userID,
 				"email":     req.Email,
@@ -1067,7 +1067,7 @@ func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID u
 	// 验证密码强度
 	if req.Password != "" {
 		if err := auth.ValidatePasswordStrength(req.Password); err != nil {
-			logger.LogError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "parameter_validation",
 				"user_id":   userID,
 				"error":     "password_strength_validation_failed",
@@ -1080,7 +1080,7 @@ func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID u
 	// 验证状态值(激活|禁用)
 	if req.Status != nil {
 		if *req.Status < 0 || *req.Status > 2 {
-			logger.LogError(errors.New("invalid status value"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("invalid status value"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "parameter_validation",
 				"user_id":   userID,
 				"status":    *req.Status,
@@ -1102,7 +1102,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 	// 检查用户是否存在(User 模型字段都可以获得)
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "user_existence_check",
 			"user_id":   userID,
 			"error":     "database_query_failed",
@@ -1112,7 +1112,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found for update"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found for update"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "user_existence_check",
 			"user_id":   userID,
 			"error":     "user_not_found",
@@ -1123,7 +1123,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 
 	// 检查用户状态 - 已删除的用户不能更新
 	if user.DeletedAt != nil {
-		logger.LogError(errors.New("user already deleted"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user already deleted"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "user_status_check",
 			"user_id":   userID,
 			"error":     "user_already_deleted",
@@ -1136,7 +1136,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 	if userID == 1 {
 		// 系统管理员不能被禁用或锁定
 		if req.Status != nil && *req.Status != 1 {
-			logger.LogError(errors.New("cannot disable system admin"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("cannot disable system admin"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "business_rule_check",
 				"user_id":   userID,
 				"status":    *req.Status,
@@ -1151,7 +1151,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 	if req.Username != "" && req.Username != user.Username {
 		existingUser, err := s.userRepo.GetUserByUsername(ctx, req.Username)
 		if err != nil {
-			logger.LogError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "username_uniqueness_check",
 				"user_id":   userID,
 				"username":  req.Username,
@@ -1162,7 +1162,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 			// return nil, fmt.Errorf("check username uniqueness failed: %w", err)
 		}
 		if existingUser != nil && existingUser.ID != userID {
-			logger.LogError(errors.New("username already exists"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("username already exists"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation":        "username_uniqueness_check",
 				"user_id":          userID,
 				"username":         req.Username,
@@ -1179,7 +1179,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 	if req.Email != "" && req.Email != user.Email {
 		existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 		if err != nil {
-			logger.LogError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "email_uniqueness_check",
 				"user_id":   userID,
 				"email":     req.Email,
@@ -1191,7 +1191,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 		}
 
 		if existingUser != nil && existingUser.ID != userID {
-			logger.LogError(errors.New("email already exists"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("email already exists"), "", userID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation":        "email_uniqueness_check",
 				"user_id":          userID,
 				"email":            req.Email,
@@ -1213,7 +1213,7 @@ func (s *UserService) executeUserUpdateInfo(ctx context.Context, user *system.Us
 	// 开始事务
 	tx := s.userRepo.BeginTx(ctx)
 	if tx == nil {
-		logger.LogError(errors.New("failed to begin transaction"), "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("failed to begin transaction"), "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "transaction_begin",
 			"user_id":   user.ID,
 			"error":     "transaction_begin_failed",
@@ -1225,7 +1225,7 @@ func (s *UserService) executeUserUpdateInfo(ctx context.Context, user *system.Us
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			logger.LogError(fmt.Errorf("panic during user update: %v", r), "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("panic during user update: %v", r), "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 				"operation": "panic_recovery",
 				"user_id":   user.ID,
 				"error":     "panic_occurred",
@@ -1283,7 +1283,7 @@ func (s *UserService) executeUserUpdateInfo(ctx context.Context, user *system.Us
 	// 更新到数据库
 	if err := s.userRepo.UpdateUserWithTx(ctx, tx, user); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "database_update",
 			"user_id":   user.ID,
 			"error":     "update_user_failed",
@@ -1294,7 +1294,7 @@ func (s *UserService) executeUserUpdateInfo(ctx context.Context, user *system.Us
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
-		logger.LogError(err, "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", user.ID, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "transaction_commit",
 			"user_id":   user.ID,
 			"error":     "transaction_commit_failed",
@@ -1385,7 +1385,7 @@ func (s *UserService) validateDeleteUserParams(ctx context.Context, userID uint)
 	type clientIPKeyType struct{}
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID for deletion"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID for deletion"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"error":     "user_id_zero",
@@ -1404,7 +1404,7 @@ func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) 
 	// 检查用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "user_existence_check",
 			"user_id":   userID,
 			"error":     "database_query_failed",
@@ -1414,7 +1414,7 @@ func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) 
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found for deletion"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found for deletion"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "user_existence_check",
 			"user_id":   userID,
 			"error":     "user_not_found",
@@ -1425,7 +1425,7 @@ func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) 
 
 	// 检查用户状态 - 已删除的用户不能再次删除
 	if user.DeletedAt != nil {
-		logger.LogError(errors.New("user already deleted"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user already deleted"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "user_status_check",
 			"user_id":   userID,
 			"error":     "user_already_deleted",
@@ -1436,7 +1436,7 @@ func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) 
 
 	// 业务规则：检查是否为系统管理员（ID为1的用户不能删除）
 	if userID == 1 {
-		logger.LogError(errors.New("cannot delete system admin"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("cannot delete system admin"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "business_rule_check",
 			"user_id":   userID,
 			"error":     "system_admin_deletion_forbidden",
@@ -1456,7 +1456,7 @@ func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User
 	// 开始事务
 	tx := s.userRepo.BeginTx(ctx)
 	if tx == nil {
-		logger.LogError(errors.New("failed to begin transaction"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("failed to begin transaction"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "transaction_begin",
 			"user_id":   user.ID,
 			"error":     "transaction_begin_failed",
@@ -1468,7 +1468,7 @@ func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			logger.LogError(fmt.Errorf("panic during user deletion: %v", r), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(fmt.Errorf("panic during user deletion: %v", r), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 				"operation": "panic_recovery",
 				"user_id":   user.ID,
 				"error":     "panic_occurred",
@@ -1481,7 +1481,7 @@ func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User
 	// 1. 删除用户角色关联
 	if err := s.userRepo.DeleteUserRolesByUserID(ctx, tx, user.ID); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "cascade_delete_user_roles",
 			"user_id":   user.ID,
 			"error":     "delete_user_roles_failed",
@@ -1493,7 +1493,7 @@ func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User
 	// 2. 删除用户
 	if err := s.userRepo.DeleteUserWithTx(ctx, tx, user.ID); err != nil {
 		tx.Rollback()
-		logger.LogError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "soft_delete_user",
 			"user_id":   user.ID,
 			"error":     "delete_user_failed",
@@ -1504,7 +1504,7 @@ func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User
 
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
-		logger.LogError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "transaction_commit",
 			"user_id":   user.ID,
 			"error":     "transaction_commit_failed",
@@ -1534,7 +1534,7 @@ func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*system.Use
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_by_id", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1553,7 +1553,7 @@ func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*system.Use
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		// 记录数据库查询失败日志
-		logger.LogError(err, "", userID, clientIP, "get_user_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_by_id", "SERVICE", map[string]interface{}{
 			"operation": "database_query",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1564,7 +1564,7 @@ func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*system.Use
 	// 检查用户是否存在
 	if user == nil {
 		// 记录用户不存在日志
-		logger.LogError(errors.New("user not found"), "", userID, clientIP, "get_user_by_id", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found"), "", userID, clientIP, "get_user_by_id", "SERVICE", map[string]interface{}{
 			"operation": "user_not_found",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1639,7 +1639,7 @@ func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*sy
 
 	// 参数验证：偏移量不能为负数
 	if offset < 0 {
-		logger.LogError(fmt.Errorf("invalid offset parameter: %d", offset), "", 0, clientIP, "get_user_list", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("invalid offset parameter: %d", offset), "", 0, clientIP, "get_user_list", "SERVICE", map[string]interface{}{
 			"operation": "get_user_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -1679,7 +1679,7 @@ func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*sy
 	users, total, err := s.userRepo.GetUserList(ctx, offset, limit)
 	if err != nil {
 		// 记录数据库查询错误
-		logger.LogError(err, "", 0, clientIP, "get_user_list", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, clientIP, "get_user_list", "SERVICE", map[string]interface{}{
 			"operation": "get_user_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -1722,7 +1722,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*s
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1740,7 +1740,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*s
 	// 首先验证用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
 			"operation": "check_user_existence",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1750,7 +1750,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*s
 
 	// 用户不存在
 	if user == nil {
-		logger.LogError(errors.New("user not found"), "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found"), "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
 			"operation": "user_not_found",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1760,7 +1760,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*s
 
 	// 检查用户状态是否有效（只有启用状态的用户才能获取权限）
 	if user.Status != system.UserStatusEnabled {
-		logger.LogError(errors.New("user status invalid"), "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user status invalid"), "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
 			"operation":   "check_user_status",
 			"user_id":     userID,
 			"username":    user.Username,
@@ -1773,7 +1773,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*s
 	// 获取用户权限
 	permissions, err := s.userRepo.GetUserPermissions(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
 			"operation": "get_permissions_from_repo",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -1816,7 +1816,7 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*system.
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1834,7 +1834,7 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*system.
 	// 首先验证用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
 			"operation": "check_user_existence",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1844,7 +1844,7 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*system.
 
 	// 用户不存在
 	if user == nil {
-		logger.LogError(errors.New("user not found"), "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found"), "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
 			"operation": "user_not_found",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -1854,7 +1854,7 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*system.
 
 	// 检查用户状态是否有效（只有启用状态的用户才能获取角色）
 	if user.Status != system.UserStatusEnabled {
-		logger.LogError(errors.New("user status invalid"), "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user status invalid"), "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
 			"operation":   "check_user_status",
 			"user_id":     userID,
 			"username":    user.Username,
@@ -1867,7 +1867,7 @@ func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*system.
 	// 获取用户角色
 	roles, err := s.userRepo.GetUserRoles(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
 			"operation": "get_roles_from_repo",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -2083,7 +2083,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证层 - 消除特殊情况
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "update_user_status",
 			"error":     "invalid_user_id",
 			"user_id":   userID,
@@ -2094,7 +2094,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 
 	// 验证状态值有效性 - 严格的参数检查
 	if status != system.UserStatusEnabled && status != system.UserStatusDisabled {
-		logger.LogError(errors.New("invalid status value"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid status value"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "update_user_status",
 			"error":     "invalid_status_value",
 			"user_id":   userID,
@@ -2107,7 +2107,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	// 业务规则验证层 - 检查用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "update_user_status",
 			"error":     "get_user_failed",
 			"user_id":   userID,
@@ -2117,7 +2117,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found"), "", userID, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found"), "", userID, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "update_user_status",
 			"error":     "user_not_found",
 			"user_id":   userID,
@@ -2147,7 +2147,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 
 	// 业务规则：系统管理员保护机制
 	if userID == 1 && status == system.UserStatusDisabled {
-		logger.LogError(errors.New("cannot disable system admin"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("cannot disable system admin"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "business_rule_check",
 			"user_id":   userID,
 			"status":    status,
@@ -2171,7 +2171,7 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status 
 			statusText = "启用"
 		}
 
-		logger.LogError(err, "", userID, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
 			"operation": "update_user_status",
 			"error":     fmt.Sprintf("%s_failed", statusText),
 			"user_id":   userID,
@@ -2230,7 +2230,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	// 参数验证
 	if userID == 0 {
-		logger.LogError(errors.New("invalid user ID for password reset"), "", 0, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user ID for password reset"), "", 0, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -2244,7 +2244,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 	// 获取用户以进行存在性和日志校验
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
 			"operation": "get_user_for_reset",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -2252,7 +2252,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 		return fmt.Errorf("获取用户失败: %w", err)
 	}
 	if user == nil {
-		logger.LogError(errors.New("user not found for password reset"), "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found for password reset"), "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
 			"operation": "user_existence_check",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -2263,7 +2263,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 	// 生成新密码哈希
 	passwordHash, err := s.passwordManager.HashPassword(defaultPassword)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
 			"operation": "hash_password",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -2274,7 +2274,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 
 	// 使用原子方法更新密码并递增版本号
 	if err = s.UpdatePasswordWithVersionHashed(ctx, userID, passwordHash); err != nil {
-		logger.LogError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
 			"operation": "update_password_with_version",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -2286,7 +2286,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 	// 获取新的密码版本（用于日志或后续同步）
 	newPasswordV, err := s.GetUserPasswordVersion(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
 			"operation": "get_new_password_version",
 			"user_id":   userID,
 			"username":  user.Username,
@@ -2297,7 +2297,7 @@ func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPas
 
 	// 删除用户所有会话（尽力而为，不影响主流程）
 	if derr := s.redisRepo.DeleteAllUserSessions(ctx, uint64(userID)); derr != nil {
-		logger.LogError(derr, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(derr, "", userID, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{
 			"operation": "delete_user_sessions",
 			"user_id":   userID,
 			"username":  user.Username,

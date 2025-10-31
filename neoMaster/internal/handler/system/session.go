@@ -33,7 +33,7 @@ func (h *SessionHandler) ListActiveSessions(c *gin.Context) {
 
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "list_active_sessions", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "list_active_sessions", "GET", map[string]interface{}{
 			"operation":  "list_active_sessions",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -45,7 +45,7 @@ func (h *SessionHandler) ListActiveSessions(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "list_active_sessions", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id type assertion failed"), XRequestID, userID, clientIP, "list_active_sessions", "GET", map[string]interface{}{
 			"operation":  "list_active_sessions",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -71,7 +71,7 @@ func (h *SessionHandler) ListActiveSessions(c *gin.Context) {
 
 	sessions, serr := h.sessionService.GetUserSessions(c.Request.Context(), uint(queryUserID64))
 	if serr != nil {
-		logger.LogError(serr, XRequestID, userID, clientIP, "list_active_sessions", "GET", map[string]interface{}{
+		logger.LogBusinessError(serr, XRequestID, userID, clientIP, "list_active_sessions", "GET", map[string]interface{}{
 			"operation":   "list_active_sessions",
 			"target_user": queryUserID64,
 			"client_ip":   clientIP,
@@ -96,7 +96,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 
 	adminIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "revoke_session", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "revoke_session", "POST", map[string]interface{}{
 			"operation":  "revoke_session",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -108,7 +108,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 	}
 	adminID, ok := adminIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, adminID, clientIP, "revoke_session", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id type assertion failed"), XRequestID, adminID, clientIP, "revoke_session", "POST", map[string]interface{}{
 			"operation":  "revoke_session",
 			"admin_id":   adminID,
 			"client_ip":  clientIP,
@@ -124,7 +124,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 	userIDStr := c.Param("userId")
 	userID64, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, adminID, clientIP, "revoke_session", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, adminID, clientIP, "revoke_session", "POST", map[string]interface{}{
 			"operation":   "revoke_session",
 			"admin_id":    adminID,
 			"target_user": userID64,
@@ -138,7 +138,7 @@ func (h *SessionHandler) RevokeSession(c *gin.Context) {
 	}
 
 	if derr := h.sessionService.DeleteUserSession(c.Request.Context(), uint(userID64)); derr != nil {
-		logger.LogError(derr, XRequestID, adminID, clientIP, "revoke_session", "POST", map[string]interface{}{
+		logger.LogBusinessError(derr, XRequestID, adminID, clientIP, "revoke_session", "POST", map[string]interface{}{
 			"operation":   "revoke_session",
 			"admin_id":    adminID,
 			"target_user": userID64,
@@ -173,7 +173,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 
 	adminIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
 			"operation":  "revoke_all_user_sessions",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -185,7 +185,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 	}
 	adminID, ok := adminIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("user_id type assertion failed"), XRequestID, adminID, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id type assertion failed"), XRequestID, adminID, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
 			"operation":  "revoke_all_user_sessions",
 			"admin_id":   adminID,
 			"client_ip":  clientIP,
@@ -200,7 +200,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 	userIDStr := c.Param("userId")
 	userID64, err := strconv.ParseUint(userIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, adminID, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, adminID, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
 			"operation":   "revoke_all_user_sessions",
 			"admin_id":    adminID,
 			"target_user": userID64,
@@ -214,7 +214,7 @@ func (h *SessionHandler) RevokeAllUserSessions(c *gin.Context) {
 	}
 
 	if derr := h.sessionService.DeleteAllUserSessions(c.Request.Context(), uint(userID64)); derr != nil {
-		logger.LogError(derr, XRequestID, adminID, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
+		logger.LogBusinessError(derr, XRequestID, adminID, clientIP, "revoke_all_user_sessions", "POST", map[string]interface{}{
 			"operation":   "revoke_all_user_sessions",
 			"target_user": userID64,
 			"admin_id":    adminID,

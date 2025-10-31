@@ -77,7 +77,7 @@ func NewScanRuleService(scanRuleRepo *orchestratorRepo.ScanRuleRepository) *Scan
 func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *orchestrator.ScanRule) (*orchestrator.ScanRule, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if rule == nil {
-		logger.LogError(errors.New("scan rule is nil"), "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule is nil"), "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_rule",
 			"error":     "nil_rule",
 			"timestamp": logger.NowFormatted(),
@@ -87,7 +87,7 @@ func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *orchestrator
 
 	// 业务验证 - 检查规则名称唯一性
 	if err := s.ValidateScanRuleConfig(ctx, rule); err != nil {
-		logger.LogError(err, "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_rule",
 			"error":     "validation_failed",
 			"rule_name": rule.Name,
@@ -99,7 +99,7 @@ func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *orchestrator
 	// 检查规则名称是否已存在
 	exists, err := s.scanRuleRepo.ScanRuleExists(ctx, rule.Name)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_rule",
 			"error":     "check_exists_failed",
 			"rule_name": rule.Name,
@@ -109,7 +109,7 @@ func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *orchestrator
 	}
 
 	if exists {
-		logger.LogError(errors.New("scan rule name already exists"), "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule name already exists"), "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_rule",
 			"error":     "name_already_exists",
 			"rule_name": rule.Name,
@@ -123,7 +123,7 @@ func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *orchestrator
 
 	// 创建扫描规则配置
 	if err := s.scanRuleRepo.CreateScanRule(ctx, rule); err != nil {
-		logger.LogError(err, "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "create_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "create_scan_rule",
 			"error":     "create_failed",
 			"rule_name": rule.Name,
@@ -155,7 +155,7 @@ func (s *ScanRuleService) CreateScanRule(ctx context.Context, rule *orchestrator
 func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orchestrator.ScanRule) (*orchestrator.ScanRule, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan rule ID"), "", 0, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule",
 			"error":     "invalid_id",
 			"id":        id,
@@ -165,7 +165,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 	}
 
 	if rule == nil {
-		logger.LogError(errors.New("scan rule is nil"), "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule is nil"), "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule",
 			"error":     "nil_rule",
 			"id":        id,
@@ -177,7 +177,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 	// 检查扫描规则配置是否存在
 	existingRule, err := s.scanRuleRepo.GetScanRuleByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule",
 			"error":     "get_existing_failed",
 			"id":        id,
@@ -187,7 +187,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 	}
 
 	if existingRule == nil {
-		logger.LogError(errors.New("scan rule not found"), "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule not found"), "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule",
 			"error":     "not_found",
 			"id":        id,
@@ -200,7 +200,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 	if rule.Name != existingRule.Name {
 		exists, err := s.scanRuleRepo.ScanRuleExists(ctx, rule.Name)
 		if err != nil {
-			logger.LogError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 				"operation": "update_scan_rule",
 				"error":     "check_name_exists_failed",
 				"id":        id,
@@ -211,7 +211,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 		}
 
 		if exists {
-			logger.LogError(errors.New("scan rule name already exists"), "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(errors.New("scan rule name already exists"), "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 				"operation": "update_scan_rule",
 				"error":     "name_already_exists",
 				"id":        id,
@@ -224,7 +224,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 
 	// 业务验证
 	if err := s.ValidateScanRuleConfig(ctx, rule); err != nil {
-		logger.LogError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule",
 			"error":     "validation_failed",
 			"id":        id,
@@ -240,7 +240,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 
 	// 更新扫描规则配置
 	if err := s.scanRuleRepo.UpdateScanRule(ctx, rule); err != nil {
-		logger.LogError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule",
 			"error":     "update_failed",
 			"id":        id,
@@ -269,7 +269,7 @@ func (s *ScanRuleService) UpdateScanRule(ctx context.Context, id uint, rule *orc
 func (s *ScanRuleService) GetScanRule(ctx context.Context, id uint) (*orchestrator.ScanRule, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", "get_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan rule ID"), "", 0, "", "get_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rule",
 			"error":     "invalid_id",
 			"id":        id,
@@ -281,7 +281,7 @@ func (s *ScanRuleService) GetScanRule(ctx context.Context, id uint) (*orchestrat
 	// 获取扫描规则配置
 	rule, err := s.scanRuleRepo.GetScanRuleByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "get_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "get_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rule",
 			"error":     "get_failed",
 			"id":        id,
@@ -291,7 +291,7 @@ func (s *ScanRuleService) GetScanRule(ctx context.Context, id uint) (*orchestrat
 	}
 
 	if rule == nil {
-		logger.LogError(errors.New("scan rule not found"), "", id, "", "get_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule not found"), "", id, "", "get_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rule",
 			"error":     "not_found",
 			"id":        id,
@@ -323,7 +323,7 @@ func (s *ScanRuleService) ListScanRules(ctx context.Context, offset, limit int, 
 	// 获取扫描规则配置列表
 	rules, total, err := s.scanRuleRepo.GetScanRuleList(ctx, offset, limit, ruleType, severity, status)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "list_scan_rules", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "list_scan_rules", "SERVICE", map[string]interface{}{
 			"operation": "list_scan_rules",
 			"error":     "list_failed",
 			"offset":    offset,
@@ -343,7 +343,7 @@ func (s *ScanRuleService) ListScanRules(ctx context.Context, offset, limit int, 
 func (s *ScanRuleService) DeleteScanRule(ctx context.Context, id uint) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan rule ID"), "", 0, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_rule",
 			"error":     "invalid_id",
 			"id":        id,
@@ -355,7 +355,7 @@ func (s *ScanRuleService) DeleteScanRule(ctx context.Context, id uint) error {
 	// 检查扫描规则配置是否存在
 	rule, err := s.scanRuleRepo.GetScanRuleByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_rule",
 			"error":     "get_failed",
 			"id":        id,
@@ -365,7 +365,7 @@ func (s *ScanRuleService) DeleteScanRule(ctx context.Context, id uint) error {
 	}
 
 	if rule == nil {
-		logger.LogError(errors.New("scan rule not found"), "", id, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule not found"), "", id, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_rule",
 			"error":     "not_found",
 			"id":        id,
@@ -376,7 +376,7 @@ func (s *ScanRuleService) DeleteScanRule(ctx context.Context, id uint) error {
 
 	// 删除扫描规则配置
 	if err := s.scanRuleRepo.DeleteScanRule(ctx, id); err != nil {
-		logger.LogError(err, "", id, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "delete_scan_rule", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_rule",
 			"error":     "delete_failed",
 			"id":        id,
@@ -549,7 +549,7 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *orche
 	// 解析规则条件
 	parsedCondition, err := s.ruleEngine.ParseCondition(ctx, rule.Condition)
 	if err != nil {
-		logger.LogError(fmt.Errorf("解析规则条件失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("解析规则条件失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
 			"operation": "evaluate_rule_condition",
 			"option":    "ruleEngine.ParseCondition",
 			"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
@@ -561,7 +561,7 @@ func (s *ScanRuleService) EvaluateRuleCondition(ctx context.Context, rule *orche
 	// 评估条件
 	result, err := s.ruleEngine.EvaluateCondition(ctx, parsedCondition, context)
 	if err != nil {
-		logger.LogError(fmt.Errorf("评估规则条件失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("评估规则条件失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/evaluate", "", map[string]interface{}{
 			"operation": "evaluate_rule_condition",
 			"option":    "ruleEngine.EvaluateCondition",
 			"func_name": "service.orchestrator.scan_rule.EvaluateRuleCondition",
@@ -603,7 +603,7 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *orchestra
 	// 解析规则动作
 	actionStruct, err := rule.GetActionStruct()
 	if err != nil {
-		logger.LogError(fmt.Errorf("解析规则动作失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("解析规则动作失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
 			"operation": "execute_rule_action",
 			"option":    "rule.GetActionStruct",
 			"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
@@ -615,7 +615,7 @@ func (s *ScanRuleService) ExecuteRuleAction(ctx context.Context, rule *orchestra
 	// 使用规则引擎执行规则动作
 	actionResult, err := s.ruleEngine.ExecuteAction(ctx, actionStruct, context)
 	if err != nil {
-		logger.LogError(fmt.Errorf("规则动作执行失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("规则动作执行失败: %v", err), "", 0, "", "/api/v1/scan-config/rules/execute", "", map[string]interface{}{
 			"operation": "execute_rule_action",
 			"option":    "ruleEngine.ExecuteAction",
 			"func_name": "service.orchestrator.scan_rule.ExecuteRuleAction",
@@ -769,7 +769,7 @@ func (s *ScanRuleService) UpdateScanRuleStats(ctx context.Context, id uint, matc
 
 	// 更新执行次数
 	if err := s.scanRuleRepo.IncrementExecutionCount(ctx, id); err != nil {
-		logger.LogError(err, "", id, "", "update_scan_rule_stats", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "update_scan_rule_stats", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule_stats",
 			"error":     "increment_execution_failed",
 			"id":        id,
@@ -781,7 +781,7 @@ func (s *ScanRuleService) UpdateScanRuleStats(ctx context.Context, id uint, matc
 	// 如果匹配，更新匹配次数
 	if matched {
 		if err := s.scanRuleRepo.IncrementMatchCount(ctx, id); err != nil {
-			logger.LogError(err, "", id, "", "update_scan_rule_stats", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", id, "", "update_scan_rule_stats", "SERVICE", map[string]interface{}{
 				"operation": "update_scan_rule_stats",
 				"error":     "increment_match_failed",
 				"id":        id,
@@ -878,7 +878,7 @@ func (s *ScanRuleService) GetScanRulePerformance(ctx context.Context, id uint) (
 func (s *ScanRuleService) GetScanRulesByType(ctx context.Context, ruleType orchestrator.ScanRuleType) ([]*orchestrator.ScanRule, error) {
 	rules, err := s.scanRuleRepo.GetScanRulesByType(ctx, ruleType)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_scan_rules_by_type", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_scan_rules_by_type", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rules_by_type",
 			"error":     "get_failed",
 			"rule_type": ruleType,
@@ -897,7 +897,7 @@ func (s *ScanRuleService) GetScanRulesByType(ctx context.Context, ruleType orche
 func (s *ScanRuleService) GetScanRulesBySeverity(ctx context.Context, severity orchestrator.ScanRuleSeverity) ([]*orchestrator.ScanRule, error) {
 	rules, err := s.scanRuleRepo.GetScanRulesBySeverity(ctx, severity)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_scan_rules_by_severity", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_scan_rules_by_severity", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rules_by_severity",
 			"error":     "get_failed",
 			"severity":  severity,
@@ -923,7 +923,7 @@ func (s *ScanRuleService) GetActiveScanRules(ctx context.Context) ([]*orchestrat
 func (s *ScanRuleService) GetScanRuleMetrics(ctx context.Context, id uint) (map[string]interface{}, error) {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", "get_scan_rule_metrics", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan rule ID"), "", 0, "", "get_scan_rule_metrics", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rule_metrics",
 			"error":     "invalid_id",
 			"id":        id,
@@ -935,7 +935,7 @@ func (s *ScanRuleService) GetScanRuleMetrics(ctx context.Context, id uint) (map[
 	// 获取扫描规则详情
 	rule, err := s.scanRuleRepo.GetScanRuleByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", "get_scan_rule_metrics", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", "get_scan_rule_metrics", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rule_metrics",
 			"error":     "get_rule_failed",
 			"id":        id,
@@ -945,7 +945,7 @@ func (s *ScanRuleService) GetScanRuleMetrics(ctx context.Context, id uint) (map[
 	}
 
 	if rule == nil {
-		logger.LogError(errors.New("scan rule not found"), "", id, "", "get_scan_rule_metrics", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule not found"), "", id, "", "get_scan_rule_metrics", "SERVICE", map[string]interface{}{
 			"operation": "get_scan_rule_metrics",
 			"error":     "not_found",
 			"id":        id,
@@ -994,7 +994,7 @@ func (s *ScanRuleService) GetScanRuleMetrics(ctx context.Context, id uint) (map[
 func (s *ScanRuleService) UpdateScanRuleStatus(ctx context.Context, id uint, status string) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", "update_scan_rule_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan rule ID"), "", 0, "", "update_scan_rule_status", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule_status",
 			"error":     "invalid_id",
 			"id":        id,
@@ -1004,7 +1004,7 @@ func (s *ScanRuleService) UpdateScanRuleStatus(ctx context.Context, id uint, sta
 	}
 
 	if status == "" {
-		logger.LogError(errors.New("status is empty"), "", id, "", "update_scan_rule_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("status is empty"), "", id, "", "update_scan_rule_status", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule_status",
 			"error":     "empty_status",
 			"id":        id,
@@ -1023,7 +1023,7 @@ func (s *ScanRuleService) UpdateScanRuleStatus(ctx context.Context, id uint, sta
 	case "draft":
 		ruleStatus = orchestrator.ScanRuleStatusTesting
 	default:
-		logger.LogError(errors.New("invalid status"), "", id, "", "update_scan_rule_status", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid status"), "", id, "", "update_scan_rule_status", "SERVICE", map[string]interface{}{
 			"operation": "update_scan_rule_status",
 			"error":     "invalid_status",
 			"id":        id,
@@ -1043,7 +1043,7 @@ func (s *ScanRuleService) UpdateScanRuleStatus(ctx context.Context, id uint, sta
 func (s *ScanRuleService) GetActiveRules(ctx context.Context, ruleType *orchestrator.ScanRuleType) ([]*orchestrator.ScanRule, error) {
 	rules, err := s.scanRuleRepo.GetActiveRules(ctx, ruleType)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "get_active_rules", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "get_active_rules", "SERVICE", map[string]interface{}{
 			"operation": "get_active_rules",
 			"error":     "get_failed",
 			"timestamp": logger.NowFormatted(),
@@ -1129,7 +1129,7 @@ func (s *ScanRuleService) ExportScanRules(ctx context.Context, ruleType *orchest
 	// 获取扫描规则列表（不分页，获取所有）
 	rules, _, err := s.scanRuleRepo.GetScanRuleList(ctx, 0, 10000, ruleType, nil, status)
 	if err != nil {
-		logger.LogError(err, "", 0, "", "export_scan_rules", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", 0, "", "export_scan_rules", "SERVICE", map[string]interface{}{
 			"operation": "export_scan_rules",
 			"error":     "get_rules_failed",
 			"timestamp": logger.NowFormatted(),
@@ -1150,7 +1150,7 @@ func (s *ScanRuleService) ExportScanRules(ctx context.Context, ruleType *orchest
 func (s *ScanRuleService) updateScanRuleStatus(ctx context.Context, id uint, status orchestrator.ScanRuleStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
-		logger.LogError(errors.New("invalid scan rule ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid scan rule ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "invalid_id",
 			"id":        id,
@@ -1162,7 +1162,7 @@ func (s *ScanRuleService) updateScanRuleStatus(ctx context.Context, id uint, sta
 	// 检查扫描规则配置是否存在
 	rule, err := s.scanRuleRepo.GetScanRuleByID(ctx, id)
 	if err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "get_failed",
 			"id":        id,
@@ -1172,7 +1172,7 @@ func (s *ScanRuleService) updateScanRuleStatus(ctx context.Context, id uint, sta
 	}
 
 	if rule == nil {
-		logger.LogError(errors.New("scan rule not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("scan rule not found"), "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "not_found",
 			"id":        id,
@@ -1183,7 +1183,7 @@ func (s *ScanRuleService) updateScanRuleStatus(ctx context.Context, id uint, sta
 
 	// 更新状态
 	if err := s.scanRuleRepo.UpdateScanRuleStatus(ctx, id, status); err != nil {
-		logger.LogError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", id, "", operation, "SERVICE", map[string]interface{}{
 			"operation": operation,
 			"error":     "update_status_failed",
 			"id":        id,
@@ -1243,7 +1243,7 @@ func (s *ScanRuleService) evaluateRuleCondition(rule *orchestrator.ScanRule, tar
 
 	var conditions map[string]interface{}
 	if err := json.Unmarshal([]byte(rule.Condition), &conditions); err != nil {
-		logger.LogError(err, "", uint(rule.ID), "", "evaluate_rule_condition", "SERVICE", map[string]interface{}{
+		logger.LogBusinessError(err, "", uint(rule.ID), "", "evaluate_rule_condition", "SERVICE", map[string]interface{}{
 			"operation": "evaluate_rule_condition",
 			"error":     "parse_conditions_failed",
 			"rule_id":   rule.ID,
@@ -1376,7 +1376,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 	// 解析规则动作
 	actionStruct, err := rule.GetActionStruct()
 	if err != nil {
-		logger.LogError(fmt.Errorf("解析规则动作失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("解析规则动作失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "rule.GetActionStruct",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
@@ -1389,7 +1389,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 	// 执行规则动作测试
 	_, err = s.ruleEngine.ExecuteAction(ctx, actionStruct, ruleContext)
 	if err != nil {
-		logger.LogError(fmt.Errorf("测试扫描规则失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("测试扫描规则失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.ExecuteAction",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
@@ -1402,7 +1402,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 	// 解析规则条件
 	parsedCondition, err := s.ruleEngine.ParseCondition(ctx, rule.Condition)
 	if err != nil {
-		logger.LogError(fmt.Errorf("解析规则条件失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("解析规则条件失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.ParseCondition",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
@@ -1420,7 +1420,7 @@ func (s *ScanRuleService) TestScanRule(ctx context.Context, rule *orchestrator.S
 	// 评估条件
 	conditionResult, err := s.ruleEngine.EvaluateCondition(ctx, parsedCondition, ruleContext)
 	if err != nil {
-		logger.LogError(fmt.Errorf("评估规则条件失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
+		logger.LogBusinessError(fmt.Errorf("评估规则条件失败"), "", 0, "", "/api/v1/scan-config/rules/test", "", map[string]interface{}{
 			"operation": "test_scan_rule",
 			"option":    "ruleEngine.EvaluateCondition",
 			"func_name": "service.orchestrator.scan_rule.TestScanRule",
@@ -1498,7 +1498,7 @@ func (s *ScanRuleService) ExecuteRulesAction(ctx context.Context, ruleIDs []uint
 	for _, ruleID := range ruleIDs {
 		rule, err := s.GetScanRule(ctx, ruleID)
 		if err != nil {
-			logger.LogError(err, "", 0, "", "execute_rules_action", "SERVICE", map[string]interface{}{
+			logger.LogBusinessError(err, "", 0, "", "execute_rules_action", "SERVICE", map[string]interface{}{
 				"operation": "execute_rules_action",
 				"rule_id":   ruleID,
 				"error":     "get_rule_failed",

@@ -43,7 +43,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -55,7 +55,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "create_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -69,7 +69,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 
 	var req system.CreatePermissionRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		logger.LogError(bindErr, XRequestID, userID, clientIP, "create_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(bindErr, XRequestID, userID, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
 			"user_id":    userID,
 			"client_ip":  clientIP,
@@ -83,7 +83,7 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 
 	permission, err := h.permissionService.CreatePermission(c.Request.Context(), &req)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "create_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "create_permission", "POST", map[string]interface{}{
 			"operation":  "create_permission",
 			"user_id":    userID,
 			"name":       req.Name,
@@ -119,7 +119,7 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_permission_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_permission_list", "GET", map[string]interface{}{
 			"operation":  "get_permission_list",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -131,7 +131,7 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "get_permission_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "get_permission_list", "GET", map[string]interface{}{
 			"operation":  "get_permission_list",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -148,7 +148,7 @@ func (h *PermissionHandler) GetPermissionList(c *gin.Context) {
 
 	permissions, total, err := h.permissionService.GetPermissionList(c.Request.Context(), offset, limit)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "get_permission_list", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "get_permission_list", "GET", map[string]interface{}{
 			"operation":  "get_permission_list",
 			"user_id":    userID,
 			"page":       page,
@@ -198,7 +198,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -210,7 +210,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -225,7 +225,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 	permIDStr := c.Param("id")
 	permID, err := strconv.ParseUint(permIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
 			"user_id":    userID,
 			"perm_id":    permIDStr,
@@ -240,7 +240,7 @@ func (h *PermissionHandler) GetPermissionByID(c *gin.Context) {
 
 	permission, serr := h.permissionService.GetPermissionByID(c.Request.Context(), uint(permID))
 	if serr != nil {
-		logger.LogError(serr, XRequestID, userID, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
+		logger.LogBusinessError(serr, XRequestID, userID, clientIP, "get_permission_by_id", "GET", map[string]interface{}{
 			"operation":  "get_permission_by_id",
 			"user_id":    userID,
 			"perm_id":    permID,
@@ -276,7 +276,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "update_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -288,7 +288,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "update_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -303,7 +303,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 	permIDStr := c.Param("id")
 	permID, err := strconv.ParseUint(permIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userID,
 			"perm_id":    permIDStr,
@@ -318,7 +318,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 
 	var req system.UpdatePermissionRequest
 	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
-		logger.LogError(bindErr, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(bindErr, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userID,
 			"perm_id":    permID,
@@ -333,7 +333,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 
 	permission, uerr := h.permissionService.UpdatePermissionByID(c.Request.Context(), uint(permID), &req)
 	if uerr != nil {
-		logger.LogError(uerr, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
+		logger.LogBusinessError(uerr, XRequestID, userID, clientIP, "update_permission", "POST", map[string]interface{}{
 			"operation":  "update_permission",
 			"user_id":    userID,
 			"perm_id":    permID,
@@ -369,7 +369,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		logger.LogError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user_id not found in context"), XRequestID, 0, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
@@ -381,7 +381,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	}
 	userID, ok := userIDInterface.(uint)
 	if !ok {
-		logger.LogError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(errors.New("invalid user_id type in context"), XRequestID, 0, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
 			"user_id":    userIDInterface,
 			"client_ip":  clientIP,
@@ -396,7 +396,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	permIDStr := c.Param("id")
 	permID, err := strconv.ParseUint(permIDStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, XRequestID, userID, clientIP, "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, XRequestID, userID, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
 			"user_id":    userID,
 			"perm_id":    permIDStr,
@@ -410,7 +410,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	}
 
 	if derr := h.permissionService.DeletePermission(c.Request.Context(), uint(permID)); derr != nil {
-		logger.LogError(derr, XRequestID, userID, clientIP, "delete_permission", "DELETE", map[string]interface{}{
+		logger.LogBusinessError(derr, XRequestID, userID, clientIP, "delete_permission", "DELETE", map[string]interface{}{
 			"operation":  "delete_permission",
 			"user_id":    userID,
 			"perm_id":    permID,

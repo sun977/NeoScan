@@ -67,7 +67,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	// 解析请求体
 	var req orchestrator.ProjectConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_project_config",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.project_config.CreateProjectConfig",
@@ -87,7 +87,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 
 	// 验证请求参数
 	if err := h.validateProjectConfigRequest(&req); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":    "create_project_config",
 			"option":       "validateProjectConfigRequest",
 			"func_name":    "handler.orchestrator.project_config.CreateProjectConfig",
@@ -109,7 +109,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	// 调用Service层创建项目配置
 	createdConfig, err := h.projectConfigService.CreateProjectConfig(c.Request.Context(), &req)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":    "create_project_config",
 			"option":       "projectConfigService.CreateProjectConfig",
 			"func_name":    "handler.orchestrator.project_config.CreateProjectConfig",
@@ -174,7 +174,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_project_config",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.project_config.GetProjectConfig",
@@ -196,7 +196,7 @@ func (h *ProjectConfigHandler) GetProjectConfig(c *gin.Context) {
 	// 调用Service层获取项目配置
 	config, err := h.projectConfigService.GetProjectConfig(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_project_config",
 			"option":     "projectConfigService.GetProjectConfig",
 			"func_name":  "handler.orchestrator.project_config.GetProjectConfig",
@@ -261,7 +261,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_project_config",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.project_config.UpdateProjectConfig",
@@ -283,7 +283,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	// 解析请求体
 	var req orchestrator.ProjectConfig
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
-		logger.LogError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_project_config",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.project_config.UpdateProjectConfig",
@@ -304,7 +304,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 
 	// 验证请求参数
 	if err2 := h.validateProjectConfigRequest(&req); err2 != nil {
-		logger.LogError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err2, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":    "update_project_config",
 			"option":       "validateProjectConfigRequest",
 			"func_name":    "handler.orchestrator.project_config.UpdateProjectConfig",
@@ -327,7 +327,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	// 调用Service层更新项目配置
 	updatedConfig, err := h.projectConfigService.UpdateProjectConfig(c.Request.Context(), uint(id), &req)
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":    "update_project_config",
 			"option":       "projectConfigService.UpdateProjectConfig",
 			"func_name":    "handler.orchestrator.project_config.UpdateProjectConfig",
@@ -399,7 +399,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_project_config",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.project_config.DeleteProjectConfig",
@@ -421,7 +421,7 @@ func (h *ProjectConfigHandler) DeleteProjectConfig(c *gin.Context) {
 	// 调用Service层删除项目配置
 	err = h.projectConfigService.DeleteProjectConfig(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "DELETE", map[string]interface{}{
 			"operation":  "delete_project_config",
 			"option":     "projectConfigService.DeleteProjectConfig",
 			"func_name":  "handler.orchestrator.project_config.DeleteProjectConfig",
@@ -518,7 +518,7 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 	// 调用Service层获取项目配置列表
 	configs, total, err := h.projectConfigService.ListProjectConfigs(c.Request.Context(), offset, limit, statusFilter, nil)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "list_project_configs",
 			"option":     "projectConfigService.ListProjectConfigs",
 			"func_name":  "handler.orchestrator.project_config.ListProjectConfigs",
@@ -600,7 +600,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "reload_project_config",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.project_config.ReloadProjectConfig",
@@ -622,7 +622,7 @@ func (h *ProjectConfigHandler) ReloadProjectConfig(c *gin.Context) {
 	// 调用Service层热重载项目配置
 	err = h.projectConfigService.ReloadProjectConfig(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "reload_project_config",
 			"option":     "projectConfigService.ReloadProjectConfig",
 			"func_name":  "handler.orchestrator.project_config.ReloadProjectConfig",
@@ -685,7 +685,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "sync_project_config",
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.project_config.SyncProjectConfig",
@@ -707,7 +707,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 	// 调用Service层同步项目配置
 	err = h.projectConfigService.SyncProjectConfig(c.Request.Context(), uint(id))
 	if err != nil {
-		logger.LogError(err, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "sync_project_config",
 			"option":     "projectConfigService.SyncProjectConfig",
 			"func_name":  "handler.orchestrator.project_config.SyncProjectConfig",
@@ -768,7 +768,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "ParseUint",
 			"func_name":  "handler.orchestrator.project_config.updateProjectConfigStatus",
@@ -796,7 +796,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 	}
 
 	if serviceErr != nil {
-		logger.LogError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
+		logger.LogBusinessError(serviceErr, requestID, uint(id), clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  operation,
 			"option":     "projectConfigService.UpdateStatus",
 			"func_name":  "handler.orchestrator.project_config.updateProjectConfigStatus",
@@ -889,7 +889,7 @@ func (h *ProjectConfigHandler) GetSystemScanConfig(c *gin.Context) {
 	// 调用Service层获取系统配置
 	config, err := h.projectConfigService.GetSystemScanConfig(c.Request.Context())
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "get_system_scan_config",
 			"option":     "projectConfigService.GetSystemScanConfig",
 			"func_name":  "handler.orchestrator.project_config.GetSystemScanConfig",
@@ -940,7 +940,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 	// 解析请求体
 	var configData map[string]interface{}
 	if err := c.ShouldBindJSON(&configData); err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_system_scan_config",
 			"option":     "ShouldBindJSON",
 			"func_name":  "handler.orchestrator.project_config.UpdateSystemScanConfig",
@@ -961,7 +961,7 @@ func (h *ProjectConfigHandler) UpdateSystemScanConfig(c *gin.Context) {
 	// 调用Service层更新系统配置
 	err := h.projectConfigService.UpdateSystemScanConfig(c.Request.Context(), configData)
 	if err != nil {
-		logger.LogError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_system_scan_config",
 			"option":     "projectConfigService.UpdateSystemScanConfig",
 			"func_name":  "handler.orchestrator.project_config.UpdateSystemScanConfig",

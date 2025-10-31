@@ -43,7 +43,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 
 	// 参数验证
 	if userID == 0 {
-		logger.LogError(errors.New("user ID is zero"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user ID is zero"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -51,7 +51,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	if oldPassword == "" {
-		logger.LogError(errors.New("old password is empty"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("old password is empty"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -59,7 +59,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	if newPassword == "" {
-		logger.LogError(errors.New("new password is empty"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("new password is empty"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -68,7 +68,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 
 	// 验证新密码强度
 	if len(newPassword) < 8 {
-		logger.LogError(errors.New("new password must be at least 8 characters long"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("new password must be at least 8 characters long"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation":       "change_password",
 			"password_length": len(newPassword),
 			"timestamp":       logger.NowFormatted(),
@@ -79,7 +79,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	// 获取用户信息
 	user, err := s.userService.GetUserByID(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -87,7 +87,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	if user == nil {
-		logger.LogError(errors.New("user not found"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("user not found"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -97,7 +97,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	// 验证旧密码
 	isValid, err := s.passwordManager.VerifyPassword(oldPassword, user.Password)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"username":  user.Username,
 			"timestamp": logger.NowFormatted(),
@@ -106,7 +106,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	}
 
 	if !isValid {
-		logger.LogError(errors.New("old password is incorrect"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(errors.New("old password is incorrect"), "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"username":  user.Username,
 			"timestamp": logger.NowFormatted(),
@@ -117,7 +117,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	// 生成新密码哈希
 	newPasswordHash, err := s.passwordManager.HashPassword(newPassword)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"username":  user.Username,
 			"timestamp": logger.NowFormatted(),
@@ -128,7 +128,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	// 更新密码和版本号（原子操作，确保旧token失效）
 	err = s.userService.UpdatePasswordWithVersionHashed(ctx, userID, newPasswordHash)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"username":  user.Username,
 			"timestamp": logger.NowFormatted(),
@@ -139,7 +139,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	// 获取新的密码版本
 	newPasswordV, err := s.userService.GetUserPasswordVersion(ctx, userID)
 	if err != nil {
-		logger.LogError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"username":  user.Username,
 			"timestamp": logger.NowFormatted(),
@@ -151,7 +151,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	err = s.sessionService.StorePasswordVersion(ctx, userID, newPasswordV, s.cacheExpiry)
 	if err != nil {
 		// 缓存更新失败不应该影响密码修改，只记录错误
-		logger.LogError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"username":  user.Username,
 			"step":      "update_cache",
@@ -163,7 +163,7 @@ func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPa
 	err = s.sessionService.DeleteAllUserSessions(ctx, userID)
 	if err != nil {
 		// 会话删除失败不应该影响密码修改，只记录错误
-		logger.LogError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
+		logger.LogBusinessError(err, "", userID, clientIP, "password_change", "PUT", map[string]interface{}{
 			"operation": "change_password",
 			"username":  user.Username,
 			"step":      "delete_sessions",

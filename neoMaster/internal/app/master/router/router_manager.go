@@ -32,6 +32,7 @@ import (
 
 // Router 路由管理器
 type Router struct {
+	config            *config.Config
 	engine            *gin.Engine
 	middlewareManager *middleware.MiddlewareManager
 	loginHandler      *authHandler.LoginHandler
@@ -159,6 +160,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	engine := gin.New()
 
 	return &Router{
+		config:            config,
 		engine:            engine,
 		middlewareManager: middlewareManager,
 		loginHandler:      loginHandler,

@@ -16,8 +16,12 @@ func (r *Router) setupPublicRoutes(v1 *gin.RouterGroup) {
 	// 认证相关公共路由
 	auth := v1.Group("/auth")
 	{
-		// 用户注册
-		auth.POST("/register", r.registerHandler.Register) // handler\auth\register.go 没有权限校验的接口，默认角色为普通用户 role_id = 2
+		// 检查配置文件用户注册功能开关
+		if r.config.App.Features.UserRegistration {
+			// 用户注册
+			auth.POST("/register", r.registerHandler.Register) // handler\auth\register.go 没有权限校验的接口，默认角色为普通用户 role_id = 2
+		}
+		// auth.POST("/register", r.registerHandler.Register) // handler\auth\register.go 没有权限校验的接口，默认角色为普通用户 role_id = 2
 		// 用户登录
 		auth.POST("/login", r.loginHandler.Login) // handler\auth\login.go
 		// 获取登录表单页面（可选）

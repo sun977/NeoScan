@@ -22,15 +22,18 @@ func (r *Router) setupAdminRoutes(v1 *gin.RouterGroup) {
 		// 用户管理
 		users := admin.Group("/users")
 		{
-			users.GET("/list", r.userHandler.GetUserList)                      // 获取用户列表
-			users.POST("/create", r.userHandler.CreateUser)                    // 系统管理员创建用户(包含角色分配)
-			users.GET("/:id", r.userHandler.GetUserByID)                       // 获取用户详情(users表)
-			users.GET("/:id/info", r.userHandler.GetUserInfoByID)              // 获取用户全量信息(包含权限和角色信息)
-			users.POST("/:id", r.userHandler.UpdateUserByID)                   // 包含用户角色更新
-			users.DELETE("/:id", r.userHandler.DeleteUser)                     // 删除用户(同时删除用户角色关系)
-			users.POST("/:id/activate", r.userHandler.ActivateUser)            // 激活用户
-			users.POST("/:id/deactivate", r.userHandler.DeactivateUser)        // 禁用用户
-			users.POST("/:id/reset-password", r.userHandler.ResetUserPassword) // 重置用户密码
+			users.GET("/list", r.userHandler.GetUserList)               // 获取用户列表
+			users.POST("/create", r.userHandler.CreateUser)             // 系统管理员创建用户(包含角色分配)
+			users.GET("/:id", r.userHandler.GetUserByID)                // 获取用户详情(users表)
+			users.GET("/:id/info", r.userHandler.GetUserInfoByID)       // 获取用户全量信息(包含权限和角色信息)
+			users.POST("/:id", r.userHandler.UpdateUserByID)            // 包含用户角色更新
+			users.DELETE("/:id", r.userHandler.DeleteUser)              // 删除用户(同时删除用户角色关系)
+			users.POST("/:id/activate", r.userHandler.ActivateUser)     // 激活用户
+			users.POST("/:id/deactivate", r.userHandler.DeactivateUser) // 禁用用户
+			if r.config.App.Features.PasswordReset {                    // 检查配置文件密码重置功能开关
+				users.POST("/:id/reset-password", r.userHandler.ResetUserPassword) // 重置用户密码
+			}
+			// users.POST("/:id/reset-password", r.userHandler.ResetUserPassword) // 重置用户密码
 		}
 
 		// 角色管理

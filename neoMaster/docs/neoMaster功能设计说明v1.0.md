@@ -1527,7 +1527,6 @@ message InstallPluginResponse {
 ## 6. WebSocket 实时通信
 
 ### 6.1 连接管理
-
 ```go
 // WebSocket连接管理器
 type Hub struct {

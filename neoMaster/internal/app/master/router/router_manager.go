@@ -8,10 +8,9 @@
 package router
 
 import (
+	setup "neomaster/internal/app/master/setup"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	"neomaster/internal/repo/mysql/orchestrator"
-	"neomaster/internal/repo/mysql/system"
-	"time"
 
 	"neomaster/internal/app/master/middleware"
 	"neomaster/internal/config"
@@ -19,13 +18,10 @@ import (
 	authHandler "neomaster/internal/handler/auth"
 	scanConfigHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
-	authPkg "neomaster/internal/pkg/auth"
 
 	// 统一使用项目封装的日志模块，便于采集规范字段与统一输出
 	"neomaster/internal/pkg/logger"
-	redisRepo "neomaster/internal/repo/redis"
 	agentService "neomaster/internal/service/agent"
-	authService "neomaster/internal/service/auth"
 	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
@@ -59,67 +55,40 @@ type Router struct {
 // NewRouter 创建路由管理器实例
 func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *Router {
 	// 内部提取需要的配置
-	jwtSecret := config.Security.JWT.Secret
 	securityConfig := &config.Security
 
-	// 初始化工具包
-	jwtManager := authPkg.NewJWTManager(jwtSecret, time.Hour, 24*time.Hour)
-	passwordConfig := &authPkg.PasswordConfig{
-		Memory:      64 * 1024, // 64MB
-		Iterations:  3,
-		Parallelism: 2,
-		SaltLength:  32,
-		KeyLength:   32,
+	// 通过 setup.BuildAuthModule 进行认证模块的初始化与聚合输出
+	authModule, err := setup.BuildAuthModule(db, redisClient, config)
+	if err != nil {
+		// 不指定日志类型会默认输出到app.log
+		logger.WithFields(map[string]interface{}{
+			"path":      "router_manager.NewRouter",
+			"operation": "setup",
+			"option":    "setup.auth.error",
+			"func_name": "router.NewRouter",
+			"error":     err.Error(),
+		}).Error("认证模块初始化失败")
+		// 初始化失败时，直接返回一个基础 Router；调用方可根据返回值判断并处理
+		gin.SetMode(gin.ReleaseMode)
+		engine := gin.New()
+		return &Router{config: config, engine: engine}
 	}
-	passwordManager := authPkg.NewPasswordManager(passwordConfig)
-	// // 根据配置选择会话存储方式【后续待补充】
-	// var sessionRepo authService.SessionRepository
-	// if cfg.Session.Store == "memory" {
-	// 	sessionRepo = memory.NewSessionRepository()
-	// } else {
-	// 	sessionRepo = redisRepo.NewSessionRepository(redisClient)
-	// }
-	sessionRepo := redisRepo.NewSessionRepository(redisClient)
 
-	// 初始化用户服务UserService
-	userRepo := system.NewUserRepository(db) // 纯数据访问层
-	userService := authService.NewUserService(userRepo, sessionRepo, passwordManager, jwtManager)
-
-	// 初始化角色服务RoleService
-	roleRepo := system.NewRoleRepository(db)
-	roleService := authService.NewRoleService(roleRepo)
-
-	// 初始化权限服务PermissionService
-	permissionRepo := system.NewPermissionRepository(db)
-	permissionService := authService.NewPermissionService(permissionRepo)
-
-	// 初始化RBAC服务（不依赖其他服务）
-	rbacService := authService.NewRBACService(userService)
-
-	// 先创建SessionService（不传入JWTService）
-	sessionService := authService.NewSessionService(userService, passwordManager, rbacService, sessionRepo)
-
-	// 再创建JWTService
-	jwtService := authService.NewJWTService(jwtManager, userService, sessionRepo)
-
-	// 设置SessionService的TokenGenerator（解决循环依赖）
-	sessionService.SetTokenGenerator(jwtService)
-
-	// 初始化PasswordService（密码管理服务）
-	passwordService := authService.NewPasswordService(userService, sessionService, passwordManager, time.Hour*24)
+	// 通过 setup.BuildSystemRBACModule 初始化系统RBAC模块（角色与权限管理）
+	rbacModule := setup.BuildSystemRBACModule(db)
 
 	// 初始化中间件管理器（传入jwtService用于密码版本验证）
-	middlewareManager := middleware.NewMiddlewareManager(sessionService, rbacService, jwtService, securityConfig)
+	middlewareManager := middleware.NewMiddlewareManager(authModule.SessionService, authModule.RBACService, authModule.JWTService, securityConfig)
 
 	// 初始化处理器(控制器是服务集合,先初始化服务,然后服务装填成控制器)
-	loginHandler := authHandler.NewLoginHandler(sessionService)
-	logoutHandler := authHandler.NewLogoutHandler(sessionService)
-	refreshHandler := authHandler.NewRefreshHandler(sessionService)
-	registerHandler := authHandler.NewRegisterHandler(userService)
-	userHandler := systemHandler.NewUserHandler(userService, passwordService)
-	roleHandler := systemHandler.NewRoleHandler(roleService)
-	permissionHandler := systemHandler.NewPermissionHandler(permissionService)
-	sessionHandler := systemHandler.NewSessionHandler(sessionService)
+	loginHandler := authModule.LoginHandler
+	logoutHandler := authModule.LogoutHandler
+	refreshHandler := authModule.RefreshHandler
+	registerHandler := authModule.RegisterHandler
+	userHandler := systemHandler.NewUserHandler(authModule.UserService, authModule.PasswordService)
+	roleHandler := rbacModule.RoleHandler
+	permissionHandler := rbacModule.PermissionHandler
+	sessionHandler := systemHandler.NewSessionHandler(authModule.SessionService)
 
 	// 初始化扫描配置相关Repository
 	projectConfigRepo := orchestrator.NewProjectConfigRepository(db)

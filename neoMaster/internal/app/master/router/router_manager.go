@@ -20,6 +20,9 @@ import (
 	scanConfigHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 	authPkg "neomaster/internal/pkg/auth"
+
+	// 统一使用项目封装的日志模块，便于采集规范字段与统一输出
+	"neomaster/internal/pkg/logger"
 	redisRepo "neomaster/internal/repo/redis"
 	agentService "neomaster/internal/service/agent"
 	authService "neomaster/internal/service/auth"
@@ -182,40 +185,94 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	}
 }
 
-// SetupRoutes 设置路由
+// SetupRoutes 设置全局中间件和路由
 // 在这里配置调用各个路由模块
 func (r *Router) SetupRoutes() {
-	// 设置全局中间件
-	r.engine.Use(r.middlewareManager.GinCORSMiddleware())
-	r.engine.Use(r.middlewareManager.GinSecurityHeadersMiddleware())
-	r.engine.Use(r.middlewareManager.GinLoggingMiddleware()) // 日志中间件注册
-	r.engine.Use(r.middlewareManager.GinRateLimitMiddleware())
+	// 1) 先注册全局中间件；2) 再注册各模块路由。
 
-	// API版本路由组
-	// /api/v1
-	api := r.engine.Group("/api")
-	v1 := api.Group("/v1")
+	// 1) 全局中间件注册
+	r.registerGlobalMiddleware()
 
-	// 公共路由（不需要认证）
-	r.setupPublicRoutes(v1)
-
-	// 用户认证路由（需要JWT认证）
-	r.setupUserRoutes(v1)
-
-	// 管理员路由（需要管理员权限）
-	r.setupAdminRoutes(v1)
-
-	// 扫描编排器配置路由（需要JWT认证）
-	r.setupOrchestratorRoutes(v1)
-
-	// Agent管理路由（需要JWT认证）
-	r.setupAgentRoutes(v1)
-
-	// 健康检查路由
-	r.setupHealthRoutes(api)
+	// 2) 路由注册
+	r.registerRoutes()
 }
 
 // GetEngine 获取Gin引擎实例
 func (r *Router) GetEngine() *gin.Engine {
 	return r.engine
+}
+
+// registerGlobalMiddleware 注册全局中间件（对齐 neoAgent 的风格）
+// 设计与原因：
+// - 将全局中间件的挂载集中在一个方法中，便于统一管理与测试（只需在此处验证链条顺序）。
+// - 保持现有中间件的顺序与行为不变，同时补充 gin.Recovery() 以增强健壮性（如需要可按配置开关）。
+func (r *Router) registerGlobalMiddleware() {
+	logger.WithFields(map[string]interface{}{
+		"path":      "router_manager.registerGlobalMiddleware",
+		"operation": "register_global_middleware",
+		"option":    "middlewareManager.attach",
+		"func_name": "router.registerGlobalMiddleware",
+	}).Info("开始注册全局中间件")
+
+	// 系统恢复中间件，防止 panic 直接导致进程崩溃（与 neoAgent 一致的防护策略）
+	r.engine.Use(gin.Recovery())
+
+	if r.middlewareManager != nil {
+		// CORS 中间件
+		r.engine.Use(r.middlewareManager.GinCORSMiddleware())
+		// 安全响应头中间件
+		r.engine.Use(r.middlewareManager.GinSecurityHeadersMiddleware())
+		// 统一日志中间件
+		r.engine.Use(r.middlewareManager.GinLoggingMiddleware())
+		// 限流中间件
+		r.engine.Use(r.middlewareManager.GinRateLimitMiddleware())
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"path":      "router_manager.registerGlobalMiddleware",
+		"operation": "register_global_middleware",
+		"option":    "middlewareManager.attach.done",
+		"func_name": "router.registerGlobalMiddleware",
+	}).Info("全局中间件注册完成")
+}
+
+// registerRoutes 注册路由（对齐 neoAgent 的风格）
+// 设计与原因：
+// - 将“中间件注册”和“各模块路由注册”的步骤分离，提升可维护性与可测试性。
+// - 保留现有的分组与路径，不改动对外行为；仅将 SetupRoutes 的实现迁移到此处集中管理。
+func (r *Router) registerRoutes() {
+	logger.WithFields(map[string]interface{}{
+		"path":      "router_manager.registerRoutes",
+		"operation": "register_routes",
+		"option":    "routes.attach.begin",
+		"func_name": "router.registerRoutes",
+	}).Info("开始注册路由")
+
+	// 1) 全局中间件注册
+	// 全局中间件注册移除函数外，在SetupRoutes中调用
+
+	// 2) API 版本路由组：/api/v1（保持现有风格，不使用前缀配置化）
+	api := r.engine.Group("/api")
+	v1 := api.Group("/v1")
+
+	// 3) 具体模块路由注册（保持原有调用顺序与权限边界）
+	// 公共路由（不需要认证）
+	r.setupPublicRoutes(v1)
+	// 用户认证路由（需要 JWT 认证）
+	r.setupUserRoutes(v1)
+	// 管理员路由（需要管理员权限）
+	r.setupAdminRoutes(v1)
+	// 扫描编排器配置路由（需要 JWT 认证）
+	r.setupOrchestratorRoutes(v1)
+	// Agent 管理路由（需要 JWT 认证）
+	r.setupAgentRoutes(v1)
+	// 健康检查路由
+	r.setupHealthRoutes(api)
+
+	logger.WithFields(map[string]interface{}{
+		"path":      "router_manager.registerRoutes",
+		"operation": "register_routes",
+		"option":    "routes.attach.done",
+		"func_name": "router.registerRoutes",
+	}).Info("路由注册完成")
 }

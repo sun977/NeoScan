@@ -55,14 +55,14 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uint) (*system.User
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogBusinessError(fmt.Errorf("user not found"), "", id, "", "user_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("user not found"), "", id, "", "user_get", "GET", map[string]interface{}{
 				"operation": "get_user_by_id",
 				"timestamp": logger.NowFormatted(),
 			})
 			return nil, err // 返回 err 让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogBusinessError(err, "", id, "", "user_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", id, "", "user_get", "GET", map[string]interface{}{
 			"operation": "get_user_by_id",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -78,7 +78,7 @@ func (r *UserRepository) GetUserByUsername(ctx context.Context, username string)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogBusinessError(fmt.Errorf("user not found"), "", 0, "", "user_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_get", "GET", map[string]interface{}{
 				"operation": "get_user_by_username",
 				"username":  username,
 				"timestamp": logger.NowFormatted(),
@@ -86,7 +86,7 @@ func (r *UserRepository) GetUserByUsername(ctx context.Context, username string)
 			return nil, err // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogBusinessError(err, "", 0, "", "user_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "user_get", "GET", map[string]interface{}{
 			"operation": "get_user_by_username",
 			"username":  username,
 			"timestamp": logger.NowFormatted(),
@@ -103,7 +103,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*sys
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogBusinessError(fmt.Errorf("user not found"), "", 0, "", "user_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("user not found"), "", 0, "", "user_get", "GET", map[string]interface{}{
 				"operation": "get_user_by_email",
 				"email":     email,
 				"timestamp": logger.NowFormatted(),
@@ -111,7 +111,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*sys
 			return nil, err // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogBusinessError(err, "", 0, "", "user_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "user_get", "GET", map[string]interface{}{
 			"operation": "get_user_by_email",
 			"email":     email,
 			"timestamp": logger.NowFormatted(),
@@ -127,7 +127,7 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *system.User) erro
 	err := r.db.WithContext(ctx).Save(user).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogBusinessError(err, "", uint(user.ID), "", "user_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(user.ID), "", "user_update", "PUT", map[string]interface{}{
 			"operation": "update_user",
 			"username":  user.Username,
 			"email":     user.Email,
@@ -178,7 +178,7 @@ func (r *UserRepository) DeleteUser(ctx context.Context, userID uint) error {
 	result := r.db.WithContext(ctx).Delete(&system.User{}, userID)
 	if result.Error != nil {
 		// 记录数据库错误日志
-		logger.LogBusinessError(result.Error, "", uint(userID), "", "user_delete", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", uint(userID), "", "user_delete", "DELETE", map[string]interface{}{
 			"operation": "delete_user",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -308,7 +308,7 @@ func (r *UserRepository) BeginTx(ctx context.Context) *gorm.DB {
 func (r *UserRepository) DeleteUserRolesByUserID(ctx context.Context, tx *gorm.DB, userID uint) error {
 	result := tx.WithContext(ctx).Where("user_id = ?", userID).Delete(&system.UserRole{})
 	if result.Error != nil {
-		logger.LogBusinessError(result.Error, "", userID, "", "delete_user_roles", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", userID, "", "delete_user_roles", "DELETE", map[string]interface{}{
 			"operation": "delete_user_roles_by_user_id",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -322,7 +322,7 @@ func (r *UserRepository) DeleteUserRolesByUserID(ctx context.Context, tx *gorm.D
 func (r *UserRepository) DeleteUserWithTx(ctx context.Context, tx *gorm.DB, userID uint) error {
 	result := tx.WithContext(ctx).Delete(&system.User{}, userID)
 	if result.Error != nil {
-		logger.LogBusinessError(result.Error, "", userID, "", "delete_user_with_tx", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", userID, "", "delete_user_with_tx", "DELETE", map[string]interface{}{
 			"operation": "delete_user_with_transaction",
 			"user_id":   userID,
 			"timestamp": logger.NowFormatted(),
@@ -346,7 +346,7 @@ func (r *UserRepository) UpdateUserWithTx(ctx context.Context, tx *gorm.DB, user
 	err := tx.WithContext(ctx).Save(user).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogBusinessError(err, "", uint(user.ID), "", "user_update_with_tx", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(user.ID), "", "user_update_with_tx", "PUT", map[string]interface{}{
 			"operation": "update_user_with_transaction",
 			"username":  user.Username,
 			"email":     user.Email,

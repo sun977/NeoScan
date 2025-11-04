@@ -48,13 +48,13 @@ func (r *PermissionRepository) GetPermissionByID(ctx context.Context, id uint) (
 	err := r.db.WithContext(ctx).First(&permission, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			logger.LogBusinessError(fmt.Errorf("permission not found"), "", id, "", "permission_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("permission not found"), "", id, "", "permission_get", "GET", map[string]interface{}{
 				"operation": "get_permission_by_id",
 				"timestamp": logger.NowFormatted(),
 			})
 			return nil, nil
 		}
-		logger.LogBusinessError(err, "", id, "", "permission_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", id, "", "permission_get", "GET", map[string]interface{}{
 			"operation": "get_permission_by_id",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -69,14 +69,14 @@ func (r *PermissionRepository) GetPermissionByName(ctx context.Context, name str
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&permission).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			logger.LogBusinessError(fmt.Errorf("permission not found"), "", 0, "", "permission_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("permission not found"), "", 0, "", "permission_get", "GET", map[string]interface{}{
 				"operation": "get_permission_by_name",
 				"name":      name,
 				"timestamp": logger.NowFormatted(),
 			})
 			return nil, nil
 		}
-		logger.LogBusinessError(err, "", 0, "", "permission_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "permission_get", "GET", map[string]interface{}{
 			"operation": "get_permission_by_name",
 			"name":      name,
 			"timestamp": logger.NowFormatted(),
@@ -90,7 +90,7 @@ func (r *PermissionRepository) GetPermissionByName(ctx context.Context, name str
 func (r *PermissionRepository) UpdatePermission(ctx context.Context, permission *system.Permission) error {
 	permission.UpdatedAt = time.Now()
 	if err := r.db.WithContext(ctx).Save(permission).Error; err != nil {
-		logger.LogBusinessError(err, "", uint(permission.ID), "", "permission_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(permission.ID), "", "permission_update", "PUT", map[string]interface{}{
 			"operation": "update_permission",
 			"name":      permission.Name,
 			"timestamp": logger.NowFormatted(),
@@ -109,7 +109,7 @@ func (r *PermissionRepository) UpdatePermissionFields(ctx context.Context, permi
 func (r *PermissionRepository) DeletePermission(ctx context.Context, permissionID uint) error {
 	result := r.db.WithContext(ctx).Delete(&system.Permission{}, permissionID)
 	if result.Error != nil {
-		logger.LogBusinessError(result.Error, "", uint(permissionID), "", "permission_delete", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", uint(permissionID), "", "permission_delete", "DELETE", map[string]interface{}{
 			"operation": "delete_permission",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -160,7 +160,7 @@ func (r *PermissionRepository) BeginTx(ctx context.Context) *gorm.DB {
 func (r *PermissionRepository) DeleteRolePermissionsByPermissionID(ctx context.Context, tx *gorm.DB, permissionID uint) error {
 	result := tx.WithContext(ctx).Where("permission_id = ?", permissionID).Delete(&system.RolePermission{})
 	if result.Error != nil {
-		logger.LogBusinessError(result.Error, "", permissionID, "", "delete_role_permissions_by_permission", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", permissionID, "", "delete_role_permissions_by_permission", "DELETE", map[string]interface{}{
 			"operation":     "delete_role_permissions_by_permission_id",
 			"permission_id": permissionID,
 			"timestamp":     logger.NowFormatted(),

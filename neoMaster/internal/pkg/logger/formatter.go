@@ -241,7 +241,7 @@ func LogBusinessOperation(operation string, userID uint, username, clientIP, req
 }
 
 // LogBusinessError 记录业务错误日志
-// 用于记录业务错误
+// 用于记录业务错误(service层以上使用)
 func LogBusinessError(err error, requestID string, userID uint, clientIP, path, method string, extraFields map[string]interface{}) {
 	if LoggerInstance == nil {
 		return
@@ -286,7 +286,7 @@ func LogBusinessError(err error, requestID string, userID uint, clientIP, path, 
 }
 
 // LogError 记录错误日志
-// 用于记录系统错误和异常
+// 用于记录系统错误和异常(repo层使用)
 func LogError(err error, requestID string, userID uint, clientIP, path, method string, extraFields map[string]interface{}) {
 	if LoggerInstance == nil {
 		return

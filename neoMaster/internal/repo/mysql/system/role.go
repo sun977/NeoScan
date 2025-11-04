@@ -73,14 +73,14 @@ func (r *RoleRepository) GetRoleByID(ctx context.Context, id uint) (*system.Role
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogBusinessError(fmt.Errorf("role not found"), "", id, "", "role_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("role not found"), "", id, "", "role_get", "GET", map[string]interface{}{
 				"operation": "get_role_by_id",
 				"timestamp": logger.NowFormatted(),
 			})
 			return nil, nil // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogBusinessError(err, "", id, "", "role_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", id, "", "role_get", "GET", map[string]interface{}{
 			"operation": "get_role_by_id",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -96,7 +96,7 @@ func (r *RoleRepository) GetRoleByName(ctx context.Context, name string) (*syste
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogBusinessError(fmt.Errorf("role not found"), "", 0, "", "role_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("role not found"), "", 0, "", "role_get", "GET", map[string]interface{}{
 				"operation": "get_role_by_name",
 				"name":      name,
 				"timestamp": logger.NowFormatted(),
@@ -104,7 +104,7 @@ func (r *RoleRepository) GetRoleByName(ctx context.Context, name string) (*syste
 			return nil, nil // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogBusinessError(err, "", 0, "", "role_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "role_get", "GET", map[string]interface{}{
 			"operation": "get_role_by_name",
 			"name":      name,
 			"timestamp": logger.NowFormatted(),
@@ -120,7 +120,7 @@ func (r *RoleRepository) UpdateRole(ctx context.Context, role *system.Role) erro
 	err := r.db.WithContext(ctx).Save(role).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogBusinessError(err, "", uint(role.ID), "", "role_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(role.ID), "", "role_update", "PUT", map[string]interface{}{
 			"operation": "update_role",
 			"name":      role.Name,
 			"timestamp": logger.NowFormatted(),
@@ -143,7 +143,7 @@ func (r *RoleRepository) DeleteRole(ctx context.Context, roleID uint) error {
 	result := r.db.WithContext(ctx).Delete(&system.Role{}, roleID)
 	if result.Error != nil {
 		// 记录数据库错误日志
-		logger.LogBusinessError(result.Error, "", uint(roleID), "", "role_delete", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", uint(roleID), "", "role_delete", "DELETE", map[string]interface{}{
 			"operation": "delete_role",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -213,7 +213,7 @@ func (r *RoleRepository) DeleteRolePermissionsByRoleID(ctx context.Context, tx *
 	// SQL:DELETE FROM role_permissions WHERE role_id = ?;
 	result := tx.WithContext(ctx).Where("role_id = ?", roleID).Delete(&system.RolePermission{})
 	if result.Error != nil {
-		logger.LogBusinessError(result.Error, "", roleID, "", "delete_role_permissions", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", roleID, "", "delete_role_permissions", "DELETE", map[string]interface{}{
 			"operation": "delete_role_permissions_by_role_id",
 			"role_id":   roleID,
 			"timestamp": logger.NowFormatted(),
@@ -228,7 +228,7 @@ func (r *RoleRepository) DeleteRoleWithTx(ctx context.Context, tx *gorm.DB, role
 	// DELETE FROM roles WHERE id = ?;
 	result := tx.WithContext(ctx).Delete(&system.Role{}, roleID)
 	if result.Error != nil {
-		logger.LogBusinessError(result.Error, "", roleID, "", "delete_role_with_tx", "DELETE", map[string]interface{}{
+		logger.LogError(result.Error, "", roleID, "", "delete_role_with_tx", "DELETE", map[string]interface{}{
 			"operation": "delete_role_with_transaction",
 			"role_id":   roleID,
 			"timestamp": logger.NowFormatted(),
@@ -248,7 +248,7 @@ func (r *RoleRepository) UpdateRoleWithTx(ctx context.Context, tx *gorm.DB, role
 	err := tx.WithContext(ctx).Save(role).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogBusinessError(err, "", uint(role.ID), "", "role_update_with_tx", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(role.ID), "", "role_update_with_tx", "PUT", map[string]interface{}{
 			"operation": "update_role_with_transaction",
 			"name":      role.Name,
 			"role_id":   role.ID,

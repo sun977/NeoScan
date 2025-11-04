@@ -73,7 +73,7 @@ func (r *ScanToolRepository) CreateScanTool(ctx context.Context, tool *orchestra
 	err := r.db.WithContext(ctx).Create(tool).Error
 	if err != nil {
 		// 记录创建失败日志
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_create", "POST", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_create", "POST", map[string]interface{}{
 			"operation": "create_scan_tool",
 			"tool_name": tool.Name,
 			"tool_type": tool.Type,
@@ -94,7 +94,7 @@ func (r *ScanToolRepository) GetScanToolByID(ctx context.Context, id uint) (*orc
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogBusinessError(fmt.Errorf("scan tool not found"), "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("scan tool not found"), "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
 				"operation": "get_scan_tool_by_id",
 				"id":        id,
 				"timestamp": logger.NowFormatted(),
@@ -102,7 +102,7 @@ func (r *ScanToolRepository) GetScanToolByID(ctx context.Context, id uint) (*orc
 			return nil, nil // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
 			"operation": "get_scan_tool_by_id",
 			"id":        id,
 			"timestamp": logger.NowFormatted(),
@@ -122,7 +122,7 @@ func (r *ScanToolRepository) GetScanToolByName(ctx context.Context, name string)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 记录查询失败日志
-			logger.LogBusinessError(fmt.Errorf("scan tool not found"), "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
+			logger.LogError(fmt.Errorf("scan tool not found"), "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
 				"operation": "get_scan_tool_by_name",
 				"tool_name": name,
 				"timestamp": logger.NowFormatted(),
@@ -130,7 +130,7 @@ func (r *ScanToolRepository) GetScanToolByName(ctx context.Context, name string)
 			return nil, nil // 返回 nil 而不是错误，让业务层处理
 		}
 		// 记录数据库错误日志
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_get", "GET", map[string]interface{}{
 			"operation": "get_scan_tool_by_name",
 			"tool_name": name,
 			"timestamp": logger.NowFormatted(),
@@ -149,7 +149,7 @@ func (r *ScanToolRepository) UpdateScanTool(ctx context.Context, tool *orchestra
 	err := r.db.WithContext(ctx).Save(tool).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogBusinessError(err, "", uint(tool.ID), "", "scan_tool_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(tool.ID), "", "scan_tool_update", "PUT", map[string]interface{}{
 			"operation": "update_scan_tool",
 			"tool_name": tool.Name,
 			"tool_id":   tool.ID,
@@ -168,7 +168,7 @@ func (r *ScanToolRepository) DeleteScanTool(ctx context.Context, id uint) error 
 	err := r.db.WithContext(ctx).Delete(&orchestrator.ScanTool{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
-		logger.LogBusinessError(err, "", id, "", "scan_tool_delete", "DELETE", map[string]interface{}{
+		logger.LogError(err, "", id, "", "scan_tool_delete", "DELETE", map[string]interface{}{
 			"operation": "delete_scan_tool",
 			"tool_id":   id,
 			"timestamp": logger.NowFormatted(),
@@ -203,7 +203,7 @@ func (r *ScanToolRepository) GetScanToolList(ctx context.Context, offset, limit 
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
 			"operation": "get_scan_tool_list_count",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -213,7 +213,7 @@ func (r *ScanToolRepository) GetScanToolList(ctx context.Context, offset, limit 
 	// 获取分页数据
 	err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&tools).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
 			"operation": "get_scan_tool_list",
 			"offset":    offset,
 			"limit":     limit,
@@ -233,7 +233,7 @@ func (r *ScanToolRepository) GetScanToolsByType(ctx context.Context, toolType or
 	var tools []*orchestrator.ScanTool
 	err := r.db.WithContext(ctx).Where("type = ? AND status = ?", toolType, orchestrator.ScanToolStatusEnabled).Find(&tools).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
 			"operation": "get_scan_tools_by_type",
 			"tool_type": toolType,
 			"timestamp": logger.NowFormatted(),
@@ -250,7 +250,7 @@ func (r *ScanToolRepository) GetAvailableScanTools(ctx context.Context) ([]*orch
 	var tools []*orchestrator.ScanTool
 	err := r.db.WithContext(ctx).Where("status = ?", orchestrator.ScanToolStatusEnabled).Find(&tools).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_list", "GET", map[string]interface{}{
 			"operation": "get_available_scan_tools",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -267,7 +267,7 @@ func (r *ScanToolRepository) ScanToolExists(ctx context.Context, name string) (b
 	var count int64
 	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("name = ?", name).Count(&count).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "scan_tool_exists", "GET", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "scan_tool_exists", "GET", map[string]interface{}{
 			"operation": "scan_tool_exists",
 			"tool_name": name,
 			"timestamp": logger.NowFormatted(),
@@ -288,7 +288,7 @@ func (r *ScanToolRepository) UpdateScanToolStatus(ctx context.Context, id uint, 
 		"updated_at": time.Now(),
 	}).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
 			"operation": "update_scan_tool_status",
 			"tool_id":   id,
 			"status":    status,
@@ -330,7 +330,7 @@ func (r *ScanToolRepository) UpdateScanToolStats(ctx context.Context, id uint, u
 		"updated_at":    time.Now(),
 	}).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
 			"operation":     "update_scan_tool_stats",
 			"tool_id":       id,
 			"usage_count":   usageCount,
@@ -362,7 +362,7 @@ func (r *ScanToolRepository) IncrementUsageCount(ctx context.Context, id uint, s
 
 	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("id = ?", id).Updates(updates).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
 			"operation": "increment_usage_count",
 			"tool_id":   id,
 			"success":   success,
@@ -378,7 +378,7 @@ func (r *ScanToolRepository) IncrementUsageCount(ctx context.Context, id uint, s
 func (r *ScanToolRepository) BeginTx() (*gorm.DB, error) {
 	tx := r.db.Begin()
 	if tx.Error != nil {
-		logger.LogBusinessError(tx.Error, "", 0, "", "scan_tool_transaction", "BEGIN", map[string]interface{}{
+		logger.LogError(tx.Error, "", 0, "", "scan_tool_transaction", "BEGIN", map[string]interface{}{
 			"operation": "begin_transaction",
 			"timestamp": logger.NowFormatted(),
 		})
@@ -397,7 +397,7 @@ func (r *ScanToolRepository) UpdateScanToolWithTx(ctx context.Context, tx *gorm.
 	err := tx.WithContext(ctx).Save(tool).Error
 	if err != nil {
 		// 记录更新失败日志
-		logger.LogBusinessError(err, "", uint(tool.ID), "", "scan_tool_update_with_tx", "PUT", map[string]interface{}{
+		logger.LogError(err, "", uint(tool.ID), "", "scan_tool_update_with_tx", "PUT", map[string]interface{}{
 			"operation": "update_scan_tool_with_transaction",
 			"tool_name": tool.Name,
 			"tool_id":   tool.ID,
@@ -417,7 +417,7 @@ func (r *ScanToolRepository) DeleteScanToolWithTx(ctx context.Context, tx *gorm.
 	err := tx.WithContext(ctx).Delete(&orchestrator.ScanTool{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
-		logger.LogBusinessError(err, "", id, "", "scan_tool_delete_with_tx", "DELETE", map[string]interface{}{
+		logger.LogError(err, "", id, "", "scan_tool_delete_with_tx", "DELETE", map[string]interface{}{
 			"operation": "delete_scan_tool_with_transaction",
 			"tool_id":   id,
 			"timestamp": logger.NowFormatted(),
@@ -436,7 +436,7 @@ func (r *ScanToolRepository) UpdateScanToolFields(ctx context.Context, id uint, 
 	fields["updated_at"] = time.Now()
 	err := r.db.WithContext(ctx).Model(&orchestrator.ScanTool{}).Where("id = ?", id).Updates(fields).Error
 	if err != nil {
-		logger.LogBusinessError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
+		logger.LogError(err, "", id, "", "scan_tool_update", "PUT", map[string]interface{}{
 			"operation": "update_scan_tool_fields",
 			"tool_id":   id,
 			"fields":    fields,

@@ -1,12 +1,11 @@
 package setup
 
 import (
-    authHandler "neomaster/internal/handler/auth"
-    authService "neomaster/internal/service/auth"
-    systemHandler "neomaster/internal/handler/system"
+	authHandler "neomaster/internal/handler/auth"
+	systemHandler "neomaster/internal/handler/system"
+	authService "neomaster/internal/service/auth"
 )
 
-// AuthModule 是认证模块的聚合输出
 // AuthModule 是认证模块的聚合输出
 // 设计目的：
 // - 将认证相关的 Handler 与 Service 作为一个整体进行初始化与对外暴露，便于 router_manager 进行路由与中间件装配。
@@ -17,18 +16,18 @@ import (
 // - LoginHandler/LogoutHandler/RefreshHandler/RegisterHandler：认证相关的路由处理器
 // - SessionService/JWTService/PasswordService：认证模块对外需要暴露给其他模块（如中间件、System.UserHandler）的服务实例
 type AuthModule struct {
-    // Handlers（认证相关处理器）
-    LoginHandler    *authHandler.LoginHandler
-    LogoutHandler   *authHandler.LogoutHandler
-    RefreshHandler  *authHandler.RefreshHandler
-    RegisterHandler *authHandler.RegisterHandler
+	// Handlers（认证相关处理器）
+	LoginHandler    *authHandler.LoginHandler
+	LogoutHandler   *authHandler.LogoutHandler
+	RefreshHandler  *authHandler.RefreshHandler
+	RegisterHandler *authHandler.RegisterHandler
 
-    // Services（对外暴露以供 router_manager 及其他模块使用）
-    SessionService  *authService.SessionService
-    JWTService      *authService.JWTService
-    PasswordService *authService.PasswordService
-    UserService     *authService.UserService
-    RBACService     *authService.RBACService
+	// Services（对外暴露以供 router_manager 及其他模块使用）
+	SessionService  *authService.SessionService
+	JWTService      *authService.JWTService
+	PasswordService *authService.PasswordService
+	UserService     *authService.UserService
+	RBACService     *authService.RBACService
 }
 
 // SystemRBACModule 是系统层面的 RBAC 管理模块聚合输出
@@ -41,11 +40,11 @@ type AuthModule struct {
 // - RoleHandler/PermissionHandler：系统角色与权限管理的路由处理器
 // - RoleService/PermissionService：对应的业务服务实例，便于必要时外部模块复用
 type SystemRBACModule struct {
-    // Handlers（系统RBAC相关处理器）
-    RoleHandler       *systemHandler.RoleHandler
-    PermissionHandler *systemHandler.PermissionHandler
+	// Handlers（系统RBAC相关处理器）
+	RoleHandler       *systemHandler.RoleHandler
+	PermissionHandler *systemHandler.PermissionHandler
 
-    // Services（对外暴露以供 router_manager 或其他模块使用）
-    RoleService       *authService.RoleService
-    PermissionService *authService.PermissionService
+	// Services（对外暴露以供 router_manager 或其他模块使用）
+	RoleService       *authService.RoleService
+	PermissionService *authService.PermissionService
 }

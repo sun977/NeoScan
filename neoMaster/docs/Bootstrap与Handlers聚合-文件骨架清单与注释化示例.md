@@ -1,6 +1,6 @@
-# Bootstrap 层与 Handlers 聚合 — 文件骨架清单与注释化示例
+# Setup 层与 HandlersBundle 聚合 — 文件骨架清单与注释化示例
 
-> 目的：在不改变现有代码的前提下，为 neoMaster 的“初始化职责前移（bootstrap/container 层）”与“Handlers 聚合”提供清晰的文件骨架与注释化示例，方便团队分阶段落地迁移，避免 router_manager.go 随功能膨胀。
+> 目的：在不改变现有代码的前提下，为 neoMaster 的“初始化职责前移（setup 层）”与“HandlersBundle 聚合”提供清晰的文件骨架与注释化示例，方便团队分阶段落地迁移，避免 router_manager.go 随功能膨胀。
 
 适用范围
 - 项目：NeoScan/neoMaster
@@ -16,8 +16,8 @@
 
 一、总体目标与原则
 - 职责收敛：RouterManager 仅负责“路由编排 + 中间件挂载”，不再承担“服务/仓库/工具的装配”。
-- 结构化初始化：将配置、基础设施（DB/Redis/Logger）、安全组件（JWT/Password/SessionRepo）、仓库、服务、处理器、以及中间件管理器统一前移到 bootstrap 层的组合根（Composition Root）。
-- 聚合处理器：以 Handlers 聚合结构向路由层暴露各领域 Handler，避免 Router 结构体字段无限增长。
+- 结构化初始化：将配置、基础设施（DB/Redis/Logger）、安全组件（JWT/Password/SessionRepo）、仓库、服务、处理器、以及中间件管理器统一前移到 setup 层的启动装配中。
+- 聚合处理器：以 HandlersBundle 聚合向路由层暴露各领域 Handler 与中间件管理器，避免 Router 结构体字段无限增长。
 - 可插拔路由：为后续引入 RouteRegistrar 接口留出结构，便于按照配置开关模块路由。
 - 日志规范一致：在路由/处理器中统一采集关键字段 path/operation/option/func_name。
 
@@ -28,7 +28,7 @@
 建议新增目录（仅文档示例，实际落地时按需创建）：
 
 ```
-neoMaster/internal/app/master/bootstrap/
+neoMaster/internal/app/master/setup/
 ├── config.go        // 配置加载与校验
 ├── db.go            // GORM 初始化
 ├── redis.go         // Redis 客户端初始化
@@ -38,7 +38,7 @@ neoMaster/internal/app/master/bootstrap/
 ├── service.go       // 服务装配（含循环依赖处理）
 ├── handler.go       // 处理器初始化 + Handlers 聚合构造
 ├── middleware.go    // 中间件管理器初始化（全局中间件）
-└── container.go     // 组合根构建入口（BuildContainer）
+└── bundle.go        // 启动装配聚合（BuildHandlersBundle）
 
 neoMaster/internal/app/master/router/
 ├── handlers.go      // Handlers 聚合结构定义（仅示例，便于统一暴露）
@@ -51,13 +51,13 @@ neoMaster/internal/app/master/router/
 
 -------------------------
 
-三、container.go（组合根）示例
+三、bundle.go（启动聚合）示例
 
 ```go
-// 文件：internal/app/master/bootstrap/container.go
-// 作用：统一构建项目运行所需的所有实例，并以 Container 聚合输出给入口与路由层使用。
+// 文件：internal/app/master/setup/bundle.go
+// 作用：统一构建项目运行所需的实例，并以 HandlersBundle 聚合输出给入口与路由层使用。
 
-package bootstrap
+package setup
 
 import (
     "neomaster/internal/config"
@@ -67,9 +67,10 @@ import (
     "gorm.io/gorm"
 )
 
-// Container 作为运行时的组合根，聚合所有初始化后的组件。
-type Container struct {
-    // 基础设施
+// HandlersBundle 作为运行时的启动聚合，向路由层暴露必要组件。
+// 注：根据实际需要可选择是否在 Bundle 中暴露 DB/Redis。
+type HandlersBundle struct {
+    // 基础设施（可选暴露）
     DB           *gorm.DB
     RedisClient  *redis.Client
     // 配置
@@ -80,9 +81,9 @@ type Container struct {
     Handlers     router.Handlers
 }
 
-// BuildContainer 构建组合根，内部按顺序完成所有初始化。
+// BuildHandlersBundle 构建启动聚合，内部按顺序完成初始化。
 // 注意：这里只是结构化示例，具体实现应拆分到各 *.go 文件中。
-func BuildContainer(cfg *config.Config) (*Container, error) {
+func BuildHandlersBundle(cfg *config.Config) (*HandlersBundle, error) {
     // 1. 配置已由上层加载；此处可做额外校验/默认值填充
 
     // 2. 初始化基础设施：DB/Redis/Logger（分别放到 db.go / redis.go / logger.go）
@@ -95,8 +96,8 @@ func BuildContainer(cfg *config.Config) (*Container, error) {
     if err := InitLogger(cfg); err != nil { return nil, err }
 
     // 3. 初始化安全组件：JWT/Password/SessionRepo（security.go）
-    jwtManager := NewJWTManager(cfg)              // 示例函数名，实际在 security.go
-    passwordMgr := NewPasswordManager(cfg)        // 示例函数名
+    jwtManager := NewJWTManager(cfg)                 // 示例函数名，实际在 security.go
+    passwordMgr := NewPasswordManager(cfg)           // 示例函数名
     sessionRepo := NewSessionRepository(redisClient) // 示例函数名
 
     // 4. 初始化仓库（repo.go）
@@ -113,7 +114,7 @@ func BuildContainer(cfg *config.Config) (*Container, error) {
     // 7. 初始化中间件管理器（middleware.go）
     mm := InitMiddlewareManager(cfg, svc)
 
-    return &Container{
+    return &HandlersBundle{
         DB:          db,
         RedisClient: redisClient,
         Config:      cfg,
@@ -125,8 +126,8 @@ func BuildContainer(cfg *config.Config) (*Container, error) {
 
 设计要点与原因：
 - 按“配置→基础设施→安全→仓库→服务→处理器→中间件”的顺序初始化，避免循环依赖并符合层级约束。
-- Container 只做聚合与输出，不在此处做路由注册；路由注册仍由 router 包负责。
-- 将复杂装配与依赖管理集中到 bootstrap 层，RouterManager 得以瘦身。
+- HandlersBundle 只做聚合与输出，不在此处做路由注册；路由注册仍由 router 包负责。
+- 将复杂装配与依赖管理集中到 setup 层，RouterManager 得以瘦身。
 
 -------------------------
 
@@ -193,10 +194,10 @@ type Handlers struct {
 五、handler.go（处理器初始化）示例
 
 ```go
-// 文件：internal/app/master/bootstrap/handler.go
-// 作用：用服务实例化各 Handler，并返回 Handlers 聚合。
+// 文件：internal/app/master/setup/handler.go
+// 作用：用服务实例化各 Handler，并返回 router.Handlers 聚合。
 
-package bootstrap
+package setup
 
 import (
     authHandler "neomaster/internal/handler/auth"
@@ -209,13 +210,13 @@ import (
 // Services 聚合（示例结构）：实际在 service.go 内构造并传入本方法
 type Services struct {
     // Auth
-    SessionSvc   interface{} // 替换为具体类型
-    UserSvc      interface{}
-    RoleSvc      interface{}
+    SessionSvc    interface{} // 替换为具体类型
+    UserSvc       interface{}
+    RoleSvc       interface{}
     PermissionSvc interface{}
-    RBACSvc      interface{}
-    JWTService   interface{}
-    PasswordSvc  interface{}
+    RBACSvc       interface{}
+    JWTService    interface{}
+    PasswordSvc   interface{}
     // Orchestrator
     ProjectConfigSvc interface{}
     WorkflowSvc      interface{}
@@ -292,10 +293,10 @@ func InitHandlers(svc *Services) router.Handlers {
 六、middleware.go（中间件管理器初始化）示例
 
 ```go
-// 文件：internal/app/master/bootstrap/middleware.go
+// 文件：internal/app/master/setup/middleware.go
 // 作用：统一初始化 MiddlewareManager，并约定好“全局中间件”与“分组中间件”的边界。
 
-package bootstrap
+package setup
 
 import (
     "neomaster/internal/app/master/middleware"
@@ -367,26 +368,26 @@ func (r *authRegistrar) Register(group *gin.RouterGroup, h Handlers, mm *middlew
 
 ```go
 // 文件：neoMaster/cmd/master/main.go
-// 作用：加载配置 → 构建组合根 → 创建 Router → 注册路由 → 启动服务
+// 作用：加载配置 → 构建启动聚合 → 创建 Router → 注册路由 → 启动服务
 
 package main
 
 import (
     "neomaster/internal/config"
-    "neomaster/internal/app/master/bootstrap"
+    "neomaster/internal/app/master/setup"
     "neomaster/internal/app/master/router"
 )
 
 func main() {
-    // 1) 加载配置（示例：实际在 bootstrap/config.go 内封装）
+    // 1) 加载配置（示例：实际在 setup/config.go 内封装）
     cfg := config.LoadOrDie()
 
-    // 2) 构建组合根
-    container, err := bootstrap.BuildContainer(cfg)
+    // 2) 构建启动聚合（HandlersBundle）
+    bundle, err := setup.BuildHandlersBundle(cfg)
     if err != nil { panic(err) }
 
     // 3) 创建 Router（示例；实际 router.NewRouter 只接收 Handlers 与 Middleware）
-    r := router.NewRouter(container.Handlers, container.Middleware, cfg)
+    r := router.NewRouter(bundle.Handlers, bundle.Middleware, cfg)
     r.SetupRoutes()
 
     // 4) 启动服务（省略：端口/优雅关闭等）
@@ -394,7 +395,7 @@ func main() {
 ```
 
 设计要点与原因：
-- 入口仅负责“顺序调用”，组合根负责“装配”，路由层负责“编排”。职责分离，提升可维护性。
+- 入口仅负责“顺序调用”，setup 层负责“装配”，路由层负责“编排”。职责分离，提升可维护性。
 
 -------------------------
 
@@ -410,7 +411,7 @@ func main() {
 
 十、TrustedProxies 与真实 Client IP 获取
 - 在 Gin 引擎初始化时设置 engine.SetTrustedProxies（或 Gin 版本对应方式），确保在反向代理（Nginx/K8s ingress）下 utils.GetClientIP(c) 能获取到真实 IP（X-Forwarded-For / X-Real-IP）。
-- 建议在 bootstrap/server.go 或 router 初始化处统一设置，并以配置驱动。
+- 建议在 setup/server.go 或 router 初始化处统一设置，并以配置驱动。
 
 -------------------------
 
@@ -426,13 +427,13 @@ func main() {
 -------------------------
 
 十二、渐进式迁移路线（不改变代码逻辑的前提下）
-- 第1步：新增 bootstrap 目录与 container.go（空实现或最小实现），在文档层面明确职责，不影响编译。
+- 第1步：新增 setup 目录与 bundle.go（空实现或最小实现），在文档层面明确职责，不影响编译。
   - 原因：先固化结构与职责边界，给团队统一认知。
 - 第2步：新增 router/handlers.go，定义 Handlers 聚合结构；router_manager.go 暂不改动，仅为后续迁移做准备。
   - 原因：减少 Router 字段增长的趋势，形成统一暴露的处理器集合。
 - 第3步：新增 router/registrar.go，定义 RouteRegistrar 接口；现有 routes_xxx.go 保持不变。
   - 原因：为未来的“可插拔路由注册”留出抽象层，不立即改造现有注册方式。
-- 第4步：在 bootstrap 下补齐 config/db/redis/logger/security/repo/service/handler/middleware 的初始化函数，实现真正的装配迁移。
+- 第4步：在 setup 下补齐 config/db/redis/logger/security/repo/service/handler/middleware 的初始化函数，实现真正的装配迁移。
   - 原因：彻底将装配从 RouterManager 移走，但保证外部行为不变。
 - 第5步：为各模块补充路由与中间件链条的单元测试，覆盖核心路径与边界情况。
   - 原因：以测试兜底，防止迁移回归。
@@ -441,7 +442,7 @@ func main() {
 
 十三、常见问题（FAQ）
 1) 初始化完成后，所有初始化代码在哪里？
-   - 统一前移至 neoMaster/internal/app/master/bootstrap（组合根），入口 main.go 顺序调用，RouterManager 不再承载装配逻辑。
+   - 统一前移至 neoMaster/internal/app/master/setup（启动装配），入口 main.go 顺序调用，RouterManager 不再承载装配逻辑。
 2) 如果某个模块暂时不需要启用，如何控制？
    - 在 RouterConfig/MiddlewareConfig 中引入开关，并在 RouteRegistrar 选择性注册对应模块路由。
 3) 会不会影响现有路由定义或路径？
@@ -452,7 +453,7 @@ func main() {
 -------------------------
 
 十四、总结
-- 通过“bootstrap 组合根 + Handlers 聚合 + （预留）RouteRegistrar”三件套，router_manager.go 将回归到仅负责路由编排与中间件挂载的职责，避免随功能无限膨胀。
+- 通过“setup 启动装配 + HandlersBundle 聚合 + （预留）RouteRegistrar”三件套，router_manager.go 将回归到仅负责路由编排与中间件挂载的职责，避免随功能无限膨胀。
 - 本文档提供了文件骨架与注释化示例，团队可按阶段逐步落地，过程中以测试兜底，确保不改变现有行为与对外接口。
 
 （本文档仅为结构设计与示例，暂不修改现有源代码）

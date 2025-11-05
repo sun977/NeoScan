@@ -9,20 +9,16 @@ package router
 
 import (
 	setup "neomaster/internal/app/master/setup"
-	agentRepo "neomaster/internal/repo/mysql/agent"
-	"neomaster/internal/repo/mysql/orchestrator"
 
 	"neomaster/internal/app/master/middleware"
 	"neomaster/internal/config"
 	agentHandler "neomaster/internal/handler/agent"
 	authHandler "neomaster/internal/handler/auth"
-	scanConfigHandler "neomaster/internal/handler/orchestrator"
+	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 
 	// 统一使用项目封装的日志模块，便于采集规范字段与统一输出
 	"neomaster/internal/pkg/logger"
-	agentService "neomaster/internal/service/agent"
-	scanConfigService "neomaster/internal/service/orchestrator"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -45,11 +41,11 @@ type Router struct {
 	// Agent管理相关Handler
 	agentHandler *agentHandler.AgentHandler
 	// 扫描配置相关Handler
-	projectConfigHandler *scanConfigHandler.ProjectConfigHandler
-	workflowHandler      *scanConfigHandler.WorkflowHandler
-	scanToolHandler      *scanConfigHandler.ScanToolHandler
-	scanRuleHandler      *scanConfigHandler.ScanRuleHandler
-	ruleEngineHandler    *scanConfigHandler.RuleEngineHandler
+	projectConfigHandler *orchestratorHandler.ProjectConfigHandler
+	workflowHandler      *orchestratorHandler.WorkflowHandler
+	scanToolHandler      *orchestratorHandler.ScanToolHandler
+	scanRuleHandler      *orchestratorHandler.ScanRuleHandler
+	ruleEngineHandler    *orchestratorHandler.RuleEngineHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -90,42 +86,20 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	permissionHandler := rbacModule.PermissionHandler
 	sessionHandler := systemHandler.NewSessionHandler(authModule.SessionService)
 
-	// 初始化扫描配置相关Repository
-	projectConfigRepo := orchestrator.NewProjectConfigRepository(db)
-	workflowConfigRepo := orchestrator.NewWorkflowConfigRepository(db)
-	scanToolRepo := orchestrator.NewScanToolRepository(db)
-	scanRuleRepo := orchestrator.NewScanRuleRepository(db)
+	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
+	agentModule := setup.BuildAgentModule(db)
+	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块（项目配置/工作流/工具/规则/规则引擎聚合）
+	orchestratorModule := setup.BuildOrchestratorModule(db)
 
-	// 初始化Agent相关Repository和Service
-	agentRepository := agentRepo.NewAgentRepository(db)
+	// 从 AgentModule 中获取聚合后的 Handler（分组功能已合并到 ManagerService 内部）
+	agentHandler := agentModule.AgentHandler
 
-	// 初始化Agent服务（分组功能已合并到Manager中）
-	agentManagerService := agentService.NewAgentManagerService(agentRepository)
-	agentMonitorService := agentService.NewAgentMonitorService(agentRepository)
-	agentConfigService := agentService.NewAgentConfigService(agentRepository)
-	agentTaskService := agentService.NewAgentTaskService(agentRepository)
-
-	// 初始化扫描配置相关Service
-	projectConfigService := scanConfigService.NewProjectConfigService(projectConfigRepo, workflowConfigRepo, scanToolRepo)
-	workflowService := scanConfigService.NewWorkflowService(workflowConfigRepo, projectConfigRepo, scanToolRepo, scanRuleRepo)
-	scanToolService := scanConfigService.NewScanToolService(scanToolRepo)
-	scanRuleService := scanConfigService.NewScanRuleService(scanRuleRepo)
-
-	// 初始化Agent相关Handler（分组功能已合并到AgentManagerService）
-	agentHdl := agentHandler.NewAgentHandler(
-		agentManagerService,
-		agentMonitorService,
-		agentConfigService,
-		agentTaskService,
-	)
-
-	// 初始化扫描配置相关Handler
-	projectConfigHandler := scanConfigHandler.NewProjectConfigHandler(projectConfigService)
-	workflowHandler := scanConfigHandler.NewWorkflowHandler(workflowService)
-	scanToolHandler := scanConfigHandler.NewScanToolHandler(scanToolService)
-	scanRuleHandler := scanConfigHandler.NewScanRuleHandler(*scanRuleService)
-	// 规则引擎Handler现在完全通过ScanRuleService管理规则引擎，不再需要单独的规则引擎实例
-	ruleEngineHandler := scanConfigHandler.NewRuleEngineHandler(nil, scanRuleService)
+	// 从 OrchestratorModule 中获取聚合后的处理器
+	projectConfigHandler := orchestratorModule.ProjectConfigHandler
+	workflowHandler := orchestratorModule.WorkflowHandler
+	scanToolHandler := orchestratorModule.ScanToolHandler
+	scanRuleHandler := orchestratorModule.ScanRuleHandler
+	ruleEngineHandler := orchestratorModule.RuleEngineHandler
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -144,7 +118,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		permissionHandler: permissionHandler,
 		sessionHandler:    sessionHandler,
 		// Agent管理相关Handler
-		agentHandler: agentHdl,
+		agentHandler: agentHandler,
 		// 扫描配置相关Handler
 		projectConfigHandler: projectConfigHandler,
 		workflowHandler:      workflowHandler,

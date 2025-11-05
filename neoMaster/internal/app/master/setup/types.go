@@ -1,9 +1,20 @@
+/**
+ * 初始化
+ * @author: sun977
+ * @date: 2025.11.05
+ * @description: 包含master程序初始化相关的类型定义
+ * @func: Handler 本身包含 Service,但是Servicer本身又重新暴露一遍,方便调用（后续看是否需要修改）
+ */
 package setup
 
 import (
+	agentHandler "neomaster/internal/handler/agent"
 	authHandler "neomaster/internal/handler/auth"
+	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
+	agentService "neomaster/internal/service/agent"
 	authService "neomaster/internal/service/auth"
+	orchestratorService "neomaster/internal/service/orchestrator"
 )
 
 // AuthModule 是认证模块的聚合输出
@@ -47,4 +58,48 @@ type SystemRBACModule struct {
 	// Services（对外暴露以供 router_manager 或其他模块使用）
 	RoleService       *authService.RoleService
 	PermissionService *authService.PermissionService
+}
+
+// AgentModule 是 Agent 管理模块的聚合输出
+// 设计目的：
+// - 将 Agent 管理域（Manager/Monitor/Config/Task）的 Service 与聚合后的 Handler 作为一个整体对外暴露，减少 router_manager 中的初始化样板代码。
+// - 保持分层约束与模块边界：setup 层仅负责依赖装配（Repository → Service → Handler），不侵入具体业务实现。
+// - 便于后续扩展：若其他模块需要复用某个 Agent Service，可直接从该 Module 获取。
+//
+// 字段说明：
+// - AgentHandler：对外用于路由注册的统一处理器入口（内部组合了所有 Agent 相关服务）。
+// - ManagerService/MonitorService/ConfigService/TaskService：便于在必要时复用具体服务或编写独立测试。
+type AgentModule struct {
+	// Handler（对外路由处理器）
+	AgentHandler *agentHandler.AgentHandler
+
+	// Services（对外暴露以供 router_manager 或其他模块使用）
+	ManagerService agentService.AgentManagerService
+	MonitorService agentService.AgentMonitorService
+	ConfigService  agentService.AgentConfigService
+	TaskService    agentService.AgentTaskService
+}
+
+// OrchestratorModule 是扫描编排器（项目配置/工作流/工具/规则/规则引擎）模块的聚合输出
+// 设计目的：
+// - 将扫描配置相关的 Service 与 Handler 作为一个整体进行初始化与对外暴露，路由层只做“装配与注册”。
+// - 与 Agent、Auth、System RBAC 模块保持同一风格，统一在 setup 层进行依赖装配，遵循 Handler → Service → Repository 的层级约束。
+// - 便于后续测试与扩展：Router 可直接使用该模块暴露的 Handler；需要复用某个 Service 时也可从该模块获取。
+//
+// 字段说明：
+// - ProjectConfigHandler/WorkflowHandler/ScanToolHandler/ScanRuleHandler/RuleEngineHandler：对外用于路由注册的处理器。
+// - ProjectConfigService/WorkflowService/ScanToolService/ScanRuleService：对应的业务服务实例，便于必要时复用或编写独立测试。
+type OrchestratorModule struct {
+	// Handlers（扫描编排器相关处理器）
+	ProjectConfigHandler *orchestratorHandler.ProjectConfigHandler
+	WorkflowHandler      *orchestratorHandler.WorkflowHandler
+	ScanToolHandler      *orchestratorHandler.ScanToolHandler
+	ScanRuleHandler      *orchestratorHandler.ScanRuleHandler
+	RuleEngineHandler    *orchestratorHandler.RuleEngineHandler
+
+	// Services（对外暴露以供 router_manager 或其他模块使用）
+	ProjectConfigService *orchestratorService.ProjectConfigService
+	WorkflowService      *orchestratorService.WorkflowService
+	ScanToolService      *orchestratorService.ScanToolService
+	ScanRuleService      *orchestratorService.ScanRuleService
 }

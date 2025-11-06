@@ -60,8 +60,8 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.POST("/:id/metrics/pull", r.agentPullMetricsPlaceholder)  // 🔴 从Agent端拉取该Agent性能并更新 [Master->Agent接口 + Master端数据库更新]
 		agentManageGroup.POST("/metrics/pull", r.agentBatchPullMetricsPlaceholder) // 🔴 批量拉取所有Agent性能并更新 [Master->Agent接口并发 + Master端数据库更新]
 		// agentManageGroup.GET("/:id/metrics/history", r.agentGetMetricsHistoryPlaceholder) // 已弃用：历史性能数据（当前为单快照模型，不保留历史）
-		agentManageGroup.POST("/:id/metrics", r.agentCreateMetricsPlaceholder) // 🟡（可选保留）创建/上报Agent性能指标记录 [Master端数据库插入] Agent/采集器主动上报（push）入库（保留，受限权限）
-		agentManageGroup.PUT("/:id/metrics", r.agentUpdateMetricsPlaceholder)  // 🟡（可选保留）更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
+		agentManageGroup.POST("/:id/metrics", r.agentHandler.CreateAgentMetrics) // ✅ 创建/上报Agent性能指标记录 [Master端数据库插入] Agent/采集器主动上报（push）入库（保留，受限权限）
+		agentManageGroup.PUT("/:id/metrics", r.agentHandler.UpdateAgentMetrics)  // ✅ 更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
 
 		// ==================== Agent高级查询和统计路由（✅ Master端完全独立实现 - 数据分析） ====================
 		agentManageGroup.GET("/statistics", r.agentGetStatisticsPlaceholder)    // ✅ 获取Agent统计信息 [Master端聚合查询：在线数量、状态分布、性能统计]
@@ -253,41 +253,9 @@ func (r *Router) agentPingPlaceholder(c *gin.Context) {
 
 // agentGetMetricsPlaceholder 获取Agent性能指标占位符
 // agentGetMetricsHistoryPlaceholder 获取Agent历史性能数据占位符
-
 // agentCreateMetricsPlaceholder 创建Agent性能指标记录占位符
-func (r *Router) agentCreateMetricsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "创建Agent性能指标记录功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentUpdateMetricsPlaceholder 更新Agent性能指标占位符
-func (r *Router) agentUpdateMetricsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "更新Agent性能指标功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentListAllMetricsPlaceholder 获取所有Agent性能快照列表占位符
-// 说明：
-// - 路由：GET /api/v1/agent/metrics
-// - 职责：从Master端的 agent_metrics 表分页查询所有Agent的最新性能快照（只读）。
-// - 分层：Handler/Router → Service（agentMonitorService.ListAllMetrics）→ Repo（ListAllLatestMetrics）→ DB
-// - 注意：此接口不依赖Agent端实时接口。
-func (r *Router) agentListAllMetricsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取所有Agent性能快照列表功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-		"note":      "从Master库分页查询，不依赖Agent接口",
-	})
-}
 
 // agentPullMetricsPlaceholder 从Agent端拉取该Agent的性能并更新占位符
 // 说明：

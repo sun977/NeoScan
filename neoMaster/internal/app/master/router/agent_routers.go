@@ -55,8 +55,8 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		// 1) 只读查询走 Master 端数据库（agent_metrics 快照表），不依赖 Agent 实时接口；
 		// 2) 拉取动作（pull）需要 Master 主动访问 Agent 的 /metrics 接口，然后将最新数据写回 Master 的 agent_metrics 表；
 		// 3) 不保留历史数据（单快照模型），agent_metrics 针对每个 agent_id 仅维护一条最新记录（upsert）。
-		agentManageGroup.GET("/:id/metrics", r.agentGetMetricsPlaceholder)         // ✅ 获取指定Agent性能快照 [Master端从AgentMetrics表查询]
-		agentManageGroup.GET("/metrics", r.agentListAllMetricsPlaceholder)         // ✅ 获取所有Agent性能快照列表 [Master端从AgentMetrics表分页查询]
+		agentManageGroup.GET("/:id/metrics", r.agentHandler.GetAgentMetrics)       // ✅ 获取指定Agent性能快照 [Master端从AgentMetrics表查询]
+		agentManageGroup.GET("/metrics", r.agentHandler.GetAgentListAllMetrics)    // ✅ 获取所有Agent性能快照列表 [Master端从AgentMetrics表分页查询]
 		agentManageGroup.POST("/:id/metrics/pull", r.agentPullMetricsPlaceholder)  // 🔴 从Agent端拉取该Agent性能并更新 [Master->Agent接口 + Master端数据库更新]
 		agentManageGroup.POST("/metrics/pull", r.agentBatchPullMetricsPlaceholder) // 🔴 批量拉取所有Agent性能并更新 [Master->Agent接口并发 + Master端数据库更新]
 		// agentManageGroup.GET("/:id/metrics/history", r.agentGetMetricsHistoryPlaceholder) // 已弃用：历史性能数据（当前为单快照模型，不保留历史）
@@ -252,24 +252,7 @@ func (r *Router) agentPingPlaceholder(c *gin.Context) {
 // ==================== Agent性能指标管理占位符（🟡 混合实现：Master读库 + Agent接口） ====================
 
 // agentGetMetricsPlaceholder 获取Agent性能指标占位符
-func (r *Router) agentGetMetricsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent性能指标功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentGetMetricsHistoryPlaceholder 获取Agent历史性能数据占位符
-func (r *Router) agentGetMetricsHistoryPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent历史性能数据功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
 
 // agentCreateMetricsPlaceholder 创建Agent性能指标记录占位符
 func (r *Router) agentCreateMetricsPlaceholder(c *gin.Context) {

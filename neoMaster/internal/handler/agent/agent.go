@@ -890,6 +890,270 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	})
 }
 
+// GetAgentMetrics 获取指定Agent的最新性能快照（只读，来自Master端数据库 agent_metrics 表）
+// 路由：GET /api/v1/agent/:id/metrics
+// 说明：遵循项目分层规范，Handler → Service → Repository → DB；统一日志和错误返回格式
+func (h *AgentHandler) GetAgentMetrics(c *gin.Context) {
+	// 规范化客户端信息
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	// 获取Agent ID并校验
+	agentID := c.Param("id")
+	if agentID == "" {
+		// 按项目日志规范记录业务错误
+		logger.LogBusinessError(
+			fmt.Errorf("agent ID is required"),
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"GET",
+			map[string]interface{}{
+				"operation":  "get_agent_metrics",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.GetAgentMetrics",
+				"user_agent": userAgent,
+			},
+		)
+		// 返回统一错误响应
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Agent ID is required",
+			Error:   "missing agent ID parameter",
+		})
+		return
+	}
+
+	// 调用服务层，从数据库获取该Agent的最新性能快照
+	metrics, err := h.agentMonitorService.GetAgentMetricsFromDB(agentID)
+	if err != nil {
+		// 映射错误为HTTP状态码
+		statusCode := h.getErrorStatusCode(err)
+
+		// 记录业务错误日志，包含关键字段
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"GET",
+			map[string]interface{}{
+				"operation":   "get_agent_metrics",
+				"option":      "agentMonitorService.GetAgentMetricsFromDB",
+				"func_name":   "handler.agent.GetAgentMetrics",
+				"user_agent":  userAgent,
+				"agent_id":    agentID,
+				"status_code": statusCode,
+			},
+		)
+
+		// 针对404返回更清晰的消息，其它情况统一失败描述
+		message := "Failed to get agent metrics"
+		if statusCode == http.StatusNotFound {
+			message = "Agent metrics not found"
+		} else if statusCode == http.StatusBadRequest {
+			message = "Invalid request"
+		}
+
+		c.JSON(statusCode, system.APIResponse{
+			Code:    statusCode,
+			Status:  "failed",
+			Message: message,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 成功日志
+	logger.LogInfo(
+		"获取Agent性能快照成功",
+		XRequestID,
+		0,
+		clientIP,
+		pathUrl,
+		"GET",
+		map[string]interface{}{
+			"operation":  "get_agent_metrics",
+			"option":     "success",
+			"func_name":  "handler.agent.GetAgentMetrics",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
+
+	// 返回统一成功响应
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Agent metrics retrieved successfully",
+		Data:    metrics,
+	})
+}
+
+// GetAgentListAllMetrics 获取所有Agent的最新性能快照列表（只读，来自Master端数据库 agent_metrics 表）
+// 路由：GET /api/v1/agent/metrics
+func (h *AgentHandler) GetAgentListAllMetrics(c *gin.Context) {
+	// 规范化客户端信息
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	// 解析分页参数（保持与 GetAgentList 中的解析风格一致）
+	// page 和 page_size 为可选参数，未提供时使用合理默认值
+	page := 1
+	pageSize := 10
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+			pageSize = ps
+		}
+	}
+
+	// 解析过滤参数：work_status、scan_type、keyword（agent_id关键词）
+	var workStatusPtr *agentModel.AgentWorkStatus
+	if wsStr := c.Query("work_status"); wsStr != "" {
+		ws := agentModel.AgentWorkStatus(wsStr)
+		workStatusPtr = &ws
+	}
+
+	var scanTypePtr *agentModel.AgentScanType
+	if stStr := c.Query("scan_type"); stStr != "" {
+		st := agentModel.AgentScanType(stStr)
+		scanTypePtr = &st
+	}
+
+	var keywordPtr *string
+	if kw := c.Query("keyword"); kw != "" {
+		keywordPtr = &kw
+	}
+
+	// 调用服务层，分页获取所有Agent的最新性能快照（仓储层SQL分页 + 过滤条件）
+	list, total, err := h.agentMonitorService.GetAgentListAllMetricsFromDB(page, pageSize, workStatusPtr, scanTypePtr, keywordPtr)
+	if err != nil {
+		statusCode := h.getErrorStatusCode(err)
+
+		// 记录业务错误日志
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"GET",
+			map[string]interface{}{
+				"operation":   "get_agent_list_all_metrics",
+				"option":      "agentMonitorService.GetAgentListAllMetricsFromDB",
+				"func_name":   "handler.agent.GetAgentListAllMetrics",
+				"user_agent":  userAgent,
+				"status_code": statusCode,
+				"page":        page,
+				"page_size":   pageSize,
+				"work_status": func() interface{} {
+					if workStatusPtr != nil {
+						return *workStatusPtr
+					}
+					return nil
+				}(),
+				"scan_type": func() interface{} {
+					if scanTypePtr != nil {
+						return *scanTypePtr
+					}
+					return nil
+				}(),
+				"keyword": func() interface{} {
+					if keywordPtr != nil {
+						return *keywordPtr
+					}
+					return nil
+				}(),
+			},
+		)
+
+		c.JSON(statusCode, system.APIResponse{
+			Code:    statusCode,
+			Status:  "failed",
+			Message: "Failed to get all agents metrics",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Service 已进行分页查询，这里直接使用返回的当前页数据
+	pageItems := list
+
+	// 计算总页数（注意类型转换，total 为 int64）
+	totalPages := 0
+	if pageSize > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	// 构造分页响应结构
+	resp := &agentModel.AgentMetricsListResponse{
+		Metrics: pageItems,
+		Pagination: &agentModel.PaginationResponse{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}
+
+	// 成功日志（补充分页信息）
+	logger.LogInfo(
+		"获取所有Agent性能快照列表成功",
+		XRequestID,
+		0,
+		clientIP,
+		pathUrl,
+		"GET",
+		map[string]interface{}{
+			"operation":  "get_agent_list_all_metrics",
+			"option":     "success",
+			"func_name":  "handler.agent.GetAgentListAllMetrics",
+			"user_agent": userAgent,
+			"total":      total,
+			"page":       page,
+			"page_size":  pageSize,
+			"work_status": func() interface{} {
+				if workStatusPtr != nil {
+					return *workStatusPtr
+				}
+				return nil
+			}(),
+			"scan_type": func() interface{} {
+				if scanTypePtr != nil {
+					return *scanTypePtr
+				}
+				return nil
+			}(),
+			"keyword": func() interface{} {
+				if keywordPtr != nil {
+					return *keywordPtr
+				}
+				return nil
+			}(),
+		},
+	)
+
+	// 返回统一成功响应（包含分页）
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "All agents metrics retrieved successfully",
+		Data:    resp,
+	})
+}
+
 // getErrorStatusCode 根据错误类型返回HTTP状态码
 func (h *AgentHandler) getErrorStatusCode(err error) int {
 	// 根据错误类型返回相应的HTTP状态码
@@ -899,8 +1163,15 @@ func (h *AgentHandler) getErrorStatusCode(err error) int {
 
 	// 可以根据具体的错误类型进行更精确的状态码映射
 	errMsg := err.Error()
-	if errMsg == "Agent not found" || errMsg == "agent not found" || errMsg == "Agent不存在" {
+	// 统一处理“未找到”类错误
+	if errMsg == "Agent not found" || errMsg == "agent not found" || errMsg == "Agent不存在" ||
+		strings.Contains(errMsg, "未找到") || strings.Contains(errMsg, "not found") {
 		return http.StatusNotFound
+	}
+
+	// 参数缺失或不合法
+	if strings.Contains(errMsg, "不能为空") || strings.Contains(errMsg, "is required") || strings.Contains(errMsg, "invalid") {
+		return http.StatusBadRequest
 	}
 
 	// 默认返回内部服务器错误

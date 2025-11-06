@@ -756,10 +756,12 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 		)
 
 		// 根据错误类型返回不同的消息
+		// staticcheck QF1003: 使用带标签的 switch 更清晰地表达状态码分支
 		var message string
-		if statusCode == http.StatusNotFound {
+		switch statusCode {
+		case http.StatusNotFound:
 			message = "Agent not found"
-		} else {
+		default:
 			message = "Failed to process heartbeat"
 		}
 
@@ -953,11 +955,15 @@ func (h *AgentHandler) GetAgentMetrics(c *gin.Context) {
 		)
 
 		// 针对404返回更清晰的消息，其它情况统一失败描述
-		message := "Failed to get agent metrics"
-		if statusCode == http.StatusNotFound {
+		// staticcheck QF1003: 使用带标签的 switch 简化状态码分支并提升可读性
+		var message string
+		switch statusCode {
+		case http.StatusNotFound:
 			message = "Agent metrics not found"
-		} else if statusCode == http.StatusBadRequest {
+		case http.StatusBadRequest:
 			message = "Invalid request"
+		default:
+			message = "Failed to get agent metrics"
 		}
 
 		c.JSON(statusCode, system.APIResponse{
@@ -1434,9 +1440,13 @@ func (h *AgentHandler) UpdateAgentMetrics(c *gin.Context) {
 			},
 		)
 		// 针对404返回更清晰的消息，其它情况统一失败描述
-		message := "Failed to update agent metrics"
-		if statusCode == http.StatusNotFound {
+		// staticcheck QF1003: 使用带标签的switch更清晰地表达状态码分支
+		var message string
+		switch statusCode {
+		case http.StatusNotFound:
 			message = "Agent metrics not found"
+		default:
+			message = "Failed to update agent metrics"
 		}
 		c.JSON(statusCode, system.APIResponse{
 			Code:    statusCode,

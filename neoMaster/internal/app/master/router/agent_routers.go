@@ -50,11 +50,18 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.GET("/:id/tasks/:task_id", r.agentGetTaskPlaceholder)       // 🔴 获取任务执行状态 [需要Agent端返回任务执行进度和结果]
 		agentManageGroup.DELETE("/:id/tasks/:task_id", r.agentDeleteTaskPlaceholder) // 🔴 取消Agent任务 [需要Master->Agent通信，取消正在执行的任务]
 
-		// ==================== Agent性能指标管理路由（✅ Master端完全独立实现 - 数据库操作） ====================
-		agentManageGroup.GET("/:id/metrics", r.agentGetMetricsPlaceholder)                // ✅ 获取Agent性能指标 [Master端从AgentMetrics表查询]
-		agentManageGroup.GET("/:id/metrics/history", r.agentGetMetricsHistoryPlaceholder) // ✅ 获取Agent历史性能数据 [Master端时间范围查询]
-		agentManageGroup.POST("/:id/metrics", r.agentCreateMetricsPlaceholder)            // ✅ 创建Agent性能指标记录 [Master端数据库插入]
-		agentManageGroup.PUT("/:id/metrics", r.agentUpdateMetricsPlaceholder)             // ✅ 更新Agent性能指标 [Master端数据库更新]
+		// ==================== Agent性能指标管理路由（🟡 混合实现 - Master读库 + Agent接口） ====================
+		// 设计说明：
+		// 1) 只读查询走 Master 端数据库（agent_metrics 快照表），不依赖 Agent 实时接口；
+		// 2) 拉取动作（pull）需要 Master 主动访问 Agent 的 /metrics 接口，然后将最新数据写回 Master 的 agent_metrics 表；
+		// 3) 不保留历史数据（单快照模型），agent_metrics 针对每个 agent_id 仅维护一条最新记录（upsert）。
+		agentManageGroup.GET("/:id/metrics", r.agentGetMetricsPlaceholder)         // ✅ 获取指定Agent性能快照 [Master端从AgentMetrics表查询]
+		agentManageGroup.GET("/metrics", r.agentListAllMetricsPlaceholder)         // ✅ 获取所有Agent性能快照列表 [Master端从AgentMetrics表分页查询]
+		agentManageGroup.POST("/:id/metrics/pull", r.agentPullMetricsPlaceholder)  // 🔴 从Agent端拉取该Agent性能并更新 [Master->Agent接口 + Master端数据库更新]
+		agentManageGroup.POST("/metrics/pull", r.agentBatchPullMetricsPlaceholder) // 🔴 批量拉取所有Agent性能并更新 [Master->Agent接口并发 + Master端数据库更新]
+		// agentManageGroup.GET("/:id/metrics/history", r.agentGetMetricsHistoryPlaceholder) // 已弃用：历史性能数据（当前为单快照模型，不保留历史）
+		agentManageGroup.POST("/:id/metrics", r.agentCreateMetricsPlaceholder) // 🟡（可选保留）创建/上报Agent性能指标记录 [Master端数据库插入] Agent/采集器主动上报（push）入库（保留，受限权限）
+		agentManageGroup.PUT("/:id/metrics", r.agentUpdateMetricsPlaceholder)  // 🟡（可选保留）更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
 
 		// ==================== Agent高级查询和统计路由（✅ Master端完全独立实现 - 数据分析） ====================
 		agentManageGroup.GET("/statistics", r.agentGetStatisticsPlaceholder)    // ✅ 获取Agent统计信息 [Master端聚合查询：在线数量、状态分布、性能统计]
@@ -242,7 +249,7 @@ func (r *Router) agentPingPlaceholder(c *gin.Context) {
 	})
 }
 
-// ==================== Agent性能指标管理占位符（Master端独立实现） ====================
+// ==================== Agent性能指标管理占位符（🟡 混合实现：Master读库 + Agent接口） ====================
 
 // agentGetMetricsPlaceholder 获取Agent性能指标占位符
 func (r *Router) agentGetMetricsPlaceholder(c *gin.Context) {
@@ -281,6 +288,52 @@ func (r *Router) agentUpdateMetricsPlaceholder(c *gin.Context) {
 		"status":    "placeholder",
 		"agent_id":  c.Param("id"),
 		"timestamp": logger.NowFormatted(),
+	})
+}
+
+// agentListAllMetricsPlaceholder 获取所有Agent性能快照列表占位符
+// 说明：
+// - 路由：GET /api/v1/agent/metrics
+// - 职责：从Master端的 agent_metrics 表分页查询所有Agent的最新性能快照（只读）。
+// - 分层：Handler/Router → Service（agentMonitorService.ListAllMetrics）→ Repo（ListAllLatestMetrics）→ DB
+// - 注意：此接口不依赖Agent端实时接口。
+func (r *Router) agentListAllMetricsPlaceholder(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "获取所有Agent性能快照列表功能待实现",
+		"status":    "placeholder",
+		"timestamp": logger.NowFormatted(),
+		"note":      "从Master库分页查询，不依赖Agent接口",
+	})
+}
+
+// agentPullMetricsPlaceholder 从Agent端拉取该Agent的性能并更新占位符
+// 说明：
+// - 路由：POST /api/v1/agent/:id/metrics/pull
+// - 职责：Master主动调用Agent的 /metrics 接口获取实时性能数据，并将结果upsert到Master端的 agent_metrics 表。
+// - 分层：Handler/Router → Service（agentMonitorService.PullAndUpdateOne）→ Agent HTTP Client（GetMetrics）→ Repo（UpdateAgentMetrics）→ DB
+// - 注意：需要Agent端实现 /metrics 接口；建议限制权限，仅管理员可触发。
+func (r *Router) agentPullMetricsPlaceholder(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "从Agent端拉取该Agent性能并更新功能待实现",
+		"status":    "placeholder",
+		"agent_id":  c.Param("id"),
+		"timestamp": logger.NowFormatted(),
+		"note":      "需要Agent端实现 /metrics 接口；此操作将更新Master库",
+	})
+}
+
+// agentBatchPullMetricsPlaceholder 批量拉取所有Agent的性能并更新占位符
+// 说明：
+// - 路由：POST /api/v1/agent/metrics/pull
+// - 职责：遍历所有已注册Agent，批量调用其 /metrics 接口获取实时性能，并统一upsert到Master端的 agent_metrics 表。
+// - 分层：Handler/Router → Service（agentMonitorService.BatchPullAndUpdate）→ Agent HTTP Client（并发GetMetrics）→ Repo（UpdateAgentMetrics）→ DB
+// - 注意：需要并发控制、超时与失败统计；建议限制权限，仅管理员可触发。
+func (r *Router) agentBatchPullMetricsPlaceholder(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "批量拉取Agent性能并更新功能待实现",
+		"status":    "placeholder",
+		"timestamp": logger.NowFormatted(),
+		"note":      "需要Agent端实现 /metrics 接口；此路由将并发拉取并更新Master库",
 	})
 }
 

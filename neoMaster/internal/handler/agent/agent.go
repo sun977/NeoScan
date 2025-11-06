@@ -1154,6 +1154,327 @@ func (h *AgentHandler) GetAgentListAllMetrics(c *gin.Context) {
 	})
 }
 
+// CreateAgentMetrics 创建/上报Agent性能指标快照（Master端数据库插入）
+// 路由：POST /api/v1/agent/:id/metrics
+// 设计：
+// - 严格遵守分层：Handler → Service → Repository → DB；不直接操作数据库
+// - 统一日志与错误返回；校验基础数值边界，防止脏数据入库
+func (h *AgentHandler) CreateAgentMetrics(c *gin.Context) {
+	// 规范化客户端信息
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	// 获取Agent ID并校验
+	agentID := c.Param("id")
+	if agentID == "" {
+		logger.LogBusinessError(
+			fmt.Errorf("agent ID is required"),
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":  "create_agent_metrics",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.CreateAgentMetrics",
+				"user_agent": userAgent,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Agent ID is required",
+			Error:   "missing agent ID parameter",
+		})
+		return
+	}
+
+	// 解析请求体为 AgentMetrics
+	var metrics agentModel.AgentMetrics
+	if err := c.ShouldBindJSON(&metrics); err != nil {
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":  "create_agent_metrics",
+				"option":     "ShouldBindJSON",
+				"func_name":  "handler.agent.CreateAgentMetrics",
+				"user_agent": userAgent,
+				"agent_id":   agentID,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid metrics request format",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 统一以路径中的 agentID 为准，避免用户伪造
+	metrics.AgentID = agentID
+
+	// 基础字段校验（防御性编程）
+	if metrics.CPUUsage < 0 || metrics.CPUUsage > 100 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid CPU usage", Error: "invalid CPU usage"})
+		return
+	}
+	if metrics.MemoryUsage < 0 || metrics.MemoryUsage > 100 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid memory usage", Error: "invalid memory usage"})
+		return
+	}
+	if metrics.DiskUsage < 0 || metrics.DiskUsage > 100 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid disk usage", Error: "invalid disk usage"})
+		return
+	}
+	if metrics.NetworkBytesSent < 0 || metrics.NetworkBytesRecv < 0 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid network bytes", Error: "invalid network bytes"})
+		return
+	}
+	if metrics.RunningTasks < 0 || metrics.CompletedTasks < 0 || metrics.FailedTasks < 0 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid task counters", Error: "invalid task counters"})
+		return
+	}
+	// WorkStatus 枚举校验（允许空值按默认）
+	if metrics.WorkStatus != "" {
+		valid := metrics.WorkStatus == agentModel.AgentWorkStatusIdle ||
+			metrics.WorkStatus == agentModel.AgentWorkStatusWorking ||
+			metrics.WorkStatus == agentModel.AgentWorkStatusException
+		if !valid {
+			c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid work status", Error: fmt.Sprintf("invalid work_status: %s", metrics.WorkStatus)})
+			return
+		}
+	}
+	// ScanType 可选校验：若提供，需为非空字符串（业务允许自定义类型，暂不强校验）
+	// 时间戳：若未提供则自动补齐当前时间
+	if metrics.Timestamp.IsZero() {
+		metrics.UpdateTimestamp()
+	}
+
+	// 调用服务层创建指标
+	if err := h.agentMonitorService.CreateAgentMetrics(agentID, &metrics); err != nil {
+		statusCode := h.getErrorStatusCode(err)
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":   "create_agent_metrics",
+				"option":      "agentMonitorService.CreateAgentMetrics",
+				"func_name":   "handler.agent.CreateAgentMetrics",
+				"user_agent":  userAgent,
+				"agent_id":    agentID,
+				"status_code": statusCode,
+			},
+		)
+		c.JSON(statusCode, system.APIResponse{
+			Code:    statusCode,
+			Status:  "failed",
+			Message: "Failed to create agent metrics",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 成功日志与响应
+	logger.LogInfo(
+		"创建Agent性能指标成功",
+		XRequestID,
+		0,
+		clientIP,
+		pathUrl,
+		"POST",
+		map[string]interface{}{
+			"operation":  "create_agent_metrics",
+			"option":     "success",
+			"func_name":  "handler.agent.CreateAgentMetrics",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
+
+	c.JSON(http.StatusCreated, system.APIResponse{
+		Code:    http.StatusCreated,
+		Status:  "success",
+		Message: "Agent metrics created successfully",
+		Data: map[string]interface{}{
+			"agent_id":  agentID,
+			"timestamp": metrics.Timestamp,
+		},
+	})
+}
+
+// UpdateAgentMetrics 更新Agent性能指标快照（Master端数据库更新）
+// 路由：PUT /api/v1/agent/:id/metrics
+func (h *AgentHandler) UpdateAgentMetrics(c *gin.Context) {
+	// 规范化客户端信息
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	// 获取Agent ID并校验
+	agentID := c.Param("id")
+	if agentID == "" {
+		logger.LogBusinessError(
+			fmt.Errorf("agent ID is required"),
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"PUT",
+			map[string]interface{}{
+				"operation":  "update_agent_metrics",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.UpdateAgentMetrics",
+				"user_agent": userAgent,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Agent ID is required",
+			Error:   "missing agent ID parameter",
+		})
+		return
+	}
+
+	// 解析请求体为 AgentMetrics
+	var metrics agentModel.AgentMetrics
+	if err := c.ShouldBindJSON(&metrics); err != nil {
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"PUT",
+			map[string]interface{}{
+				"operation":  "update_agent_metrics",
+				"option":     "ShouldBindJSON",
+				"func_name":  "handler.agent.UpdateAgentMetrics",
+				"user_agent": userAgent,
+				"agent_id":   agentID,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid metrics request format",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 统一以路径中的 agentID 为准
+	metrics.AgentID = agentID
+
+	// 基础字段校验（与创建一致）
+	if metrics.CPUUsage < 0 || metrics.CPUUsage > 100 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid CPU usage", Error: "invalid CPU usage"})
+		return
+	}
+	if metrics.MemoryUsage < 0 || metrics.MemoryUsage > 100 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid memory usage", Error: "invalid memory usage"})
+		return
+	}
+	if metrics.DiskUsage < 0 || metrics.DiskUsage > 100 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid disk usage", Error: "invalid disk usage"})
+		return
+	}
+	if metrics.NetworkBytesSent < 0 || metrics.NetworkBytesRecv < 0 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid network bytes", Error: "invalid network bytes"})
+		return
+	}
+	if metrics.RunningTasks < 0 || metrics.CompletedTasks < 0 || metrics.FailedTasks < 0 {
+		c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid task counters", Error: "invalid task counters"})
+		return
+	}
+	if metrics.WorkStatus != "" {
+		valid := metrics.WorkStatus == agentModel.AgentWorkStatusIdle ||
+			metrics.WorkStatus == agentModel.AgentWorkStatusWorking ||
+			metrics.WorkStatus == agentModel.AgentWorkStatusException
+		if !valid {
+			c.JSON(http.StatusBadRequest, system.APIResponse{Code: http.StatusBadRequest, Status: "failed", Message: "Invalid work status", Error: fmt.Sprintf("invalid work_status: %s", metrics.WorkStatus)})
+			return
+		}
+	}
+	if metrics.Timestamp.IsZero() {
+		metrics.UpdateTimestamp()
+	}
+
+	// 调用服务层更新指标
+	if err := h.agentMonitorService.UpdateAgentMetrics(agentID, &metrics); err != nil {
+		statusCode := h.getErrorStatusCode(err)
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"PUT",
+			map[string]interface{}{
+				"operation":   "update_agent_metrics",
+				"option":      "agentMonitorService.UpdateAgentMetrics",
+				"func_name":   "handler.agent.UpdateAgentMetrics",
+				"user_agent":  userAgent,
+				"agent_id":    agentID,
+				"status_code": statusCode,
+			},
+		)
+		// 针对404返回更清晰的消息，其它情况统一失败描述
+		message := "Failed to update agent metrics"
+		if statusCode == http.StatusNotFound {
+			message = "Agent metrics not found"
+		}
+		c.JSON(statusCode, system.APIResponse{
+			Code:    statusCode,
+			Status:  "failed",
+			Message: message,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 成功日志与响应
+	logger.LogInfo(
+		"更新Agent性能指标成功",
+		XRequestID,
+		0,
+		clientIP,
+		pathUrl,
+		"PUT",
+		map[string]interface{}{
+			"operation":  "update_agent_metrics",
+			"option":     "success",
+			"func_name":  "handler.agent.UpdateAgentMetrics",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Agent metrics updated successfully",
+		Data: map[string]interface{}{
+			"agent_id":  agentID,
+			"timestamp": metrics.Timestamp,
+		},
+	})
+}
+
 // getErrorStatusCode 根据错误类型返回HTTP状态码
 func (h *AgentHandler) getErrorStatusCode(err error) int {
 	// 根据错误类型返回相应的HTTP状态码

@@ -37,6 +37,16 @@ type AgentRepository interface {
 	GetLatestMetrics(agentID string) (*agentModel.AgentMetrics, error)
 	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error
 
+	// Agent性能指标批量查询（分页 + 过滤）
+	// 说明：由于 agent_metrics 表为单快照模型（每个 Agent 仅保留一条记录，AgentID 唯一索引），
+	// 因此可以直接对该表做 SQL 分页以避免一次性加载所有数据带来的性能问题。
+	// 过滤参数：
+	// - workStatus: 按工作状态过滤（idle/working/exception），可为 nil 表示不过滤
+	// - scanType:   按扫描类型过滤（ipAliveScan/fullPortScan/...），可为 nil 表示不过滤
+	// - keyword:    按 agent_id 关键词模糊匹配，LIKE 查询，可为 nil 表示不过滤
+	// 返回 metrics 列表与总条数 total，用于构造统一的分页响应。
+	GetMetricsList(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetrics, int64, error)
+
 	// Agent查询操作
 	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
@@ -345,6 +355,135 @@ func (r *agentRepository) GetLatestMetrics(agentID string) (*agentModel.AgentMet
 	}
 
 	return &metrics, nil
+}
+
+// GetMetricsList 获取所有Agent的最新性能指标（SQL分页）
+// 参数: page - 页码（从1开始）, pageSize - 每页大小
+// 返回: []*agentModel.AgentMetrics - 当前页的性能指标数据, int64 - 总记录数, error - 错误信息
+// 设计说明：
+// - agent_metrics 表采用单快照模型（每个Agent最多一条记录，AgentID唯一索引），因此无需对每个Agent做额外聚合或去重。
+// - 直接对该表按 timestamp DESC 排序后进行分页，可避免一次性加载全集数据导致的内存压力与N+1查询问题。
+func (r *agentRepository) GetMetricsList(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetrics, int64, error) {
+	var metricsList []*agentModel.AgentMetrics
+	var total int64
+
+	// 防御性处理：页码与页大小需为正数
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	// 构建查询
+	query := r.db.Model(&agentModel.AgentMetrics{})
+
+	// 过滤条件：work_status
+	if workStatus != nil {
+		query = query.Where("work_status = ?", *workStatus)
+	}
+
+	// 过滤条件：scan_type
+	if scanType != nil {
+		query = query.Where("scan_type = ?", *scanType)
+	}
+
+	// 过滤条件：agent_id 关键词（模糊查询）
+	if keyword != nil && *keyword != "" {
+		like := "%" + *keyword + "%"
+		query = query.Where("agent_id LIKE ?", like)
+	}
+
+	// 统计总数
+	if err := query.Count(&total).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetMetricsList", "", map[string]interface{}{
+			"operation": "get_metrics_list",
+			"option":    "agentRepository.GetMetricsList.count",
+			"func_name": "repo.agent.GetMetricsList",
+			"work_status": func() interface{} {
+				if workStatus != nil {
+					return *workStatus
+				}
+				return nil
+			}(),
+			"scan_type": func() interface{} {
+				if scanType != nil {
+					return *scanType
+				}
+				return nil
+			}(),
+			"keyword": func() interface{} {
+				if keyword != nil {
+					return *keyword
+				}
+				return nil
+			}(),
+		})
+		return nil, 0, err
+	}
+
+	// 计算偏移量
+	offset := (page - 1) * pageSize
+
+	// 获取分页数据，按更新时间戳倒序，必要时可增加次级排序保证稳定性
+	if err := query.Order("timestamp DESC").Offset(offset).Limit(pageSize).Find(&metricsList).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetMetricsList", "", map[string]interface{}{
+			"operation": "get_metrics_list",
+			"option":    "agentRepository.GetMetricsList.query",
+			"func_name": "repo.agent.GetMetricsList",
+			"page":      page,
+			"page_size": pageSize,
+			"work_status": func() interface{} {
+				if workStatus != nil {
+					return *workStatus
+				}
+				return nil
+			}(),
+			"scan_type": func() interface{} {
+				if scanType != nil {
+					return *scanType
+				}
+				return nil
+			}(),
+			"keyword": func() interface{} {
+				if keyword != nil {
+					return *keyword
+				}
+				return nil
+			}(),
+		})
+		return nil, 0, err
+	}
+
+	logger.LogInfo("Agent性能指标分页获取成功", "", 0, "", "repo.agent.GetMetricsList", "", map[string]interface{}{
+		"operation": "get_metrics_list",
+		"option":    "agentRepository.GetMetricsList",
+		"func_name": "repo.agent.GetMetricsList",
+		"count":     len(metricsList),
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+		"work_status": func() interface{} {
+			if workStatus != nil {
+				return *workStatus
+			}
+			return nil
+		}(),
+		"scan_type": func() interface{} {
+			if scanType != nil {
+				return *scanType
+			}
+			return nil
+		}(),
+		"keyword": func() interface{} {
+			if keyword != nil {
+				return *keyword
+			}
+			return nil
+		}(),
+	})
+
+	return metricsList, total, nil
 }
 
 // UpdateAgentMetrics 更新Agent性能指标 - 实现upsert逻辑（存在则更新，不存在则创建）

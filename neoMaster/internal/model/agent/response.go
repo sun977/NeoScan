@@ -66,20 +66,27 @@ type PaginationResponse struct {
 // AgentMetricsResponse Agent性能指标响应结构
 // 返回Agent的实时性能数据
 type AgentMetricsResponse struct {
-	AgentID           string                 `json:"agent_id"`           // Agent唯一标识ID
-	CPUUsage          float64                `json:"cpu_usage"`          // CPU使用率(百分比)
-	MemoryUsage       float64                `json:"memory_usage"`       // 内存使用率(百分比)
-	DiskUsage         float64                `json:"disk_usage"`         // 磁盘使用率(百分比)
-	NetworkBytesSent  int64                  `json:"network_bytes_sent"` // 网络发送字节数
-	NetworkBytesRecv  int64                  `json:"network_bytes_recv"` // 网络接收字节数
-	ActiveConnections int                    `json:"active_connections"` // 活动连接数
-	RunningTasks      int                    `json:"running_tasks"`      // 正在运行的任务数
-	CompletedTasks    int                    `json:"completed_tasks"`    // 已完成任务数
-	FailedTasks       int                    `json:"failed_tasks"`       // 失败任务数
-	WorkStatus        AgentWorkStatus        `json:"work_status"`        // 工作状态
-	ScanType          string                 `json:"scan_type"`          // 当前扫描类型
-	PluginStatus      map[string]interface{} `json:"plugin_status"`      // 插件状态信息
-	Timestamp         time.Time              `json:"timestamp"`          // 指标时间戳
+    AgentID           string                 `json:"agent_id"`           // Agent唯一标识ID
+    CPUUsage          float64                `json:"cpu_usage"`          // CPU使用率(百分比)
+    MemoryUsage       float64                `json:"memory_usage"`       // 内存使用率(百分比)
+    DiskUsage         float64                `json:"disk_usage"`         // 磁盘使用率(百分比)
+    NetworkBytesSent  int64                  `json:"network_bytes_sent"` // 网络发送字节数
+    NetworkBytesRecv  int64                  `json:"network_bytes_recv"` // 网络接收字节数
+    ActiveConnections int                    `json:"active_connections"` // 活动连接数
+    RunningTasks      int                    `json:"running_tasks"`      // 正在运行的任务数
+    CompletedTasks    int                    `json:"completed_tasks"`    // 已完成任务数
+    FailedTasks       int                    `json:"failed_tasks"`       // 失败任务数
+    WorkStatus        AgentWorkStatus        `json:"work_status"`        // 工作状态
+    ScanType          string                 `json:"scan_type"`          // 当前扫描类型
+    PluginStatus      map[string]interface{} `json:"plugin_status"`      // 插件状态信息
+    Timestamp         time.Time              `json:"timestamp"`          // 指标时间戳
+}
+
+// AgentMetricsListResponse 获取Agent性能指标列表响应结构
+// 包含指标列表和分页信息，保持与Agent列表返回结构一致的风格
+type AgentMetricsListResponse struct {
+    Metrics    []*AgentMetricsResponse `json:"metrics"`    // 指标列表（当前页）
+    Pagination *PaginationResponse     `json:"pagination"` // 分页信息
 }
 
 // AgentConfigResponse Agent配置响应结构

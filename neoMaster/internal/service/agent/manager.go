@@ -381,7 +381,7 @@ func (s *agentManagerService) DeleteAgent(agentID string) error {
 			"func_name": "service.agent.manager.DeleteAgent",
 			"agent_id":  agentID,
 		})
-		return fmt.Errorf("Agent不存在或查询失败: %v", err)
+		return fmt.Errorf("agent不存在或查询失败: %v", err)
 	}
 
 	// 执行删除操作

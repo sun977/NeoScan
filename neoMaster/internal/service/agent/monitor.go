@@ -20,13 +20,13 @@ import (
 // 专门负责Agent的监控相关功能，遵循单一职责原则
 type AgentMonitorService interface {
 	// Agent心跳和状态监控
-	ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agentModel.HeartbeatResponse, error) // 处理Agent发送过来的心跳，更新状态和指标
-	GetAgentMetricsFromDB(agentID string) (*agentModel.AgentMetricsResponse, error)           // 从数据库获取Agent最新的性能指标
-	GetAgentListAllMetricsFromDB() ([]*agentModel.AgentMetricsResponse, error)                // 从数据库获取所有Agent的最新性能指标
-	PullAgentMetrics(agentID string) (*agentModel.AgentMetricsResponse, error)                // 从Agent端拉取最新的性能指标
-	PullAgentListAllMetrics() ([]*agentModel.AgentMetricsResponse, error)                     // 从Agent端拉取所有Agent的最新性能指标
-	CreateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                // 创建Agent性能指标
-	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                // 更新Agent性能指标
+	ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agentModel.HeartbeatResponse, error)                                                                                                        // 处理Agent发送过来的心跳，更新状态和指标
+	GetAgentMetricsFromDB(agentID string) (*agentModel.AgentMetricsResponse, error)                                                                                                                  // 从数据库获取Agent最新的性能指标
+	GetAgentListAllMetricsFromDB(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetricsResponse, int64, error) // 从数据库分页获取Agent的最新性能指标（支持状态与关键词过滤）
+	PullAgentMetrics(agentID string) (*agentModel.AgentMetricsResponse, error)                                                                                                                       // 从Agent端拉取最新的性能指标
+	PullAgentListAllMetrics() ([]*agentModel.AgentMetricsResponse, error)                                                                                                                            // 从Agent端拉取所有Agent的最新性能指标
+	CreateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                                                                                                                       // 创建Agent性能指标
+	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                                                                                                                       // 更新Agent性能指标
 }
 
 // agentMonitorService Agent监控服务实现
@@ -118,25 +118,169 @@ func (s *agentMonitorService) ProcessHeartbeat(req *agentModel.HeartbeatRequest)
 
 // GetAgentMetricsFromDB 获取指定Agent性能指标服务 - 从数据库表 agent_metrics 查询
 func (s *agentMonitorService) GetAgentMetricsFromDB(agentID string) (*agentModel.AgentMetricsResponse, error) {
-	// TODO: 实现从时序数据库获取性能指标
-	logger.LogInfo("获取Agent性能指标", "", 0, "", "service.agent.monitor.GetAgentMetrics", "", map[string]interface{}{
-		"operation": "get_agent_metrics",
-		"option":    "agentMonitorService.GetAgentMetrics",
-		"func_name": "service.agent.monitor.GetAgentMetrics",
+	// 输入校验：agentID不能为空
+	if agentID == "" {
+		err := fmt.Errorf("agentID 不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentMetricsFromDB", "", map[string]interface{}{
+			"operation": "get_agent_metrics_from_db",
+			"option":    "validate.agentID",
+			"func_name": "service.agent.monitor.GetAgentMetricsFromDB",
+			"agent_id":  agentID,
+		})
+		return nil, err
+	}
+
+	// 通过仓储层获取该Agent的最新性能指标（遵循分层：Service -> Repository）
+	metrics, err := s.agentRepo.GetLatestMetrics(agentID)
+	if err != nil {
+		// 数据查询错误
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentMetricsFromDB", "", map[string]interface{}{
+			"operation": "get_agent_metrics_from_db",
+			"option":    "agentRepo.GetLatestMetrics",
+			"func_name": "service.agent.monitor.GetAgentMetricsFromDB",
+			"agent_id":  agentID,
+		})
+		return nil, fmt.Errorf("查询Agent性能指标失败: %v", err)
+	}
+
+	// 未找到记录（根据当前单快照模型，表示尚未有该Agent的指标被写入）
+	if metrics == nil {
+		err := fmt.Errorf("未找到Agent的性能指标记录")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentMetricsFromDB", "", map[string]interface{}{
+			"operation": "get_agent_metrics_from_db",
+			"option":    "agentRepo.GetLatestMetrics.not_found",
+			"func_name": "service.agent.monitor.GetAgentMetricsFromDB",
+			"agent_id":  agentID,
+		})
+		return nil, err
+	}
+
+	// 组装响应结构（与AgentMetricsResponse字段一一对应）
+	resp := &agentModel.AgentMetricsResponse{
+		AgentID:           metrics.AgentID,
+		CPUUsage:          metrics.CPUUsage,
+		MemoryUsage:       metrics.MemoryUsage,
+		DiskUsage:         metrics.DiskUsage,
+		NetworkBytesSent:  metrics.NetworkBytesSent,
+		NetworkBytesRecv:  metrics.NetworkBytesRecv,
+		ActiveConnections: metrics.ActiveConnections,
+		RunningTasks:      metrics.RunningTasks,
+		CompletedTasks:    metrics.CompletedTasks,
+		FailedTasks:       metrics.FailedTasks,
+		WorkStatus:        metrics.WorkStatus,
+		ScanType:          metrics.ScanType,
+		// PluginStatusJSON 是 map[string]interface{} 的自定义类型，直接类型转换即可
+		PluginStatus: map[string]interface{}(metrics.PluginStatus),
+		Timestamp:    metrics.Timestamp,
+	}
+
+	// 成功日志记录
+	logger.LogInfo("获取Agent性能指标成功", "", 0, "", "service.agent.monitor.GetAgentMetricsFromDB", "", map[string]interface{}{
+		"operation": "get_agent_metrics_from_db",
+		"option":    "compose.AgentMetricsResponse",
+		"func_name": "service.agent.monitor.GetAgentMetricsFromDB",
 		"agent_id":  agentID,
 	})
-	return nil, fmt.Errorf("功能暂未实现")
+
+	return resp, nil
 }
 
 // GetAgentListAllMetricsFromDB 获取所有Agent性能指标服务 - 从数据表 agent_metrics 批量查询
-func (s *agentMonitorService) GetAgentListAllMetricsFromDB() ([]*agentModel.AgentMetricsResponse, error) {
-	// TODO: 实现从数据库查询所有Agent的性能指标
-	logger.LogInfo("获取所有Agent性能指标", "", 0, "", "service.agent.monitor.GetAgentListAllMetrics", "", map[string]interface{}{
-		"operation": "get_agent_list_all_metrics",
-		"option":    "agentMonitorService.GetAgentListAllMetrics",
-		"func_name": "service.agent.monitor.GetAgentListAllMetrics",
+func (s *agentMonitorService) GetAgentListAllMetricsFromDB(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetricsResponse, int64, error) {
+	// 输入校验与默认值处理（防御性编程）
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	// 直接通过仓储层对 agent_metrics 表进行分页查询（单快照模型，避免N+1与全量加载）
+	metricsList, total, err := s.agentRepo.GetMetricsList(page, pageSize, workStatus, scanType, keyword)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentListAllMetricsFromDB", "", map[string]interface{}{
+			"operation": "get_agent_list_all_metrics_from_db",
+			"option":    "agentRepo.GetMetricsList",
+			"func_name": "service.agent.monitor.GetAgentListAllMetricsFromDB",
+			"page":      page,
+			"page_size": pageSize,
+			"work_status": func() interface{} {
+				if workStatus != nil {
+					return *workStatus
+				}
+				return nil
+			}(),
+			"scan_type": func() interface{} {
+				if scanType != nil {
+					return *scanType
+				}
+				return nil
+			}(),
+			"keyword": func() interface{} {
+				if keyword != nil {
+					return *keyword
+				}
+				return nil
+			}(),
+		})
+		return nil, 0, fmt.Errorf("查询Agent性能指标分页失败: %v", err)
+	}
+
+	// 组装响应结构
+	results := make([]*agentModel.AgentMetricsResponse, 0, len(metricsList))
+	for _, metrics := range metricsList {
+		if metrics == nil {
+			continue
+		}
+		resp := &agentModel.AgentMetricsResponse{
+			AgentID:           metrics.AgentID,
+			CPUUsage:          metrics.CPUUsage,
+			MemoryUsage:       metrics.MemoryUsage,
+			DiskUsage:         metrics.DiskUsage,
+			NetworkBytesSent:  metrics.NetworkBytesSent,
+			NetworkBytesRecv:  metrics.NetworkBytesRecv,
+			ActiveConnections: metrics.ActiveConnections,
+			RunningTasks:      metrics.RunningTasks,
+			CompletedTasks:    metrics.CompletedTasks,
+			FailedTasks:       metrics.FailedTasks,
+			WorkStatus:        metrics.WorkStatus,
+			ScanType:          metrics.ScanType,
+			PluginStatus:      map[string]interface{}(metrics.PluginStatus),
+			Timestamp:         metrics.Timestamp,
+		}
+		results = append(results, resp)
+	}
+
+	// 成功日志记录
+	logger.LogInfo("获取所有Agent性能指标成功（分页）", "", 0, "", "service.agent.monitor.GetAgentListAllMetricsFromDB", "", map[string]interface{}{
+		"operation": "get_agent_list_all_metrics_from_db",
+		"option":    "agentRepo.GetMetricsList",
+		"func_name": "service.agent.monitor.GetAgentListAllMetricsFromDB",
+		"count":     len(results),
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+		"work_status": func() interface{} {
+			if workStatus != nil {
+				return *workStatus
+			}
+			return nil
+		}(),
+		"scan_type": func() interface{} {
+			if scanType != nil {
+				return *scanType
+			}
+			return nil
+		}(),
+		"keyword": func() interface{} {
+			if keyword != nil {
+				return *keyword
+			}
+			return nil
+		}(),
 	})
-	return nil, fmt.Errorf("功能暂未实现")
+
+	return results, total, nil
 }
 
 // PullAgentMetrics 从 agent 端拉取性能指标数据服务 - 从 agent 端调用 /metrics 接口获取数据 (拉取后同步更新数据表 agent_metrics 中数据)

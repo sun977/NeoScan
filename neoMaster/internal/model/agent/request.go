@@ -98,3 +98,9 @@ type AgentCapabilityRequest struct {
 	AgentID    string `json:"agent_id" validate:"required"`   // Agent业务ID，必填
 	Capability string `json:"capability" validate:"required"` // 能力名称，必填
 }
+
+// // UpdateAgentTagsRequest 更新指定 Agent 标签列表请求结构
+// type UpdateAgentTagsRequest struct {
+// 	AgentID string   `json:"agent_id" validate:"required"` // Agent业务ID，必填
+// 	Tags    []string `json:"tags" validate:"required"`     // 新标签列表，必填
+// }

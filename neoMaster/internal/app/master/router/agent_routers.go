@@ -76,9 +76,11 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.DELETE("/groups/:group_id", r.agentDeleteGroupPlaceholder)         // ✅ 删除Agent分组 [Master端删除分组及关联]
 		agentManageGroup.POST("/:id/groups", r.agentAddToGroupPlaceholder)                  // ✅ 将Agent添加到分组 [Master端更新Agent分组关系]
 		agentManageGroup.DELETE("/:id/groups/:group_id", r.agentRemoveFromGroupPlaceholder) // ✅ 从分组中移除Agent [Master端删除分组关系]
-		agentManageGroup.GET("/:id/tags", r.agentGetTagsPlaceholder)                        // ✅ 获取Agent标签 [Master端查询Agent标签]
-		agentManageGroup.POST("/:id/tags", r.agentAddTagsPlaceholder)                       // ✅ 添加Agent标签 [Master端更新Agent标签字段]
-		agentManageGroup.DELETE("/:id/tags", r.agentRemoveTagsPlaceholder)                  // ✅ 移除Agent标签 [Master端删除指定标签]
+		// 标签管理：对齐已实现的 Handler 方法
+		agentManageGroup.GET("/:id/tags", r.agentHandler.GetAgentTags)      // ✅ 获取Agent标签 [Master端查询Agent标签]
+		agentManageGroup.POST("/:id/tags", r.agentHandler.AddAgentTag)      // ✅ 添加Agent标签 [Master端更新单个标签]
+		agentManageGroup.PUT("/:id/tags", r.agentHandler.UpdateAgentTags)   // ✅ 更新Agent标签列表（覆盖更新为指定列表）
+		agentManageGroup.DELETE("/:id/tags", r.agentHandler.RemoveAgentTag) // ✅ 移除Agent标签 [Master端删除指定标签]
 
 		// ==================== Agent通信和控制路由（🔴 需要Agent端配合实现 - 跨网络通信） ====================
 		agentManageGroup.POST("/:id/command", r.agentSendCommandPlaceholder)             // 🔴 发送控制命令到Agent [需要Master->Agent通信协议，发送自定义命令]
@@ -388,34 +390,7 @@ func (r *Router) agentRemoveFromGroupPlaceholder(c *gin.Context) {
 }
 
 // agentGetTagsPlaceholder 获取Agent标签占位符
-func (r *Router) agentGetTagsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent标签功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentAddTagsPlaceholder 添加Agent标签占位符
-func (r *Router) agentAddTagsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "添加Agent标签功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentRemoveTagsPlaceholder 移除Agent标签占位符
-func (r *Router) agentRemoveTagsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "移除Agent标签功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
 
 // ==================== Agent通信和控制占位符（需要Agent端配合实现） ====================
 

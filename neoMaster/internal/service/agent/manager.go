@@ -46,6 +46,7 @@ type AgentManagerService interface {
 	AddAgentTag(req *agentModel.AgentTagRequest) error
 	RemoveAgentTag(req *agentModel.AgentTagRequest) error
 	GetAgentTags(agentID string) ([]string, error)
+	UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error)
 
 	// Agent能力管理
 	IsValidCapabilityId(capability string) bool     // 判断能力ID是否有效
@@ -944,4 +945,92 @@ func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
 	// 2. 委托给Repository层进行数据库验证
 	// Repository层会检查ScanType表中是否存在该名称
 	return s.agentRepo.IsValidCapabilityByName(capability)
+}
+
+// UpdateAgentTags 更新Agent的标签列表
+// 返回旧标签列表和新标签列表
+func (s *agentManagerService) UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error) {
+	// 输入验证
+	if agentID == "" {
+		return nil, nil, fmt.Errorf("agent ID不能为空")
+	}
+
+	// 获取当前标签
+	oldTags, err := s.GetAgentTags(agentID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("获取旧标签失败: %w", err)
+	}
+
+	// 计算差异并更新标签（使用已有的 Repository 方法 AddTag/RemoveTag 实现）
+	// 构建旧标签、新标签集合，去重并便于差异计算
+	oldSet := make(map[string]struct{}, len(oldTags))
+	for _, t := range oldTags {
+		if t == "" {
+			continue
+		}
+		oldSet[t] = struct{}{}
+	}
+
+	newSet := make(map[string]struct{}, len(newTags))
+	for _, t := range newTags {
+		if t == "" {
+			continue
+		}
+		newSet[t] = struct{}{}
+	}
+
+	// 待添加：在新集合中但不在旧集合中的标签
+	toAdd := make([]string, 0)
+	for t := range newSet {
+		if _, ok := oldSet[t]; !ok {
+			toAdd = append(toAdd, t)
+		}
+	}
+
+	// 待移除：在旧集合中但不在新集合中的标签
+	toRemove := make([]string, 0)
+	for t := range oldSet {
+		if _, ok := newSet[t]; !ok {
+			toRemove = append(toRemove, t)
+		}
+	}
+
+	// 依次执行添加和移除操作；若任一失败，返回错误
+	for _, t := range toAdd {
+		if err := s.agentRepo.AddTag(agentID, t); err != nil {
+			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.AddTag", map[string]interface{}{
+				"operation": "update_agent_tags",
+				"option":    "agentRepo.AddTag",
+				"func_name": "service.agent.manager.UpdateAgentTags",
+				"agent_id":  agentID,
+				"tag":       t,
+			})
+			return nil, nil, fmt.Errorf("添加标签失败(%s): %w", t, err)
+		}
+	}
+
+	for _, t := range toRemove {
+		if err := s.agentRepo.RemoveTag(agentID, t); err != nil {
+			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.RemoveTag", map[string]interface{}{
+				"operation": "update_agent_tags",
+				"option":    "agentRepo.RemoveTag",
+				"func_name": "service.agent.manager.UpdateAgentTags",
+				"agent_id":  agentID,
+				"tag":       t,
+			})
+			return nil, nil, fmt.Errorf("移除标签失败(%s): %w", t, err)
+		}
+	}
+
+	// 记录日志
+	logger.LogInfo("Agent标签更新成功", "", 0, "", "service.agent.manager.UpdateAgentTags", "", map[string]interface{}{
+		"operation": "update_agent_tags",
+		"option":    "success",
+		"func_name": "service.agent.manager.UpdateAgentTags",
+		"agent_id":  agentID,
+		"old_tags":  oldTags,
+		"new_tags":  newTags,
+	})
+
+	return oldTags, newTags, nil
 }

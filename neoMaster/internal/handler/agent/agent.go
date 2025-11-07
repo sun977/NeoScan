@@ -46,6 +46,7 @@ func NewAgentHandler(
 	}
 }
 
+// ------ Agent注册与心跳 -------
 // validateRegisterRequest 验证Agent注册请求参数
 func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
 	if req.Hostname == "" {
@@ -307,6 +308,132 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 	})
 }
 
+// ProcessHeartbeat 处理Agent心跳处理器
+func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
+	// 规范化客户端信息
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	// 解析请求体
+	var req agentModel.HeartbeatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":  "process_heartbeat",
+				"option":     "ShouldBindJSON",
+				"func_name":  "handler.agent.ProcessHeartbeat",
+				"user_agent": userAgent,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid heartbeat request format",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 验证必填字段
+	if err := h.validateHeartbeatRequest(&req); err != nil {
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":  "process_heartbeat",
+				"option":     "validateHeartbeatRequest",
+				"func_name":  "handler.agent.ProcessHeartbeat",
+				"user_agent": userAgent,
+				"agent_id":   req.AgentID,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: err.Error(),
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 调用服务层处理心跳
+	response, err := h.agentMonitorService.ProcessHeartbeat(&req)
+	if err != nil {
+		statusCode := h.getErrorStatusCode(err)
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":   "process_heartbeat",
+				"option":      "agentService.ProcessHeartbeat",
+				"func_name":   "handler.agent.ProcessHeartbeat",
+				"user_agent":  userAgent,
+				"agent_id":    req.AgentID,
+				"status_code": statusCode,
+			},
+		)
+
+		// 根据错误类型返回不同的消息
+		// staticcheck QF1003: 使用带标签的 switch 更清晰地表达状态码分支
+		var message string
+		switch statusCode {
+		case http.StatusNotFound:
+			message = "Agent not found"
+		default:
+			message = "Failed to process heartbeat"
+		}
+
+		c.JSON(statusCode, system.APIResponse{
+			Code:    statusCode,
+			Status:  "failed",
+			Message: message,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 成功响应
+	logger.LogInfo(
+		"处理Agent心跳成功",
+		XRequestID,
+		0,
+		clientIP,
+		pathUrl,
+		"POST",
+		map[string]interface{}{
+			"operation":  "process_heartbeat",
+			"option":     "success",
+			"func_name":  "handler.agent.ProcessHeartbeat",
+			"user_agent": userAgent,
+			"agent_id":   req.AgentID,
+		},
+	)
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Heartbeat processed successfully",
+		Data:    response,
+	})
+}
+
+// ------ Agent基础管理 -------
 // GetAgentInfo 获取Agent信息处理器
 func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 	// 规范化客户端信息
@@ -674,131 +801,6 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 	})
 }
 
-// ProcessHeartbeat 处理Agent心跳处理器
-func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
-	// 规范化客户端信息
-	clientIP := utils.GetClientIP(c)
-	userAgent := c.GetHeader("User-Agent")
-	XRequestID := c.GetHeader("X-Request-ID")
-	pathUrl := c.Request.URL.String()
-
-	// 解析请求体
-	var req agentModel.HeartbeatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogBusinessError(
-			err,
-			XRequestID,
-			0,
-			clientIP,
-			pathUrl,
-			"POST",
-			map[string]interface{}{
-				"operation":  "process_heartbeat",
-				"option":     "ShouldBindJSON",
-				"func_name":  "handler.agent.ProcessHeartbeat",
-				"user_agent": userAgent,
-			},
-		)
-		c.JSON(http.StatusBadRequest, system.APIResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "failed",
-			Message: "Invalid heartbeat request format",
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 验证必填字段
-	if err := h.validateHeartbeatRequest(&req); err != nil {
-		logger.LogBusinessError(
-			err,
-			XRequestID,
-			0,
-			clientIP,
-			pathUrl,
-			"POST",
-			map[string]interface{}{
-				"operation":  "process_heartbeat",
-				"option":     "validateHeartbeatRequest",
-				"func_name":  "handler.agent.ProcessHeartbeat",
-				"user_agent": userAgent,
-				"agent_id":   req.AgentID,
-			},
-		)
-		c.JSON(http.StatusBadRequest, system.APIResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "failed",
-			Message: err.Error(),
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 调用服务层处理心跳
-	response, err := h.agentMonitorService.ProcessHeartbeat(&req)
-	if err != nil {
-		statusCode := h.getErrorStatusCode(err)
-		logger.LogBusinessError(
-			err,
-			XRequestID,
-			0,
-			clientIP,
-			pathUrl,
-			"POST",
-			map[string]interface{}{
-				"operation":   "process_heartbeat",
-				"option":      "agentService.ProcessHeartbeat",
-				"func_name":   "handler.agent.ProcessHeartbeat",
-				"user_agent":  userAgent,
-				"agent_id":    req.AgentID,
-				"status_code": statusCode,
-			},
-		)
-
-		// 根据错误类型返回不同的消息
-		// staticcheck QF1003: 使用带标签的 switch 更清晰地表达状态码分支
-		var message string
-		switch statusCode {
-		case http.StatusNotFound:
-			message = "Agent not found"
-		default:
-			message = "Failed to process heartbeat"
-		}
-
-		c.JSON(statusCode, system.APIResponse{
-			Code:    statusCode,
-			Status:  "failed",
-			Message: message,
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 成功响应
-	logger.LogInfo(
-		"处理Agent心跳成功",
-		XRequestID,
-		0,
-		clientIP,
-		pathUrl,
-		"POST",
-		map[string]interface{}{
-			"operation":  "process_heartbeat",
-			"option":     "success",
-			"func_name":  "handler.agent.ProcessHeartbeat",
-			"user_agent": userAgent,
-			"agent_id":   req.AgentID,
-		},
-	)
-
-	c.JSON(http.StatusOK, system.APIResponse{
-		Code:    http.StatusOK,
-		Status:  "success",
-		Message: "Heartbeat processed successfully",
-		Data:    response,
-	})
-}
-
 // 注意：ListAgents 和 UpdateAgent 方法已删除，因为它们在服务层接口中不存在
 // 如需要这些功能，请先在服务层接口中定义相应的方法
 
@@ -892,6 +894,24 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	})
 }
 
+// ------ Agent标签管理 -------
+// GetAgentTags 获取指定Agent的标签列表
+func (h *AgentHandler) GetAgentTags(c *gin.Context) {
+}
+
+// AddAgentTag 给指定Agent添加标签
+func (h *AgentHandler) AddAgentTag(c *gin.Context) {
+}
+
+// RemoveAgentTag 从指定Agent移除标签
+func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
+}
+
+// UpdateAgentTags 更新指定Agent的标签列表
+func (h *AgentHandler) UpdateAgentTags(c *gin.Context) {
+}
+
+// ------ Agent性能数据管理 -------
 // GetAgentMetrics 获取指定Agent的最新性能快照（只读，来自Master端数据库 agent_metrics 表）
 // 路由：GET /api/v1/agent/:id/metrics
 // 说明：遵循项目分层规范，Handler → Service → Repository → DB；统一日志和错误返回格式

@@ -282,21 +282,23 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"Agent注册成功",
-		XRequestID,
-		0, // AgentID - 在注册阶段还没有agent ID
+	// 成功业务日志：使用 LogBusinessOperation 统一记录
+	logger.LogBusinessOperation(
+		"register_agent", // operation
+		0,                // userID - 注册阶段暂无用户信息
+		"",               // username - 未认证用户
 		clientIP,
-		pathUrl,
-		"POST",
+		XRequestID,
+		"success",
+		"Agent注册成功",
 		map[string]interface{}{
-			"operation":  "register_agent",
-			"option":     "success",
-			"func_name":  "handler.agent.RegisterAgent",
-			"user_agent": userAgent,
-			"agent_id":   response.AgentID,
-			"hostname":   req.Hostname,
+			"func_name":  "handler.agent.RegisterAgent", // 具体路径的函数名
+			"option":     "success",                     // 操作步骤（此处表示成功）
+			"path":       pathUrl,                       // 请求URI路径
+			"method":     "POST",                        // HTTP方法
+			"user_agent": userAgent,                     // 客户端User-Agent
+			"agent_id":   response.AgentID,              // 注册成功后返回的AgentID
+			"hostname":   req.Hostname,                  // Agent主机名
 		},
 	)
 
@@ -408,18 +410,20 @@ func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"处理Agent心跳成功",
-		XRequestID,
-		0,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"process_heartbeat", // operation
+		0,                   // userID
+		"",                  // username
 		clientIP,
-		pathUrl,
-		"POST",
+		XRequestID,
+		"success",
+		"处理Agent心跳成功",
 		map[string]interface{}{
-			"operation":  "process_heartbeat",
-			"option":     "success",
 			"func_name":  "handler.agent.ProcessHeartbeat",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "POST",
 			"user_agent": userAgent,
 			"agent_id":   req.AgentID,
 		},
@@ -497,18 +501,20 @@ func (h *AgentHandler) GetAgentInfo(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"获取Agent信息成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"get_agent_info",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"GET",
+		XRequestID,
+		"success",
+		"获取Agent信息成功",
 		map[string]interface{}{
-			"operation":  "get_agent_info",
-			"option":     "success",
 			"func_name":  "handler.agent.GetAgentInfo",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "GET",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 		},
@@ -616,18 +622,20 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"获取Agent列表成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"get_agent_list",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"GET",
+		XRequestID,
+		"success",
+		"获取Agent列表成功",
 		map[string]interface{}{
-			"operation":  "get_agent_list",
-			"option":     "success",
 			"func_name":  "handler.agent.GetAgentList",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "GET",
 			"user_agent": userAgent,
 			"total":      response.Pagination.Total,
 		},
@@ -772,18 +780,20 @@ func (h *AgentHandler) UpdateAgentStatus(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"更新Agent状态成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"update_agent_status",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"PUT",
+		XRequestID,
+		"success",
+		"更新Agent状态成功",
 		map[string]interface{}{
-			"operation":  "update_agent_status",
-			"option":     "success",
 			"func_name":  "handler.agent.UpdateAgentStatus",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "PUT",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 			"status":     string(req.Status),
@@ -867,18 +877,20 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"Agent删除成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"delete_agent",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"DELETE",
+		XRequestID,
+		"success",
+		"Agent删除成功",
 		map[string]interface{}{
-			"operation":  "delete_agent",
-			"option":     "success",
 			"func_name":  "handler.agent.DeleteAgent",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "DELETE",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 		},
@@ -960,29 +972,38 @@ func (h *AgentHandler) GetAgentTags(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"获取Agent标签列表成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"get_agent_tags",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"GET",
+		XRequestID,
+		"success",
+		"获取Agent标签列表成功",
 		map[string]interface{}{
-			"operation":  "get_agent_tags",
-			"option":     "success",
 			"func_name":  "handler.agent.GetAgentTags",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "GET",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 			"tag_count":  len(tags),
 		},
 	)
 
+	// 装填响应数据 data
+	data := map[string]interface{}{
+		"agent_id":  agentID,
+		"operation": "get_agent_tags",
+		"tags":      tags,
+	}
+
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "Agent tags retrieved successfully",
-		Data:    tags,
+		Data:    data,
 	})
 }
 
@@ -1087,28 +1108,38 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"添加Agent标签成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"add_agent_tag",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"POST",
+		XRequestID,
+		"success",
+		"添加Agent标签成功",
 		map[string]interface{}{
-			"operation":  "add_agent_tag",
-			"option":     "success",
 			"func_name":  "handler.agent.AddAgentTag",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "POST",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 			"tag":        body.Tag,
 		},
 	)
 
+	// 装填响应数据 data
+	data := map[string]interface{}{
+		"agent_id":  agentID,
+		"operation": "add_agent_tag",
+		"tag":       body.Tag,
+	}
+
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "Agent tag added successfully",
+		Data:    data,
 	})
 }
 
@@ -1213,28 +1244,38 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 		return
 	}
 
-	// 成功响应
-	logger.LogInfo(
-		"移除Agent标签成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"remove_agent_tag",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"DELETE",
+		XRequestID,
+		"success",
+		"移除Agent标签成功",
 		map[string]interface{}{
-			"operation":  "remove_agent_tag",
-			"option":     "success",
 			"func_name":  "handler.agent.RemoveAgentTag",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "DELETE",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 			"tag":        body.Tag,
 		},
 	)
 
+	// 装填响应数据 data
+	data := map[string]interface{}{
+		"agent_id":  agentID,
+		"operation": "remove_agent_tag",
+		"tag":       body.Tag,
+	}
+
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "Agent tag removed successfully",
+		Data:    data,
 	})
 }
 
@@ -1337,18 +1378,20 @@ func (h *AgentHandler) UpdateAgentTags(c *gin.Context) {
 		return
 	}
 
-	// 成功日志
-	logger.LogInfo(
-		"更新Agent标签成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"update_agent_tags",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"PUT",
+		XRequestID,
+		"success",
+		"更新Agent标签成功",
 		map[string]interface{}{
-			"operation":      "update_agent_tags",
-			"option":         "success",
 			"func_name":      "handler.agent.UpdateAgentTags",
+			"option":         "success",
+			"path":           pathUrl,
+			"method":         "PUT",
 			"user_agent":     userAgent,
 			"agent_id":       agentID,
 			"old_tags_count": len(oldTags),
@@ -1362,9 +1405,10 @@ func (h *AgentHandler) UpdateAgentTags(c *gin.Context) {
 		Status:  "success",
 		Message: "Agent tags updated successfully",
 		Data: map[string]interface{}{
-			"agent_id": agentID,
-			"old_tags": oldTags,
-			"new_tags": newTags,
+			"agent_id":  agentID,
+			"operation": "update_agent_tags",
+			"old_tags":  oldTags,
+			"new_tags":  newTags,
 		},
 	})
 }
@@ -1453,18 +1497,20 @@ func (h *AgentHandler) GetAgentMetrics(c *gin.Context) {
 		return
 	}
 
-	// 成功日志
-	logger.LogInfo(
-		"获取Agent性能快照成功",
-		XRequestID,
+	// 成功业务日志：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"get_agent_metrics",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"GET",
+		XRequestID,
+		"success",
+		"获取Agent性能快照成功",
 		map[string]interface{}{
-			"operation":  "get_agent_metrics",
-			"option":     "success",
 			"func_name":  "handler.agent.GetAgentMetrics",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "GET",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 		},
@@ -1592,18 +1638,20 @@ func (h *AgentHandler) GetAgentListAllMetrics(c *gin.Context) {
 		},
 	}
 
-	// 成功日志（补充分页信息）
-	logger.LogInfo(
-		"获取所有Agent性能快照列表成功",
-		XRequestID,
+	// 成功业务日志（补充分页信息）：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"get_agent_list_all_metrics",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"GET",
+		XRequestID,
+		"success",
+		"获取所有Agent性能快照列表成功",
 		map[string]interface{}{
-			"operation":  "get_agent_list_all_metrics",
-			"option":     "success",
 			"func_name":  "handler.agent.GetAgentListAllMetrics",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "GET",
 			"user_agent": userAgent,
 			"total":      total,
 			"page":       page,
@@ -1771,18 +1819,20 @@ func (h *AgentHandler) CreateAgentMetrics(c *gin.Context) {
 		return
 	}
 
-	// 成功日志与响应
-	logger.LogInfo(
-		"创建Agent性能指标成功",
-		XRequestID,
+	// 成功业务日志与响应：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"create_agent_metrics",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"POST",
+		XRequestID,
+		"success",
+		"创建Agent性能指标成功",
 		map[string]interface{}{
-			"operation":  "create_agent_metrics",
-			"option":     "success",
 			"func_name":  "handler.agent.CreateAgentMetrics",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "POST",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 		},
@@ -1935,18 +1985,20 @@ func (h *AgentHandler) UpdateAgentMetrics(c *gin.Context) {
 		return
 	}
 
-	// 成功日志与响应
-	logger.LogInfo(
-		"更新Agent性能指标成功",
-		XRequestID,
+	// 成功业务日志与响应：统一使用 LogBusinessOperation
+	logger.LogBusinessOperation(
+		"update_agent_metrics",
 		0,
+		"",
 		clientIP,
-		pathUrl,
-		"PUT",
+		XRequestID,
+		"success",
+		"更新Agent性能指标成功",
 		map[string]interface{}{
-			"operation":  "update_agent_metrics",
-			"option":     "success",
 			"func_name":  "handler.agent.UpdateAgentMetrics",
+			"option":     "success",
+			"path":       pathUrl,
+			"method":     "PUT",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
 		},

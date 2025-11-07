@@ -1,0 +1,385 @@
+openapi: 3.0.3
+info:
+  title: NeoScan Agent Tag Management API
+  description: |
+    NeoScan Agent标签管理模块API文档
+
+    本文档定义了Agent标签管理相关的所有API接口，包括：
+    - 获取指定Agent的标签列表
+    - 添加标签到指定Agent
+    - 从指定Agent移除标签
+    - 覆盖更新指定Agent的标签列表
+
+    说明：本文档风格与现有的 Agent 基础管理 OpenAPI 文档一致（参考 docs/Agent管理模块设计/agent_api_openapi.yaml）。
+
+    ## 认证方式
+    管理接口使用Bearer Token认证，请在请求头中添加：
+    ```
+    Authorization: Bearer <your_token>
+    ```
+
+    ## 统一响应格式
+    所有API响应都遵循统一的格式：
+    ```json
+    {
+      "code": 200,
+      "status": "success",
+      "message": "操作成功",
+      "data": {},
+      "error": ""
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: NeoScan Team
+    email: support@neoscan.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: 开发环境
+  - url: https://api.neoscan.com/api/v1
+    description: 生产环境
+
+tags:
+  - name: Agent标签管理
+    description: 管理Agent的标签，包括查询、添加、删除、覆盖更新
+
+paths:
+  /agent/{id}/tags:
+    get:
+      tags:
+        - Agent标签管理
+      summary: 获取指定Agent的标签列表
+      description: |
+        根据Agent ID获取标签列表。
+
+        返回一个字符串数组作为标签列表（与Handler实现一致）。
+      operationId: getAgentTags
+      parameters:
+        - name: id
+          in: path
+          description: Agent唯一标识ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 获取标签列表成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TagList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Agent标签管理
+      summary: 添加Agent标签
+      description: |
+        为指定Agent添加一个标签。
+
+        请求体需要提供 `tag` 字段，类型为字符串。
+      operationId: addAgentTag
+      parameters:
+        - name: id
+          in: path
+          description: Agent唯一标识ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddAgentTagRequest'
+      responses:
+        '200':
+          description: 标签添加成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Agent标签管理
+      summary: 移除Agent标签
+      description: |
+        从指定Agent移除一个标签。
+
+        请求体需要提供 `tag` 字段（与添加标签保持一致）。
+      operationId: removeAgentTag
+      parameters:
+        - name: id
+          in: path
+          description: Agent唯一标识ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveAgentTagRequest'
+      responses:
+        '200':
+          description: 标签移除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Agent标签管理
+      summary: 覆盖更新Agent标签列表
+      description: |
+        覆盖更新指定Agent的标签列表。
+
+        - 请求体提供 `tags` 字段（字符串数组），为目标标签集合。
+        - 返回旧标签和新标签列表，便于调用方做差异审计。
+      operationId: updateAgentTags
+      parameters:
+        - name: id
+          in: path
+          description: Agent唯一标识ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgentTagsRequest'
+      responses:
+        '200':
+          description: 标签列表更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UpdateAgentTagsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    # 统一响应结构
+    APIResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: HTTP状态码
+          example: 200
+        status:
+          type: string
+          description: 响应状态
+          enum: [success, failed]
+          example: success
+        message:
+          type: string
+          description: 响应消息
+          example: 操作成功
+        data:
+          description: 响应数据
+          oneOf:
+            - type: object
+            - type: array
+              items:
+                oneOf:
+                  - type: string
+                  - type: object
+        error:
+          type: string
+          description: 错误信息
+          example: ""
+      required:
+        - code
+        - status
+        - message
+
+    # 标签列表响应（与 Handler 中 GET 返回的数组一致）
+    TagList:
+      type: array
+      description: Agent标签列表
+      items:
+        type: string
+      example: ["production", "scanner", "web"]
+
+    # 添加标签请求
+    AddAgentTagRequest:
+      type: object
+      properties:
+        tag:
+          type: string
+          description: 需要添加的标签
+          example: "scanner"
+      required:
+        - tag
+
+    # 移除标签请求
+    RemoveAgentTagRequest:
+      type: object
+      properties:
+        tag:
+          type: string
+          description: 需要移除的标签
+          example: "scanner"
+      required:
+        - tag
+
+    # 覆盖更新标签列表请求
+    UpdateAgentTagsRequest:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+          description: 目标标签列表（会对输入去重并覆盖旧标签）
+          example: ["db", "cache"]
+      required:
+        - tags
+
+    # 覆盖更新标签列表响应（返回审计信息：旧/新标签）
+    UpdateAgentTagsResponse:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Agent唯一标识ID
+          example: "agent_20241014_001"
+        old_tags:
+          type: array
+          items:
+            type: string
+          description: 更新前的标签列表
+          example: ["web", "db"]
+        new_tags:
+          type: array
+          items:
+            type: string
+          description: 更新后的标签列表（去重、清洗后的结果）
+          example: ["db", "cache"]
+      required:
+        - agent_id
+        - old_tags
+        - new_tags
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/APIResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 400
+                  status:
+                    example: failed
+                  message:
+                    example: 请求参数错误
+                  error:
+                    example: "Invalid request format"
+
+    Unauthorized:
+      description: 未授权访问
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/APIResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 401
+                  status:
+                    example: failed
+                  message:
+                    example: 未授权访问
+                  error:
+                    example: "Invalid or missing token"
+
+    NotFound:
+      description: 资源不存在（Agent或标签）
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/APIResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 404
+                  status:
+                    example: failed
+                  message:
+                    example: 资源不存在
+                  error:
+                    example: "Agent not found"
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/APIResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 500
+                  status:
+                    example: failed
+                  message:
+                    example: 服务器内部错误
+                  error:
+                    example: "Unexpected server error"

@@ -35,6 +35,10 @@ type AgentManagerService interface {
 	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error
 	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
 	GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
+	// // 分组标签管理 （后续补充-分组标签类型CRUD操作）
+	// AddGroupTag(req *agentModel.GroupTagTypeRequest) error
+	// RemoveGroupTag(req *agentModel.GroupTagTypeRequest) error
+	// GetGroupTags() ([]*agentModel.GroupTagType, error) // 获取所有分组标签类型
 
 	// Agent标签管理
 	IsValidTagId(tag string) bool     // 判断标签ID是否有效

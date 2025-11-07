@@ -3,6 +3,7 @@
  * 作者: Sun977
  * 日期: 2025-11-07
  * 说明: 与Agent健康检查相关的 Handler 方法占位，未来承载健康状态检查与Ping接口。
+ * - ProcessHeartbeat（处理Agent心跳）
  * - HealthCheckAgent
  * - PingAgent
  */

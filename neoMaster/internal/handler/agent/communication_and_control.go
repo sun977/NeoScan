@@ -1,11 +1,15 @@
-/**
- * Agent通信与控制控制器
- * 作者: Sun977
- * 日期: 2025-11-07
- * 说明: 将与Agent通信与控制相关的 Handler 方法集中于此，目前包含：
- * - ProcessHeartbeat（处理Agent心跳）
- * 重构策略: 保持原有业务逻辑与返回格式不变，统一成功日志使用 LogBusinessOperation。
- */
+/*
+*
+  - Agent通信与控制控制器
+  - 作者: Sun977
+  - 日期: 2025-11-07
+  - 说明: 将与Agent通信与控制相关的 Handler 方法集中于此，目前包含：
+    agentManageGroup.POST("/:id/command", r.agentSendCommandPlaceholder)             // 🔴 发送控制命令到Agent [需要Master->Agent通信协议，发送自定义命令]
+    agentManageGroup.GET("/:id/command/:cmd_id", r.agentGetCommandStatusPlaceholder) // 🔴 获取命令执行状态 [需要Agent端返回命令执行结果]
+    agentManageGroup.POST("/:id/sync", r.agentSyncConfigPlaceholder)                 // 🔴 同步配置到Agent [需要Master->Agent推送配置并确认应用]
+    agentManageGroup.POST("/:id/upgrade", r.agentUpgradePlaceholder)                 // 🔴 升级Agent版本 [需要Agent端支持版本升级机制]
+    agentManageGroup.POST("/:id/reset", r.agentResetPlaceholder)                     // 🔴 重置Agent配置 [需要Agent端重置到默认配置]
+*/
 package agent
 
 import (
@@ -13,135 +17,192 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 )
 
-// ProcessHeartbeat 处理Agent心跳处理器
-// 路由：POST /api/v1/agent/heartbeat
-func (h *AgentHandler) ProcessHeartbeat2(c *gin.Context) {
-	// 规范化客户端信息
+// SendCommand 发送控制命令到Agent（占位实现）
+func (h *AgentHandler) SendCommand(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
+	agentID := c.Param("id")
 
-	// 解析请求体
-	var req agentModel.HeartbeatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.LogBusinessError(
-			err,
-			XRequestID,
-			0,
-			clientIP,
-			pathUrl,
-			"POST",
-			map[string]interface{}{
-				"operation":  "process_heartbeat",
-				"option":     "ShouldBindJSON",
-				"func_name":  "handler.agent.ProcessHeartbeat",
-				"user_agent": userAgent,
-			},
-		)
-		c.JSON(http.StatusBadRequest, system.APIResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "failed",
-			Message: "Invalid heartbeat request format",
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 验证必填字段
-	if err := h.validateHeartbeatRequest(&req); err != nil {
-		logger.LogBusinessError(
-			err,
-			XRequestID,
-			0,
-			clientIP,
-			pathUrl,
-			"POST",
-			map[string]interface{}{
-				"operation":  "process_heartbeat",
-				"option":     "validateHeartbeatRequest",
-				"func_name":  "handler.agent.ProcessHeartbeat",
-				"user_agent": userAgent,
-				"agent_id":   req.AgentID,
-			},
-		)
-		c.JSON(http.StatusBadRequest, system.APIResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "failed",
-			Message: err.Error(),
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 调用服务层处理心跳
-	response, err := h.agentMonitorService.ProcessHeartbeat(&req)
-	if err != nil {
-		statusCode := h.getErrorStatusCode(err)
-		logger.LogBusinessError(
-			err,
-			XRequestID,
-			0,
-			clientIP,
-			pathUrl,
-			"POST",
-			map[string]interface{}{
-				"operation":   "process_heartbeat",
-				"option":      "agentService.ProcessHeartbeat",
-				"func_name":   "handler.agent.ProcessHeartbeat",
-				"user_agent":  userAgent,
-				"agent_id":    req.AgentID,
-				"status_code": statusCode,
-			},
-		)
-
-		// 根据错误类型返回不同的消息
-		var message string
-		switch statusCode {
-		case http.StatusNotFound:
-			message = "Agent not found"
-		default:
-			message = "Failed to process heartbeat"
-		}
-
-		c.JSON(statusCode, system.APIResponse{
-			Code:    statusCode,
-			Status:  "failed",
-			Message: message,
-			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 成功业务日志：统一使用 LogBusinessOperation
 	logger.LogBusinessOperation(
-		"process_heartbeat", // operation
-		0,                   // userID
-		"",                  // username
+		"send_command_agent",
+		0,
+		"",
 		clientIP,
 		XRequestID,
 		"success",
-		"处理Agent心跳成功",
+		"发送控制命令到Agent",
 		map[string]interface{}{
-			"func_name":  "handler.agent.ProcessHeartbeat",
-			"option":     "success",
+			"func_name":  "handler.agent.SendCommand",
+			"option":     "placeholder",
 			"path":       pathUrl,
 			"method":     "POST",
 			"user_agent": userAgent,
-			"agent_id":   req.AgentID,
+			"agent_id":   agentID,
 		},
 	)
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Heartbeat processed successfully",
-		Data:    response,
+		Message: "发送控制命令到Agent",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+			"command":  "placeholder",
+		},
+	})
+}
+
+// SyncConfig 同步配置到Agent（占位实现）
+func (h *AgentHandler) SyncConfig(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	agentID := c.Param("id")
+
+	logger.LogBusinessOperation(
+		"sync_config_agent",
+		0,
+		"",
+		clientIP,
+		XRequestID,
+		"success",
+		"同步配置到Agent",
+		map[string]interface{}{
+			"func_name":  "handler.agent.SyncConfig",
+			"option":     "placeholder",
+			"path":       pathUrl,
+			"method":     "POST",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "同步配置到Agent",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+			"synced":   true,
+		},
+	})
+}
+
+// GetCommandStatus 获取命令执行状态（占位实现）
+func (h *AgentHandler) GetCommandStatus(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	agentID := c.Param("id")
+
+	logger.LogBusinessOperation(
+		"get_command_status_agent",
+		0,
+		"",
+		clientIP,
+		XRequestID,
+		"success",
+		"获取命令执行状态",
+		map[string]interface{}{
+			"func_name":  "handler.agent.GetCommandStatus",
+			"option":     "placeholder",
+			"path":       pathUrl,
+			"method":     "GET",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "获取命令执行状态",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+			"status":   "placeholder",
+		},
+	})
+}
+
+// UpgradeVersion 升级Agent版本（占位实现）
+func (h *AgentHandler) UpgradeVersion(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	agentID := c.Param("id")
+
+	logger.LogBusinessOperation(
+		"upgrade_agent",
+		0,
+		"",
+		clientIP,
+		XRequestID,
+		"success",
+		"升级Agent版本",
+		map[string]interface{}{
+			"func_name":  "handler.agent.UpgradeVersion",
+			"option":     "placeholder",
+			"path":       pathUrl,
+			"method":     "POST",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "升级Agent版本",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+			"upgraded": true,
+		},
+	})
+}
+
+// ResetAgent 重置Agent配置（占位实现）
+func (h *AgentHandler) ResetAgent(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	userAgent := c.GetHeader("User-Agent")
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	agentID := c.Param("id")
+
+	logger.LogBusinessOperation(
+		"reset_agent",
+		0,
+		"",
+		clientIP,
+		XRequestID,
+		"success",
+		"重置Agent配置",
+		map[string]interface{}{
+			"func_name":  "handler.agent.ResetAgent",
+			"option":     "placeholder",
+			"path":       pathUrl,
+			"method":     "POST",
+			"user_agent": userAgent,
+			"agent_id":   agentID,
+		},
+	)
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "重置Agent配置",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+			"reset":    true,
+		},
 	})
 }

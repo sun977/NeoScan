@@ -526,7 +526,7 @@ type AgentGroup struct {
 	GroupID     string   `json:"group_id" gorm:"not null;size:100;comment:分组ID"`
 	Name        string   `json:"name" gorm:"not null;size:100;comment:分组名称"`
 	Description string   `json:"description" gorm:"size:500;comment:分组描述"`
-	Tags        []string `json:"tags" gorm:"type:json;comment:分组标签列表"`
+	Tags        []string `json:"tags" gorm:"type:json;comment:分组标签列表"` // 定义分组标签类型
 }
 
 // TableName 定义表名
@@ -566,6 +566,22 @@ type AgentGroupMember struct {
 // AgentGroupMember 结构体的方法 - 指定AgentGroupMember表名
 func (AgentGroupMember) TableName() string {
 	return "agent_group_members"
+}
+
+// GroupTagType 标签类型定义 (用来给Agent分组指定标签 - Agent-Group-Tags)
+type GroupTagType struct {
+	// 引用基类 (ID, CreatedAt, UpdatedAt)
+	// ID字段作为主键和业务标识，统一使用BaseModel.ID(uint64)
+	basemodel.BaseModel
+
+	Name        string `json:"name" gorm:"not null;size:100;comment:标签类型名称,唯一"`
+	DisplayName string `json:"display_name" gorm:"not null;size:100;comment:标签类型显示名称"`
+	Description string `json:"description" gorm:"size:500;comment:标签类型描述"`
+	Remarks     string `json:"remarks" gorm:"size:500;comment:标签类型备注"`
+}
+
+func (GroupTagType) TableName() string {
+	return "agent_group_tag_types"
 }
 
 // ============================================================================

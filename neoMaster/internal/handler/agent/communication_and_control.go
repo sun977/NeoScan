@@ -21,7 +21,7 @@ import (
 
 // ProcessHeartbeat 处理Agent心跳处理器
 // 路由：POST /api/v1/agent/heartbeat
-func (h *AgentHandler) ProcessHeartbeat(c *gin.Context) {
+func (h *AgentHandler) ProcessHeartbeat2(c *gin.Context) {
 	// 规范化客户端信息
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")

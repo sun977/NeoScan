@@ -211,7 +211,7 @@ INSERT INTO `agent_versions` (`version`, `release_date`, `changelog`, `download_
 
 -- 默认Agent分组
 INSERT INTO `agent_groups` (`group_id`, `name`, `description`, `tags`) VALUES
-('ag_001', 'default', '默认分组', '["default", "system"]'),
+('default', 'default', '默认分组(禁止删除)', '["default", "system"]'),
 ('ag_002', 'production', '生产环境Agent分组', '["production", "critical"]'),
 ('ag_003', 'development', '开发环境Agent分组', '["development", "test"]');
 

@@ -36,16 +36,7 @@ type AgentRepository interface {
 	CreateMetrics(metrics *agentModel.AgentMetrics) error
 	GetLatestMetrics(agentID string) (*agentModel.AgentMetrics, error)
 	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error
-
-	// Agent性能指标批量查询（分页 + 过滤）
-	// 说明：由于 agent_metrics 表为单快照模型（每个 Agent 仅保留一条记录，AgentID 唯一索引），
-	// 因此可以直接对该表做 SQL 分页以避免一次性加载所有数据带来的性能问题。
-	// 过滤参数：
-	// - workStatus: 按工作状态过滤（idle/working/exception），可为 nil 表示不过滤
-	// - scanType:   按扫描类型过滤（ipAliveScan/fullPortScan/...），可为 nil 表示不过滤
-	// - keyword:    按 agent_id 关键词模糊匹配，LIKE 查询，可为 nil 表示不过滤
-	// 返回 metrics 列表与总条数 total，用于构造统一的分页响应。
-	GetMetricsList(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetrics, int64, error)
+	GetMetricsList(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetrics, int64, error) // 性能指标批量查询（分页 + 过滤）
 
 	// Agent查询操作
 	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)

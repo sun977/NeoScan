@@ -123,12 +123,15 @@ CREATE TABLE `agent_groups` (
     `name` varchar(100) NOT NULL COMMENT '分组名称',
     `description` varchar(500) DEFAULT NULL COMMENT '分组描述',
     `tags` json DEFAULT NULL COMMENT '分组标签列表',
+    `is_system` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否系统数据(1=系统,0=普通)',
+    `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '分组状态(1=激活,0=禁用)',
     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_groups_name` (`name`),
     UNIQUE KEY `idx_agent_groups_group_id` (`group_id`),
-    KEY `idx_agent_groups_created_at` (`created_at`)
+    KEY `idx_agent_groups_created_at` (`created_at`),
+    KEY `idx_agent_groups_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent分组表';
 
 -- 6. Agent分组成员关联表 (agent_group_members)
@@ -209,11 +212,11 @@ INSERT INTO `agent_versions` (`version`, `release_date`, `changelog`, `download_
 ('v1.0.0', '2025-01-01 00:00:00', '初始版本发布\n- 基础Agent功能\n- 支持心跳检测\n- 支持任务分发', 'https://releases.neoscan.com/agent/v1.0.0/agent-v1.0.0.tar.gz', 1, 0),
 ('v1.1.0', '2025-01-15 00:00:00', '功能增强版本\n- 新增插件系统\n- 优化性能监控\n- 修复已知问题', 'https://releases.neoscan.com/agent/v1.1.0/agent-v1.1.0.tar.gz', 1, 1);
 
--- 默认Agent分组
-INSERT INTO `agent_groups` (`group_id`, `name`, `description`, `tags`) VALUES
-('default', 'default', '默认分组(禁止删除)', '["default", "system"]'),
-('ag_002', 'production', '生产环境Agent分组', '["production", "critical"]'),
-('ag_003', 'development', '开发环境Agent分组', '["development", "test"]');
+-- 默认Agent分组（新增 is_system 与 status 字段）
+INSERT INTO `agent_groups` (`group_id`, `name`, `description`, `tags`, `is_system`, `status`) VALUES
+('default', 'default', '默认分组(禁止删除)', '["default", "system"]', 1, 1),
+('ag_002', 'production', '生产环境Agent分组', '["production", "critical"]', 0, 1),
+('ag_003', 'development', '开发环境Agent分组', '["development", "test"]', 0, 1);
 
 -- 默认扫描类型 (对应agent.go中的AgentScanType常量)
 INSERT INTO `agent_scan_types` (`name`, `display_name`, `description`, `category`, `is_active`, `config_template`) VALUES

@@ -527,6 +527,18 @@ type AgentGroup struct {
 	Name        string   `json:"name" gorm:"not null;size:100;comment:分组名称"`
 	Description string   `json:"description" gorm:"size:500;comment:分组描述"`
 	Tags        []string `json:"tags" gorm:"type:json;comment:分组标签列表"` // 定义分组标签类型
+	// 新增字段：是否系统组（不可删除/受限修改）
+	// 说明：
+	// - is_system=1 表示系统数据（例如默认分组）
+	// - is_system=0 表示普通数据
+	// - 映射为 MySQL tinyint(1)，与项目其他布尔字段保持一致
+	IsSystem bool `json:"is_system" gorm:"column:is_system;type:tinyint(1);not null;default:0;comment:是否系统数据(1=系统,0=普通)"`
+	// 新增字段：分组状态（激活/禁用）
+	// 说明：
+	// - status=1 表示激活（默认）
+	// - status=0 表示禁用
+	// - 映射为 MySQL tinyint(1)，默认 1；在列表查询中可用于过滤仅展示激活分组
+	Status uint8 `json:"status" gorm:"column:status;type:tinyint(1);not null;default:1;comment:分组状态(1=激活,0=禁用)"`
 }
 
 // TableName 定义表名

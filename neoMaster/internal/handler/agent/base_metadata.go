@@ -9,6 +9,13 @@
  * - UpdateAgentTags（更新标签列表）
  * 重构策略: 保持原有业务逻辑和返回格式不变，统一成功日志使用 LogBusinessOperation。
  */
+
+//	 agentManageGroup.GET("/groups", r.agentGetGroupsPlaceholder)                        // ✅ 获取Agent分组列表 [Master端查询分组表]
+//		agentManageGroup.POST("/groups", r.agentCreateGroupPlaceholder)                     // ✅ 创建Agent分组 [Master端创建分组记录]
+//		agentManageGroup.PUT("/groups/:group_id", r.agentUpdateGroupPlaceholder)            // ✅ 更新Agent分组 [Master端更新分组信息]
+//		agentManageGroup.DELETE("/groups/:group_id", r.agentDeleteGroupPlaceholder)         // ✅ 删除Agent分组 [Master端删除分组及关联]
+//		agentManageGroup.POST("/:id/groups", r.agentAddToGroupPlaceholder)                  // ✅ 将Agent添加到分组 [Master端更新Agent分组关系]
+//		agentManageGroup.DELETE("/:id/groups/:group_id", r.agentRemoveFromGroupPlaceholder) // ✅ 从分组中移除Agent [Master端删除分组关系]
 package agent
 
 import (

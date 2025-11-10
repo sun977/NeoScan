@@ -27,11 +27,11 @@ type AgentManagerService interface {
 	DeleteAgent(agentID string) error
 
 	// Agent分组管理
-	CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error)
-	GetAgentGroups() ([]*agentModel.AgentGroupResponse, error)                      // 获取所有分组
-	GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error)           // 获取指定分组
-	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error // 更新分组信息
-	DeleteAgentGroup(groupID string) error                                          // 删除分组
+	CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error) // 创建分组
+	GetAgentGroups() ([]*agentModel.AgentGroupResponse, error)                                        // 获取所有分组
+	GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error)                             // 获取指定分组
+	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error                   // 更新分组信息
+	DeleteAgentGroup(groupID string) error                                                            // 删除分组
 	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error
 	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
 	GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
@@ -68,6 +68,8 @@ func NewAgentManagerService(agentRepo agentRepository.AgentRepository) AgentMana
 		agentRepo: agentRepo,
 	}
 }
+
+// ========== Agent 基础管理服务 ==========
 
 // RegisterAgent Agent注册服务
 // 处理Agent注册请求，生成唯一ID和Token

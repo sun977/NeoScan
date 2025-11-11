@@ -1,16 +1,19 @@
 /**
- * Agent 分组管理实现
- * 包含：IsValidGroupId/Name、
- *       IsAgentInGroup、
- *       GetGroupByGID、
- *       GetGroupList、
- *       CreateGroup、
- *       UpdateGroup、
- *       DeleteGroup、
- *       SetGroupStatus、
- *       AddAgentToGroup、
- *       RemoveAgentFromGroup、
- *       GetAgentsInGroup
+ * @author: Sun977
+ * @date: 2025.10.14
+ * @description: Agent 分组管理实现
+ * @func: 提供Agent分组的CRUD操作，不包含业务逻辑
+ * - IsValidGroupId/Name 验证分组ID/名称是否存在
+ * - IsAgentInGroup 判断Agent是否在分组中
+ * - GetGroupByGID 获取分组详情
+ * - GetGroupList 获取分组列表
+ * - CreateGroup 创建分组
+ * - UpdateGroup 更新分组
+ * - DeleteGroup 删除分组
+ * - SetGroupStatus 设置分组状态
+ * - AddAgentToGroup 添加Agent到分组
+ * - RemoveAgentFromGroup 从分组移除Agent
+ * - GetAgentsInGroup 获取分组中的Agent列表
  */
 package agent
 

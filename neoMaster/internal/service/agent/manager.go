@@ -30,7 +30,7 @@ type AgentManagerService interface {
 	CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error)                                 // 创建分组
 	GetAgentGroupList(page int, pageSize int, tags []string, status int, keywords string) (*agentModel.AgentGroupListResponse, error) // 获取分组列表（分页与筛选）
 	GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error)                                                             // 获取指定分组
-	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error                                                   // 更新分组信息
+	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error)                 // 更新分组信息
 	DeleteAgentGroup(groupID string) error                                                                                            // 删除分组
 	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error
 	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
@@ -615,7 +615,7 @@ func (s *agentManagerService) GetAgentGroup(groupID string) (*agentModel.AgentGr
 }
 
 // UpdateAgentGroup 更新Agent分组服务
-func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error {
+func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error) {
 	// 参数校验
 	if groupID == "" || req == nil {
 		err := fmt.Errorf("group_id或请求体不能为空")
@@ -625,7 +625,7 @@ func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.A
 			"func_name": "service.agent.manager.UpdateAgentGroup",
 			"group_id":  groupID,
 		})
-		return err
+		return nil, err
 	}
 
 	if !s.agentRepo.IsValidGroupId(groupID) {
@@ -636,18 +636,19 @@ func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.A
 			"func_name": "service.agent.manager.UpdateAgentGroup",
 			"group_id":  groupID,
 		})
-		return err
+		return nil, err
 	}
 
 	patch := &agentModel.AgentGroup{Description: req.Description, Tags: req.Tags}
-	if err := s.agentRepo.UpdateGroup(groupID, patch); err != nil {
+	updated, err := s.agentRepo.UpdateGroup(groupID, patch)
+	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
 			"operation": "update_agent_group",
 			"option":    "repository_call.UpdateGroup",
 			"func_name": "service.agent.manager.UpdateAgentGroup",
 			"group_id":  groupID,
 		})
-		return fmt.Errorf("更新分组失败: %v", err)
+		return nil, fmt.Errorf("更新分组失败: %v", err)
 	}
 
 	logger.LogInfo("更新Agent分组成功", "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
@@ -658,7 +659,7 @@ func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.A
 		"tags":        req.Tags,
 		"description": req.Description,
 	})
-	return nil
+	return convertToAgentGroupResponse(updated), nil
 }
 
 // DeleteAgentGroup 删除Agent分组服务

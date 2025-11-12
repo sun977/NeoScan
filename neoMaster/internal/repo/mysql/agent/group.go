@@ -256,7 +256,7 @@ func (r *agentRepository) CreateGroup(group *agentModel.AgentGroup) error {
 // UpdateGroup 更新Agent分组
 // 采用“定向部分更新”：按业务唯一键 group_id 精确定位并更新安全字段，避免 Save 带来的主键依赖与全字段覆盖风险。
 // Save 方法会更新所有字段,包括未被修改的字段(save 如果存在则更新不存在则创建,依赖主键)。Update 方法只更新被修改的字段,不依赖主键，这里使用 Update 方法。
-func (r *agentRepository) UpdateGroup(groupID string, group *agentModel.AgentGroup) error {
+func (r *agentRepository) UpdateGroup(groupID string, group *agentModel.AgentGroup) (*agentModel.AgentGroup, error) {
 	if groupID == "" || group == nil {
 		logger.LogError(gorm.ErrInvalidData, "", 0, "", "repo.mysql.agent.UpdateGroup", "", map[string]interface{}{
 			"operation": "update_group",
@@ -264,10 +264,10 @@ func (r *agentRepository) UpdateGroup(groupID string, group *agentModel.AgentGro
 			"func_name": "repo.mysql.agent.UpdateGroup",
 			"message":   "invalid input parameters",
 		})
-		return gorm.ErrInvalidData
+		return nil, gorm.ErrInvalidData
 	}
 
-	// 默认/系统分组保护：不允许更改 group_id/name/is_system
+	// 默认/系统分组保护：不允许更改 group_id/is_system
 	var target agentModel.AgentGroup
 	if err := r.db.Where("group_id = ?", groupID).First(&target).Error; err != nil {
 		logger.LogError(err, "", 0, "", "repo.mysql.agent.UpdateGroup", "", map[string]interface{}{
@@ -276,19 +276,19 @@ func (r *agentRepository) UpdateGroup(groupID string, group *agentModel.AgentGro
 			"func_name": "repo.mysql.agent.UpdateGroup",
 			"group_id":  groupID,
 		})
-		return err
+		return nil, err
 	}
 	if isDefaultGroup(&target) {
 		// 允许更新 remark/状态等非关键字段
 		// 如果尝试改变关键字段，直接报错
 		if group.GroupID != "" && group.GroupID != target.GroupID {
-			return fmt.Errorf("cannot change group_id of system/default group")
+			return nil, fmt.Errorf("cannot change group_id of system/default group")
 		}
-		if group.Name != "" && group.Name != target.Name {
-			return fmt.Errorf("cannot change name of system/default group")
-		}
+		// if group.Name != "" && group.Name != target.Name {
+		// 	return fmt.Errorf("cannot change name of system/default group")
+		// }
 		if group.IsSystem != target.IsSystem {
-			return fmt.Errorf("cannot change is_system of system/default group")
+			return nil, fmt.Errorf("cannot change is_system of system/default group")
 		}
 	}
 
@@ -297,11 +297,11 @@ func (r *agentRepository) UpdateGroup(groupID string, group *agentModel.AgentGro
 	// - tags 为 JSON 字段，仅当传入非 nil 时更新，避免清空数据库已有 JSON；
 	//   这样可以区分“未提供（nil）不更新”与“显式清空（[]string{}）更新为空数组”的不同意图。
 	updates := map[string]interface{}{
+		"name":        group.Name,
 		"description": group.Description,
 		"status":      group.Status,
 		"updated_at":  time.Now(),
 	}
-	// Tags 为 JSON 字段，仅当传入非 nil 时更新，避免清空数据库已有 JSON
 	if group.Tags != nil {
 		updates["tags"] = group.Tags
 	}
@@ -315,7 +315,7 @@ func (r *agentRepository) UpdateGroup(groupID string, group *agentModel.AgentGro
 			"group":     group,
 			"updates":   updates,
 		})
-		return err
+		return nil, err
 	}
 	// 成功日志
 	logger.LogInfo("Group updated successfully", "", 0, "", "repo.mysql.agent.UpdateGroup", "", map[string]interface{}{
@@ -326,7 +326,21 @@ func (r *agentRepository) UpdateGroup(groupID string, group *agentModel.AgentGro
 		"group":     group,
 		"updates":   updates,
 	})
-	return nil
+
+	// 返回更新后的分组信息
+	result := &agentModel.AgentGroup{
+		GroupID:     groupID,
+		Name:        group.Name,
+		Description: group.Description,
+		Status:      group.Status,
+	}
+	// 补充时间戳：CreatedAt 从原记录继承，UpdatedAt 为当前时间
+	result.CreatedAt = target.CreatedAt
+	result.UpdatedAt = time.Now()
+	if group.Tags != nil {
+		result.Tags = group.Tags
+	}
+	return result, nil
 }
 
 // DeleteGroup 删除Agent分组（增强默认分组/系统分组保护与别名兼容）

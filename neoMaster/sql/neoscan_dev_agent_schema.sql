@@ -128,7 +128,7 @@ CREATE TABLE `agent_groups` (
     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `idx_agent_groups_name` (`name`),
+    -- UNIQUE KEY `idx_agent_groups_name` (`name`),
     UNIQUE KEY `idx_agent_groups_group_id` (`group_id`),
     KEY `idx_agent_groups_created_at` (`created_at`),
     KEY `idx_agent_groups_status` (`status`)

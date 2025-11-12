@@ -129,31 +129,31 @@ func (h *AgentHandler) UpdateAgentGroup(c *gin.Context) {
 		return
 	}
 
-    resp, err := h.agentManagerService.UpdateAgentGroup(groupID, &req)
-    if err != nil {
-        logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
-            "operation":  "update_agent_group",
-            "option":     "service_call.UpdateAgentGroup",
-            "func_name":  "handler.agent.UpdateAgentGroup",
-            "group_id":   groupID,
-            "group_name": req.Name,
-            "path":       pathUrl,
-        })
-        c.JSON(http.StatusOK, system.APIResponse{
-            Code:    http.StatusBadRequest,
-            Status:  "failed",
-            Message: "更新分组失败",
-            Error:   err.Error(),
-        })
-        return
-    }
+	resp, err := h.agentManagerService.UpdateAgentGroup(groupID, &req)
+	if err != nil {
+		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
+			"operation":  "update_agent_group",
+			"option":     "service_call.UpdateAgentGroup",
+			"func_name":  "handler.agent.UpdateAgentGroup",
+			"group_id":   groupID,
+			"group_name": req.Name,
+			"path":       pathUrl,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "更新分组失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-    c.JSON(http.StatusOK, system.APIResponse{
-        Code:    http.StatusOK,
-        Status:  "success",
-        Message: "更新成功",
-        Data:    resp,
-    })
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "更新成功",
+		Data:    resp,
+	})
 
 	logger.LogBusinessOperation(
 		"update_agent_group",

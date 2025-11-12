@@ -639,7 +639,13 @@ func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.A
 		return nil, err
 	}
 
-	patch := &agentModel.AgentGroup{Description: req.Description, Tags: req.Tags}
+	// 构建更新字段 - 部分字段不允许修改，所以不包含在patch中
+	patch := &agentModel.AgentGroup{
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      req.Status, // 另有专门的更新状态的接口
+		Tags:        req.Tags,
+	}
 	updated, err := s.agentRepo.UpdateGroup(groupID, patch)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{

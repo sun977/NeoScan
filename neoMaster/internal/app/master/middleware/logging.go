@@ -51,16 +51,29 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 		c.Set("client_ip", clientIP) // 这个是标准化后的可以用作业务使用的客户端IP
 		// Gin上下文通过c.Set()方式存储值，后续可以通过c.Get("xx_key")获取
 
-		// 存储到标准上下文
+		// // 存储到标准上下文
+		// ctx := c.Request.Context()
+		// type clientIPKeyType struct{}
+		// // 定义一个常量作为上下文键,避免使用空的匿名结构体
+		// var clientIPKey = clientIPKeyType{}
+		// ctx = context.WithValue(ctx, clientIPKey, clientIP)
+		// // c.Request.Context()返回是标准的context.Context上下文，不包含gin的上下文
+		// // 可以使用WithValue方法将自定义的上下文值存储到标准上下文中
+		// // 这样后续使用标准上下文为参数的函数就可以安全获取自定义的上下文值
+		// // 获取方式：clientIP, _ := ctx.Value("client_ip").(string)
+		// c.Request = c.Request.WithContext(ctx)
+
+		// 存储到标准上下文（双写：兼容旧键 + 推进统一键）
+		// 1) 统一键：跨包一致读取（推荐）
+		// 2) 旧键：维持现有代码路径（局部匿名类型，短期兼容）
 		ctx := c.Request.Context()
+		// 统一键写入（utils.ContextKeyClientIP）
+		ctx = context.WithValue(ctx, utils.ContextKeyClientIP, clientIP)
+		// 旧键写入（局部匿名类型），供仍旧使用 clientIPKeyType{} 的代码读取
 		type clientIPKeyType struct{}
-		// 定义一个常量作为上下文键,避免使用空的匿名结构体
 		var clientIPKey = clientIPKeyType{}
 		ctx = context.WithValue(ctx, clientIPKey, clientIP)
-		// c.Request.Context()返回是标准的context.Context上下文，不包含gin的上下文
-		// 可以使用WithValue方法将自定义的上下文值存储到标准上下文中
-		// 这样后续使用标准上下文为参数的函数就可以安全获取自定义的上下文值
-		// 获取方式：clientIP, _ := ctx.Value("client_ip").(string)
+		// 关联到请求对象
 		c.Request = c.Request.WithContext(ctx)
 		// 本项目只有handler中使用了Gin上下文，剩下的逻辑都在service中使用的标准上下文
 		// 所以这里需要将Gin上下文的client_ip也存储到标准上下文

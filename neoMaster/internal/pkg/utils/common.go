@@ -19,11 +19,11 @@ type ContextKey string
 // ContextKeyClientIP 标准上下文中存储客户端IP的统一键
 const ContextKeyClientIP ContextKey = "client_ip"
 
-// getCurrentUserIDFromGinContext 从 Gin 上下文中提取当前用户ID
+// GetCurrentUserIDFromGinContext 从 Gin 上下文中提取当前用户ID
 // 用于从Gin上下文提取当前用户ID，如果不存在则返回0，轻校验
 // 适用范围：service 层以上获取当前 userID 使用
 // 来源：user_id 最初是JWT中间件写入Gin上下文 GinJWTAuthMiddleware() 中
-func getCurrentUserIDFromGinContext(c *gin.Context) uint {
+func GetCurrentUserIDFromGinContext(c *gin.Context) uint {
 	if v, ok := c.Get("user_id"); ok {
 		if id, ok2 := v.(uint); ok2 {
 			return id

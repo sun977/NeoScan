@@ -23,7 +23,6 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -36,28 +35,12 @@ import (
 	"neomaster/internal/pkg/utils"
 )
 
-// getCurrentUserID 从 Gin 上下文中提取当前用户ID
-// 说明：统一在handler层用于审计日志输出，如果不存在则返回0
-func getCurrentUserID(c *gin.Context) uint {
-	if v, ok := c.Get("user_id"); ok {
-		if id, ok2 := v.(uint); ok2 {
-			return id
-		}
-	}
-	return 0
-}
-
 // CreateAgentGroup 创建分组
 func (h *AgentHandler) CreateAgentGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
-	// 从上下文获取当前操作用户ID，用于统一审计日志
-	opUserVal, _ := c.Get("user_id")
-	var currentUserID uint
-	if uid, ok := opUserVal.(uint); ok {
-		currentUserID = uid
-	}
 
 	var req agentModel.AgentGroupCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -127,15 +110,10 @@ func (h *AgentHandler) CreateAgentGroup(c *gin.Context) {
 // UpdateAgentGroup 更新分组信息
 func (h *AgentHandler) UpdateAgentGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	groupID := c.Param("group_id")
-	// 获取当前用户ID用于统一日志
-	opUserVal, _ := c.Get("user_id")
-	var currentUserID uint
-	if uid, ok := opUserVal.(uint); ok {
-		currentUserID = uid
-	}
 
 	var req agentModel.AgentGroupCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -183,7 +161,7 @@ func (h *AgentHandler) UpdateAgentGroup(c *gin.Context) {
 
 	logger.LogBusinessOperation(
 		"update_agent_group",
-		getCurrentUserID(c),
+		currentUserID,
 		pathUrl,
 		clientIP,
 		xRequestID,
@@ -195,7 +173,6 @@ func (h *AgentHandler) UpdateAgentGroup(c *gin.Context) {
 			"group_id":   groupID,
 			"group_name": req.Name,
 			"path":       pathUrl,
-			"user_id":    getCurrentUserID(c),
 		},
 	)
 }
@@ -203,15 +180,10 @@ func (h *AgentHandler) UpdateAgentGroup(c *gin.Context) {
 // DeleteAgentGroup 删除分组
 func (h *AgentHandler) DeleteAgentGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	groupID := c.Param("group_id")
-	// 获取当前用户ID用于统一日志
-	opUserVal, _ := c.Get("user_id")
-	var currentUserID uint
-	if uid, ok := opUserVal.(uint); ok {
-		currentUserID = uid
-	}
 
 	if err := h.agentManagerService.DeleteAgentGroup(groupID); err != nil {
 		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.DeleteAgentGroup", pathUrl, map[string]interface{}{
@@ -258,15 +230,10 @@ func (h *AgentHandler) DeleteAgentGroup(c *gin.Context) {
 // AddAgentToGroup 将Agent添加到分组
 func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	agentID := c.Param("id")
-	// 获取当前用户ID用于统一日志
-	opUserVal, _ := c.Get("user_id")
-	var currentUserID uint
-	if uid, ok := opUserVal.(uint); ok {
-		currentUserID = uid
-	}
 
 	var body struct {
 		GroupID string `json:"group_id"`
@@ -317,7 +284,7 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 
 	logger.LogBusinessOperation(
 		"add_agent_to_group",
-		getCurrentUserID(c),
+		currentUserID,
 		pathUrl,
 		clientIP,
 		xRequestID,
@@ -336,6 +303,7 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 // RemoveAgentFromGroup 从分组移除Agent
 func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	agentID := c.Param("id")
@@ -343,7 +311,7 @@ func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 
 	req := agentModel.AgentGroupMemberRequest{AgentID: agentID, GroupID: groupID}
 	if err := h.agentManagerService.RemoveAgentFromGroup(&req); err != nil {
-		logger.LogBusinessError(err, clientIP, 0, xRequestID, "handler.agent.RemoveAgentFromGroup", pathUrl, map[string]interface{}{
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.RemoveAgentFromGroup", pathUrl, map[string]interface{}{
 			"operation": "remove_agent_from_group",
 			"option":    "service_call.RemoveAgentFromGroup",
 			"func_name": "handler.agent.RemoveAgentFromGroup",
@@ -368,7 +336,7 @@ func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 
 	logger.LogBusinessOperation(
 		"remove_agent_from_group",
-		getCurrentUserID(c),
+		currentUserID,
 		pathUrl,
 		clientIP,
 		xRequestID,
@@ -387,6 +355,7 @@ func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 // GetAgentsInGroup 获取分组成员（分页形参）
 func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
@@ -398,7 +367,7 @@ func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 
 	infos, err := h.agentManagerService.GetAgentsInGroup(page, pageSize, groupID)
 	if err != nil {
-		logger.LogBusinessError(err, clientIP, 0, xRequestID, "handler.agent.GetAgentsInGroup", pathUrl, map[string]interface{}{
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.GetAgentsInGroup", pathUrl, map[string]interface{}{
 			"operation": "get_group_members",
 			"option":    "service_call.GetAgentsInGroup",
 			"func_name": "handler.agent.GetAgentsInGroup",
@@ -429,7 +398,7 @@ func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 
 	logger.LogBusinessOperation(
 		"get_group_members",
-		getCurrentUserID(c),
+		currentUserID,
 		pathUrl,
 		clientIP,
 		xRequestID,
@@ -450,6 +419,7 @@ func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 // 说明：从查询参数读取 page/page_size/tags/status/keywords，调用 Service 层形参方法，返回统一分页响应
 func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
@@ -471,7 +441,7 @@ func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
 	// 调用 Service
 	resp, err := h.agentManagerService.GetAgentGroupList(page, pageSize, tags, status, keywords)
 	if err != nil {
-		logger.LogBusinessError(err, clientIP, 0, xRequestID, "handler.agent.GetAgentGroupList", pathUrl, map[string]interface{}{
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.GetAgentGroupList", pathUrl, map[string]interface{}{
 			"operation": "get_agent_groups",
 			"option":    "service_call.GetAgentGroupList",
 			"func_name": "handler.agent.GetAgentGroupList",
@@ -519,7 +489,7 @@ func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
 
 	logger.LogBusinessOperation(
 		"get_agent_groups",
-		getCurrentUserID(c),
+		currentUserID,
 		pathUrl,
 		clientIP,
 		xRequestID,
@@ -544,6 +514,7 @@ func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
 // 说明：从查询参数读取 group_id/status，调用 Service 层形参方法，返回统一响应
 func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	groupID := c.Query("group_id")
@@ -551,7 +522,7 @@ func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 
 	if groupID == "" || statusStr == "" {
 		err := fmt.Errorf("group_id或status不能为空")
-		logger.LogBusinessError(err, clientIP, 0, xRequestID, pathUrl, pathUrl, map[string]interface{}{
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, pathUrl, pathUrl, map[string]interface{}{
 			"operation": "set_group_status",
 			"option":    "parameter_validation",
 			"func_name": "handler.agent.SetAgentGroupStatus",
@@ -563,40 +534,6 @@ func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 			Status:  "failed",
 			Message: "参数校验失败",
 			Error:   err.Error(),
-		})
-		return
-	}
-
-	// 从上下文获取当前操作用户ID（用于审计日志）
-	opUserID, exists := c.Get("user_id")
-	if !exists {
-		logger.LogBusinessError(errors.New("unauthorized access"), "", 0, "", "set_group_status", "HANDLER", map[string]interface{}{
-			"operation": "set_group_status",
-			"error":     "unauthorized",
-			"group_id":  groupID,
-			"status":    statusStr,
-		})
-		c.JSON(http.StatusUnauthorized, system.APIResponse{
-			Code:    http.StatusUnauthorized,
-			Status:  "failed",
-			Message: "未授权访问",
-		})
-		return
-	}
-
-	// 类型断言检查
-	currentUserID, ok := opUserID.(uint)
-	if !ok {
-		logger.LogBusinessError(errors.New("invalid user ID type"), "", 0, "", "set_group_status", "HANDLER", map[string]interface{}{
-			"operation":       "set_group_status",
-			"error":           "invalid_user_id_type",
-			"target_group_id": groupID,
-			"user_id_value":   currentUserID,
-		})
-		c.JSON(http.StatusInternalServerError, system.APIResponse{
-			Code:    http.StatusInternalServerError,
-			Status:  "failed",
-			Message: "服务器内部错误",
 		})
 		return
 	}

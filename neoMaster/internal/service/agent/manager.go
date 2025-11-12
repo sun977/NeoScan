@@ -27,14 +27,15 @@ type AgentManagerService interface {
 	DeleteAgent(agentID string) error
 
 	// Agent分组管理
-	CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error) // 创建分组
-	GetAgentGroups() ([]*agentModel.AgentGroupResponse, error)                                        // 获取所有分组
-	GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error)                             // 获取指定分组
-	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error                   // 更新分组信息
-	DeleteAgentGroup(groupID string) error                                                            // 删除分组
+	CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error)                                 // 创建分组
+	GetAgentGroupList(page int, pageSize int, tags []string, status int, keywords string) (*agentModel.AgentGroupListResponse, error) // 获取分组列表（分页与筛选）
+	GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error)                                                             // 获取指定分组
+	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error                                                   // 更新分组信息
+	DeleteAgentGroup(groupID string) error                                                                                            // 删除分组
 	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error
 	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
-	GetAgentsInGroup(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
+	GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员（分页形参）
+	SetAgentGroupStatus(groupID string, status int) error                                     // 设置分组状态(1-激活 0-禁用 分组)
 	// // 分组标签管理 （后续补充-分组标签类型CRUD操作）
 	// AddGroupTag(req *agentModel.GroupTagTypeRequest) error
 	// RemoveGroupTag(req *agentModel.GroupTagTypeRequest) error
@@ -117,6 +118,25 @@ func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
 		PID:              agent.PID,
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
+	}
+}
+
+// convertToAgentGroupResponse 将AgentGroup模型转换为响应结构
+// 说明：
+// - ID 为 `uint64`，响应中使用 `uint`，与 Agent 转换保持一致
+// - 只返回业务需要的字段：group_id、name、description、tags、时间戳
+func convertToAgentGroupResponse(group *agentModel.AgentGroup) *agentModel.AgentGroupResponse {
+	if group == nil {
+		return nil
+	}
+	return &agentModel.AgentGroupResponse{
+		ID:          uint(group.ID),
+		GroupID:     group.GroupID,
+		Name:        group.Name,
+		Description: group.Description,
+		Tags:        group.Tags,
+		CreatedAt:   group.CreatedAt,
+		UpdatedAt:   group.UpdatedAt,
 	}
 }
 
@@ -425,100 +445,430 @@ func (s *agentManagerService) DeleteAgent(agentID string) error {
 
 // CreateAgentGroup 创建Agent分组服务
 func (s *agentManagerService) CreateAgentGroup(req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error) {
-	// TODO: 实现Agent分组创建
-	logger.LogInfo("创建Agent分组", "", 0, "", "service.agent.manager.CreateAgentGroup", "", map[string]interface{}{
+	// 参数校验：请求体、分组ID、分组名称不能为空
+	if req == nil || req.GroupID == "" || req.Name == "" {
+		err := fmt.Errorf("分组ID或名称不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.CreateAgentGroup", "", map[string]interface{}{
+			"operation":  "create_agent_group",
+			"option":     "parameter_validation",
+			"func_name":  "service.agent.manager.CreateAgentGroup",
+			"group_id":   req.GroupID,
+			"group_name": req.Name,
+		})
+		return nil, err
+	}
+
+	// 业务校验：分组ID或名称是否已存在（避免重复）
+	if s.agentRepo.IsValidGroupId(req.GroupID) {
+		err := fmt.Errorf("分组ID已存在: %s", req.GroupID)
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.CreateAgentGroup", "", map[string]interface{}{
+			"operation": "create_agent_group",
+			"option":    "duplicate_check.group_id",
+			"func_name": "service.agent.manager.CreateAgentGroup",
+			"group_id":  req.GroupID,
+		})
+		return nil, err
+	}
+	if s.agentRepo.IsValidGroupName(req.Name) {
+		err := fmt.Errorf("分组名称已存在: %s", req.Name)
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.CreateAgentGroup", "", map[string]interface{}{
+			"operation":  "create_agent_group",
+			"option":     "duplicate_check.group_name",
+			"func_name":  "service.agent.manager.CreateAgentGroup",
+			"group_name": req.Name,
+		})
+		return nil, err
+	}
+
+	// 构造分组实体并创建
+	newGroup := &agentModel.AgentGroup{
+		GroupID:     req.GroupID,
+		Name:        req.Name,
+		Description: req.Description,
+		Tags:        req.Tags,
+		// IsSystem/Status 由仓储层保护和默认值控制
+	}
+	if err := s.agentRepo.CreateGroup(newGroup); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.CreateAgentGroup", "", map[string]interface{}{
+			"operation":  "create_agent_group",
+			"option":     "repository_call.CreateGroup",
+			"func_name":  "service.agent.manager.CreateAgentGroup",
+			"group_id":   req.GroupID,
+			"group_name": req.Name,
+		})
+		return nil, fmt.Errorf("创建分组失败: %v", err)
+	}
+
+	// 成功日志
+	logger.LogInfo("创建Agent分组成功", "", 0, "", "service.agent.manager.CreateAgentGroup", "", map[string]interface{}{
 		"operation":  "create_agent_group",
-		"option":     "agentManagerService.CreateAgentGroup",
+		"option":     "result.success",
 		"func_name":  "service.agent.manager.CreateAgentGroup",
-		"group_name": req.Name,
+		"group_id":   newGroup.GroupID,
+		"group_name": newGroup.Name,
+		"tags":       newGroup.Tags,
 	})
-	return nil, fmt.Errorf("功能暂未实现")
+
+	return convertToAgentGroupResponse(newGroup), nil
 }
 
-// GetAgentGroups 获取所有Agent分组服务
-func (s *agentManagerService) GetAgentGroups() ([]*agentModel.AgentGroupResponse, error) {
-	// TODO: 实现获取所有分组
-	logger.LogInfo("获取所有Agent分组", "", 0, "", "service.agent.manager.GetAgentGroups", "", map[string]interface{}{
-		"operation": "get_agent_groups",
-		"option":    "agentManagerService.GetAgentGroups",
-		"func_name": "service.agent.manager.GetAgentGroups",
+// GetAgentGroups 获取Agent分组列表（分页与筛选）
+func (s *agentManagerService) GetAgentGroupList(page int, pageSize int, tags []string, status int, keywords string) (*agentModel.AgentGroupListResponse, error) {
+	// 参数校验：分页参数默认值
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	if !(status == 0 || status == 1) {
+		status = -1
+	}
+
+	groups, total, err := s.agentRepo.GetGroupList(page, pageSize, tags, status, keywords)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentGroupList", "", map[string]interface{}{
+			"operation": "get_agent_group_list",
+			"option":    "repository_call.GetGroupList",
+			"func_name": "service.agent.manager.GetAgentGroupList",
+		})
+		return nil, fmt.Errorf("获取分组列表失败: %v", err)
+	}
+
+	// 转换响应结构
+	respGroups := make([]*agentModel.AgentGroupResponse, 0, len(groups))
+	for _, g := range groups {
+		respGroups = append(respGroups, convertToAgentGroupResponse(g))
+	}
+
+	logger.LogInfo("获取所有Agent分组成功", "", 0, "", "service.agent.manager.GetAgentGroupList", "", map[string]interface{}{
+		"operation": "get_agent_group_list",
+		"option":    "result.success",
+		"func_name": "service.agent.manager.GetAgentGroupList",
+		"count":     len(respGroups),
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
 	})
-	return nil, fmt.Errorf("功能暂未实现")
+	totalPages := 0
+	if pageSize > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &agentModel.AgentGroupListResponse{
+		Groups: respGroups,
+		Pagination: &agentModel.PaginationResponse{
+			Page:       page,
+			PageSize:   pageSize,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 // GetAgentGroup 获取指定Agent分组服务
 func (s *agentManagerService) GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error) {
-	// TODO: 实现获取指定分组
-	logger.LogInfo("获取指定Agent分组", "", 0, "", "service.agent.manager.GetAgentGroup", "", map[string]interface{}{
-		"operation": "get_agent_group",
-		"option":    "agentManagerService.GetAgentGroup",
-		"func_name": "service.agent.manager.GetAgentGroup",
-		"group_id":  groupID,
+	// 参数校验
+	if groupID == "" {
+		err := fmt.Errorf("group_id不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentGroup", "", map[string]interface{}{
+			"operation": "get_agent_group",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.GetAgentGroup",
+			"group_id":  groupID,
+		})
+		return nil, err
+	}
+
+	group, err := s.agentRepo.GetGroupByGID(groupID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentGroup", "", map[string]interface{}{
+			"operation": "get_agent_group",
+			"option":    "repository_call.GetGroupByGID",
+			"func_name": "service.agent.manager.GetAgentGroup",
+			"group_id":  groupID,
+		})
+		return nil, fmt.Errorf("获取分组失败: %v", err)
+	}
+	if group == nil {
+		err := fmt.Errorf("分组不存在: %s", groupID)
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentGroup", "", map[string]interface{}{
+			"operation": "get_agent_group",
+			"option":    "not_found",
+			"func_name": "service.agent.manager.GetAgentGroup",
+			"group_id":  groupID,
+		})
+		return nil, err
+	}
+
+	logger.LogInfo("获取指定Agent分组成功", "", 0, "", "service.agent.manager.GetAgentGroup", "", map[string]interface{}{
+		"operation":  "get_agent_group",
+		"option":     "result.success",
+		"func_name":  "service.agent.manager.GetAgentGroup",
+		"group_id":   group.GroupID,
+		"group_name": group.Name,
+		"status":     group.Status,
+		"is_system":  group.IsSystem,
 	})
-	return nil, fmt.Errorf("功能暂未实现")
+
+	return convertToAgentGroupResponse(group), nil
 }
 
 // UpdateAgentGroup 更新Agent分组服务
 func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) error {
-	// TODO: 实现分组信息更新
-	logger.LogInfo("更新Agent分组", "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
-		"operation":  "update_agent_group",
-		"option":     "agentManagerService.UpdateAgentGroup",
-		"func_name":  "service.agent.manager.UpdateAgentGroup",
-		"group_id":   groupID,
-		"group_name": req.Name,
+	// 参数校验
+	if groupID == "" || req == nil {
+		err := fmt.Errorf("group_id或请求体不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
+			"operation": "update_agent_group",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.UpdateAgentGroup",
+			"group_id":  groupID,
+		})
+		return err
+	}
+
+	if !s.agentRepo.IsValidGroupId(groupID) {
+		err := fmt.Errorf("分组不存在: %s", groupID)
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
+			"operation": "update_agent_group",
+			"option":    "existence_validation",
+			"func_name": "service.agent.manager.UpdateAgentGroup",
+			"group_id":  groupID,
+		})
+		return err
+	}
+
+	patch := &agentModel.AgentGroup{Description: req.Description, Tags: req.Tags}
+	if err := s.agentRepo.UpdateGroup(groupID, patch); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
+			"operation": "update_agent_group",
+			"option":    "repository_call.UpdateGroup",
+			"func_name": "service.agent.manager.UpdateAgentGroup",
+			"group_id":  groupID,
+		})
+		return fmt.Errorf("更新分组失败: %v", err)
+	}
+
+	logger.LogInfo("更新Agent分组成功", "", 0, "", "service.agent.manager.UpdateAgentGroup", "", map[string]interface{}{
+		"operation":   "update_agent_group",
+		"option":      "result.success",
+		"func_name":   "service.agent.manager.UpdateAgentGroup",
+		"group_id":    groupID,
+		"tags":        req.Tags,
+		"description": req.Description,
 	})
-	return fmt.Errorf("功能暂未实现")
+	return nil
 }
 
 // DeleteAgentGroup 删除Agent分组服务
 func (s *agentManagerService) DeleteAgentGroup(groupID string) error {
-	// TODO: 实现分组删除
+	// 参数校验与删除执行
+	if groupID == "" {
+		err := fmt.Errorf("group_id不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.DeleteAgentGroup", "", map[string]interface{}{
+			"operation": "delete_agent_group",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.DeleteAgentGroup",
+			"group_id":  groupID,
+		})
+		return err
+	}
+
+	if err := s.agentRepo.DeleteGroup(groupID); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.DeleteAgentGroup", "", map[string]interface{}{
+			"operation": "delete_agent_group",
+			"option":    "repository_call.DeleteGroup",
+			"func_name": "service.agent.manager.DeleteAgentGroup",
+			"group_id":  groupID,
+		})
+		return fmt.Errorf("删除分组失败: %v", err)
+	}
 	logger.LogInfo("删除Agent分组", "", 0, "", "service.agent.manager.DeleteAgentGroup", "", map[string]interface{}{
 		"operation": "delete_agent_group",
-		"option":    "agentManagerService.DeleteAgentGroup",
+		"option":    "result.success",
 		"func_name": "service.agent.manager.DeleteAgentGroup",
 		"group_id":  groupID,
 	})
-	return fmt.Errorf("功能暂未实现")
+	return nil
 }
 
 // AddAgentToGroup 添加Agent到分组服务
 func (s *agentManagerService) AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error {
-	// TODO: 实现添加Agent到分组
-	logger.LogInfo("添加Agent到分组", "", 0, "", "service.agent.manager.AddAgentToGroup", "", map[string]interface{}{
+	// 参数校验
+	if req == nil || req.AgentID == "" || req.GroupID == "" {
+		err := fmt.Errorf("agent_id或group_id不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.AddAgentToGroup", "", map[string]interface{}{
+			"operation": "add_agent_to_group",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.AddAgentToGroup",
+			"group_id":  req.GroupID,
+			"agent_id":  req.AgentID,
+		})
+		return err
+	}
+
+	if err := s.agentRepo.AddAgentToGroup(req.AgentID, req.GroupID); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.AddAgentToGroup", "", map[string]interface{}{
+			"operation": "add_agent_to_group",
+			"option":    "repository_call.AddAgentToGroup",
+			"func_name": "service.agent.manager.AddAgentToGroup",
+			"group_id":  req.GroupID,
+			"agent_id":  req.AgentID,
+		})
+		return fmt.Errorf("添加Agent到分组失败: %v", err)
+	}
+
+	logger.LogInfo("添加Agent到分组成功", "", 0, "", "service.agent.manager.AddAgentToGroup", "", map[string]interface{}{
 		"operation": "add_agent_to_group",
-		"option":    "agentManagerService.AddAgentToGroup",
+		"option":    "result.success",
 		"func_name": "service.agent.manager.AddAgentToGroup",
 		"group_id":  req.GroupID,
 		"agent_id":  req.AgentID,
 	})
-	return fmt.Errorf("功能暂未实现")
+
+	return nil
 }
 
 // RemoveAgentFromGroup 从分组移除Agent服务
 func (s *agentManagerService) RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error {
-	// TODO: 实现从分组移除Agent
-	logger.LogInfo("从分组移除Agent", "", 0, "", "service.agent.manager.RemoveAgentFromGroup", "", map[string]interface{}{
+	// 参数校验
+	if req == nil || req.AgentID == "" || req.GroupID == "" {
+		err := fmt.Errorf("agent_id或group_id不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RemoveAgentFromGroup", "", map[string]interface{}{
+			"operation": "remove_agent_from_group",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.RemoveAgentFromGroup",
+			"group_id":  req.GroupID,
+			"agent_id":  req.AgentID,
+		})
+		return err
+	}
+
+	if err := s.agentRepo.RemoveAgentFromGroup(req.AgentID, req.GroupID); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RemoveAgentFromGroup", "", map[string]interface{}{
+			"operation": "remove_agent_from_group",
+			"option":    "repository_call.RemoveAgentFromGroup",
+			"func_name": "service.agent.manager.RemoveAgentFromGroup",
+			"group_id":  req.GroupID,
+			"agent_id":  req.AgentID,
+		})
+		return fmt.Errorf("从分组移除Agent失败: %v", err)
+	}
+
+	logger.LogInfo("从分组移除Agent成功", "", 0, "", "service.agent.manager.RemoveAgentFromGroup", "", map[string]interface{}{
 		"operation": "remove_agent_from_group",
-		"option":    "agentManagerService.RemoveAgentFromGroup",
+		"option":    "result.success",
 		"func_name": "service.agent.manager.RemoveAgentFromGroup",
 		"group_id":  req.GroupID,
 		"agent_id":  req.AgentID,
 	})
-	return fmt.Errorf("功能暂未实现")
+
+	return nil
 }
 
-// GetAgentsInGroup 获取分组成员服务
-func (s *agentManagerService) GetAgentsInGroup(groupID string) ([]*agentModel.AgentInfo, error) {
-	// TODO: 实现获取分组成员
-	logger.LogInfo("获取分组成员", "", 0, "", "service.agent.manager.GetGroupMembers", "", map[string]interface{}{
+// GetAgentsInGroup 获取分组成员服务（分页形参）
+func (s *agentManagerService) GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, error) {
+	if groupID == "" {
+		err := fmt.Errorf("group_id不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentsInGroup", "", map[string]interface{}{
+			"operation": "get_group_members",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.GetAgentsInGroup",
+			"group_id":  groupID,
+			"page":      page,
+			"page_size": pageSize,
+		})
+		return nil, err
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	agents, total, err := s.agentRepo.GetAgentsInGroup(page, pageSize, groupID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentsInGroup", "", map[string]interface{}{
+			"operation": "get_group_members",
+			"option":    "repository_call.GetAgentsInGroup",
+			"func_name": "service.agent.manager.GetAgentsInGroup",
+			"group_id":  groupID,
+			"page":      page,
+			"page_size": pageSize,
+		})
+		return nil, fmt.Errorf("获取分组成员失败: %v", err)
+	}
+
+	infos := make([]*agentModel.AgentInfo, 0, len(agents))
+	for _, a := range agents {
+		infos = append(infos, convertToAgentInfo(a))
+	}
+
+	logger.LogInfo("获取分组成员成功", "", 0, "", "service.agent.manager.GetAgentsInGroup", "", map[string]interface{}{
 		"operation": "get_group_members",
-		"option":    "agentManagerService.GetGroupMembers",
-		"func_name": "service.agent.manager.GetGroupMembers",
+		"option":    "result.success",
+		"func_name": "service.agent.manager.GetAgentsInGroup",
 		"group_id":  groupID,
+		"page":      page,
+		"page_size": pageSize,
+		"count":     len(infos),
+		"total":     total,
 	})
-	return nil, fmt.Errorf("功能暂未实现")
+
+	return infos, nil
+}
+
+// SetAgentGroupStatus 设置Agent分组状态(1-激活 0-禁用 分组)
+func (s *agentManagerService) SetAgentGroupStatus(groupID string, status int) error {
+	// 允许 激活 禁用 分组
+	// 参数校验
+	if groupID == "" {
+		err := fmt.Errorf("group_id不能为空")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.SetAgentGroupStatus", "", map[string]interface{}{
+			"operation": "set_agent_group_status",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.SetAgentGroupStatus",
+			"group_id":  groupID,
+			"status":    status,
+		})
+		return err
+	}
+
+	if status != 0 && status != 1 {
+		err := fmt.Errorf("状态值必须为0或1")
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.SetAgentGroupStatus", "", map[string]interface{}{
+			"operation": "set_agent_group_status",
+			"option":    "parameter_validation",
+			"func_name": "service.agent.manager.SetAgentGroupStatus",
+			"group_id":  groupID,
+			"status":    status,
+		})
+		return err
+	}
+
+	// 更新分组状态
+	if err := s.agentRepo.SetGroupStatus(groupID, status); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.SetAgentGroupStatus", "", map[string]interface{}{
+			"operation": "set_agent_group_status",
+			"option":    "repository_call.SetGroupStatus",
+			"func_name": "service.agent.manager.SetAgentGroupStatus",
+			"group_id":  groupID,
+			"status":    status,
+		})
+		return fmt.Errorf("设置分组状态失败: %v", err)
+	}
+
+	logger.LogInfo("设置分组状态成功", "", 0, "", "service.agent.manager.SetAgentGroupStatus", "", map[string]interface{}{
+		"operation": "set_agent_group_status",
+		"option":    "result.success",
+		"func_name": "service.agent.manager.SetAgentGroupStatus",
+		"group_id":  groupID,
+		"status":    status,
+	})
+
+	return nil
 }
 
 // ==================== Agent标签管理方法 ====================

@@ -715,7 +715,7 @@ func (r *agentRepository) RemoveAgentFromGroup(agentID string, groupID string) e
 }
 
 // GetAgentsInGroup 获取分组中的Agent列表（分页）
-func (r *agentRepository) GetAgentsInGroup(groupID string) ([]*agentModel.Agent, int64, error) {
+func (r *agentRepository) GetAgentsInGroup(page, pageSize int, groupID string) ([]*agentModel.Agent, int64, error) {
 	if groupID == "" {
 		logger.LogError(gorm.ErrInvalidData, "", 0, "", "repo.mysql.agent.GetAgentsInGroup", "", map[string]interface{}{
 			"operation": "get_agents_in_group",
@@ -759,6 +759,8 @@ func (r *agentRepository) GetAgentsInGroup(groupID string) ([]*agentModel.Agent,
 		Joins("JOIN agent_group_members gm ON gm.agent_id = "+agentsTable+".agent_id").
 		Where("gm.group_id = ?", groupID).
 		Order(agentsTable + ".updated_at DESC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
 		Find(&agents).Error; err != nil {
 		logger.LogError(err, "", 0, "", "repo.mysql.agent.GetAgentsInGroup", "", map[string]interface{}{
 			"operation": "get_agents_in_group",

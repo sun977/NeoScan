@@ -34,7 +34,7 @@ type AgentManagerService interface {
 	DeleteAgentGroup(groupID string) error                                                            // 删除分组
 	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) error
 	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
-	GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
+	GetAgentsInGroup(groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员
 	// // 分组标签管理 （后续补充-分组标签类型CRUD操作）
 	// AddGroupTag(req *agentModel.GroupTagTypeRequest) error
 	// RemoveGroupTag(req *agentModel.GroupTagTypeRequest) error
@@ -509,8 +509,8 @@ func (s *agentManagerService) RemoveAgentFromGroup(req *agentModel.AgentGroupMem
 	return fmt.Errorf("功能暂未实现")
 }
 
-// GetGroupMembers 获取分组成员服务
-func (s *agentManagerService) GetGroupMembers(groupID string) ([]*agentModel.AgentInfo, error) {
+// GetAgentsInGroup 获取分组成员服务
+func (s *agentManagerService) GetAgentsInGroup(groupID string) ([]*agentModel.AgentInfo, error) {
 	// TODO: 实现获取分组成员
 	logger.LogInfo("获取分组成员", "", 0, "", "service.agent.manager.GetGroupMembers", "", map[string]interface{}{
 		"operation": "get_group_members",

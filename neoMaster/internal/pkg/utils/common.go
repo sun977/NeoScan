@@ -16,7 +16,7 @@ import (
 // ContextKey 类型用于标准上下文键的定义，避免使用裸字符串造成键冲突
 type ContextKey string
 
-// ContextKeyClientIP 标准上下文中存储客户端IP的统一键
+// ContextKeyClientIP 标准上下文中存储客户端IP的统一键(此键名已被logging中间件使用)
 const ContextKeyClientIP ContextKey = "client_ip"
 
 // GetCurrentUserIDFromGinContext 从 Gin 上下文中提取当前用户ID
@@ -41,7 +41,7 @@ func GetCurrentUserIDFromGinContext(c *gin.Context) uint {
 // - 使用 ContextKeyClientIP 作为唯一键，保证读写一致，跨包可用
 // - 如果不存在或类型不匹配，返回空字符串
 func GetClientIPFromContext(ctx context.Context) string {
-	// 用于替换如下老旧调用 --- TODO 后续有空再说
+	// 用于替换如下老旧调用
 	// type clientIPKeyType struct{}
 	// clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
 	v := ctx.Value(ContextKeyClientIP)

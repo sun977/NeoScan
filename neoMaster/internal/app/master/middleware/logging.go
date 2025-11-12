@@ -70,9 +70,9 @@ func (m *MiddlewareManager) GinLoggingMiddleware() gin.HandlerFunc {
 		// 统一键写入（utils.ContextKeyClientIP）
 		ctx = context.WithValue(ctx, utils.ContextKeyClientIP, clientIP)
 		// 旧键写入（局部匿名类型），供仍旧使用 clientIPKeyType{} 的代码读取
-		type clientIPKeyType struct{}
-		var clientIPKey = clientIPKeyType{}
-		ctx = context.WithValue(ctx, clientIPKey, clientIP)
+		// type clientIPKeyType struct{}
+		// var clientIPKey = clientIPKeyType{}
+		// ctx = context.WithValue(ctx, clientIPKey, clientIP)
 		// 关联到请求对象
 		c.Request = c.Request.WithContext(ctx)
 		// 本项目只有handler中使用了Gin上下文，剩下的逻辑都在service中使用的标准上下文

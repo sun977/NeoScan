@@ -8,6 +8,7 @@ import (
 
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 )
 
 // PasswordService 密码服务
@@ -38,8 +39,7 @@ func NewPasswordService(
 // 包含完整的参数验证、密码验证、日志记录和会话清理逻辑
 func (s *PasswordService) ChangePassword(ctx context.Context, userID uint, oldPassword, newPassword string) error {
 	// 从标准上下文获取客户端IP
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	// 参数验证
 	if userID == 0 {

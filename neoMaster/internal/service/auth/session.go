@@ -328,8 +328,7 @@ func (s *SessionService) Login(ctx context.Context, req *system.LoginRequest, cl
 // LogoutAll 用户全部登出 (通过密码版本更新的方式现实)
 func (s *SessionService) LogoutAll(ctx context.Context, accessToken string) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if accessToken == "" {
 		logger.LogBusinessError(errors.New("access token cannot be empty"), "", 0, clientIP, "user_logout_all", "POST", map[string]interface{}{
 			"operation": "logout",
@@ -611,8 +610,7 @@ func (s *SessionService) IsTokenRevoked(ctx context.Context, jti string) (bool, 
 // 返回: 错误信息
 func (s *SessionService) Logout(ctx context.Context, accessToken string) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if accessToken == "" {
 		return errors.New("access token cannot be empty")
 	}

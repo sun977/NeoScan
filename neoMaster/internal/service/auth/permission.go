@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 )
 
 // PermissionService 权限服务
@@ -25,8 +26,7 @@ func NewPermissionService(permissionRepo *systemrepo.PermissionRepository) *Perm
 // CreatePermission 创建权限
 func (s *PermissionService) CreatePermission(ctx context.Context, req *system.CreatePermissionRequest) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	if req == nil {
 		logger.LogBusinessError(errors.New("request is nil"), "", 0, clientIP, "permission_create", "POST", map[string]interface{}{
@@ -87,8 +87,7 @@ func (s *PermissionService) CreatePermission(ctx context.Context, req *system.Cr
 // GetPermissionByID 根据ID获取权限
 func (s *PermissionService) GetPermissionByID(ctx context.Context, permissionID uint) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if permissionID == 0 {
 		logger.LogBusinessError(errors.New("invalid permission ID: cannot be zero"), "", 0, clientIP, "get_permission_by_id", "SERVICE", map[string]interface{}{
 			"operation":     "parameter_validation",
@@ -151,8 +150,7 @@ func (s *PermissionService) GetPermissionByName(ctx context.Context, name string
 // GetPermissionList 获取权限列表（分页）
 func (s *PermissionService) GetPermissionList(ctx context.Context, offset, limit int) ([]*system.Permission, int64, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	originalOffset := offset
 	originalLimit := limit
@@ -227,8 +225,7 @@ func (s *PermissionService) UpdatePermissionByID(ctx context.Context, permission
 
 func (s *PermissionService) validateUpdatePermissionParams(ctx context.Context, permissionID uint, req *system.UpdatePermissionRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	if permissionID == 0 {
 		logger.LogBusinessError(errors.New("invalid permission ID for update"), "", 0, clientIP, "update_permission", "SERVICE", map[string]interface{}{
@@ -253,8 +250,7 @@ func (s *PermissionService) validateUpdatePermissionParams(ctx context.Context, 
 
 func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, permissionID uint, req *system.UpdatePermissionRequest) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 权限存在校验(permission_id有效性)
 	permission, err := s.permissionRepo.GetPermissionByID(ctx, permissionID)
 	if err != nil {
@@ -317,8 +313,7 @@ func (s *PermissionService) validatePermissionForUpdate(ctx context.Context, per
 
 func (s *PermissionService) executePermissionUpdate(ctx context.Context, permission *system.Permission, req *system.UpdatePermissionRequest) (*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	if req.Name != "" && req.Name != permission.Name {
 		permission.Name = req.Name
@@ -363,8 +358,7 @@ func (s *PermissionService) executePermissionUpdate(ctx context.Context, permiss
 // 优化版本：将所有数据库操作都放在事务内部，避免锁等待超时问题
 func (s *PermissionService) DeletePermission(ctx context.Context, permissionID uint) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	// 参数验证
 	if permissionID == 0 {

@@ -13,6 +13,8 @@ import (
 	"neomaster/internal/pkg/logger" // 导入日志管理器
 	"neomaster/internal/repo/redis" // 导入Redis会话仓库，用于缓存用户密码版本
 
+	"neomaster/internal/pkg/utils"
+
 	"github.com/golang-jwt/jwt/v5" // 导入JWT库，用于令牌解析和验证
 )
 
@@ -359,8 +361,7 @@ func (s *JWTService) CheckTokenExpiry(tokenString string, threshold time.Duratio
 // 返回: 错误信息
 func (s *JWTService) RevokeToken(ctx context.Context, tokenJTI string, expiration time.Duration) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	if tokenJTI == "" {
 		return errors.New("token JTI cannot be empty")

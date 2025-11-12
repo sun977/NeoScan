@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 )
 
 // RoleService 角色服务
@@ -56,8 +57,7 @@ func NewRoleService(roleRepo *systemrepo.RoleRepository) *RoleService {
 // 处理角色创建的完整流程，包括参数验证、重复检查、权限分配等
 func (s *RoleService) CreateRole(ctx context.Context, req *system.CreateRoleRequest) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证
 	if req == nil {
 		logger.LogBusinessError(errors.New("request is nil"), "", 0, clientIP, "role_create", "POST", map[string]interface{}{
@@ -140,8 +140,7 @@ func (s *RoleService) CreateRole(ctx context.Context, req *system.CreateRoleRequ
 // 完整的业务逻辑包括：参数验证、上下文检查、数据获取、状态验证、日志记录
 func (s *RoleService) GetRoleByID(ctx context.Context, roleID uint) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证：角色ID必须有效
 	if roleID == 0 {
 		logger.LogBusinessError(errors.New("invalid role ID: cannot be zero"), "", 0, clientIP, "get_role_by_id", "SERVICE", map[string]interface{}{
@@ -215,8 +214,7 @@ func (s *RoleService) GetRoleByName(ctx context.Context, name string) (*system.R
 // 提供分页查询功能，包含完整的参数验证和错误处理
 func (s *RoleService) GetRoleList(ctx context.Context, offset, limit int) ([]*system.Role, int64, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 保存原始参数值用于日志记录
 	originalOffset := offset
 	originalLimit := limit
@@ -319,8 +317,7 @@ func (s *RoleService) UpdateRoleByID(ctx context.Context, roleID uint, req *syst
 // validateUpdateRoleParams 验证更新角色的参数
 func (s *RoleService) validateUpdateRoleParams(ctx context.Context, roleID uint, req *system.UpdateRoleRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 
 	if roleID == 0 {
 		logger.LogBusinessError(errors.New("invalid role ID for update"), "", 0, clientIP, "update_role", "SERVICE", map[string]interface{}{
@@ -362,8 +359,7 @@ func (s *RoleService) validateUpdateRoleParams(ctx context.Context, roleID uint,
 // validateRoleForUpdate 验证角色是否可以更新
 func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, req *system.UpdateRoleRequest) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 检查角色是否存在
 	// role, err := s.roleRepo.GetRoleByID(ctx, roleID) [GetRoleByID 只能获取角色的基本信息,不包含权限信息]
 	// [数据库中role表本身不带权限信息,角色权限关联信息在role_permissions表里,需要通过GetRoleWithPermissions方法获取角色及其关联的权限]
@@ -464,8 +460,7 @@ func (s *RoleService) validateRoleForUpdate(ctx context.Context, roleID uint, re
 // executeRoleUpdate 执行角色更新操作（包含事务处理）
 func (s *RoleService) executeRoleUpdate(ctx context.Context, role *system.Role, req *system.UpdateRoleRequest) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 开始事务
 	tx := s.roleRepo.BeginTx(ctx)
 	if tx == nil {
@@ -607,8 +602,7 @@ func (s *RoleService) DeleteRole(ctx context.Context, roleID uint) error {
 // validateDeleteRoleParams 验证删除角色的参数
 func (s *RoleService) validateDeleteRoleParams(ctx context.Context, roleID uint) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if roleID == 0 {
 		logger.LogBusinessError(errors.New("invalid role ID for deletion"), "", 0, clientIP, "delete_role", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
@@ -624,8 +618,7 @@ func (s *RoleService) validateDeleteRoleParams(ctx context.Context, roleID uint)
 // validateRoleForDeletion 验证角色是否可以删除
 func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 检查角色是否存在
 	role, err := s.roleRepo.GetRoleByID(ctx, roleID)
 	if err != nil {
@@ -677,8 +670,7 @@ func (s *RoleService) validateRoleForDeletion(ctx context.Context, roleID uint) 
 // executeRoleDeletion 执行角色删除操作（包含事务处理）
 func (s *RoleService) executeRoleDeletion(ctx context.Context, role *system.Role) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 开始事务
 	tx := s.roleRepo.BeginTx(ctx)
 	if tx == nil {
@@ -755,8 +747,7 @@ func (s *RoleService) executeRoleDeletion(ctx context.Context, role *system.Role
 // 将指定角色的状态设置为启用或禁用状态，消除重复代码，体现"好品味"原则
 func (s *RoleService) UpdateRoleStatus(ctx context.Context, roleID uint, status system.RoleStatus) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证层 - 消除特殊情况
 	if roleID == 0 {
 		logger.LogBusinessError(errors.New("invalid role ID"), "", 0, clientIP, "update_role_status", "SERVICE", map[string]interface{}{
@@ -890,8 +881,7 @@ func (s *RoleService) DeactivateRole(ctx context.Context, roleID uint) error {
 // GetRoleWithPermissions 获取角色及其权限
 func (s *RoleService) GetRoleWithPermissions(ctx context.Context, roleID uint) (*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if roleID == 0 {
 		return nil, errors.New("角色ID不能为0")
 	}

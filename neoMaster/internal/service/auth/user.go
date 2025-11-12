@@ -21,6 +21,7 @@ import (
 
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	"neomaster/internal/repo/redis"
 
 	"gorm.io/gorm"
@@ -184,8 +185,7 @@ func (s *UserService) Register(ctx context.Context, req *system.RegisterRequest,
 // 处理用户创建的完整流程，包括参数验证、重复检查、密码哈希等
 func (s *UserService) CreateUser(ctx context.Context, req *system.CreateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证
 	if req == nil {
 		logger.LogBusinessError(errors.New("request is nil"), "", 0, clientIP, "user_create", "POST", map[string]interface{}{
@@ -362,8 +362,7 @@ func (s *UserService) GetUserIDFromToken(ctx context.Context, accessToken string
 // 通过访问令牌获取当前登录用户的详细信息
 func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string) (*system.UserInfo, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 验证访问令牌
 	if accessToken == "" {
 		logger.LogBusinessError(errors.New("access token is empty"), "", 0, clientIP, "get_current_user", "GET", map[string]interface{}{
@@ -490,8 +489,7 @@ func (s *UserService) GetCurrentUserInfo(ctx context.Context, accessToken string
 // 用于已通过中间件验证的场景
 func (s *UserService) GetUserInfoByID(ctx context.Context, userID uint) (*system.UserInfo, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_info_by_id", "SERVICE", map[string]interface{}{
@@ -625,8 +623,7 @@ func (s *UserService) UpdateUserByID(ctx context.Context, userID uint, req *syst
 // validateUpdateUserParams 验证更新用户的参数
 func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint, req *system.UpdateUserRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
@@ -694,8 +691,7 @@ func (s *UserService) validateUpdateUserParams(ctx context.Context, userID uint,
 // validateUserForUpdate 验证用户是否可以更新
 func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 检查用户是否存在(User 模型字段都可以获得)
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
@@ -833,8 +829,7 @@ func (s *UserService) validateUserForUpdate(ctx context.Context, userID uint, re
 // executeUserUpdate 执行用户更新操作（包含事务处理）
 func (s *UserService) executeUserUpdate(ctx context.Context, user *system.User, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 开始事务
 	tx := s.userRepo.BeginTx(ctx)
 	if tx == nil {
@@ -1028,8 +1023,7 @@ func (s *UserService) UserUpdateInfoByID(ctx context.Context, userID uint, req *
 // validateUpdateUserParams 验证更新用户的参数
 func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID uint, req *system.UpdateUserRequest) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID for update"), "", 0, clientIP, "update_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
@@ -1097,8 +1091,7 @@ func (s *UserService) validateUserUpdateInfoParams(ctx context.Context, userID u
 // validateUserForUpdate 验证用户是否可以更新
 func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 检查用户是否存在(User 模型字段都可以获得)
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
@@ -1208,8 +1201,7 @@ func (s *UserService) validateUserUpdateInfo(ctx context.Context, userID uint, r
 // executeUserUpdate 执行用户更新操作（包含事务处理）
 func (s *UserService) executeUserUpdateInfo(ctx context.Context, user *system.User, req *system.UpdateUserRequest) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 开始事务
 	tx := s.userRepo.BeginTx(ctx)
 	if tx == nil {
@@ -1382,8 +1374,7 @@ func (s *UserService) DeleteUser(ctx context.Context, userID uint) error {
 // validateDeleteUserParams 验证删除用户的参数
 func (s *UserService) validateDeleteUserParams(ctx context.Context, userID uint) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID for deletion"), "", 0, clientIP, "delete_user", "SERVICE", map[string]interface{}{
 			"operation": "parameter_validation",
@@ -1399,8 +1390,7 @@ func (s *UserService) validateDeleteUserParams(ctx context.Context, userID uint)
 // validateUserForDeletion 验证用户是否可以删除
 func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 检查用户是否存在
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
@@ -1451,8 +1441,7 @@ func (s *UserService) validateUserForDeletion(ctx context.Context, userID uint) 
 // executeUserDeletion 执行用户删除操作（包含事务处理）
 func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 开始事务
 	tx := s.userRepo.BeginTx(ctx)
 	if tx == nil {
@@ -1530,8 +1519,7 @@ func (s *UserService) executeUserDeletion(ctx context.Context, user *system.User
 // 完整的业务逻辑包括：参数验证、上下文检查、数据获取、状态验证、日志记录
 func (s *UserService) GetUserByID(ctx context.Context, userID uint) (*system.User, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_by_id", "SERVICE", map[string]interface{}{
@@ -1631,8 +1619,7 @@ func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*system
 //   - error: 错误信息
 func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*system.User, int64, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 保存原始参数值用于日志记录
 	originalOffset := offset
 	originalLimit := limit
@@ -1718,8 +1705,7 @@ func (s *UserService) GetUserList(ctx context.Context, offset, limit int) ([]*sy
 //   - error: 错误信息，包含参数验证、用户存在性检查和数据库操作错误
 func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*system.Permission, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_permissions", "SERVICE", map[string]interface{}{
@@ -1812,8 +1798,7 @@ func (s *UserService) GetUserPermissions(ctx context.Context, userID uint) ([]*s
 //   - error: 错误信息，包含参数验证、用户存在性检查和数据库操作错误
 func (s *UserService) GetUserRoles(ctx context.Context, userID uint) ([]*system.Role, error) {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证：用户ID必须有效
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID: cannot be zero"), "", 0, clientIP, "get_user_roles", "SERVICE", map[string]interface{}{
@@ -2079,8 +2064,7 @@ func (s *UserService) UpdateLastLogin(ctx context.Context, userID uint, clientIP
 // @return 错误信息
 func (s *UserService) UpdateUserStatus(ctx context.Context, userID uint, status system.UserStatus) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证层 - 消除特殊情况
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID"), "", 0, clientIP, "update_user_status", "SERVICE", map[string]interface{}{
@@ -2226,8 +2210,7 @@ func (s *UserService) DeactivateUser(ctx context.Context, userID uint) error {
 // 重置用户密码(管理员操作)
 func (s *UserService) ResetUserPassword(ctx context.Context, userID uint, newPassword string) error {
 	// 从标准上下文中 context 获取必要的信息[已在log中间件中做过标准化处理]
-	type clientIPKeyType struct{}
-	clientIP, _ := ctx.Value(clientIPKeyType{}).(string)
+	clientIP := utils.GetClientIPFromContext(ctx)
 	// 参数验证
 	if userID == 0 {
 		logger.LogBusinessError(errors.New("invalid user ID for password reset"), "", 0, clientIP, "reset_user_password", "SERVICE", map[string]interface{}{

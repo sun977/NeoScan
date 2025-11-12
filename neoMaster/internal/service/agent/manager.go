@@ -69,7 +69,114 @@ func NewAgentManagerService(agentRepo agentRepository.AgentRepository) AgentMana
 	}
 }
 
+// ========== 辅助函数 ==========
+// generateAgentID 生成Agent唯一ID
+// 基于主机名和时间生成唯一标识
+func generateAgentID(hostname string) string {
+	// 使用简化UUID生成固定长度的agent_id，避免超过数据库字段限制
+	// 格式：agent_uuid（无连字符），总长度约38字符，远小于数据库的100字符限制
+	uuid, err := utils.GenerateSimpleUUID()
+	if err != nil {
+		// 如果UUID生成失败，使用时间戳作为后备方案，但要截断hostname避免过长
+		shortHostname := hostname
+		if len(hostname) > 20 {
+			shortHostname = hostname[:20]
+		}
+		return fmt.Sprintf("agent_%s_%d", shortHostname, time.Now().Unix())
+	}
+	return fmt.Sprintf("agent_%s", uuid)
+}
+
+// generateGRPCToken 生成GRPC通信Token
+// 用于Agent与Master之间的安全通信
+func generateGRPCToken() string {
+	return fmt.Sprintf("token_%d", time.Now().UnixNano())
+}
+
+// convertToAgentInfo 将Agent模型转换为AgentInfo响应
+func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
+	return &agentModel.AgentInfo{
+		ID:               uint(agent.ID), // 转换类型从uint64到uint
+		AgentID:          agent.AgentID,
+		Hostname:         agent.Hostname,
+		IPAddress:        agent.IPAddress,
+		Port:             agent.Port,
+		Version:          agent.Version,
+		Status:           agent.Status,
+		OS:               agent.OS,
+		Arch:             agent.Arch,
+		CPUCores:         agent.CPUCores,
+		MemoryTotal:      agent.MemoryTotal,
+		DiskTotal:        agent.DiskTotal,
+		Capabilities:     agent.Capabilities,
+		Tags:             agent.Tags,
+		LastHeartbeat:    agent.LastHeartbeat,
+		ResultLatestTime: agent.ResultLatestTime,
+		Remark:           agent.Remark,
+		ContainerID:      agent.ContainerID,
+		PID:              agent.PID,
+		CreatedAt:        agent.CreatedAt,
+		UpdatedAt:        agent.UpdatedAt,
+	}
+}
+
 // ========== Agent 基础管理服务 ==========
+
+// validateRegisterRequest 验证Agent注册请求参数
+// 参数: s - service实例, req - Agent注册请求结构体指针
+// 返回: error - 验证失败时的错误信息
+func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
+	// 检查hostname长度
+	if len(req.Hostname) > 255 {
+		return fmt.Errorf("hostname too long")
+	}
+
+	// 检查version长度
+	if len(req.Version) > 50 {
+		return fmt.Errorf("version too long")
+	}
+
+	// 检查CPU核心数
+	if req.CPUCores < 0 {
+		return fmt.Errorf("invalid CPU cores")
+	}
+
+	// 检查内存总量
+	if req.MemoryTotal < 0 {
+		return fmt.Errorf("invalid memory total")
+	}
+
+	// 检查磁盘总量
+	if req.DiskTotal < 0 {
+		return fmt.Errorf("invalid disk total")
+	}
+
+	// 检查端口范围
+	if req.Port < 1 || req.Port > 65535 {
+		return fmt.Errorf("port must be between 1 and 65535")
+	}
+
+	// 检查capabilities是否为空
+	if len(req.Capabilities) == 0 {
+		return fmt.Errorf("at least one capability is required")
+	}
+
+	// 检查capabilities是否包含有效值 - 委托给Repository层验证
+	for _, capabilityID := range req.Capabilities {
+		if !s.agentRepo.IsValidCapabilityId(capabilityID) {
+			return fmt.Errorf("invalid capability ID: %s", capabilityID)
+		}
+	}
+
+	// 检查tags是否包含有效值 - 委托给Repository层验证
+	for _, tag := range req.Tags {
+		if !s.agentRepo.IsValidTagId(tag) {
+			return fmt.Errorf("invalid tag ID: %s", tag)
+		}
+	}
+
+	return nil
+}
 
 // RegisterAgent Agent注册服务
 // 处理Agent注册请求，生成唯一ID和Token
@@ -263,6 +370,57 @@ func (s *agentManagerService) UpdateAgentStatus(agentID string, status agentMode
 	return nil
 }
 
+// DeleteAgent 删除Agent服务
+// 参数: agentID - Agent唯一标识符
+// 返回: error - 删除失败时返回错误信息
+func (s *agentManagerService) DeleteAgent(agentID string) error {
+	// 输入验证：检查agentID是否为空
+	if agentID == "" {
+		err := fmt.Errorf("agentID不能为空")
+		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+			"operation": "delete_agent",
+			"option":    "input_validation",
+			"func_name": "service.agent.manager.DeleteAgent",
+			"agent_id":  agentID,
+		})
+		return err
+	}
+
+	// 存在性验证：检查Agent是否存在
+	_, err := s.agentRepo.GetByID(agentID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+			"operation": "delete_agent",
+			"option":    "existence_validation",
+			"func_name": "service.agent.manager.DeleteAgent",
+			"agent_id":  agentID,
+		})
+		return fmt.Errorf("agent不存在或查询失败: %v", err)
+	}
+
+	// 执行删除操作
+	err = s.agentRepo.Delete(agentID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
+			"operation": "delete_agent",
+			"option":    "repository_delete",
+			"func_name": "service.agent.manager.DeleteAgent",
+			"agent_id":  agentID,
+		})
+		return fmt.Errorf("删除Agent失败: %v", err)
+	}
+
+	// 记录删除成功日志
+	logger.LogInfo("Agent删除成功", "", 0, "", "delete_agent", "", map[string]interface{}{
+		"operation": "delete_agent",
+		"option":    "delete_success",
+		"func_name": "service.agent.manager.DeleteAgent",
+		"agent_id":  agentID,
+	})
+
+	return nil
+}
+
 // ========== Agent分组管理功能 ==========
 
 // CreateAgentGroup 创建Agent分组服务
@@ -361,163 +519,6 @@ func (s *agentManagerService) GetGroupMembers(groupID string) ([]*agentModel.Age
 		"group_id":  groupID,
 	})
 	return nil, fmt.Errorf("功能暂未实现")
-}
-
-// DeleteAgent 删除Agent服务
-// 参数: agentID - Agent唯一标识符
-// 返回: error - 删除失败时返回错误信息
-func (s *agentManagerService) DeleteAgent(agentID string) error {
-	// 输入验证：检查agentID是否为空
-	if agentID == "" {
-		err := fmt.Errorf("agentID不能为空")
-		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
-			"operation": "delete_agent",
-			"option":    "input_validation",
-			"func_name": "service.agent.manager.DeleteAgent",
-			"agent_id":  agentID,
-		})
-		return err
-	}
-
-	// 存在性验证：检查Agent是否存在
-	_, err := s.agentRepo.GetByID(agentID)
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
-			"operation": "delete_agent",
-			"option":    "existence_validation",
-			"func_name": "service.agent.manager.DeleteAgent",
-			"agent_id":  agentID,
-		})
-		return fmt.Errorf("agent不存在或查询失败: %v", err)
-	}
-
-	// 执行删除操作
-	err = s.agentRepo.Delete(agentID)
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "delete_agent", "", map[string]interface{}{
-			"operation": "delete_agent",
-			"option":    "repository_delete",
-			"func_name": "service.agent.manager.DeleteAgent",
-			"agent_id":  agentID,
-		})
-		return fmt.Errorf("删除Agent失败: %v", err)
-	}
-
-	// 记录删除成功日志
-	logger.LogInfo("Agent删除成功", "", 0, "", "delete_agent", "", map[string]interface{}{
-		"operation": "delete_agent",
-		"option":    "delete_success",
-		"func_name": "service.agent.manager.DeleteAgent",
-		"agent_id":  agentID,
-	})
-
-	return nil
-}
-
-// generateAgentID 生成Agent唯一ID
-// 基于主机名和时间生成唯一标识
-func generateAgentID(hostname string) string {
-	// 使用简化UUID生成固定长度的agent_id，避免超过数据库字段限制
-	// 格式：agent_uuid（无连字符），总长度约38字符，远小于数据库的100字符限制
-	uuid, err := utils.GenerateSimpleUUID()
-	if err != nil {
-		// 如果UUID生成失败，使用时间戳作为后备方案，但要截断hostname避免过长
-		shortHostname := hostname
-		if len(hostname) > 20 {
-			shortHostname = hostname[:20]
-		}
-		return fmt.Sprintf("agent_%s_%d", shortHostname, time.Now().Unix())
-	}
-	return fmt.Sprintf("agent_%s", uuid)
-}
-
-// validateRegisterRequest 验证Agent注册请求参数
-// 参数: s - service实例, req - Agent注册请求结构体指针
-// 返回: error - 验证失败时的错误信息
-func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAgentRequest) error {
-	// 检查hostname长度
-	if len(req.Hostname) > 255 {
-		return fmt.Errorf("hostname too long")
-	}
-
-	// 检查version长度
-	if len(req.Version) > 50 {
-		return fmt.Errorf("version too long")
-	}
-
-	// 检查CPU核心数
-	if req.CPUCores < 0 {
-		return fmt.Errorf("invalid CPU cores")
-	}
-
-	// 检查内存总量
-	if req.MemoryTotal < 0 {
-		return fmt.Errorf("invalid memory total")
-	}
-
-	// 检查磁盘总量
-	if req.DiskTotal < 0 {
-		return fmt.Errorf("invalid disk total")
-	}
-
-	// 检查端口范围
-	if req.Port < 1 || req.Port > 65535 {
-		return fmt.Errorf("port must be between 1 and 65535")
-	}
-
-	// 检查capabilities是否为空
-	if len(req.Capabilities) == 0 {
-		return fmt.Errorf("at least one capability is required")
-	}
-
-	// 检查capabilities是否包含有效值 - 委托给Repository层验证
-	for _, capabilityID := range req.Capabilities {
-		if !s.agentRepo.IsValidCapabilityId(capabilityID) {
-			return fmt.Errorf("invalid capability ID: %s", capabilityID)
-		}
-	}
-
-	// 检查tags是否包含有效值 - 委托给Repository层验证
-	for _, tag := range req.Tags {
-		if !s.agentRepo.IsValidTagId(tag) {
-			return fmt.Errorf("invalid tag ID: %s", tag)
-		}
-	}
-
-	return nil
-}
-
-// generateGRPCToken 生成GRPC通信Token
-// 用于Agent与Master之间的安全通信
-func generateGRPCToken() string {
-	return fmt.Sprintf("token_%d", time.Now().UnixNano())
-}
-
-// convertToAgentInfo 将Agent模型转换为AgentInfo响应
-func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
-	return &agentModel.AgentInfo{
-		ID:               uint(agent.ID), // 转换类型从uint64到uint
-		AgentID:          agent.AgentID,
-		Hostname:         agent.Hostname,
-		IPAddress:        agent.IPAddress,
-		Port:             agent.Port,
-		Version:          agent.Version,
-		Status:           agent.Status,
-		OS:               agent.OS,
-		Arch:             agent.Arch,
-		CPUCores:         agent.CPUCores,
-		MemoryTotal:      agent.MemoryTotal,
-		DiskTotal:        agent.DiskTotal,
-		Capabilities:     agent.Capabilities,
-		Tags:             agent.Tags,
-		LastHeartbeat:    agent.LastHeartbeat,
-		ResultLatestTime: agent.ResultLatestTime,
-		Remark:           agent.Remark,
-		ContainerID:      agent.ContainerID,
-		PID:              agent.PID,
-		CreatedAt:        agent.CreatedAt,
-		UpdatedAt:        agent.UpdatedAt,
-	}
 }
 
 // ==================== Agent标签管理方法 ====================
@@ -699,6 +700,94 @@ func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
 
 	// 始终返回非nil切片，遵循"好品味"原则
 	return tags, nil
+}
+
+// UpdateAgentTags 更新Agent的标签列表
+// 返回旧标签列表和新标签列表
+func (s *agentManagerService) UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error) {
+	// 输入验证
+	if agentID == "" {
+		return nil, nil, fmt.Errorf("agent ID不能为空")
+	}
+
+	// 获取当前标签
+	oldTags, err := s.GetAgentTags(agentID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("获取旧标签失败: %w", err)
+	}
+
+	// 计算差异并更新标签（使用已有的 Repository 方法 AddTag/RemoveTag 实现）
+	// 构建旧标签、新标签集合，去重并便于差异计算
+	oldSet := make(map[string]struct{}, len(oldTags))
+	for _, t := range oldTags {
+		if t == "" {
+			continue
+		}
+		oldSet[t] = struct{}{}
+	}
+
+	newSet := make(map[string]struct{}, len(newTags))
+	for _, t := range newTags {
+		if t == "" {
+			continue
+		}
+		newSet[t] = struct{}{}
+	}
+
+	// 待添加：在新集合中但不在旧集合中的标签
+	toAdd := make([]string, 0)
+	for t := range newSet {
+		if _, ok := oldSet[t]; !ok {
+			toAdd = append(toAdd, t)
+		}
+	}
+
+	// 待移除：在旧集合中但不在新集合中的标签
+	toRemove := make([]string, 0)
+	for t := range oldSet {
+		if _, ok := newSet[t]; !ok {
+			toRemove = append(toRemove, t)
+		}
+	}
+
+	// 依次执行添加和移除操作；若任一失败，返回错误
+	for _, t := range toAdd {
+		if err := s.agentRepo.AddTag(agentID, t); err != nil {
+			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.AddTag", map[string]interface{}{
+				"operation": "update_agent_tags",
+				"option":    "agentRepo.AddTag",
+				"func_name": "service.agent.manager.UpdateAgentTags",
+				"agent_id":  agentID,
+				"tag":       t,
+			})
+			return nil, nil, fmt.Errorf("添加标签失败(%s): %w", t, err)
+		}
+	}
+
+	for _, t := range toRemove {
+		if err := s.agentRepo.RemoveTag(agentID, t); err != nil {
+			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.RemoveTag", map[string]interface{}{
+				"operation": "update_agent_tags",
+				"option":    "agentRepo.RemoveTag",
+				"func_name": "service.agent.manager.UpdateAgentTags",
+				"agent_id":  agentID,
+				"tag":       t,
+			})
+			return nil, nil, fmt.Errorf("移除标签失败(%s): %w", t, err)
+		}
+	}
+
+	// 记录日志
+	logger.LogInfo("Agent标签更新成功", "", 0, "", "service.agent.manager.UpdateAgentTags", "", map[string]interface{}{
+		"operation": "update_agent_tags",
+		"option":    "success",
+		"func_name": "service.agent.manager.UpdateAgentTags",
+		"agent_id":  agentID,
+		"old_tags":  oldTags,
+		"new_tags":  newTags,
+	})
+
+	return oldTags, newTags, nil
 }
 
 // IsValidTagId 验证标签ID是否有效
@@ -947,92 +1036,4 @@ func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
 	// 2. 委托给Repository层进行数据库验证
 	// Repository层会检查ScanType表中是否存在该名称
 	return s.agentRepo.IsValidCapabilityByName(capability)
-}
-
-// UpdateAgentTags 更新Agent的标签列表
-// 返回旧标签列表和新标签列表
-func (s *agentManagerService) UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error) {
-	// 输入验证
-	if agentID == "" {
-		return nil, nil, fmt.Errorf("agent ID不能为空")
-	}
-
-	// 获取当前标签
-	oldTags, err := s.GetAgentTags(agentID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("获取旧标签失败: %w", err)
-	}
-
-	// 计算差异并更新标签（使用已有的 Repository 方法 AddTag/RemoveTag 实现）
-	// 构建旧标签、新标签集合，去重并便于差异计算
-	oldSet := make(map[string]struct{}, len(oldTags))
-	for _, t := range oldTags {
-		if t == "" {
-			continue
-		}
-		oldSet[t] = struct{}{}
-	}
-
-	newSet := make(map[string]struct{}, len(newTags))
-	for _, t := range newTags {
-		if t == "" {
-			continue
-		}
-		newSet[t] = struct{}{}
-	}
-
-	// 待添加：在新集合中但不在旧集合中的标签
-	toAdd := make([]string, 0)
-	for t := range newSet {
-		if _, ok := oldSet[t]; !ok {
-			toAdd = append(toAdd, t)
-		}
-	}
-
-	// 待移除：在旧集合中但不在新集合中的标签
-	toRemove := make([]string, 0)
-	for t := range oldSet {
-		if _, ok := newSet[t]; !ok {
-			toRemove = append(toRemove, t)
-		}
-	}
-
-	// 依次执行添加和移除操作；若任一失败，返回错误
-	for _, t := range toAdd {
-		if err := s.agentRepo.AddTag(agentID, t); err != nil {
-			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.AddTag", map[string]interface{}{
-				"operation": "update_agent_tags",
-				"option":    "agentRepo.AddTag",
-				"func_name": "service.agent.manager.UpdateAgentTags",
-				"agent_id":  agentID,
-				"tag":       t,
-			})
-			return nil, nil, fmt.Errorf("添加标签失败(%s): %w", t, err)
-		}
-	}
-
-	for _, t := range toRemove {
-		if err := s.agentRepo.RemoveTag(agentID, t); err != nil {
-			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.RemoveTag", map[string]interface{}{
-				"operation": "update_agent_tags",
-				"option":    "agentRepo.RemoveTag",
-				"func_name": "service.agent.manager.UpdateAgentTags",
-				"agent_id":  agentID,
-				"tag":       t,
-			})
-			return nil, nil, fmt.Errorf("移除标签失败(%s): %w", t, err)
-		}
-	}
-
-	// 记录日志
-	logger.LogInfo("Agent标签更新成功", "", 0, "", "service.agent.manager.UpdateAgentTags", "", map[string]interface{}{
-		"operation": "update_agent_tags",
-		"option":    "success",
-		"func_name": "service.agent.manager.UpdateAgentTags",
-		"agent_id":  agentID,
-		"old_tags":  oldTags,
-		"new_tags":  newTags,
-	})
-
-	return oldTags, newTags, nil
 }

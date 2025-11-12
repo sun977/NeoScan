@@ -68,12 +68,12 @@ type AgentRepository interface {
 	GetGroupByGID(groupID string) (*agentModel.AgentGroup, error)                                                         // 获取分组详情
 	GetGroupList(page, pageSize int, tags []string, status int, keywords string) ([]*agentModel.AgentGroup, int64, error) // 获取所有分组列表（分页 + 过滤）
 	CreateGroup(group *agentModel.AgentGroup) error                                                                       // 创建Agent分组
-	UpdateGroup(groupID string, group *agentModel.AgentGroup) error                                                       // 更新Agent分组
+	UpdateGroup(groupID string, group *agentModel.AgentGroup) (*agentModel.AgentGroup, error)                             // 更新Agent分组
 	DeleteGroup(groupID string) error                                                                                     // 删除Agent分组
 	SetGroupStatus(groupID string, status int) error                                                                      // 设置分组状态
 	AddAgentToGroup(agentID string, groupID string) error                                                                 // 将Agent添加到分组
 	RemoveAgentFromGroup(agentID string, groupID string) error                                                            // 从分组中移除Agent
-    GetAgentsInGroup(page, pageSize int, groupID string) ([]*agentModel.Agent, int64, error)                              // 获取分组中的Agent列表（分页）
+	GetAgentsInGroup(page, pageSize int, groupID string) ([]*agentModel.Agent, int64, error)                              // 获取分组中的Agent列表（分页）
 }
 
 // agentRepository Agent仓库实现

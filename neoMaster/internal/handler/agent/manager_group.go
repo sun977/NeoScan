@@ -9,6 +9,8 @@
  * - DeleteAgentGroup（删除分组）
  * - AddAgentToGroup（将Agent添加到分组）
  * - RemoveAgentFromGroup（从分组中移除Agent）
+ * - GetAgentsInGroup （获取分组中的Agent列表）
+ * - SetAgentGroupStatus （设置分组状态 - 激活 禁用分组）
  * 重构策略: 保持原有业务逻辑和返回格式不变，统一成功日志使用 LogBusinessOperation。
  */
 
@@ -21,48 +23,644 @@
 package agent
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 )
 
-// CreateAgentGroup 创建分组（占位实现）
+// getCurrentUserID 从 Gin 上下文中提取当前用户ID
+// 说明：统一在handler层用于审计日志输出，如果不存在则返回0
+func getCurrentUserID(c *gin.Context) uint {
+	if v, ok := c.Get("user_id"); ok {
+		if id, ok2 := v.(uint); ok2 {
+			return id
+		}
+	}
+	return 0
+}
+
+// CreateAgentGroup 创建分组
 func (h *AgentHandler) CreateAgentGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
-	userAgent := c.GetHeader("User-Agent")
-	XRequestID := c.GetHeader("X-Request-ID")
+	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
-	agentID := c.Param("id")
+	// 从上下文获取当前操作用户ID，用于统一审计日志
+	opUserVal, _ := c.Get("user_id")
+	var currentUserID uint
+	if uid, ok := opUserVal.(uint); ok {
+		currentUserID = uid
+	}
 
-	logger.LogBusinessOperation(
-		"create_agent_group",
-		0,
-		"",
-		clientIP,
-		XRequestID,
-		"success",
-		"Agent健康检查占位返回",
-		map[string]interface{}{
-			"func_name":  "handler.agent.HealthCheckAgent",
-			"option":     "placeholder",
+	var req agentModel.AgentGroupCreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// 记录参数绑定失败，同时输出当前用户ID用于审计
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.CreateAgentGroup", pathUrl, map[string]interface{}{
+			"operation": "create_agent_group",
+			"option":    "bind_json",
+			"func_name": "handler.agent.CreateAgentGroup",
+			"path":      pathUrl,
+			"user_id":   currentUserID,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "请求体解析失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	resp, err := h.agentManagerService.CreateAgentGroup(&req)
+	if err != nil {
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.CreateAgentGroup", pathUrl, map[string]interface{}{
+			"operation":  "create_agent_group",
+			"option":     "service_call.CreateAgentGroup",
+			"func_name":  "handler.agent.CreateAgentGroup",
 			"path":       pathUrl,
-			"method":     "GET",
-			"user_agent": userAgent,
-			"agent_id":   agentID,
-		},
-	)
+			"group_id":   req.GroupID,
+			"group_name": req.Name,
+			"user_id":    currentUserID,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "创建分组失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Health check - placeholder",
+		Message: "ok",
+		Data:    resp,
+	})
+
+	logger.LogBusinessOperation(
+		"create_agent_group",
+		currentUserID,
+		pathUrl,
+		clientIP,
+		xRequestID,
+		"success",
+		"Agent分组创建成功",
+		map[string]interface{}{
+			"func_name":  "handler.agent.CreateAgentGroup",
+			"option":     "result.success",
+			"path":       pathUrl,
+			"group_id":   resp.GroupID,
+			"group_name": resp.Name,
+			"user_id":    currentUserID,
+		},
+	)
+}
+
+// UpdateAgentGroup 更新分组信息
+func (h *AgentHandler) UpdateAgentGroup(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	xRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	groupID := c.Param("group_id")
+	// 获取当前用户ID用于统一日志
+	opUserVal, _ := c.Get("user_id")
+	var currentUserID uint
+	if uid, ok := opUserVal.(uint); ok {
+		currentUserID = uid
+	}
+
+	var req agentModel.AgentGroupCreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.UpdateAgentGroup", pathUrl, map[string]interface{}{
+			"operation": "update_agent_group",
+			"option":    "bind_json",
+			"func_name": "handler.agent.UpdateAgentGroup",
+			"group_id":  groupID,
+			"path":      pathUrl,
+			"user_id":   currentUserID,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "请求体解析失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.agentManagerService.UpdateAgentGroup(groupID, &req); err != nil {
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.UpdateAgentGroup", pathUrl, map[string]interface{}{
+			"operation":  "update_agent_group",
+			"option":     "service_call.UpdateAgentGroup",
+			"func_name":  "handler.agent.UpdateAgentGroup",
+			"group_id":   groupID,
+			"group_name": req.Name,
+			"path":       pathUrl,
+			"user_id":    currentUserID,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "更新分组失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ok",
+	})
+
+	logger.LogBusinessOperation(
+		"update_agent_group",
+		getCurrentUserID(c),
+		pathUrl,
+		clientIP,
+		xRequestID,
+		"success",
+		"Agent分组更新成功",
+		map[string]interface{}{
+			"func_name":  "handler.agent.UpdateAgentGroup",
+			"option":     "result.success",
+			"group_id":   groupID,
+			"group_name": req.Name,
+			"path":       pathUrl,
+			"user_id":    getCurrentUserID(c),
+		},
+	)
+}
+
+// DeleteAgentGroup 删除分组
+func (h *AgentHandler) DeleteAgentGroup(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	xRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	groupID := c.Param("group_id")
+	// 获取当前用户ID用于统一日志
+	opUserVal, _ := c.Get("user_id")
+	var currentUserID uint
+	if uid, ok := opUserVal.(uint); ok {
+		currentUserID = uid
+	}
+
+	if err := h.agentManagerService.DeleteAgentGroup(groupID); err != nil {
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.DeleteAgentGroup", pathUrl, map[string]interface{}{
+			"operation": "delete_agent_group",
+			"option":    "service_call.DeleteAgentGroup",
+			"func_name": "handler.agent.DeleteAgentGroup",
+			"group_id":  groupID,
+			"path":      pathUrl,
+			"user_id":   currentUserID,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "删除分组失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ok",
+	})
+
+	logger.LogBusinessOperation(
+		"delete_agent_group",
+		currentUserID,
+		pathUrl,
+		clientIP,
+		xRequestID,
+		"success",
+		"Agent分组删除成功",
+		map[string]interface{}{
+			"func_name": "handler.agent.DeleteAgentGroup",
+			"option":    "result.success",
+			"group_id":  groupID,
+			"path":      pathUrl,
+			"user_id":   currentUserID,
+		},
+	)
+}
+
+// AddAgentToGroup 将Agent添加到分组
+func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	xRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	agentID := c.Param("id")
+	// 获取当前用户ID用于统一日志
+	opUserVal, _ := c.Get("user_id")
+	var currentUserID uint
+	if uid, ok := opUserVal.(uint); ok {
+		currentUserID = uid
+	}
+
+	var body struct {
+		GroupID string `json:"group_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.GroupID == "" {
+		err := fmt.Errorf("group_id不能为空")
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.AddAgentToGroup", pathUrl, map[string]interface{}{
+			"operation": "add_agent_to_group",
+			"option":    "bind_json",
+			"func_name": "handler.agent.AddAgentToGroup",
+			"group_id":  body.GroupID,
+			"agent_id":  agentID,
+			"path":      pathUrl,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "请求体解析失败或缺少group_id",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	req := agentModel.AgentGroupMemberRequest{AgentID: agentID, GroupID: body.GroupID}
+	if err := h.agentManagerService.AddAgentToGroup(&req); err != nil {
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, "handler.agent.AddAgentToGroup", pathUrl, map[string]interface{}{
+			"operation": "add_agent_to_group",
+			"option":    "service_call.AddAgentToGroup",
+			"func_name": "handler.agent.AddAgentToGroup",
+			"group_id":  body.GroupID,
+			"agent_id":  agentID,
+			"path":      pathUrl,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "添加Agent到分组失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ok",
+	})
+
+	logger.LogBusinessOperation(
+		"add_agent_to_group",
+		getCurrentUserID(c),
+		pathUrl,
+		clientIP,
+		xRequestID,
+		"success",
+		"Agent添加到分组成功",
+		map[string]interface{}{
+			"func_name": "handler.agent.AddAgentToGroup",
+			"option":    "result.success",
+			"group_id":  body.GroupID,
+			"agent_id":  agentID,
+			"path":      pathUrl,
+		},
+	)
+}
+
+// RemoveAgentFromGroup 从分组移除Agent
+func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	xRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	agentID := c.Param("id")
+	groupID := c.Param("group_id")
+
+	req := agentModel.AgentGroupMemberRequest{AgentID: agentID, GroupID: groupID}
+	if err := h.agentManagerService.RemoveAgentFromGroup(&req); err != nil {
+		logger.LogBusinessError(err, clientIP, 0, xRequestID, "handler.agent.RemoveAgentFromGroup", pathUrl, map[string]interface{}{
+			"operation": "remove_agent_from_group",
+			"option":    "service_call.RemoveAgentFromGroup",
+			"func_name": "handler.agent.RemoveAgentFromGroup",
+			"group_id":  groupID,
+			"agent_id":  agentID,
+			"path":      pathUrl,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "从分组移除Agent失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ok",
+	})
+
+	logger.LogBusinessOperation(
+		"remove_agent_from_group",
+		getCurrentUserID(c),
+		pathUrl,
+		clientIP,
+		xRequestID,
+		"success",
+		"Agent从分组移除成功",
+		map[string]interface{}{
+			"func_name": "handler.agent.RemoveAgentFromGroup",
+			"option":    "result.success",
+			"group_id":  groupID,
+			"agent_id":  agentID,
+			"path":      pathUrl,
+		},
+	)
+}
+
+// GetAgentsInGroup 获取分组成员（分页形参）
+func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	xRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	groupID := c.Query("group_id")
+	pageStr := c.DefaultQuery("page", "1")
+	pageSizeStr := c.DefaultQuery("page_size", "10")
+	page, _ := strconv.Atoi(pageStr)
+	pageSize, _ := strconv.Atoi(pageSizeStr)
+
+	infos, err := h.agentManagerService.GetAgentsInGroup(page, pageSize, groupID)
+	if err != nil {
+		logger.LogBusinessError(err, clientIP, 0, xRequestID, "handler.agent.GetAgentsInGroup", pathUrl, map[string]interface{}{
+			"operation": "get_group_members",
+			"option":    "service_call.GetAgentsInGroup",
+			"func_name": "handler.agent.GetAgentsInGroup",
+			"group_id":  groupID,
+			"page":      page,
+			"page_size": pageSize,
+			"path":      pathUrl,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "获取分组成员失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ok",
 		Data: map[string]interface{}{
-			"agent_id": agentID,
-			"healthy":  true,
+			"members":   infos,
+			"page":      page,
+			"page_size": pageSize,
 		},
 	})
+
+	logger.LogBusinessOperation(
+		"get_group_members",
+		getCurrentUserID(c),
+		pathUrl,
+		clientIP,
+		xRequestID,
+		"success",
+		"分组成员获取成功",
+		map[string]interface{}{
+			"func_name": "handler.agent.GetAgentsInGroup",
+			"option":    "result.success",
+			"group_id":  groupID,
+			"page":      page,
+			"page_size": pageSize,
+			"count":     len(infos),
+		},
+	)
+}
+
+// GetAgentGroupList 获取分组列表（分页与筛选）
+// 说明：从查询参数读取 page/page_size/tags/status/keywords，调用 Service 层形参方法，返回统一分页响应
+func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	xRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	// 解析查询参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	statusStr := c.DefaultQuery("status", "")
+	keywords := c.DefaultQuery("keywords", "")
+	// 标签过滤参数处理 - 支持逗号分隔的标签值
+	// 例如: tags=2,7 或 tags=2&tags=7 两种格式都支持
+	tags := c.QueryArray("tags") // 支持 ?tags=a&tags=b
+
+	status := -1
+	if statusStr == "0" || statusStr == "1" {
+		s, _ := strconv.Atoi(statusStr)
+		status = s
+	}
+
+	// 调用 Service
+	resp, err := h.agentManagerService.GetAgentGroupList(page, pageSize, tags, status, keywords)
+	if err != nil {
+		logger.LogBusinessError(err, clientIP, 0, xRequestID, "handler.agent.GetAgentGroupList", pathUrl, map[string]interface{}{
+			"operation": "get_agent_groups",
+			"option":    "service_call.GetAgentGroupList",
+			"func_name": "handler.agent.GetAgentGroupList",
+			"path":      pathUrl,
+			"page":      page,
+			"page_size": pageSize,
+			"status":    status,
+			"keywords":  keywords,
+			"tags":      tags,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "获取分组列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 适配统一分页响应（用 system.PaginationResponse 包装）
+	total := resp.Pagination.Total
+	totalPages := resp.Pagination.TotalPages
+	hasNext := page < totalPages
+	hasPrev := page > 1
+
+	// 组装分页响应数据
+	data := map[string]interface{}{
+		"groups": resp.Groups,
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ok",
+		Data: system.PaginationResponse{
+			Total:       total,
+			Page:        page,
+			PageSize:    pageSize,
+			TotalPages:  totalPages,
+			HasNext:     hasNext,
+			HasPrevious: hasPrev,
+			Data:        data,
+		},
+	})
+
+	logger.LogBusinessOperation(
+		"get_agent_groups",
+		getCurrentUserID(c),
+		pathUrl,
+		clientIP,
+		xRequestID,
+		"success",
+		"Agent分组列表获取成功",
+		map[string]interface{}{
+			"func_name": "handler.agent.GetAgentGroupList",
+			"option":    "result.success",
+			"path":      pathUrl,
+			"page":      page,
+			"page_size": pageSize,
+			"status":    status,
+			"keywords":  keywords,
+			"tags":      tags,
+			"count":     len(resp.Groups),
+			"total":     total,
+		},
+	)
+}
+
+// SetAgentGroupStatus 设置分组状态（激活/禁用）
+// 说明：从查询参数读取 group_id/status，调用 Service 层形参方法，返回统一响应
+func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	xRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	groupID := c.Query("group_id")
+	statusStr := c.Query("status")
+
+	if groupID == "" || statusStr == "" {
+		err := fmt.Errorf("group_id或status不能为空")
+		logger.LogBusinessError(err, clientIP, 0, xRequestID, pathUrl, pathUrl, map[string]interface{}{
+			"operation": "set_group_status",
+			"option":    "parameter_validation",
+			"func_name": "handler.agent.SetAgentGroupStatus",
+			"group_id":  groupID,
+			"status":    statusStr,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "参数校验失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// 从上下文获取当前操作用户ID（用于审计日志）
+	opUserID, exists := c.Get("user_id")
+	if !exists {
+		logger.LogBusinessError(errors.New("unauthorized access"), "", 0, "", "set_group_status", "HANDLER", map[string]interface{}{
+			"operation": "set_group_status",
+			"error":     "unauthorized",
+			"group_id":  groupID,
+			"status":    statusStr,
+		})
+		c.JSON(http.StatusUnauthorized, system.APIResponse{
+			Code:    http.StatusUnauthorized,
+			Status:  "failed",
+			Message: "未授权访问",
+		})
+		return
+	}
+
+	// 类型断言检查
+	currentUserID, ok := opUserID.(uint)
+	if !ok {
+		logger.LogBusinessError(errors.New("invalid user ID type"), "", 0, "", "set_group_status", "HANDLER", map[string]interface{}{
+			"operation":       "set_group_status",
+			"error":           "invalid_user_id_type",
+			"target_group_id": groupID,
+			"user_id_value":   currentUserID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "服务器内部错误",
+		})
+		return
+	}
+
+	status, convErr := strconv.Atoi(statusStr)
+	if convErr != nil || (status != 0 && status != 1) {
+		err := fmt.Errorf("status必须为0或1")
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, pathUrl, pathUrl, map[string]interface{}{
+			"operation": "set_group_status",
+			"option":    "parameter_validation",
+			"func_name": "handler.agent.SetAgentGroupStatus",
+			"group_id":  groupID,
+			"status":    statusStr,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "参数status不合法",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.agentManagerService.SetAgentGroupStatus(groupID, status); err != nil {
+		logger.LogBusinessError(err, clientIP, currentUserID, xRequestID, pathUrl, pathUrl, map[string]interface{}{
+			"operation": "set_group_status",
+			"option":    "service_call.SetGroupStatus",
+			"func_name": "handler.agent.SetAgentGroupStatus",
+			"group_id":  groupID,
+			"status":    status,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "设置分组状态失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ok",
+		Data: map[string]interface{}{
+			"group_id": groupID,
+			"status":   status,
+		},
+	})
+
+	logger.LogBusinessOperation(
+		"set_group_status",
+		currentUserID,
+		"",
+		clientIP,
+		xRequestID,
+		"success",
+		"设置分组状态成功",
+		map[string]interface{}{
+			"func_name": "handler.agent.SetAgentGroupStatus",
+			"option":    "result.success",
+			"group_id":  groupID,
+			"status":    status,
+			"path":      pathUrl,
+		},
+	)
 }

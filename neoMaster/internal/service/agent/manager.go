@@ -682,6 +682,7 @@ func (s *agentManagerService) DeleteAgentGroup(groupID string) error {
 		return err
 	}
 
+	// 调用仓储层删除分组 - 仓储层默认把该分组下所有成员迁移至默认分组
 	if err := s.agentRepo.DeleteGroup(groupID); err != nil {
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.DeleteAgentGroup", "", map[string]interface{}{
 			"operation": "delete_agent_group",

@@ -182,6 +182,7 @@ func (h *AgentHandler) DeleteAgentGroup(c *gin.Context) {
 	method := c.Request.Method
 	groupID := c.Param("group_id")
 
+	// 调用service层删除分组 - 服务层默认把该分组下所有成员迁移至默认分组
 	if err := h.agentManagerService.DeleteAgentGroup(groupID); err != nil {
 		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
 			"operation": "delete_agent_group",
@@ -202,7 +203,7 @@ func (h *AgentHandler) DeleteAgentGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "删分组成功",
+		Message: "删除分组成功,组成员已迁移至默认分组",
 		Data:    map[string]interface{}{"group_id": groupID},
 	})
 

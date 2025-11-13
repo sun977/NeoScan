@@ -194,6 +194,7 @@ func (h *AgentHandler) DeleteAgentGroup(c *gin.Context) {
 			Status:  "failed",
 			Message: "删除分组失败",
 			Error:   err.Error(),
+			Data:    map[string]interface{}{"group_id": groupID},
 		})
 		return
 	}
@@ -201,7 +202,8 @@ func (h *AgentHandler) DeleteAgentGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
+		Message: "删分组成功",
+		Data:    map[string]interface{}{"group_id": groupID},
 	})
 
 	logger.LogBusinessOperation(
@@ -230,6 +232,7 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 	method := c.Request.Method
 	agentID := c.Param("id")
 
+	// 分组ID在请求体中
 	var body struct {
 		GroupID string `json:"group_id"`
 	}
@@ -239,6 +242,7 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 			"operation": "add_agent_to_group",
 			"option":    "bind_json",
 			"func_name": "handler.agent.AddAgentToGroup",
+			"agent_id":  agentID,
 			"group_id":  body.GroupID,
 		})
 		c.JSON(http.StatusOK, system.APIResponse{
@@ -256,6 +260,7 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 			"operation": "add_agent_to_group",
 			"option":    "service_call.AddAgentToGroup",
 			"func_name": "handler.agent.AddAgentToGroup",
+			"agent_id":  agentID,
 			"group_id":  body.GroupID,
 		})
 		c.JSON(http.StatusOK, system.APIResponse{
@@ -270,7 +275,11 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
+		Message: "添加Agent到分组成功",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+			"group_id": body.GroupID,
+		},
 	})
 
 	logger.LogBusinessOperation(
@@ -292,14 +301,15 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 }
 
 // RemoveAgentFromGroup 从分组移除Agent
+// :id/groups/:group_id
 func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	method := c.Request.Method
-	agentID := c.Param("id")
-	groupID := c.Param("group_id")
+	agentID := c.Param("id")       // AgentID在URL中
+	groupID := c.Param("group_id") // 分组ID在URL中
 
 	req := agentModel.AgentGroupMemberRequest{AgentID: agentID, GroupID: groupID}
 	if err := h.agentManagerService.RemoveAgentFromGroup(&req); err != nil {
@@ -307,6 +317,7 @@ func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 			"operation": "remove_agent_from_group",
 			"option":    "service_call.RemoveAgentFromGroup",
 			"func_name": "handler.agent.RemoveAgentFromGroup",
+			"agent_id":  agentID,
 			"group_id":  groupID,
 		})
 		c.JSON(http.StatusOK, system.APIResponse{
@@ -314,6 +325,7 @@ func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 			Status:  "failed",
 			Message: "从分组移除Agent失败",
 			Error:   err.Error(),
+			Data:    map[string]interface{}{"agent_id": agentID, "group_id": groupID},
 		})
 		return
 	}
@@ -321,7 +333,11 @@ func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
+		Message: "从分组移除Agent成功",
+		Data: map[string]interface{}{
+			"agent_id": agentID,
+			"group_id": groupID,
+		},
 	})
 
 	logger.LogBusinessOperation(
@@ -349,9 +365,9 @@ func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	method := c.Request.Method
-	groupID := c.Query("group_id")
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "10")
+	groupID := c.Query("group_id")                   // 分组ID在查询参数中
+	pageStr := c.DefaultQuery("page", "1")           // 分页参数，默认第1页
+	pageSizeStr := c.DefaultQuery("page_size", "10") //	分页参数，默认每页10条
 	page, _ := strconv.Atoi(pageStr)
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
@@ -568,10 +584,10 @@ func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
+		Message: "分组状态设置成功",
 		Data: map[string]interface{}{
-			"group_id": groupID,
-			"status":   status,
+			"group_id":   groupID,
+			"new_status": status,
 		},
 	})
 

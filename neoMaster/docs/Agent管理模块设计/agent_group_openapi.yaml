@@ -1,0 +1,599 @@
+openapi: 3.0.3
+info:
+  title: Agent分组管理API
+  description: Agent分组管理相关接口，包括创建、更新、删除分组，以及管理分组中的Agent成员
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@neoscan.com
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+  - url: https://api.neoscan.com
+    description: 生产环境
+
+paths:
+  /api/agents/groups:
+    get:
+      summary: 获取分组列表
+      description: 获取Agent分组列表，支持分页、状态过滤、关键词搜索和标签过滤
+      operationId: getAgentGroupList
+      tags:
+        - Agent分组管理
+      parameters:
+        - name: page
+          in: query
+          description: 页码，默认为1
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页数量，默认为10
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: 分组状态：1=激活，0=禁用，-1=全部
+          required: false
+          schema:
+            type: integer
+            enum: [-1, 0, 1]
+            default: -1
+        - name: keywords
+          in: query
+          description: 关键词搜索（分组名称、描述）
+          required: false
+          schema:
+            type: string
+        - name: tags
+          in: query
+          description: 标签过滤，支持多个标签
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: 成功获取分组列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: 创建分组
+      description: 创建新的Agent分组
+      operationId: createAgentGroup
+      tags:
+        - Agent分组管理
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '200':
+          description: 分组创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/agents/groups/{group_id}:
+    put:
+      summary: 更新分组
+      description: 更新指定分组的信息
+      operationId: updateAgentGroup
+      tags:
+        - Agent分组管理
+      parameters:
+        - name: group_id
+          in: path
+          description: 分组ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: 分组更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: 删除分组
+      description: 删除指定分组，分组中的Agent会被迁移到默认分组
+      operationId: deleteAgentGroup
+      tags:
+        - Agent分组管理
+      parameters:
+        - name: group_id
+          in: path
+          description: 分组ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 分组删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteGroupResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/agents/groups/{group_id}/status:
+    put:
+      summary: 设置分组状态
+      description: 设置分组的激活/禁用状态
+      operationId: setAgentGroupStatus
+      tags:
+        - Agent分组管理
+      parameters:
+        - name: group_id
+          in: path
+          description: 分组ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetStatusRequest'
+      responses:
+        '200':
+          description: 分组状态设置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetStatusResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/agents/{id}/groups:
+    post:
+      summary: 添加Agent到分组
+      description: 将指定Agent添加到指定分组
+      operationId: addAgentToGroup
+      tags:
+        - Agent分组管理
+      parameters:
+        - name: id
+          in: path
+          description: Agent业务ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddAgentToGroupRequest'
+      responses:
+        '200':
+          description: 添加Agent到分组成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddAgentToGroupResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/agents/{id}/groups/{group_id}:
+    delete:
+      summary: 从分组移除Agent
+      description: 从指定分组中移除指定Agent
+      operationId: removeAgentFromGroup
+      tags:
+        - Agent分组管理
+      parameters:
+        - name: id
+          in: path
+          description: Agent业务ID
+          required: true
+          schema:
+            type: string
+        - name: group_id
+          in: path
+          description: 分组ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 从分组移除Agent成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoveAgentFromGroupResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/agents/group/members:
+    get:
+      summary: 获取分组中的Agent列表
+      description: 获取指定分组中的Agent成员列表，支持分页
+      operationId: getAgentsInGroup
+      tags:
+        - Agent分组管理
+      parameters:
+        - name: group_id
+          in: query
+          description: 分组ID
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: 页码，默认为1
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页数量，默认为10
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: 成功获取分组成员列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMembersResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # 基础响应模型
+    BaseResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 响应码
+        status:
+          type: string
+          description: 响应状态
+        message:
+          type: string
+          description: 响应消息
+      required:
+        - code
+        - status
+        - message
+
+    # 错误响应
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            error:
+              type: string
+              description: 错误详情
+
+    # 分页信息
+    PaginationInfo:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+          description: 总记录数
+        page:
+          type: integer
+          description: 当前页码
+        page_size:
+          type: integer
+          description: 每页数量
+        total_pages:
+          type: integer
+          description: 总页数
+        has_next:
+          type: boolean
+          description: 是否有下一页
+        has_previous:
+          type: boolean
+          description: 是否有上一页
+
+    # 分组模型
+    AgentGroup:
+      type: object
+      properties:
+        group_id:
+          type: string
+          description: 分组唯一标识
+        name:
+          type: string
+          description: 分组名称
+        description:
+          type: string
+          description: 分组描述
+        status:
+          type: integer
+          description: 分组状态：1=激活，0=禁用
+          enum: [0, 1]
+        tags:
+          type: array
+          items:
+            type: string
+          description: 分组标签列表
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+      required:
+        - group_id
+        - name
+        - status
+
+    # 创建分组请求
+    CreateGroupRequest:
+      type: object
+      properties:
+        group_id:
+          type: string
+          description: 分组唯一标识
+        name:
+          type: string
+          description: 分组名称
+        description:
+          type: string
+          description: 分组描述
+        status:
+          type: integer
+          description: 分组状态：1=激活，0=禁用
+          enum: [0, 1]
+          default: 1
+        tags:
+          type: array
+          items:
+            type: string
+          description: 分组标签列表
+      required:
+        - group_id
+        - name
+
+    # 更新分组请求
+    UpdateGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 分组名称
+        description:
+          type: string
+          description: 分组描述
+        status:
+          type: integer
+          description: 分组状态：1=激活，0=禁用
+          enum: [0, 1]
+        tags:
+          type: array
+          items:
+            type: string
+          description: 分组标签列表
+
+    # 设置状态请求
+    SetStatusRequest:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: 分组状态：0=禁用，1=激活
+          enum: [0, 1]
+      required:
+        - status
+
+    # 添加Agent到分组请求
+    AddAgentToGroupRequest:
+      type: object
+      properties:
+        group_id:
+          type: string
+          description: 目标分组ID
+      required:
+        - group_id
+
+    # 分组列表响应
+    GroupListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                groups:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AgentGroup'
+                pagination:
+                  $ref: '#/components/schemas/PaginationInfo'
+
+    # 单个分组响应
+    GroupResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AgentGroup'
+
+    # 删除分组响应
+    DeleteGroupResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                group_id:
+                  type: string
+                  description: 被删除的分组ID
+
+    # 设置状态响应
+    SetStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                group_id:
+                  type: string
+                  description: 分组ID
+                new_status:
+                  type: integer
+                  description: 新的状态值
+
+    # 添加Agent到分组响应
+    AddAgentToGroupResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                agent_id:
+                  type: string
+                  description: Agent业务ID
+                group_id:
+                  type: string
+                  description: 分组ID
+
+    # 从分组移除Agent响应
+    RemoveAgentFromGroupResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                agent_id:
+                  type: string
+                  description: Agent业务ID
+                group_id:
+                  type: string
+                  description: 分组ID
+
+    # Agent模型
+    Agent:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Agent业务ID
+        hostname:
+          type: string
+          description: 主机名
+        ip_address:
+          type: string
+          description: IP地址
+        status:
+          type: string
+          description: Agent状态
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: 最后心跳时间
+
+    # 分组成员响应
+    GroupMembersResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                members:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Agent'
+                page:
+                  type: integer
+                  description: 当前页码
+                page_size:
+                  type: integer
+                  description: 每页数量
+
+tags:
+  - name: Agent分组管理
+    description: Agent分组管理相关接口

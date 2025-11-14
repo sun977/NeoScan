@@ -72,8 +72,9 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		// ==================== Agent分组和标签管理路由（✅ Master端完全独立实现 - 元数据管理） ====================
 		// ----- 分组管理 -----
 		agentManageGroup.GET("/groups", r.agentHandler.GetAgentGroupList)                     // ✅ 获取Agent分组列表 [Master端查询分组表]
+		agentManageGroup.GET("/groups/members", r.agentHandler.GetAgentsInGroup)              // ✅ 获取Agent分组成员列表 [Master端查询分组成员表]
 		agentManageGroup.POST("/groups", r.agentHandler.CreateAgentGroup)                     // ✅ 创建Agent分组 [Master端创建分组记录]
-		agentManageGroup.PUT("/groups/:group_id", r.agentHandler.UpdateAgentGroup)            // ✅ 更新Agent分组 [Master端更新分组信息]
+		agentManageGroup.PUT("/groups/:group_id", r.agentHandler.UpdateAgentGroup)            // ✅ 更新Agent分组 [Master端更新分组信息] (可以修改分组启用状态,但是不返回)
 		agentManageGroup.DELETE("/groups/:group_id", r.agentHandler.DeleteAgentGroup)         // ✅ 删除Agent分组 [Master端删除分组及关联]
 		agentManageGroup.PUT("/groups/:group_id/status", r.agentHandler.SetAgentGroupStatus)  // ✅ 设置Agent分组状态（激活/停用） [Master端更新分组状态]
 		agentManageGroup.POST("/:id/groups", r.agentHandler.AddAgentToGroup)                  // ✅ 将Agent添加到分组 [Master端更新Agent分组关系]

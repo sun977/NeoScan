@@ -329,6 +329,7 @@ func (h *AgentHandler) RemoveAgentFromGroup(c *gin.Context) {
 		return
 	}
 
+	// 返回成功响应
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",

@@ -81,7 +81,7 @@ func (h *AgentHandler) CreateAgentGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
+		Message: "分组创建成功",
 		Data:    resp,
 	})
 
@@ -151,7 +151,7 @@ func (h *AgentHandler) UpdateAgentGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "更新成功",
+		Message: "分组信息更新成功",
 		Data:    resp,
 	})
 

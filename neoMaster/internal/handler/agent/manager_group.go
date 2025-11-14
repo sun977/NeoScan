@@ -256,7 +256,8 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 	}
 
 	req := agentModel.AgentGroupMemberRequest{AgentID: agentID, GroupID: body.GroupID}
-	if err := h.agentManagerService.AddAgentToGroup(&req); err != nil {
+	resp, err := h.agentManagerService.AddAgentToGroup(&req)
+	if err != nil {
 		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
 			"operation": "add_agent_to_group",
 			"option":    "service_call.AddAgentToGroup",
@@ -277,10 +278,7 @@ func (h *AgentHandler) AddAgentToGroup(c *gin.Context) {
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "添加Agent到分组成功",
-		Data: map[string]interface{}{
-			"agent_id": agentID,
-			"group_id": body.GroupID,
-		},
+		Data:    resp,
 	})
 
 	logger.LogBusinessOperation(

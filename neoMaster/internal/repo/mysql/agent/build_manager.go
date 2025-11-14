@@ -71,7 +71,7 @@ type AgentRepository interface {
 	UpdateGroup(groupID string, group *agentModel.AgentGroup) (*agentModel.AgentGroup, error)                             // 更新Agent分组
 	DeleteGroup(groupID string) error                                                                                     // 删除Agent分组
 	SetGroupStatus(groupID string, status int) error                                                                      // 设置分组状态
-	AddAgentToGroup(agentID string, groupID string) error                                                                 // 将Agent添加到分组
+	AddAgentToGroup(agentID string, groupID string) (*agentModel.AgentGroupMember, error)                                 // 将Agent添加到分组
 	RemoveAgentFromGroup(agentID string, groupID string) error                                                            // 从分组中移除Agent
 	GetAgentsInGroup(page, pageSize int, groupID string) ([]*agentModel.Agent, int64, error)                              // 获取分组中的Agent列表（分页）
 }

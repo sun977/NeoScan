@@ -685,29 +685,29 @@ func (r *agentRepository) RemoveAgentFromGroup(agentID string, groupID string) e
 		return gorm.ErrInvalidData
 	}
 
-	// 校验关系是否存在
-	var count int64
-	if err := r.db.Model(&agentModel.AgentGroupMember{}).Where("agent_id = ? AND group_id = ?", agentID, groupID).Count(&count).Error; err != nil {
-		logger.LogError(err, "", 0, "", "repo.mysql.agent.RemoveAgentFromGroup", "", map[string]interface{}{
-			"operation": "remove_agent_from_group",
-			"option":    "db.Count(agent_group_members)",
-			"func_name": "repo.mysql.agent.RemoveAgentFromGroup",
-			"agent_id":  agentID,
-			"group_id":  groupID,
-		})
-		return err
-	}
-	if count == 0 {
-		// 幂等返回：成员关系不存在
-		logger.LogInfo("Relation not exists, skip remove", "", 0, "", "repo.mysql.agent.RemoveAgentFromGroup", "", map[string]interface{}{
-			"operation": "remove_agent_from_group",
-			"option":    "idempotent.skip",
-			"func_name": "repo.mysql.agent.RemoveAgentFromGroup",
-			"agent_id":  agentID,
-			"group_id":  groupID,
-		})
-		return nil
-	}
+	// // 校验关系是否存在 - 上层已经校验
+	// var count int64
+	// if err := r.db.Model(&agentModel.AgentGroupMember{}).Where("agent_id = ? AND group_id = ?", agentID, groupID).Count(&count).Error; err != nil {
+	// 	logger.LogError(err, "", 0, "", "repo.mysql.agent.RemoveAgentFromGroup", "", map[string]interface{}{
+	// 		"operation": "remove_agent_from_group",
+	// 		"option":    "db.Count(agent_group_members)",
+	// 		"func_name": "repo.mysql.agent.RemoveAgentFromGroup",
+	// 		"agent_id":  agentID,
+	// 		"group_id":  groupID,
+	// 	})
+	// 	return err
+	// }
+	// if count == 0 {
+	// 	// 幂等返回：成员关系不存在
+	// 	logger.LogInfo("Relation not exists, skip remove", "", 0, "", "repo.mysql.agent.RemoveAgentFromGroup", "", map[string]interface{}{
+	// 		"operation": "remove_agent_from_group",
+	// 		"option":    "idempotent.skip",
+	// 		"func_name": "repo.mysql.agent.RemoveAgentFromGroup",
+	// 		"agent_id":  agentID,
+	// 		"group_id":  groupID,
+	// 	})
+	// 	return nil
+	// }
 
 	// 执行删除
 	if err := r.db.Where("agent_id = ? AND group_id = ?", agentID, groupID).Delete(&agentModel.AgentGroupMember{}).Error; err != nil {

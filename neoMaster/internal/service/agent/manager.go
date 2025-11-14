@@ -823,6 +823,20 @@ func (s *agentManagerService) RemoveAgentFromGroup(req *agentModel.AgentGroupMem
 		return err
 	}
 
+	// 校验成员关系记录是否存在
+	if !s.agentRepo.IsAgentInGroup(req.AgentID, req.GroupID) {
+		err := fmt.Errorf("agent不存在于分组,无法移除: %s", req.GroupID)
+		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RemoveAgentFromGroup", "", map[string]interface{}{
+			"operation": "remove_agent_from_group",
+			"option":    "validate.agent_in_group",
+			"func_name": "service.agent.manager.RemoveAgentFromGroup",
+			"group_id":  req.GroupID,
+			"agent_id":  req.AgentID,
+		})
+		return err
+	}
+
+	// 执行移除动作
 	if err := s.agentRepo.RemoveAgentFromGroup(req.AgentID, req.GroupID); err != nil {
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RemoveAgentFromGroup", "", map[string]interface{}{
 			"operation": "remove_agent_from_group",

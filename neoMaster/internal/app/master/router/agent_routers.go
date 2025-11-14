@@ -70,6 +70,7 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.GET("/capacity", r.agentGetCapacityPlaceholder)        // ✅ 获取Agent容量分析 [Master端计算：可用容量、扩容建议]
 
 		// ==================== Agent分组和标签管理路由（✅ Master端完全独立实现 - 元数据管理） ====================
+		// ----- 分组管理 -----
 		agentManageGroup.GET("/groups", r.agentHandler.GetAgentGroupList)                     // ✅ 获取Agent分组列表 [Master端查询分组表]
 		agentManageGroup.POST("/groups", r.agentHandler.CreateAgentGroup)                     // ✅ 创建Agent分组 [Master端创建分组记录]
 		agentManageGroup.PUT("/groups/:group_id", r.agentHandler.UpdateAgentGroup)            // ✅ 更新Agent分组 [Master端更新分组信息]
@@ -77,7 +78,7 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.PUT("/groups/:group_id/status", r.agentHandler.SetAgentGroupStatus)  // ✅ 设置Agent分组状态（激活/停用） [Master端更新分组状态]
 		agentManageGroup.POST("/:id/groups", r.agentHandler.AddAgentToGroup)                  // ✅ 将Agent添加到分组 [Master端更新Agent分组关系]
 		agentManageGroup.DELETE("/:id/groups/:group_id", r.agentHandler.RemoveAgentFromGroup) // ✅ 从分组中移除Agent [Master端删除分组关系]
-		// 标签管理：对齐已实现的 Handler 方法
+		// ----- 标签管理 -----
 		agentManageGroup.GET("/:id/tags", r.agentHandler.GetAgentTags)      // ✅ 获取Agent标签 [Master端查询Agent标签]
 		agentManageGroup.POST("/:id/tags", r.agentHandler.AddAgentTag)      // ✅ 添加Agent标签 [Master端更新单个标签]
 		agentManageGroup.PUT("/:id/tags", r.agentHandler.UpdateAgentTags)   // ✅ 更新Agent标签列表（覆盖更新为指定列表）
@@ -332,73 +333,11 @@ func (r *Router) agentGetCapacityPlaceholder(c *gin.Context) {
 // ==================== Agent分组和标签管理占位符（Master端独立实现） ====================
 
 // agentGetGroupsPlaceholder 获取Agent分组列表占位符
-func (r *Router) agentGetGroupsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent分组列表功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentCreateGroupPlaceholder 创建Agent分组占位符
-func (r *Router) agentCreateGroupPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "创建Agent分组功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentUpdateGroupPlaceholder 更新Agent分组占位符
-func (r *Router) agentUpdateGroupPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "更新Agent分组功能待实现",
-		"status":    "placeholder",
-		"group_id":  c.Param("group_id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentDeleteGroupPlaceholder 删除Agent分组占位符
-func (r *Router) agentDeleteGroupPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "删除Agent分组功能待实现",
-		"status":    "placeholder",
-		"group_id":  c.Param("group_id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-func (r *Router) agentActivateGroupPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "激活Agent分组功能待实现",
-		"status":    "placeholder",
-		"group_id":  c.Param("group_id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentAddToGroupPlaceholder 将Agent添加到分组占位符
-func (r *Router) agentAddToGroupPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "将Agent添加到分组功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentRemoveFromGroupPlaceholder 从分组中移除Agent占位符
-func (r *Router) agentRemoveFromGroupPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "从分组中移除Agent功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"group_id":  c.Param("group_id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentGetTagsPlaceholder 获取Agent标签占位符
 // agentAddTagsPlaceholder 添加Agent标签占位符
 

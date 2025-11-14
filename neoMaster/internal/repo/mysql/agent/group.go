@@ -575,7 +575,7 @@ func (r *agentRepository) SetGroupStatus(groupID string, status int) error {
 }
 
 // AddAgentToGroup 将Agent添加到分组
-func (r *agentRepository) AddAgentToGroup(agentID string, groupID string) error {
+func (r *agentRepository) AddAgentToGroup(agentID string, groupID string) (*agentModel.AgentGroupMember, error) {
 	// 将 Agent 加入到指定分组
 	// 1) 分组必须存在；
 	// 2) 分组若为禁用状态（status=0），不允许新增成员，以避免向“冻结”分组添加数据；
@@ -590,56 +590,56 @@ func (r *agentRepository) AddAgentToGroup(agentID string, groupID string) error 
 			"agent_id":  agentID,
 			"group_id":  groupID,
 		})
-		return gorm.ErrInvalidData
+		return nil, gorm.ErrInvalidData
 	}
 
-	// 校验分组存在性
-	var group agentModel.AgentGroup
-	if err := r.db.Where("group_id = ?", groupID).First(&group).Error; err != nil {
-		logger.LogError(err, "", 0, "", "repo.mysql.agent.AddAgentToGroup", "", map[string]interface{}{
-			"operation": "add_agent_to_group",
-			"option":    "db.First(agent_groups)",
-			"func_name": "repo.mysql.agent.AddAgentToGroup",
-			"group_id":  groupID,
-			"agent_id":  agentID,
-		})
-		return err
-	}
-	// 禁用分组不可添加成员
-	if group.Status == 0 {
-		logger.LogError(gorm.ErrInvalidData, "", 0, "", "repo.mysql.agent.AddAgentToGroup", "", map[string]interface{}{
-			"operation":    "add_agent_to_group",
-			"option":       "validate.group_status",
-			"func_name":    "repo.mysql.agent.AddAgentToGroup",
-			"group_id":     groupID,
-			"agent_id":     agentID,
-			"group_status": group.Status,
-		})
-		return gorm.ErrInvalidData
-	}
-	// 校验Agent存在性
-	var agent agentModel.Agent
-	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
-		logger.LogError(err, "", 0, "", "repo.mysql.agent.AddAgentToGroup", "", map[string]interface{}{
-			"operation": "add_agent_to_group",
-			"option":    "db.First(agents)",
-			"func_name": "repo.mysql.agent.AddAgentToGroup",
-			"agent_id":  agentID,
-			"group_id":  groupID,
-		})
-		return err
-	}
-	// 幂等：存在关系则忽略(若已在分组中，直接返回成功)
-	if r.IsAgentInGroup(agentID, groupID) {
-		logger.LogInfo("agent already in group, skip", "", 0, "", "repo.agent.AddAgentToGroup", "", map[string]interface{}{
-			"operation": "add_agent_to_group",
-			"option":    "agentRepository.AddAgentToGroup.idempotent_skip",
-			"func_name": "repo.agent.AddAgentToGroup",
-			"agent_id":  agentID,
-			"group_id":  groupID,
-		})
-		return nil
-	}
+	// // 校验分组存在性 - 上层已经校验
+	// var group agentModel.AgentGroup
+	// if err := r.db.Where("group_id = ?", groupID).First(&group).Error; err != nil {
+	// 	logger.LogError(err, "", 0, "", "repo.mysql.agent.AddAgentToGroup", "", map[string]interface{}{
+	// 		"operation": "add_agent_to_group",
+	// 		"option":    "db.First(agent_groups)",
+	// 		"func_name": "repo.mysql.agent.AddAgentToGroup",
+	// 		"group_id":  groupID,
+	// 		"agent_id":  agentID,
+	// 	})
+	// 	return err
+	// }
+	// // 禁用分组不可添加成员
+	// if group.Status == 0 {
+	// 	logger.LogError(gorm.ErrInvalidData, "", 0, "", "repo.mysql.agent.AddAgentToGroup", "", map[string]interface{}{
+	// 		"operation":    "add_agent_to_group",
+	// 		"option":       "validate.group_status",
+	// 		"func_name":    "repo.mysql.agent.AddAgentToGroup",
+	// 		"group_id":     groupID,
+	// 		"agent_id":     agentID,
+	// 		"group_status": group.Status,
+	// 	})
+	// 	return gorm.ErrInvalidData
+	// }
+	// // 校验Agent存在性
+	// var agent agentModel.Agent
+	// if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+	// 	logger.LogError(err, "", 0, "", "repo.mysql.agent.AddAgentToGroup", "", map[string]interface{}{
+	// 		"operation": "add_agent_to_group",
+	// 		"option":    "db.First(agents)",
+	// 		"func_name": "repo.mysql.agent.AddAgentToGroup",
+	// 		"agent_id":  agentID,
+	// 		"group_id":  groupID,
+	// 	})
+	// 	return err
+	// }
+	// // 幂等：存在关系则忽略(若已在分组中，直接返回成功)
+	// if r.IsAgentInGroup(agentID, groupID) {
+	// 	logger.LogInfo("agent already in group, skip", "", 0, "", "repo.agent.AddAgentToGroup", "", map[string]interface{}{
+	// 		"operation": "add_agent_to_group",
+	// 		"option":    "agentRepository.AddAgentToGroup.idempotent_skip",
+	// 		"func_name": "repo.agent.AddAgentToGroup",
+	// 		"agent_id":  agentID,
+	// 		"group_id":  groupID,
+	// 	})
+	// 	return nil
+	// }
 
 	// 创建分组成员关系记录
 	member := &agentModel.AgentGroupMember{AgentID: agentID, GroupID: groupID, JoinedAt: time.Now()}
@@ -651,18 +651,20 @@ func (r *agentRepository) AddAgentToGroup(agentID string, groupID string) error 
 			"agent_id":  agentID,
 			"group_id":  groupID,
 		})
-		return err
+		return nil, err
 	}
 	logger.LogInfo("Agent added to group", "", 0, "", "repo.mysql.agent.AddAgentToGroup", "", map[string]interface{}{
-		"operation":       "add_agent_to_group",
-		"option":          "result.success",
-		"func_name":       "repo.mysql.agent.AddAgentToGroup",
-		"agent_id":        agentID,
-		"group_id":        groupID,
-		"group_status":    group.Status,
-		"is_system_group": group.IsSystem,
+		"operation": "add_agent_to_group",
+		"option":    "result.success",
+		"func_name": "repo.mysql.agent.AddAgentToGroup",
+		"agent_id":  agentID,
+		"group_id":  groupID,
+		// "group_status":    group.Status,
+		// "is_system_group": group.IsSystem,
 	})
-	return nil
+
+	// 装填分组成员关系数据,返回给调用方
+	return member, nil
 }
 
 // RemoveAgentFromGroup 从分组中移除Agent

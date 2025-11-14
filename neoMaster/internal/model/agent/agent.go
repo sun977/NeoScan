@@ -523,10 +523,10 @@ type AgentGroup struct {
 	// 引用基类 (ID, CreatedAt, UpdatedAt)
 	basemodel.BaseModel
 
-	GroupID     string   `json:"group_id" gorm:"not null;size:100;comment:分组ID"`
-	Name        string   `json:"name" gorm:"not null;size:100;comment:分组名称"`
-	Description string   `json:"description" gorm:"size:500;comment:分组描述"`
-	Tags        []string `json:"tags" gorm:"type:json;comment:分组标签列表"` // 定义分组标签类型
+	GroupID     string      `json:"group_id" gorm:"not null;size:100;comment:分组ID"`
+	Name        string      `json:"name" gorm:"not null;size:100;comment:分组名称"`
+	Description string      `json:"description" gorm:"size:500;comment:分组描述"`
+	Tags        StringSlice `json:"tags" gorm:"type:json;comment:分组标签列表"` // 定义分组标签类型
 	// 新增字段：是否系统组（不可删除/受限修改）
 	// 说明：
 	// - is_system=1 表示系统数据（例如默认分组）

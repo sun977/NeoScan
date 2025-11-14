@@ -134,7 +134,7 @@ func convertToAgentGroupResponse(group *agentModel.AgentGroup) *agentModel.Agent
 		GroupID:     group.GroupID,
 		Name:        group.Name,
 		Description: group.Description,
-		Tags:        group.Tags,
+		Tags:        []string(group.Tags),
 		CreatedAt:   group.CreatedAt,
 		UpdatedAt:   group.UpdatedAt,
 	}
@@ -485,7 +485,7 @@ func (s *agentManagerService) CreateAgentGroup(req *agentModel.AgentGroupCreateR
 		GroupID:     req.GroupID,
 		Name:        req.Name,
 		Description: req.Description,
-		Tags:        req.Tags,
+		Tags:        agentModel.StringSlice(req.Tags),
 		// IsSystem/Status 由仓储层保护和默认值控制
 	}
 	if err := s.agentRepo.CreateGroup(newGroup); err != nil {
@@ -644,7 +644,7 @@ func (s *agentManagerService) UpdateAgentGroup(groupID string, req *agentModel.A
 		Name:        req.Name,
 		Description: req.Description,
 		Status:      req.Status, // 另有专门的更新状态的接口
-		Tags:        req.Tags,
+		Tags:        agentModel.StringSlice(req.Tags),
 	}
 	updated, err := s.agentRepo.UpdateGroup(groupID, patch)
 	if err != nil {

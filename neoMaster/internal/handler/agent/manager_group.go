@@ -518,24 +518,47 @@ func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
 }
 
 // SetAgentGroupStatus 设置分组状态（激活/禁用）
-// 说明：从查询参数读取 group_id/status，调用 Service 层形参方法，返回统一响应
+// 说明：从查询参数读取 group_id；从请求体(JSON)读取 status，不再从query中获取；
+//
+//	完成后调用 Service 层方法并返回统一响应。
 func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	currentUserID := utils.GetCurrentUserIDFromGinContext(c) // 调用 utils 工具包直接从Gin上下文提取当前用户ID，如果不存在则返回0
 	xRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 	method := c.Request.Method
-	groupID := c.Query("group_id")
-	statusStr := c.Query("status")
+	// 路由已定义为 "/groups/:group_id/status"，因此这里从路径参数读取 group_id
+	groupID := c.Param("group_id")
+	// 从请求体中读取 status 字段；该字段为必填，类型为整数，取值限制为 0 或 1
+	var body struct {
+		Status int `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		// 请求体解析失败或缺少必要的status字段
+		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
+			"operation": "set_group_status",
+			"option":    "bind_json",
+			"func_name": "handler.agent.SetAgentGroupStatus",
+			"group_id":  groupID,
+		})
+		c.JSON(http.StatusOK, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "请求体解析失败或缺少status",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-	if groupID == "" || statusStr == "" {
-		err := fmt.Errorf("group_id或status不能为空")
+	// 校验 group_id 是否存在（保持与原有逻辑一致）
+	if groupID == "" {
+		err := fmt.Errorf("group_id不能为空")
 		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
 			"operation": "set_group_status",
 			"option":    "parameter_validation",
 			"func_name": "handler.agent.SetAgentGroupStatus",
 			"group_id":  groupID,
-			"status":    statusStr,
+			"status":    body.Status,
 		})
 		c.JSON(http.StatusOK, system.APIResponse{
 			Code:    http.StatusBadRequest,
@@ -546,15 +569,16 @@ func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 		return
 	}
 
-	status, convErr := strconv.Atoi(statusStr)
-	if convErr != nil || (status != 0 && status != 1) {
+	// 校验 status 合法取值范围（仅允许 0 或 1）
+	status := body.Status
+	if status != 0 && status != 1 {
 		err := fmt.Errorf("status必须为0或1")
 		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
 			"operation": "set_group_status",
 			"option":    "parameter_validation",
 			"func_name": "handler.agent.SetAgentGroupStatus",
 			"group_id":  groupID,
-			"status":    statusStr,
+			"status":    status,
 		})
 		c.JSON(http.StatusOK, system.APIResponse{
 			Code:    http.StatusBadRequest,

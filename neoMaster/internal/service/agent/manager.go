@@ -32,31 +32,29 @@ type AgentManagerService interface {
 	GetAgentGroup(groupID string) (*agentModel.AgentGroupResponse, error)                                                             // 获取指定分组
 	UpdateAgentGroup(groupID string, req *agentModel.AgentGroupCreateRequest) (*agentModel.AgentGroupResponse, error)                 // 更新分组信息
 	DeleteAgentGroup(groupID string) error                                                                                            // 删除分组
-	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) (*agentModel.AgentGroupMember, error)
-	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
-	// 获取分组成员（分页形参）
-	// 说明：为支持 Controller 统一分页包装，返回成员列表与总数
-	GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, int64, error)
-	SetAgentGroupStatus(groupID string, status int) error // 设置分组状态(1-激活 0-禁用 分组)
+	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) (*agentModel.AgentGroupMember, error)                                    // 将Agent添加到分组
+	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error                                                               // 从分组中移除Agent
+	GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, int64, error)                                  // 获取分组成员（分页形参）
+	SetAgentGroupStatus(groupID string, status int) error                                                                             // 设置分组状态(1-激活 0-禁用 分组)
 	// // 分组标签管理 （后续补充-分组标签类型CRUD操作）
 	// AddGroupTag(req *agentModel.GroupTagTypeRequest) error
 	// RemoveGroupTag(req *agentModel.GroupTagTypeRequest) error
 	// GetGroupTags() ([]*agentModel.GroupTagType, error) // 获取所有分组标签类型
 
 	// Agent标签管理
-	IsValidTagId(tag string) bool     // 判断标签ID是否有效
-	IsValidTagByName(tag string) bool // 判断标签名称是否有效
-	AddAgentTag(req *agentModel.AgentTagRequest) error
-	RemoveAgentTag(req *agentModel.AgentTagRequest) error
-	GetAgentTags(agentID string) ([]string, error)
-	UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error)
+	IsValidTagId(tag string) bool                                                 // 判断标签ID是否有效
+	IsValidTagByName(tag string) bool                                             // 判断标签名称是否有效
+	AddAgentTag(req *agentModel.AgentTagRequest) error                            // 添加Agent标签
+	RemoveAgentTag(req *agentModel.AgentTagRequest) error                         // 移除Agent标签
+	GetAgentTags(agentID string) ([]string, error)                                // 获取Agent标签
+	UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error) // 更新Agent标签
 
 	// Agent能力管理
-	IsValidCapabilityId(capability string) bool     // 判断能力ID是否有效
-	IsValidCapabilityByName(capability string) bool // 判断能力名称是否有效
-	AddAgentCapability(req *agentModel.AgentCapabilityRequest) error
-	RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error
-	GetAgentCapabilities(agentID string) ([]string, error)
+	IsValidCapabilityId(capability string) bool                         // 判断能力ID是否有效
+	IsValidCapabilityByName(capability string) bool                     // 判断能力名称是否有效
+	AddAgentCapability(req *agentModel.AgentCapabilityRequest) error    // 添加Agent能力
+	RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error // 移除Agent能力
+	GetAgentCapabilities(agentID string) ([]string, error)              // 获取Agent能力
 }
 
 // agentManagerService Agent基础管理服务实现

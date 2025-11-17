@@ -19,7 +19,7 @@ import (
 // AgentMonitorService Agent监控服务接口
 // 专门负责Agent的监控相关功能，遵循单一职责原则
 type AgentMonitorService interface {
-	// Agent心跳和状态监控
+	// Agent 心跳和状态监控
 	ProcessHeartbeat(req *agentModel.HeartbeatRequest) (*agentModel.HeartbeatResponse, error)                                                                                                        // 处理Agent发送过来的心跳，更新状态和指标
 	GetAgentMetricsFromDB(agentID string) (*agentModel.AgentMetricsResponse, error)                                                                                                                  // 从数据库获取Agent最新的性能指标
 	GetAgentListAllMetricsFromDB(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetricsResponse, int64, error) // 从数据库分页获取Agent的最新性能指标（支持状态与关键词过滤）
@@ -27,6 +27,8 @@ type AgentMonitorService interface {
 	PullAgentListAllMetrics() ([]*agentModel.AgentMetricsResponse, error)                                                                                                                            // 从Agent端拉取所有Agent的最新性能指标
 	CreateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                                                                                                                       // 创建Agent性能指标
 	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                                                                                                                       // 更新Agent性能指标
+
+	// Agent 数据分析
 }
 
 // agentMonitorService Agent监控服务实现

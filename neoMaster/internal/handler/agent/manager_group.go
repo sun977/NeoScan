@@ -545,8 +545,11 @@ func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 	// 路由已定义为 "/groups/:group_id/status"，因此这里从路径参数读取 group_id
 	groupID := c.Param("group_id")
 	// 从请求体中读取 status 字段；该字段为必填，类型为整数，取值限制为 0 或 1
+	// 数据结构：用 int 承载“值”和“是否传入”两种语义是错误的。 0 既是合法业务值，又是 Go 的零值，导致 required 把它当“缺失”。
+	// 解决办法：使用指针类型 *int，它可以表示“未传入”和“传入 0”两种状态，与业务逻辑一致。后续在校验时需要解引用指针。 status := *body.Status
 	var body struct {
-		Status int `json:"status" binding:"required"`
+		// Status int `json:"status" binding:"required"`
+		Status *int `json:"status" binding:"required,oneof=0 1"` // required 现在判定“非 nil”，oneof 严格限制 0/1
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		// 请求体解析失败或缺少必要的status字段
@@ -585,7 +588,7 @@ func (h *AgentHandler) SetAgentGroupStatus(c *gin.Context) {
 	}
 
 	// 校验 status 合法取值范围（仅允许 0 或 1）
-	status := body.Status
+	status := *body.Status
 	if status != 0 && status != 1 {
 		err := fmt.Errorf("status必须为0或1")
 		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{

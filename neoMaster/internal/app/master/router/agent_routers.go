@@ -28,11 +28,11 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentManageGroup.Use(r.middlewareManager.GinJWTAuthMiddleware())
 	agentManageGroup.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
-		// ==================== Agent基础管理接口（✅ Master端完全独立实现） ====================
-		agentManageGroup.GET("", r.agentHandler.GetAgentList)                   // ✅ 获取Agent列表 - 支持分页、status 状态过滤、keyword 关键字模糊查询、tags 标签过滤、capabilities 功能模块过滤 [Master端数据库查询]
-		agentManageGroup.GET("/:id", r.agentHandler.GetAgentInfo)               // ✅ 根据ID获取Agent信息 [Master端数据库查询]
-		agentManageGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // ✅ 更新Agent状态 - PATCH 对现有资源进行部分修改 [Master端数据库操作]
-		agentManageGroup.DELETE("/:id", r.agentHandler.DeleteAgent)             // ✅ 删除Agent [Master端数据库操作]
+		// ==================== Agent基础管理接口(Master端完全独立实现) ====================
+		agentManageGroup.GET("", r.agentHandler.GetAgentList)                   // 获取Agent列表 - 支持分页、status 状态过滤、keyword 关键字模糊查询、tags 标签过滤、capabilities 功能模块过滤 [Master端数据库查询]
+		agentManageGroup.GET("/:id", r.agentHandler.GetAgentInfo)               // 根据ID获取Agent信息 [Master端数据库查询]
+		agentManageGroup.PATCH("/:id/status", r.agentHandler.UpdateAgentStatus) // 更新Agent状态 - PATCH 对现有资源进行部分修改 [Master端数据库操作]
+		agentManageGroup.DELETE("/:id", r.agentHandler.DeleteAgent)             // 删除Agent [Master端数据库操作]
 
 		// ==================== Agent进程控制路由（🔴 需要Agent端配合实现 - 控制Agent进程生命周期） ====================
 		agentManageGroup.POST("/:id/start", r.agentStartPlaceholder)     // 🔴 启动Agent进程 [需要Master->Agent通信协议，发送启动命令]
@@ -55,35 +55,35 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		// 1) 只读查询走 Master 端数据库（agent_metrics 快照表），不依赖 Agent 实时接口；
 		// 2) 拉取动作（pull）需要 Master 主动访问 Agent 的 /metrics 接口，然后将最新数据写回 Master 的 agent_metrics 表；
 		// 3) 不保留历史数据（单快照模型），agent_metrics 针对每个 agent_id 仅维护一条最新记录（upsert）。
-		agentManageGroup.GET("/:id/metrics", r.agentHandler.GetAgentMetrics)       // ✅ 获取指定Agent性能快照 [Master端从AgentMetrics表查询]
-		agentManageGroup.GET("/metrics", r.agentHandler.GetAgentListAllMetrics)    // ✅ 获取所有Agent性能快照列表 [Master端从AgentMetrics表分页查询]
+		agentManageGroup.GET("/:id/metrics", r.agentHandler.GetAgentMetrics)       // 获取指定Agent性能快照 [Master端从AgentMetrics表查询]
+		agentManageGroup.GET("/metrics", r.agentHandler.GetAgentListAllMetrics)    // 获取所有Agent性能快照列表 [Master端从AgentMetrics表分页查询]
 		agentManageGroup.POST("/:id/metrics/pull", r.agentPullMetricsPlaceholder)  // 🔴 从Agent端拉取该Agent性能并更新 [Master->Agent接口 + Master端数据库更新]
 		agentManageGroup.POST("/metrics/pull", r.agentBatchPullMetricsPlaceholder) // 🔴 批量拉取所有Agent性能并更新 [Master->Agent接口并发 + Master端数据库更新]
 		// agentManageGroup.GET("/:id/metrics/history", r.agentGetMetricsHistoryPlaceholder) // 已弃用：历史性能数据（当前为单快照模型，不保留历史）
-		agentManageGroup.POST("/:id/metrics", r.agentHandler.CreateAgentMetrics) // ✅ 创建/上报Agent性能指标记录 [Master端数据库插入] Agent/采集器主动上报（push）入库（保留，受限权限）
-		agentManageGroup.PUT("/:id/metrics", r.agentHandler.UpdateAgentMetrics)  // ✅ 更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
+		agentManageGroup.POST("/:id/metrics", r.agentHandler.CreateAgentMetrics) // 创建/上报Agent性能指标记录 [Master端数据库插入] Agent/采集器主动上报（push）入库（保留，受限权限）
+		agentManageGroup.PUT("/:id/metrics", r.agentHandler.UpdateAgentMetrics)  // 更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
 
 		// ==================== Agent高级查询和统计路由（✅ Master端完全独立实现 - 数据分析） ====================
-		agentManageGroup.GET("/statistics", r.agentGetStatisticsPlaceholder)    // ✅ 获取Agent统计信息 [Master端聚合查询：在线数量、状态分布、性能统计]
-		agentManageGroup.GET("/load-balance", r.agentGetLoadBalancePlaceholder) // ✅ 获取Agent负载均衡信息 [Master端计算：任务分配、资源使用率]
-		agentManageGroup.GET("/performance", r.agentGetPerformancePlaceholder)  // ✅ 获取Agent性能分析 [Master端分析：响应时间、吞吐量趋势]
-		agentManageGroup.GET("/capacity", r.agentGetCapacityPlaceholder)        // ✅ 获取Agent容量分析 [Master端计算：可用容量、扩容建议]
+		agentManageGroup.GET("/statistics", r.agentGetStatisticsPlaceholder)    // 获取Agent统计信息 [Master端聚合查询：在线数量、状态分布、性能统计]
+		agentManageGroup.GET("/load-balance", r.agentGetLoadBalancePlaceholder) // 获取Agent负载均衡信息 [Master端计算：任务分配、资源使用率]
+		agentManageGroup.GET("/performance", r.agentGetPerformancePlaceholder)  // 获取Agent性能分析 [Master端分析：响应时间、吞吐量趋势]
+		agentManageGroup.GET("/capacity", r.agentGetCapacityPlaceholder)        // 获取Agent容量分析 [Master端计算：可用容量、扩容建议]
 
-		// ==================== Agent分组和标签管理路由（✅ Master端完全独立实现 - 元数据管理） ====================
+		// ==================== Agent分组和标签管理路由(Master端完全独立实现 - 元数据管理) ====================
 		// ----- 分组管理 -----
-		agentManageGroup.GET("/groups", r.agentHandler.GetAgentGroupList)                     // ✅ 获取Agent分组列表 [Master端查询分组表]
-		agentManageGroup.GET("/groups/members", r.agentHandler.GetAgentsInGroup)              // ✅ 获取Agent分组成员列表 [Master端查询分组成员表]
-		agentManageGroup.POST("/groups", r.agentHandler.CreateAgentGroup)                     // ✅ 创建Agent分组 [Master端创建分组记录]
-		agentManageGroup.PUT("/groups/:group_id", r.agentHandler.UpdateAgentGroup)            // ✅ 更新Agent分组 [Master端更新分组信息] (可以修改分组启用状态,但是不返回)
-		agentManageGroup.DELETE("/groups/:group_id", r.agentHandler.DeleteAgentGroup)         // ✅ 删除Agent分组 [Master端删除分组及关联]
-		agentManageGroup.PUT("/groups/:group_id/status", r.agentHandler.SetAgentGroupStatus)  // ✅ 设置Agent分组状态（激活/停用） [Master端更新分组状态]
-		agentManageGroup.POST("/:id/groups", r.agentHandler.AddAgentToGroup)                  // ✅ 将Agent添加到分组 [Master端更新Agent分组关系]
-		agentManageGroup.DELETE("/:id/groups/:group_id", r.agentHandler.RemoveAgentFromGroup) // ✅ 从分组中移除Agent [Master端删除分组关系]
+		agentManageGroup.GET("/groups", r.agentHandler.GetAgentGroupList)                     // 获取Agent分组列表 [Master端查询分组表]
+		agentManageGroup.GET("/groups/members", r.agentHandler.GetAgentsInGroup)              // 获取Agent分组成员列表 [Master端查询分组成员表]
+		agentManageGroup.POST("/groups", r.agentHandler.CreateAgentGroup)                     // 创建Agent分组 [Master端创建分组记录]
+		agentManageGroup.PUT("/groups/:group_id", r.agentHandler.UpdateAgentGroup)            // 更新Agent分组 [Master端更新分组信息] (可以修改分组启用状态,但是不返回)
+		agentManageGroup.DELETE("/groups/:group_id", r.agentHandler.DeleteAgentGroup)         // 删除Agent分组 [Master端删除分组及关联]
+		agentManageGroup.PUT("/groups/:group_id/status", r.agentHandler.SetAgentGroupStatus)  // 设置Agent分组状态（激活/停用） [Master端更新分组状态]
+		agentManageGroup.POST("/:id/groups", r.agentHandler.AddAgentToGroup)                  // 将Agent添加到分组 [Master端更新Agent分组关系]
+		agentManageGroup.DELETE("/:id/groups/:group_id", r.agentHandler.RemoveAgentFromGroup) // 从分组中移除Agent [Master端删除分组关系]
 		// ----- 标签管理 -----
-		agentManageGroup.GET("/:id/tags", r.agentHandler.GetAgentTags)      // ✅ 获取Agent标签 [Master端查询Agent标签]
-		agentManageGroup.POST("/:id/tags", r.agentHandler.AddAgentTag)      // ✅ 添加Agent标签 [Master端更新单个标签]
-		agentManageGroup.PUT("/:id/tags", r.agentHandler.UpdateAgentTags)   // ✅ 更新Agent标签列表（覆盖更新为指定列表）
-		agentManageGroup.DELETE("/:id/tags", r.agentHandler.RemoveAgentTag) // ✅ 移除Agent标签 [Master端删除指定标签]
+		agentManageGroup.GET("/:id/tags", r.agentHandler.GetAgentTags)      // 获取Agent标签 [Master端查询Agent标签]
+		agentManageGroup.POST("/:id/tags", r.agentHandler.AddAgentTag)      // 添加Agent标签 [Master端更新单个标签]
+		agentManageGroup.PUT("/:id/tags", r.agentHandler.UpdateAgentTags)   // 更新Agent标签列表（覆盖更新为指定列表）
+		agentManageGroup.DELETE("/:id/tags", r.agentHandler.RemoveAgentTag) // 移除Agent标签 [Master端删除指定标签]
 
 		// ==================== Agent通信和控制路由（🔴 需要Agent端配合实现 - 跨网络通信） ====================
 		agentManageGroup.POST("/:id/command", r.agentSendCommandPlaceholder)             // 🔴 发送控制命令到Agent [需要Master->Agent通信协议，发送自定义命令]

@@ -799,3 +799,49 @@ func (r *agentRepository) GetAgentsInGroup(page, pageSize int, groupID string) (
 
 	return agents, total, nil
 }
+
+// GetAgentIDsInGroup 获取指定分组下所有Agent业务ID（不分页）
+func (r *agentRepository) GetAgentIDsInGroup(groupID string) ([]string, error) {
+	if groupID == "" {
+		logger.LogError(gorm.ErrInvalidData, "", 0, "", "repo.mysql.agent.GetAgentIDsInGroup", "", map[string]interface{}{
+			"operation": "get_agent_ids_in_group",
+			"option":    "validate.input",
+			"func_name": "repo.mysql.agent.GetAgentIDsInGroup",
+			"group_id":  groupID,
+		})
+		return nil, gorm.ErrInvalidData
+	}
+
+	// 仅从成员表读取，避免不必要JOIN
+	type row struct{ AgentID string }
+	var rows []row
+	if err := r.db.Model(&agentModel.AgentGroupMember{}).Select("agent_id").Where("group_id = ?", groupID).Find(&rows).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.mysql.agent.GetAgentIDsInGroup", "gorm", map[string]interface{}{
+			"operation": "get_agent_ids_in_group",
+			"option":    "db.Find(agent_group_members)",
+			"func_name": "repo.mysql.agent.GetAgentIDsInGroup",
+			"group_id":  groupID,
+		})
+		return nil, err
+	}
+	// 去重
+	set := make(map[string]struct{}, len(rows))
+	ids := make([]string, 0, len(rows))
+	for _, r0 := range rows {
+		if r0.AgentID == "" {
+			continue
+		}
+		if _, ok := set[r0.AgentID]; !ok {
+			set[r0.AgentID] = struct{}{}
+			ids = append(ids, r0.AgentID)
+		}
+	}
+	logger.LogInfo("got agent ids in group", "", 0, "", "repo.agent.GetAgentIDsInGroup", "gorm", map[string]interface{}{
+		"operation": "get_agent_ids_in_group",
+		"option":    "result.success",
+		"func_name": "repo.agent.GetAgentIDsInGroup",
+		"group_id":  groupID,
+		"count":     len(ids),
+	})
+	return ids, nil
+}

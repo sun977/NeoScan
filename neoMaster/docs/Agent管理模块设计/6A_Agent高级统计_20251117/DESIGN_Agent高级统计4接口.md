@@ -7,22 +7,25 @@
 
 ## 接口定义
 - GET /api/v1/agent/statistics
-  - 入参：`window_seconds`(int, 可选, 默认180)
+  - 入参：`window_seconds`(int, 可选, 默认180), `group_id`(string, 可选)
   - 出参：`AgentStatisticsResponse`
 - GET /api/v1/agent/load-balance
-  - 入参：`window_seconds`、`top_n`(默认5)
+  - 入参：`window_seconds`、`top_n`(默认5), `group_id`(string, 可选)
   - 出参：`AgentLoadBalanceResponse`
 - GET /api/v1/agent/performance
-  - 入参：`window_seconds`、`top_n`(默认5)
+  - 入参：`window_seconds`、`top_n`(默认5), `group_id`(string, 可选)
   - 出参：`AgentPerformanceAnalysisResponse`
 - GET /api/v1/agent/capacity
-  - 入参：`window_seconds`、`cpu_threshold`、`memory_threshold`、`disk_threshold`(默认80)
+  - 入参：`window_seconds`、`cpu_threshold`、`memory_threshold`、`disk_threshold`(默认80), `group_id`(string, 可选)
   - 出参：`AgentCapacityAnalysisResponse`
 
 ## 数据口径
 - 在线：`timestamp >= now - window_seconds`
 - 负载评分：`0.5*CPU + 0.5*Memory + 5*RunningTasks`
 - 容量余量：`100 - max(cpu,mem,disk)` 的均值作为 `capacity_score`
+
+## 分组聚合
+- 当提供 `group_id` 时，所有统计仅对该分组成员进行聚合；未提供则对全量Agent计算。
 
 ## 异常与日志
 - Handler/Service 使用 `LogBusinessOperation` / `LogBusinessError`

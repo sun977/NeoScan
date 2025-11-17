@@ -93,3 +93,5 @@
 - GetAgentsInGroup 接口
 - SetAgentGroupStatus 接口
 2. 完成了其余分组功能的接口
+---20251117
+1. 修复了1114遗留的接口bug

@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -437,7 +438,22 @@ func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
 	keywords := c.DefaultQuery("keywords", "")
 	// 标签过滤参数处理 - 支持逗号分隔的标签值
 	// 例如: tags=2,7 或 tags=2&tags=7 两种格式都支持
-	tags := c.QueryArray("tags") // 支持 ?tags=a&tags=b
+	var tags []string
+	tagsArray := c.QueryArray("tags")
+	if len(tagsArray) > 1 {
+		// 处理多个tags参数: tags=2&tags=7
+		tags = tagsArray
+	} else if len(tagsArray) == 1 && strings.Contains(tagsArray[0], ",") {
+		// 处理逗号分隔的标签值: tags=2,7
+		tags = strings.Split(tagsArray[0], ",")
+		// 去除空白字符
+		for i, tag := range tags {
+			tags[i] = strings.TrimSpace(tag)
+		}
+	} else if len(tagsArray) == 1 {
+		// 单个标签: tags=2
+		tags = tagsArray
+	}
 
 	status := -1
 	if statusStr == "0" || statusStr == "1" {

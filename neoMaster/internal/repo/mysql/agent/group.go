@@ -155,10 +155,9 @@ func (r *agentRepository) GetGroupList(page, pageSize int, tags []string, status
 	}
 	if len(tags) > 0 {
 		// 改为 JSON 字段过滤（每个 tag 至少匹配一次）
-		for _, t := range tags {
-			query = query.Where("JSON_SEARCH(tags, 'one', ?) IS NOT NULL", t)
-			// // 注意：JSON_CONTAINS 期望第二参数为合法 JSON 文本，这里为字符串需加双引号
-			// query = query.Where("JSON_CONTAINS(tags, ?)", `"`+tag+`"`)
+		for _, tag := range tags {
+			// 每个 tag 至少匹配一次，使用 JSON_CONTAINS 检查是否存在该 tag , JSON_QUOTE 转换 tag 为字符串
+			query = query.Where("JSON_CONTAINS(tags, JSON_QUOTE(?))", tag)
 		}
 	}
 

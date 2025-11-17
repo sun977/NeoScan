@@ -12,6 +12,7 @@ package agent
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -28,31 +29,40 @@ func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
-	logger.LogBusinessOperation(
-		"get_agent_statistics",
-		currentUserID,
-		"",
-		clientIP,
-		XRequestID,
-		"success",
-		"获取Agent统计信息占位返回",
-		map[string]interface{}{
-			"func_name":  "handler.agent.GetAgentStatistics",
-			"option":     "placeholder",
-			"path":       pathUrl,
-			"method":     "GET",
-			"user_agent": userAgent,
-		},
-	)
+	windowSeconds := 180
+	if v := c.Query("window_seconds"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			windowSeconds = n
+		}
+	}
+	groupID := c.Query("group_id")
 
-	c.JSON(http.StatusOK, system.APIResponse{
-		Code:    http.StatusOK,
-		Status:  "success",
-		Message: "Get agent statistics - placeholder",
-		Data: map[string]interface{}{
-			"statistics": map[string]interface{}{},
-		},
+	resp, err := h.agentMonitorService.GetAgentStatistics(groupID, windowSeconds)
+	if err != nil {
+		status := h.getErrorStatusCode(err)
+		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation":      "get_agent_statistics",
+			"option":         "service.GetAgentStatistics",
+			"func_name":      "handler.agent.GetAgentStatistics",
+			"window_seconds": windowSeconds,
+			"group_id":       groupID,
+			"user_agent":     userAgent,
+		})
+		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
+		return
+	}
+
+	logger.LogBusinessOperation("get_agent_statistics", currentUserID, "", clientIP, XRequestID, "success", "获取Agent统计信息成功", map[string]interface{}{
+		"func_name":      "handler.agent.GetAgentStatistics",
+		"option":         "response.success",
+		"path":           pathUrl,
+		"method":         "GET",
+		"user_agent":     userAgent,
+		"window_seconds": windowSeconds,
+		"group_id":       groupID,
 	})
+
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }
 
 // GetAgentLoadBalance 获取Agent负载均衡状态（占位实现）
@@ -63,31 +73,47 @@ func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
-	logger.LogBusinessOperation(
-		"get_agent_load_balance",
-		currentUserID,
-		"",
-		clientIP,
-		XRequestID,
-		"success",
-		"获取Agent负载均衡占位返回",
-		map[string]interface{}{
-			"func_name":  "handler.agent.GetAgentLoadBalance",
-			"option":     "placeholder",
-			"path":       pathUrl,
-			"method":     "GET",
-			"user_agent": userAgent,
-		},
-	)
+	windowSeconds := 180
+	if v := c.Query("window_seconds"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			windowSeconds = n
+		}
+	}
+	topN := 5
+	if v := c.Query("top_n"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			topN = n
+		}
+	}
+	groupID := c.Query("group_id")
 
-	c.JSON(http.StatusOK, system.APIResponse{
-		Code:    http.StatusOK,
-		Status:  "success",
-		Message: "Get agent load balance - placeholder",
-		Data: map[string]interface{}{
-			"load_balance": map[string]interface{}{},
-		},
+	resp, err := h.agentMonitorService.GetAgentLoadBalance(groupID, windowSeconds, topN)
+	if err != nil {
+		status := h.getErrorStatusCode(err)
+		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation":      "get_agent_load_balance",
+			"option":         "service.GetAgentLoadBalance",
+			"func_name":      "handler.agent.GetAgentLoadBalance",
+			"window_seconds": windowSeconds,
+			"top_n":          topN,
+			"group_id":       groupID,
+			"user_agent":     userAgent,
+		})
+		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
+		return
+	}
+
+	logger.LogBusinessOperation("get_agent_load_balance", currentUserID, "", clientIP, XRequestID, "success", "获取Agent负载均衡成功", map[string]interface{}{
+		"func_name":      "handler.agent.GetAgentLoadBalance",
+		"option":         "response.success",
+		"path":           pathUrl,
+		"method":         "GET",
+		"user_agent":     userAgent,
+		"window_seconds": windowSeconds,
+		"top_n":          topN,
+		"group_id":       groupID,
 	})
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }
 
 // GetAgentPerformanceAnalysis 获取Agent性能分析（占位实现）
@@ -98,31 +124,48 @@ func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
-	logger.LogBusinessOperation(
-		"get_agent_performance_analysis",
-		currentUserID,
-		"",
-		clientIP,
-		XRequestID,
-		"success",
-		"获取Agent性能分析占位返回",
-		map[string]interface{}{
-			"func_name":  "handler.agent.GetAgentPerformanceAnalysis",
-			"option":     "placeholder",
-			"path":       pathUrl,
-			"method":     "GET",
-			"user_agent": userAgent,
-		},
-	)
+	windowSeconds := 180
+	if v := c.Query("window_seconds"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			windowSeconds = n
+		}
+	}
+	topN := 5
+	if v := c.Query("top_n"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			topN = n
+		}
+	}
+	groupID := c.Query("group_id")
 
-	c.JSON(http.StatusOK, system.APIResponse{
-		Code:    http.StatusOK,
-		Status:  "success",
-		Message: "Get agent performance analysis - placeholder",
-		Data: map[string]interface{}{
-			"analysis": map[string]interface{}{},
-		},
+	resp, err := h.agentMonitorService.GetAgentPerformanceAnalysis(groupID, windowSeconds, topN)
+	if err != nil {
+		status := h.getErrorStatusCode(err)
+		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation":      "get_agent_performance_analysis",
+			"option":         "service.GetAgentPerformanceAnalysis",
+			"func_name":      "handler.agent.GetAgentPerformanceAnalysis",
+			"window_seconds": windowSeconds,
+			"top_n":          topN,
+			"group_id":       groupID,
+			"user_agent":     userAgent,
+		})
+		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
+		return
+	}
+
+	logger.LogBusinessOperation("get_agent_performance_analysis", currentUserID, "", clientIP, XRequestID, "success", "获取Agent性能分析成功", map[string]interface{}{
+		"func_name":      "handler.agent.GetAgentPerformanceAnalysis",
+		"option":         "response.success",
+		"path":           pathUrl,
+		"method":         "GET",
+		"user_agent":     userAgent,
+		"window_seconds": windowSeconds,
+		"top_n":          topN,
+		"group_id":       groupID,
 	})
+
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }
 
 // GetAgentCapacityAnalysis 获取Agent容量分析（占位实现）
@@ -133,29 +176,62 @@ func (h *AgentHandler) GetAgentCapacityAnalysis(c *gin.Context) {
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
-	logger.LogBusinessOperation(
-		"get_agent_capacity_analysis",
-		currentUserID,
-		"",
-		clientIP,
-		XRequestID,
-		"success",
-		"获取Agent容量分析占位返回",
-		map[string]interface{}{
-			"func_name":  "handler.agent.GetAgentCapacityAnalysis",
-			"option":     "placeholder",
-			"path":       pathUrl,
-			"method":     "GET",
-			"user_agent": userAgent,
-		},
-	)
+	windowSeconds := 180
+	if v := c.Query("window_seconds"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			windowSeconds = n
+		}
+	}
+	groupID := c.Query("group_id")
+	cpuThr := 80.0
+	if v := c.Query("cpu_threshold"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			cpuThr = f
+		}
+	}
+	memThr := 80.0
+	if v := c.Query("memory_threshold"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			memThr = f
+		}
+	}
+	diskThr := 80.0
+	if v := c.Query("disk_threshold"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			diskThr = f
+		}
+	}
 
-	c.JSON(http.StatusOK, system.APIResponse{
-		Code:    http.StatusOK,
-		Status:  "success",
-		Message: "Get agent capacity analysis - placeholder",
-		Data: map[string]interface{}{
-			"capacity": map[string]interface{}{},
-		},
+	resp, err := h.agentMonitorService.GetAgentCapacityAnalysis(groupID, windowSeconds, cpuThr, memThr, diskThr)
+	if err != nil {
+		status := h.getErrorStatusCode(err)
+		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation":        "get_agent_capacity_analysis",
+			"option":           "service.GetAgentCapacityAnalysis",
+			"func_name":        "handler.agent.GetAgentCapacityAnalysis",
+			"window_seconds":   windowSeconds,
+			"cpu_threshold":    cpuThr,
+			"memory_threshold": memThr,
+			"disk_threshold":   diskThr,
+			"group_id":         groupID,
+			"user_agent":       userAgent,
+		})
+		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
+		return
+	}
+
+	logger.LogBusinessOperation("get_agent_capacity_analysis", currentUserID, "", clientIP, XRequestID, "success", "获取Agent容量分析成功", map[string]interface{}{
+		"func_name":        "handler.agent.GetAgentCapacityAnalysis",
+		"option":           "response.success",
+		"path":             pathUrl,
+		"method":           "GET",
+		"user_agent":       userAgent,
+		"window_seconds":   windowSeconds,
+		"cpu_threshold":    cpuThr,
+		"memory_threshold": memThr,
+		"disk_threshold":   diskThr,
+		"group_id":         groupID,
 	})
+
+	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }

@@ -16,6 +16,8 @@
 package agent
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 
 	agentModel "neomaster/internal/model/agent"
@@ -44,6 +46,12 @@ type AgentRepository interface {
 	GetLatestMetrics(agentID string) (*agentModel.AgentMetrics, error)
 	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error
 	GetMetricsList(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetrics, int64, error) // 性能指标批量查询（分页 + 过滤）
+
+	// Agent 性能指标分析支撑 - 只读聚合的基础（返回当前快照集）
+	GetAllMetrics() ([]*agentModel.AgentMetrics, error)                                               // 获取所有Agent的最新快照（单表全量）
+	GetMetricsSince(since time.Time) ([]*agentModel.AgentMetrics, error)                              // 获取指定时间窗口内的快照（timestamp >= since）
+	GetMetricsByAgentIDs(agentIDs []string) ([]*agentModel.AgentMetrics, error)                       // 按代理ID集合过滤获取快照
+	GetMetricsByAgentIDsSince(agentIDs []string, since time.Time) ([]*agentModel.AgentMetrics, error) // 按代理ID集合+时间窗口过滤获取快照
 
 	// Agent 能力管理 - 能力是Agent自己属性,需要结合Agent实际情况(Agent需要有自检能力的方法),不同于标签
 	IsValidCapabilityId(capability string) bool                 // 判断能力ID是否有效
@@ -74,6 +82,7 @@ type AgentRepository interface {
 	AddAgentToGroup(agentID string, groupID string) (*agentModel.AgentGroupMember, error)                                 // 将Agent添加到分组
 	RemoveAgentFromGroup(agentID string, groupID string) error                                                            // 从分组中移除Agent
 	GetAgentsInGroup(page, pageSize int, groupID string) ([]*agentModel.Agent, int64, error)                              // 获取分组中的Agent列表（分页）
+	GetAgentIDsInGroup(groupID string) ([]string, error)                                                                  // 获取分组下所有AgentID（不分页）
 }
 
 // agentRepository Agent仓库实现

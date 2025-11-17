@@ -105,3 +105,30 @@ type AgentCapabilityRequest struct {
 // 	AgentID string   `json:"agent_id" validate:"required"` // Agent业务ID，必填
 // 	Tags    []string `json:"tags" validate:"required"`     // 新标签列表，必填
 // }
+
+// ==================== 高级统计与分析查询参数 ====================
+
+// AgentStatisticsQuery 统计查询参数
+type AgentStatisticsQuery struct {
+	WindowSeconds int `json:"window_seconds" validate:"min=1,max=86400"` // 在线判定窗口（秒）
+}
+
+// AgentLoadBalanceQuery 负载均衡查询参数
+type AgentLoadBalanceQuery struct {
+	WindowSeconds int `json:"window_seconds" validate:"min=1,max=86400"` // 在线判定窗口（秒）
+	TopN          int `json:"top_n" validate:"min=1,max=100"`            // Top列表数量
+}
+
+// AgentPerformanceQuery 性能分析查询参数
+type AgentPerformanceQuery struct {
+	WindowSeconds int `json:"window_seconds" validate:"min=1,max=86400"` // 在线判定窗口（秒）
+	TopN          int `json:"top_n" validate:"min=1,max=100"`            // Top列表数量
+}
+
+// AgentCapacityQuery 容量分析查询参数
+type AgentCapacityQuery struct {
+	WindowSeconds   int     `json:"window_seconds" validate:"min=1,max=86400"` // 在线判定窗口（秒）
+	CPUThreshold    float64 `json:"cpu_threshold" validate:"min=0,max=100"`    // CPU过载阈值
+	MemoryThreshold float64 `json:"memory_threshold" validate:"min=0,max=100"` // 内存过载阈值
+	DiskThreshold   float64 `json:"disk_threshold" validate:"min=0,max=100"`   // 磁盘过载阈值
+}

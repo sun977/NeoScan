@@ -345,3 +345,100 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 }
 
 // ============== Metrics 数据分析功能实现 ==============
+// GetAllMetrics 获取所有Agent的最新性能快照（单表全量）
+// 说明：当前为单快照模型（每个agent_id一条记录），全量读取用于Master端聚合分析
+func (r *agentRepository) GetAllMetrics() ([]*agentModel.AgentMetrics, error) {
+	var list []*agentModel.AgentMetrics
+	if err := r.db.Model(&agentModel.AgentMetrics{}).Order("timestamp DESC").Find(&list).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetAllMetrics", "gorm", map[string]interface{}{
+			"operation": "get_all_metrics",
+			"option":    "db.Find(agent_metrics)",
+			"func_name": "repo.agent.GetAllMetrics",
+		})
+		return nil, err
+	}
+	logger.LogInfo("All agent metrics retrieved", "", 0, "", "repo.agent.GetAllMetrics", "gorm", map[string]interface{}{
+		"operation": "get_all_metrics",
+		"option":    "result.success",
+		"func_name": "repo.agent.GetAllMetrics",
+		"count":     len(list),
+	})
+	return list, nil
+}
+
+// GetMetricsSince 获取指定时间窗口内的快照（timestamp >= since）
+// 用于“在线”判定与窗口内分析
+func (r *agentRepository) GetMetricsSince(since time.Time) ([]*agentModel.AgentMetrics, error) {
+	var list []*agentModel.AgentMetrics
+	if err := r.db.Model(&agentModel.AgentMetrics{}).Where("timestamp >= ?", since).Order("timestamp DESC").Find(&list).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetMetricsSince", "gorm", map[string]interface{}{
+			"operation": "get_metrics_since",
+			"option":    "db.Find(agent_metrics)",
+			"func_name": "repo.agent.GetMetricsSince",
+			"since":     since,
+		})
+		return nil, err
+	}
+	logger.LogInfo("Window agent metrics retrieved", "", 0, "", "repo.agent.GetMetricsSince", "gorm", map[string]interface{}{
+		"operation": "get_metrics_since",
+		"option":    "result.success",
+		"func_name": "repo.agent.GetMetricsSince",
+		"count":     len(list),
+		"since":     since,
+	})
+	return list, nil
+}
+
+// GetMetricsByAgentIDs 按代理ID集合过滤获取快照
+func (r *agentRepository) GetMetricsByAgentIDs(agentIDs []string) ([]*agentModel.AgentMetrics, error) {
+    var list []*agentModel.AgentMetrics
+    if len(agentIDs) == 0 {
+        return list, nil
+    }
+    if err := r.db.Model(&agentModel.AgentMetrics{}).Where("agent_id IN ?", agentIDs).Order("timestamp DESC").Find(&list).Error; err != nil {
+        logger.LogError(err, "", 0, "", "repo.agent.GetMetricsByAgentIDs", "gorm", map[string]interface{}{
+            "operation": "get_metrics_by_agent_ids",
+            "option":    "db.Find(agent_metrics)",
+            "func_name": "repo.agent.GetMetricsByAgentIDs",
+            "count_ids": len(agentIDs),
+        })
+        return nil, err
+    }
+    logger.LogInfo("Metrics by agent IDs retrieved", "", 0, "", "repo.agent.GetMetricsByAgentIDs", "gorm", map[string]interface{}{
+        "operation": "get_metrics_by_agent_ids",
+        "option":    "result.success",
+        "func_name": "repo.agent.GetMetricsByAgentIDs",
+        "count_ids": len(agentIDs),
+        "count":     len(list),
+    })
+    return list, nil
+}
+
+// GetMetricsByAgentIDsSince 按代理ID集合+时间窗口过滤获取快照
+func (r *agentRepository) GetMetricsByAgentIDsSince(agentIDs []string, since time.Time) ([]*agentModel.AgentMetrics, error) {
+    var list []*agentModel.AgentMetrics
+    if len(agentIDs) == 0 {
+        return list, nil
+    }
+    if err := r.db.Model(&agentModel.AgentMetrics{}).
+        Where("agent_id IN ? AND timestamp >= ?", agentIDs, since).
+        Order("timestamp DESC").Find(&list).Error; err != nil {
+        logger.LogError(err, "", 0, "", "repo.agent.GetMetricsByAgentIDsSince", "gorm", map[string]interface{}{
+            "operation": "get_metrics_by_agent_ids_since",
+            "option":    "db.Find(agent_metrics)",
+            "func_name": "repo.agent.GetMetricsByAgentIDsSince",
+            "count_ids": len(agentIDs),
+            "since":     since,
+        })
+        return nil, err
+    }
+    logger.LogInfo("Metrics by agent IDs since retrieved", "", 0, "", "repo.agent.GetMetricsByAgentIDsSince", "gorm", map[string]interface{}{
+        "operation": "get_metrics_by_agent_ids_since",
+        "option":    "result.success",
+        "func_name": "repo.agent.GetMetricsByAgentIDsSince",
+        "count_ids": len(agentIDs),
+        "since":     since,
+        "count":     len(list),
+    })
+    return list, nil
+}

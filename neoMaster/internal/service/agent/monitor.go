@@ -10,6 +10,7 @@ package agent
 import (
 	"fmt"
 	agentRepository "neomaster/internal/repo/mysql/agent"
+	"sort"
 	"time"
 
 	agentModel "neomaster/internal/model/agent"
@@ -29,6 +30,10 @@ type AgentMonitorService interface {
 	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                                                                                                                       // 更新Agent性能指标
 
 	// Agent 数据分析
+	GetAgentStatistics(groupID string, windowSeconds int) (*agentModel.AgentStatisticsResponse, error)                                              // 获取Agent统计信息（可选按分组）
+	GetAgentLoadBalance(groupID string, windowSeconds int, topN int) (*agentModel.AgentLoadBalanceResponse, error)                                  // 获取负载均衡分析（可选按分组）
+	GetAgentPerformanceAnalysis(groupID string, windowSeconds int, topN int) (*agentModel.AgentPerformanceAnalysisResponse, error)                  // 获取性能分析（可选按分组）
+	GetAgentCapacityAnalysis(groupID string, windowSeconds int, cpuThr, memThr, diskThr float64) (*agentModel.AgentCapacityAnalysisResponse, error) // 获取容量分析（可选按分组）
 }
 
 // agentMonitorService Agent监控服务实现
@@ -351,4 +356,506 @@ func (s *agentMonitorService) UpdateAgentMetrics(agentID string, metrics *agentM
 	})
 
 	return nil
+}
+
+// ==================== 数据分析实现 ====================
+
+// GetAgentStatistics 获取Agent统计信息（仅基于agent_metrics快照）
+func (s *agentMonitorService) GetAgentStatistics(groupID string, windowSeconds int) (*agentModel.AgentStatisticsResponse, error) {
+	if windowSeconds <= 0 {
+		windowSeconds = 180
+	}
+	since := time.Now().Add(-time.Duration(windowSeconds) * time.Second)
+
+	// 全量与窗口内快照（可选分组过滤）
+	var all []*agentModel.AgentMetrics
+	var err error
+	if groupID != "" {
+		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
+		if e != nil {
+			return nil, e
+		}
+		all, err = s.agentRepo.GetMetricsByAgentIDs(ids)
+	} else {
+		all, err = s.agentRepo.GetAllMetrics()
+	}
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+			"operation": "get_agent_statistics",
+			"option":    "repo.GetAllMetrics",
+			"func_name": "service.agent.monitor.GetAgentStatistics",
+		})
+		return nil, err
+	}
+	var window []*agentModel.AgentMetrics
+	if groupID != "" {
+		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
+		if e != nil {
+			return nil, e
+		}
+		window, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+	} else {
+		window, err = s.agentRepo.GetMetricsSince(since)
+	}
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+			"operation": "get_agent_statistics",
+			"option":    "repo.GetMetricsSince",
+			"func_name": "service.agent.monitor.GetAgentStatistics",
+			"since":     since,
+		})
+		return nil, err
+	}
+
+	total := int64(len(all))
+	online := int64(0)
+	onlineSet := make(map[string]struct{}, len(window))
+	for _, m := range window {
+		if m == nil {
+			continue
+		}
+		onlineSet[m.AgentID] = struct{}{}
+	}
+	online = int64(len(onlineSet))
+	offline := total - online
+
+	// 分布统计与聚合
+	workDist := map[string]int64{}
+	scanDist := map[string]int64{}
+	var cpuSum, memSum, diskSum float64
+	var cpuMax, memMax, diskMax float64
+	var cpuMin, memMin, diskMin float64
+	var runningSum, completedSum, failedSum int64
+
+	initialized := false
+	for _, m := range all {
+		if m == nil {
+			continue
+		}
+		workDist[string(m.WorkStatus)] += 1
+		st := m.ScanType
+		if st == "" {
+			st = "unknown"
+		}
+		scanDist[st] += 1
+
+		cpuSum += m.CPUUsage
+		memSum += m.MemoryUsage
+		diskSum += m.DiskUsage
+		runningSum += int64(m.RunningTasks)
+		completedSum += int64(m.CompletedTasks)
+		failedSum += int64(m.FailedTasks)
+
+		if !initialized {
+			cpuMax, memMax, diskMax = m.CPUUsage, m.MemoryUsage, m.DiskUsage
+			cpuMin, memMin, diskMin = m.CPUUsage, m.MemoryUsage, m.DiskUsage
+			initialized = true
+		} else {
+			if m.CPUUsage > cpuMax {
+				cpuMax = m.CPUUsage
+			}
+			if m.MemoryUsage > memMax {
+				memMax = m.MemoryUsage
+			}
+			if m.DiskUsage > diskMax {
+				diskMax = m.DiskUsage
+			}
+			if m.CPUUsage < cpuMin {
+				cpuMin = m.CPUUsage
+			}
+			if m.MemoryUsage < memMin {
+				memMin = m.MemoryUsage
+			}
+			if m.DiskUsage < diskMin {
+				diskMin = m.DiskUsage
+			}
+		}
+	}
+
+	avgDiv := func(sum float64, n int64) float64 {
+		if n == 0 {
+			return 0
+		}
+		return sum / float64(n)
+	}
+	aggregated := agentModel.AggregatedPerformance{
+		CPUAvg: avgDiv(cpuSum, total), CPUMax: cpuMax, CPUMin: cpuMin,
+		MemAvg: avgDiv(memSum, total), MemMax: memMax, MemMin: memMin,
+		DiskAvg: avgDiv(diskSum, total), DiskMax: diskMax, DiskMin: diskMin,
+		RunningTasksTotal: runningSum, CompletedTasksTotal: completedSum, FailedTasksTotal: failedSum,
+	}
+
+	resp := &agentModel.AgentStatisticsResponse{
+		TotalAgents:            total,
+		OnlineAgents:           online,
+		OfflineAgents:          offline,
+		WorkStatusDistribution: workDist,
+		ScanTypeDistribution:   scanDist,
+		Performance:            aggregated,
+	}
+
+	logger.LogInfo("Agent统计计算成功", "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+		"operation": "get_agent_statistics",
+		"option":    "compose.response",
+		"func_name": "service.agent.monitor.GetAgentStatistics",
+		"total":     total,
+		"online":    online,
+	})
+
+	return resp, nil
+}
+
+// GetAgentLoadBalance 负载均衡分析
+func (s *agentMonitorService) GetAgentLoadBalance(groupID string, windowSeconds int, topN int) (*agentModel.AgentLoadBalanceResponse, error) {
+	if windowSeconds <= 0 {
+		windowSeconds = 180
+	}
+	if topN <= 0 {
+		topN = 5
+	}
+	since := time.Now().Add(-time.Duration(windowSeconds) * time.Second)
+
+	var metrics []*agentModel.AgentMetrics
+	var err error
+	if groupID != "" {
+		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
+		if e != nil {
+			return nil, e
+		}
+		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+	} else {
+		metrics, err = s.agentRepo.GetMetricsSince(since)
+	}
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentLoadBalance", "", map[string]interface{}{
+			"operation": "get_agent_load_balance",
+			"option":    "repo.GetMetricsSince",
+			"func_name": "service.agent.monitor.GetAgentLoadBalance",
+		})
+		return nil, err
+	}
+
+	// 计算负载分数
+	items := make([]agentModel.AgentLoadItem, 0, len(metrics))
+	for _, m := range metrics {
+		if m == nil {
+			continue
+		}
+		score := 0.5*m.CPUUsage + 0.5*m.MemoryUsage + 5.0*float64(m.RunningTasks)
+		items = append(items, agentModel.AgentLoadItem{
+			AgentID: m.AgentID, CPUUsage: m.CPUUsage, MemoryUsage: m.MemoryUsage,
+			RunningTasks: m.RunningTasks, LoadScore: score, WorkStatus: m.WorkStatus,
+			ScanType: m.ScanType, Timestamp: m.Timestamp,
+		})
+	}
+
+	// 排序
+	sort.Slice(items, func(i, j int) bool { return items[i].LoadScore > items[j].LoadScore })
+	limit := func(n int) int {
+		if n < 0 {
+			return 0
+		}
+		if n > len(items) {
+			return len(items)
+		}
+		return n
+	}
+	busy := make([]agentModel.AgentLoadItem, 0)
+	idle := make([]agentModel.AgentLoadItem, 0)
+	if len(items) > 0 {
+		n := limit(topN)
+		busy = append(busy, items[:n]...)
+		// 反向取最空闲
+		sortedAsc := make([]agentModel.AgentLoadItem, len(items))
+		copy(sortedAsc, items)
+		sort.Slice(sortedAsc, func(i, j int) bool { return sortedAsc[i].LoadScore < sortedAsc[j].LoadScore })
+		m := limit(topN)
+		idle = append(idle, sortedAsc[:m]...)
+	}
+
+	advice := ""
+	if len(busy) > 0 && len(idle) > 0 {
+		advice = "优先将新任务调度到负载较低的Agent；对高负载Agent限流或延迟分配。"
+	}
+
+	resp := &agentModel.AgentLoadBalanceResponse{TopBusyAgents: busy, TopIdleAgents: idle, Advice: advice}
+	logger.LogInfo("Agent负载均衡分析完成", "", 0, "", "service.agent.monitor.GetAgentLoadBalance", "", map[string]interface{}{
+		"operation": "get_agent_load_balance",
+		"option":    "compose.response",
+		"func_name": "service.agent.monitor.GetAgentLoadBalance",
+		"busy":      len(busy),
+		"idle":      len(idle),
+	})
+	return resp, nil
+}
+
+// GetAgentPerformanceAnalysis 性能分析
+func (s *agentMonitorService) GetAgentPerformanceAnalysis(groupID string, windowSeconds int, topN int) (*agentModel.AgentPerformanceAnalysisResponse, error) {
+	if windowSeconds <= 0 {
+		windowSeconds = 180
+	}
+	if topN <= 0 {
+		topN = 5
+	}
+	since := time.Now().Add(-time.Duration(windowSeconds) * time.Second)
+
+	var metrics []*agentModel.AgentMetrics
+	var err error
+	if groupID != "" {
+		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
+		if e != nil {
+			return nil, e
+		}
+		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+	} else {
+		metrics, err = s.agentRepo.GetMetricsSince(since)
+	}
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentPerformanceAnalysis", "", map[string]interface{}{
+			"operation": "get_agent_performance",
+			"option":    "repo.GetMetricsSince",
+			"func_name": "service.agent.monitor.GetAgentPerformanceAnalysis",
+		})
+		return nil, err
+	}
+
+	// 聚合统计
+	var cpuSum, memSum, diskSum float64
+	var cpuMax, memMax, diskMax float64
+	var cpuMin, memMin, diskMin float64
+	var runningSum, completedSum, failedSum int64
+	initialized := false
+
+	// 排名列表容器
+	type pair struct {
+		item agentModel.AgentPerformanceItem
+		key  float64
+		key2 int64
+	}
+	cpuList := []pair{}
+	memList := []pair{}
+	netList := []pair{}
+	failList := []pair{}
+
+	for _, m := range metrics {
+		if m == nil {
+			continue
+		}
+		cpuSum += m.CPUUsage
+		memSum += m.MemoryUsage
+		diskSum += m.DiskUsage
+		runningSum += int64(m.RunningTasks)
+		completedSum += int64(m.CompletedTasks)
+		failedSum += int64(m.FailedTasks)
+		if !initialized {
+			cpuMax, memMax, diskMax = m.CPUUsage, m.MemoryUsage, m.DiskUsage
+			cpuMin, memMin, diskMin = m.CPUUsage, m.MemoryUsage, m.DiskUsage
+			initialized = true
+		} else {
+			if m.CPUUsage > cpuMax {
+				cpuMax = m.CPUUsage
+			}
+			if m.MemoryUsage > memMax {
+				memMax = m.MemoryUsage
+			}
+			if m.DiskUsage > diskMax {
+				diskMax = m.DiskUsage
+			}
+			if m.CPUUsage < cpuMin {
+				cpuMin = m.CPUUsage
+			}
+			if m.MemoryUsage < memMin {
+				memMin = m.MemoryUsage
+			}
+			if m.DiskUsage < diskMin {
+				diskMin = m.DiskUsage
+			}
+		}
+
+		perf := agentModel.AgentPerformanceItem{
+			AgentID: m.AgentID, CPUUsage: m.CPUUsage, MemoryUsage: m.MemoryUsage, DiskUsage: m.DiskUsage,
+			NetworkBytesSent: m.NetworkBytesSent, NetworkBytesRecv: m.NetworkBytesRecv, FailedTasks: m.FailedTasks,
+			Timestamp: m.Timestamp,
+		}
+		cpuList = append(cpuList, pair{item: perf, key: m.CPUUsage})
+		memList = append(memList, pair{item: perf, key: m.MemoryUsage})
+		netList = append(netList, pair{item: perf, key: float64(m.NetworkBytesSent + m.NetworkBytesRecv)})
+		failList = append(failList, pair{item: perf, key2: int64(m.FailedTasks)})
+	}
+
+	avgDiv := func(sum float64, n int64) float64 {
+		if n == 0 {
+			return 0
+		}
+		return sum / float64(n)
+	}
+	aggregated := agentModel.AggregatedPerformance{
+		CPUAvg: avgDiv(cpuSum, int64(len(metrics))), CPUMax: cpuMax, CPUMin: cpuMin,
+		MemAvg: avgDiv(memSum, int64(len(metrics))), MemMax: memMax, MemMin: memMin,
+		DiskAvg: avgDiv(diskSum, int64(len(metrics))), DiskMax: diskMax, DiskMin: diskMin,
+		RunningTasksTotal: runningSum, CompletedTasksTotal: completedSum, FailedTasksTotal: failedSum,
+	}
+
+	// 排序取TopN
+	sortPairs := func(list []pair, less func(i, j int) bool) []agentModel.AgentPerformanceItem {
+		sort.Slice(list, less)
+		n := topN
+		if n > len(list) {
+			n = len(list)
+		}
+		out := make([]agentModel.AgentPerformanceItem, 0, n)
+		for i := 0; i < n; i++ {
+			out = append(out, list[i].item)
+		}
+		return out
+	}
+	topCPU := sortPairs(cpuList, func(i, j int) bool { return cpuList[i].key > cpuList[j].key })
+	topMem := sortPairs(memList, func(i, j int) bool { return memList[i].key > memList[j].key })
+	topNet := sortPairs(netList, func(i, j int) bool { return netList[i].key > netList[j].key })
+	sort.Slice(failList, func(i, j int) bool { return failList[i].key2 > failList[j].key2 })
+	n := topN
+	if n > len(failList) {
+		n = len(failList)
+	}
+	topFail := make([]agentModel.AgentPerformanceItem, 0, n)
+	for i := 0; i < n; i++ {
+		topFail = append(topFail, failList[i].item)
+	}
+
+	resp := &agentModel.AgentPerformanceAnalysisResponse{
+		Aggregated:     aggregated,
+		TopCPU:         topCPU,
+		TopMemory:      topMem,
+		TopNetwork:     topNet,
+		TopFailedTasks: topFail,
+	}
+	logger.LogInfo("Agent性能分析完成", "", 0, "", "service.agent.monitor.GetAgentPerformanceAnalysis", "", map[string]interface{}{
+		"operation": "get_agent_performance",
+		"option":    "compose.response",
+		"func_name": "service.agent.monitor.GetAgentPerformanceAnalysis",
+		"count":     len(metrics),
+	})
+	return resp, nil
+}
+
+// GetAgentCapacityAnalysis 容量分析
+func (s *agentMonitorService) GetAgentCapacityAnalysis(groupID string, windowSeconds int, cpuThr, memThr, diskThr float64) (*agentModel.AgentCapacityAnalysisResponse, error) {
+	if windowSeconds <= 0 {
+		windowSeconds = 180
+	}
+	if cpuThr <= 0 {
+		cpuThr = 80
+	}
+	if memThr <= 0 {
+		memThr = 80
+	}
+	if diskThr <= 0 {
+		diskThr = 80
+	}
+	since := time.Now().Add(-time.Duration(windowSeconds) * time.Second)
+
+	var metrics []*agentModel.AgentMetrics
+	var err error
+	if groupID != "" {
+		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
+		if e != nil {
+			return nil, e
+		}
+		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+	} else {
+		metrics, err = s.agentRepo.GetMetricsSince(since)
+	}
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentCapacityAnalysis", "", map[string]interface{}{
+			"operation": "get_agent_capacity",
+			"option":    "repo.GetMetricsSince",
+			"func_name": "service.agent.monitor.GetAgentCapacityAnalysis",
+		})
+		return nil, err
+	}
+
+	var online int64
+	var overloaded int64
+	bottlenecks := map[string]int64{"cpu": 0, "memory": 0, "disk": 0}
+	var headroomSum float64
+	overloadedList := make([]agentModel.AgentCapacityItem, 0)
+
+	for _, m := range metrics {
+		if m == nil {
+			continue
+		}
+		online++
+		// 余量按三者最大值计算
+		maxUsage := m.CPUUsage
+		if m.MemoryUsage > maxUsage {
+			maxUsage = m.MemoryUsage
+		}
+		if m.DiskUsage > maxUsage {
+			maxUsage = m.DiskUsage
+		}
+		headroom := 100.0 - maxUsage
+		if headroom < 0 {
+			headroom = 0
+		}
+		headroomSum += headroom
+
+		// 过载判定与原因
+		reason := ""
+		if m.CPUUsage >= cpuThr {
+			bottlenecks["cpu"]++
+			reason = "cpu"
+		}
+		if m.MemoryUsage >= memThr {
+			bottlenecks["memory"]++
+			if reason == "" {
+				reason = "memory"
+			}
+		}
+		if m.DiskUsage >= diskThr {
+			bottlenecks["disk"]++
+			if reason == "" {
+				reason = "disk"
+			}
+		}
+		if reason != "" {
+			overloaded++
+			overloadedList = append(overloadedList, agentModel.AgentCapacityItem{
+				AgentID: m.AgentID, CPUUsage: m.CPUUsage, MemoryUsage: m.MemoryUsage, DiskUsage: m.DiskUsage, Reason: reason, Timestamp: m.Timestamp,
+			})
+		}
+	}
+
+	avgHeadroom := 0.0
+	if online > 0 {
+		avgHeadroom = headroomSum / float64(online)
+	}
+	capacityScore := avgHeadroom // 简化：余量均值即得分（0-100）
+	advice := "容量总体健康"
+	if capacityScore < 30 {
+		advice = "容量紧张：建议立即扩容或限流"
+	} else if capacityScore < 60 {
+		advice = "容量一般：建议按需扩容并优化任务分配"
+	}
+
+	resp := &agentModel.AgentCapacityAnalysisResponse{
+		OnlineAgents:    online,
+		Overloaded:      overloaded,
+		CPUThreshold:    cpuThr,
+		MemThreshold:    memThr,
+		DiskThreshold:   diskThr,
+		AverageHeadroom: avgHeadroom,
+		CapacityScore:   capacityScore,
+		Bottlenecks:     bottlenecks,
+		Recommendations: advice,
+		OverloadedList:  overloadedList,
+	}
+
+	logger.LogInfo("Agent容量分析完成", "", 0, "", "service.agent.monitor.GetAgentCapacityAnalysis", "", map[string]interface{}{
+		"operation":  "get_agent_capacity",
+		"option":     "compose.response",
+		"func_name":  "service.agent.monitor.GetAgentCapacityAnalysis",
+		"online":     online,
+		"overloaded": overloaded,
+	})
+	return resp, nil
 }

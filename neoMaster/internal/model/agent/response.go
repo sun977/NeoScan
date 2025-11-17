@@ -176,3 +176,97 @@ type AgentDeleteResponse struct {
 	Message   string    `json:"message"`    // 响应消息
 	DeletedAt time.Time `json:"deleted_at"` // 删除时间
 }
+
+// ==================== 高级统计与分析响应结构 ====================
+
+// AggregatedPerformance 性能聚合统计
+// 说明：对当前 agent_metrics 快照做整体聚合，体现分布水平
+type AggregatedPerformance struct {
+	CPUAvg  float64 `json:"cpu_avg"`    // CPU平均使用率
+	CPUMax  float64 `json:"cpu_max"`    // CPU最大使用率
+	CPUMin  float64 `json:"cpu_min"`    // CPU最小使用率
+	MemAvg  float64 `json:"memory_avg"` // 内存平均使用率
+	MemMax  float64 `json:"memory_max"` // 内存最大使用率
+	MemMin  float64 `json:"memory_min"` // 内存最小使用率
+	DiskAvg float64 `json:"disk_avg"`   // 磁盘平均使用率
+	DiskMax float64 `json:"disk_max"`   // 磁盘最大使用率
+	DiskMin float64 `json:"disk_min"`   // 磁盘最小使用率
+
+	RunningTasksTotal   int64 `json:"running_tasks_total"`   // 正在运行任务总数
+	CompletedTasksTotal int64 `json:"completed_tasks_total"` // 已完成任务总数
+	FailedTasksTotal    int64 `json:"failed_tasks_total"`    // 失败任务总数
+}
+
+// AgentStatisticsResponse Agent总体统计响应
+type AgentStatisticsResponse struct {
+	TotalAgents            int64                 `json:"total_agents"`             // metrics快照中的Agent数量
+	OnlineAgents           int64                 `json:"online_agents"`            // 近窗口内在线的Agent数
+	OfflineAgents          int64                 `json:"offline_agents"`           // 离线Agent数（=Total-Online）
+	WorkStatusDistribution map[string]int64      `json:"work_status_distribution"` // 工作状态分布
+	ScanTypeDistribution   map[string]int64      `json:"scan_type_distribution"`   // 扫描类型分布
+	Performance            AggregatedPerformance `json:"performance"`              // 性能聚合统计
+}
+
+// AgentLoadItem 单个Agent负载项
+type AgentLoadItem struct {
+	AgentID      string          `json:"agent_id"`
+	CPUUsage     float64         `json:"cpu_usage"`
+	MemoryUsage  float64         `json:"memory_usage"`
+	RunningTasks int             `json:"running_tasks"`
+	LoadScore    float64         `json:"load_score"` // 负载评分：0.5*CPU + 0.5*Mem + 5*RunningTasks
+	WorkStatus   AgentWorkStatus `json:"work_status"`
+	ScanType     string          `json:"scan_type"`
+	Timestamp    time.Time       `json:"timestamp"`
+}
+
+// AgentLoadBalanceResponse 负载均衡分析响应
+type AgentLoadBalanceResponse struct {
+	TopBusyAgents []AgentLoadItem `json:"top_busy_agents"` // 负载最高的若干Agent
+	TopIdleAgents []AgentLoadItem `json:"top_idle_agents"` // 负载最低的若干Agent
+	Advice        string          `json:"advice"`          // 简要调度建议
+}
+
+// AgentPerformanceItem 性能排名项
+type AgentPerformanceItem struct {
+	AgentID          string    `json:"agent_id"`
+	CPUUsage         float64   `json:"cpu_usage"`
+	MemoryUsage      float64   `json:"memory_usage"`
+	DiskUsage        float64   `json:"disk_usage"`
+	NetworkBytesSent int64     `json:"network_bytes_sent"`
+	NetworkBytesRecv int64     `json:"network_bytes_recv"`
+	FailedTasks      int       `json:"failed_tasks"`
+	Timestamp        time.Time `json:"timestamp"`
+}
+
+// AgentPerformanceAnalysisResponse 性能分析响应
+type AgentPerformanceAnalysisResponse struct {
+	Aggregated     AggregatedPerformance  `json:"aggregated"`  // 聚合统计
+	TopCPU         []AgentPerformanceItem `json:"top_cpu"`     // CPU使用率TopN
+	TopMemory      []AgentPerformanceItem `json:"top_memory"`  // 内存使用率TopN
+	TopNetwork     []AgentPerformanceItem `json:"top_network"` // 网络字节总量TopN（发送+接收）
+	TopFailedTasks []AgentPerformanceItem `json:"top_failed"`  // 失败任务数TopN
+}
+
+// AgentCapacityItem 过载明细
+type AgentCapacityItem struct {
+	AgentID     string    `json:"agent_id"`
+	CPUUsage    float64   `json:"cpu_usage"`
+	MemoryUsage float64   `json:"memory_usage"`
+	DiskUsage   float64   `json:"disk_usage"`
+	Reason      string    `json:"reason"` // 过载原因：cpu/memory/disk
+	Timestamp   time.Time `json:"timestamp"`
+}
+
+// AgentCapacityAnalysisResponse 容量分析响应
+type AgentCapacityAnalysisResponse struct {
+	OnlineAgents    int64               `json:"online_agents"`     // 在线Agent数
+	Overloaded      int64               `json:"overloaded_agents"` // 过载Agent数
+	CPUThreshold    float64             `json:"cpu_threshold"`
+	MemThreshold    float64             `json:"memory_threshold"`
+	DiskThreshold   float64             `json:"disk_threshold"`
+	AverageHeadroom float64             `json:"average_headroom"` // 平均余量（(100-max(cpu,mem,disk))的均值）
+	CapacityScore   float64             `json:"capacity_score"`   // 0-100：平均余量的简化映射
+	Bottlenecks     map[string]int64    `json:"bottlenecks"`      // 各瓶颈计数
+	Recommendations string              `json:"recommendations"`  // 扩容建议
+	OverloadedList  []AgentCapacityItem `json:"overloaded_list"`
+}

@@ -372,7 +372,8 @@ func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 	page, _ := strconv.Atoi(pageStr)
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
-	infos, err := h.agentManagerService.GetAgentsInGroup(page, pageSize, groupID)
+	// 调用服务层，获取成员列表与总数，用于统一分页包装返回
+	infos, total, err := h.agentManagerService.GetAgentsInGroup(page, pageSize, groupID)
 	if err != nil {
 		logger.LogBusinessError(err, xRequestID, currentUserID, clientIP, pathUrl, method, map[string]interface{}{
 			"operation": "get_group_members",
@@ -392,14 +393,32 @@ func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 		return
 	}
 
+	// 适配统一分页响应（用 system.PaginationResponse 包装），保持与 GetAgentGroupList 一致
+	totalPages := 0
+	if pageSize > 0 {
+		// 计算总页数：向上取整 (total + pageSize - 1) / pageSize
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+	hasNext := page < totalPages
+	hasPrev := page > 1
+
+	// 组装分页响应数据区
+	data := map[string]interface{}{
+		"members": infos, // 当前页的成员列表
+	}
+
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
-		Data: map[string]interface{}{
-			"members":   infos,
-			"page":      page,
-			"page_size": pageSize,
+		Message: "获取分组成员成功",
+		Data: system.PaginationResponse{
+			Total:       total,
+			Page:        page,
+			PageSize:    pageSize,
+			TotalPages:  totalPages,
+			HasNext:     hasNext,
+			HasPrevious: hasPrev,
+			Data:        data,
 		},
 	})
 
@@ -418,6 +437,7 @@ func (h *AgentHandler) GetAgentsInGroup(c *gin.Context) {
 			"page":      page,
 			"page_size": pageSize,
 			"count":     len(infos),
+			"total":     total,
 		},
 	)
 }
@@ -497,7 +517,7 @@ func (h *AgentHandler) GetAgentGroupList(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
+		Message: "获取分组列表成功",
 		Data: system.PaginationResponse{
 			Total:       total,
 			Page:        page,

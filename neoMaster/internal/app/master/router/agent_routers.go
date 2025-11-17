@@ -64,10 +64,10 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.PUT("/:id/metrics", r.agentHandler.UpdateAgentMetrics)  // 更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
 
 		// ==================== Agent高级查询和统计路由（✅ Master端完全独立实现 - 数据分析） ====================
-		agentManageGroup.GET("/statistics", r.agentGetStatisticsPlaceholder)    // 获取Agent统计信息 [Master端聚合查询：在线数量、状态分布、性能统计]
-		agentManageGroup.GET("/load-balance", r.agentGetLoadBalancePlaceholder) // 获取Agent负载均衡信息 [Master端计算：任务分配、资源使用率]
-		agentManageGroup.GET("/performance", r.agentGetPerformancePlaceholder)  // 获取Agent性能分析 [Master端分析：响应时间、吞吐量趋势]
-		agentManageGroup.GET("/capacity", r.agentGetCapacityPlaceholder)        // 获取Agent容量分析 [Master端计算：可用容量、扩容建议]
+		agentManageGroup.GET("/statistics", r.agentHandler.GetAgentStatistics)           // 获取Agent统计信息 [Master端聚合查询：在线数量、状态分布、性能统计]
+		agentManageGroup.GET("/load-balance", r.agentHandler.GetAgentLoadBalance)        // 获取Agent负载均衡信息 [Master端计算：任务分配、资源使用率]
+		agentManageGroup.GET("/performance", r.agentHandler.GetAgentPerformanceAnalysis) // 获取Agent性能分析 [Master端分析：分布与TopN]
+		agentManageGroup.GET("/capacity", r.agentHandler.GetAgentCapacityAnalysis)       // 获取Agent容量分析 [Master端计算：可用容量、扩容建议]
 
 		// ==================== Agent分组和标签管理路由(Master端完全独立实现 - 元数据管理) ====================
 		// ----- 分组管理 -----
@@ -294,42 +294,10 @@ func (r *Router) agentBatchPullMetricsPlaceholder(c *gin.Context) {
 }
 
 // ==================== Agent高级查询和统计占位符（Master端独立实现） ====================
-
 // agentGetStatisticsPlaceholder 获取Agent统计信息占位符
-func (r *Router) agentGetStatisticsPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent统计信息功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentGetLoadBalancePlaceholder 获取Agent负载均衡信息占位符
-func (r *Router) agentGetLoadBalancePlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent负载均衡信息功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentGetPerformancePlaceholder 获取Agent性能分析占位符
-func (r *Router) agentGetPerformancePlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent性能分析功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
 // agentGetCapacityPlaceholder 获取Agent容量分析占位符
-func (r *Router) agentGetCapacityPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent容量分析功能待实现",
-		"status":    "placeholder",
-		"timestamp": logger.NowFormatted(),
-	})
-}
 
 // ==================== Agent分组和标签管理占位符（Master端独立实现） ====================
 

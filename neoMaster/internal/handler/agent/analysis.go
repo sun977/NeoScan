@@ -23,13 +23,14 @@ import (
 // GetAgentStatistics 获取Agent统计信息（占位实现）
 func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
 	logger.LogBusinessOperation(
 		"get_agent_statistics",
-		0,
+		currentUserID,
 		"",
 		clientIP,
 		XRequestID,
@@ -57,13 +58,14 @@ func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 // GetAgentLoadBalance 获取Agent负载均衡状态（占位实现）
 func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
 	logger.LogBusinessOperation(
 		"get_agent_load_balance",
-		0,
+		currentUserID,
 		"",
 		clientIP,
 		XRequestID,
@@ -91,13 +93,14 @@ func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 // GetAgentPerformanceAnalysis 获取Agent性能分析（占位实现）
 func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
 	logger.LogBusinessOperation(
 		"get_agent_performance_analysis",
-		0,
+		currentUserID,
 		"",
 		clientIP,
 		XRequestID,
@@ -125,13 +128,14 @@ func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 // GetAgentCapacityAnalysis 获取Agent容量分析（占位实现）
 func (h *AgentHandler) GetAgentCapacityAnalysis(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
+	currentUserID := utils.GetCurrentUserIDFromGinContext(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
 	logger.LogBusinessOperation(
 		"get_agent_capacity_analysis",
-		0,
+		currentUserID,
 		"",
 		clientIP,
 		XRequestID,

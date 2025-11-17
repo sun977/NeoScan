@@ -4,6 +4,10 @@
 - 构建命令：`go build -o neoMaster.exe ./cmd/master` → 通过
 - 路由接线：/agent/statistics|load-balance|performance|capacity → Handler 成功
 
+## 单元测试
+- 仅针对本功能的基础测试：`go test -v ./test/20251117`
+- 说明：项目历史测试包含尚未对齐的接口签名，建议按目录运行本次新增测试
+
 ## 手工验证建议
 - /agent/statistics?window_seconds=300 应返回在线/离线及分布统计
 - /agent/statistics?group_id=G-001 应仅统计该分组成员

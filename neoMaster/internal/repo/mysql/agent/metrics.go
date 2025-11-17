@@ -24,6 +24,7 @@ import (
 	"neomaster/internal/pkg/logger"
 )
 
+// ============== Metrics 状态监测功能实现 ==============
 // CreateMetrics 创建Agent性能指标记录
 // 说明：
 // - 校验 metrics 与 AgentID
@@ -342,3 +343,5 @@ func (r *agentRepository) UpdateAgentMetrics(agentID string, metrics *agentModel
 	}
 	return nil
 }
+
+// ============== Metrics 数据分析功能实现 ==============

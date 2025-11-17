@@ -1,307 +1,134 @@
 openapi: 3.0.3
 info:
-  title: NeoScan Agent Analysis API
-  description: |
-    NeoScan Agent高级统计与分析接口文档
-
-    本文档定义了基于 Master 端聚合的四个统计分析接口，全部数据来源于 `agent_metrics` 表，遵循 Handler → Service → Repository → Database 的分层。
-
-    - Agent总体统计（在线/离线、状态/扫描分布、性能聚合）
-    - 负载均衡分析（负载评分、TopBusy/TopIdle）
-    - 性能分析（聚合统计与各类TopN）
-    - 容量分析（过载判定、瓶颈统计、容量得分与建议）
-
-    ## 认证方式
-    使用 Bearer Token：
-    ```
-    Authorization: Bearer <your_token>
-    ```
-
-    ## 统计口径
-    - 在线判定：`timestamp >= now - window_seconds`（默认180s）
-    - 负载评分：`0.5*CPU + 0.5*Memory + 5*RunningTasks`
-    - 容量得分：`100 - max(cpu,mem,disk)` 的均值
-    - 可选按分组：提供 `group_id` 时仅对该分组成员进行聚合
+  title: NeoMaster - Agent 高级统计与分析 API
   version: 1.0.0
-  contact:
-    name: NeoScan Team
-    email: support@neoscan.com
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
-
+  description: |
+    基于 Router 与 Handler 现状生成，仅包含只读分析接口：统计、负载均衡、性能分析、容量分析。
+    - 路由：internal/app/master/router/agent_routers.go:67-70
+    - Handler：internal/handler/agent/analysis.go
 servers:
-  - url: http://localhost:8080/api/v1
-    description: 开发环境
-  - url: https://api.neoscan.com/api/v1
-    description: 生产环境
-
+  - url: /api/v1
 tags:
-  - name: Agent高级统计
-    description: Agent高级统计与分析接口
-
-paths:
-  /agent/statistics:
-    get:
-      tags: [Agent高级统计]
-      summary: 获取Agent统计信息
-      description: |
-        统计在线/离线数量、工作状态与扫描类型分布，并返回CPU/内存/磁盘等聚合统计
-      operationId: getAgentStatistics
-      parameters:
-        - name: window_seconds
-          in: query
-          description: 在线判定的时间窗口（秒）
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 180
-        - name: group_id
-          in: query
-          description: 分组ID（可选，提供时仅统计该分组成员）
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/APIResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/AgentStatisticsResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-
-  /agent/load-balance:
-    get:
-      tags: [Agent高级统计]
-      summary: 获取Agent负载均衡分析
-      description: |
-        计算负载评分并返回 TopBusy 与 TopIdle 列表，辅助调度决策
-      operationId: getAgentLoadBalance
-      parameters:
-        - name: window_seconds
-          in: query
-          description: 在线判定的时间窗口（秒）
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 180
-        - name: top_n
-          in: query
-          description: 返回 TopN 的数量
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 5
-        - name: group_id
-          in: query
-          description: 分组ID（可选，提供时仅统计该分组成员）
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/APIResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/AgentLoadBalanceResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-
-  /agent/performance:
-    get:
-      tags: [Agent高级统计]
-      summary: 获取Agent性能分析
-      description: |
-        返回CPU/内存/磁盘/网络等聚合统计，并输出各类TopN列表
-      operationId: getAgentPerformanceAnalysis
-      parameters:
-        - name: window_seconds
-          in: query
-          description: 在线判定的时间窗口（秒）
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 180
-        - name: top_n
-          in: query
-          description: 返回 TopN 的数量
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 5
-        - name: group_id
-          in: query
-          description: 分组ID（可选，提供时仅统计该分组成员）
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/APIResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/AgentPerformanceAnalysisResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-
-  /agent/capacity:
-    get:
-      tags: [Agent高级统计]
-      summary: 获取Agent容量分析
-      description: |
-        判定过载情况与瓶颈构成，计算容量得分并给出扩容/调度建议
-      operationId: getAgentCapacityAnalysis
-      parameters:
-        - name: window_seconds
-          in: query
-          description: 在线判定的时间窗口（秒）
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 180
-        - name: cpu_threshold
-          in: query
-          description: CPU过载阈值（百分比）
-          required: false
-          schema:
-            type: number
-            format: float
-            default: 80
-        - name: memory_threshold
-          in: query
-          description: 内存过载阈值（百分比）
-          required: false
-          schema:
-            type: number
-            format: float
-            default: 80
-        - name: disk_threshold
-          in: query
-          description: 磁盘过载阈值（百分比）
-          required: false
-          schema:
-            type: number
-            format: float
-            default: 80
-        - name: group_id
-          in: query
-          description: 分组ID（可选，提供时仅统计该分组成员）
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/APIResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/AgentCapacityAnalysisResponse'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-
+  - name: Agent-Analysis
+    description: Agent 高级统计与分析
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    GroupIdParam:
+      name: group_id
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 限定到指定分组ID
+    WindowSecondsParam:
+      name: window_seconds
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 180
+      description: 统计窗口（秒）
+    TopNParam:
+      name: top_n
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 5
+      description: 返回TopN数量
+    CPUThresholdParam:
+      name: cpu_threshold
+      in: query
+      required: false
+      schema:
+        type: number
+        format: float
+        default: 80
+      description: CPU 过载阈值（%）
+    MemoryThresholdParam:
+      name: memory_threshold
+      in: query
+      required: false
+      schema:
+        type: number
+        format: float
+        default: 80
+      description: 内存过载阈值（%）
+    DiskThresholdParam:
+      name: disk_threshold
+      in: query
+      required: false
+      schema:
+        type: number
+        format: float
+        default: 80
+      description: 磁盘过载阈值（%）
   schemas:
-    # 基础响应结构
-    APIResponse:
+    APIResponseBase:
       type: object
       properties:
-        code: { type: integer, description: HTTP状态码, example: 200 }
-        status: { type: string, description: 响应状态, enum: [success, failed], example: success }
-        message: { type: string, description: 响应消息, example: 操作成功 }
-        data: { type: object, description: 响应数据 }
-        error: { type: string, description: 错误信息, example: "" }
-      required: [code, status, message]
-
+        code:
+          type: integer
+        status:
+          type: string
+          description: success 或 error/failed
+        message:
+          type: string
+        error:
+          type: string
+          nullable: true
     AgentWorkStatus:
       type: string
       enum: [idle, working, exception]
-      description: Agent工作状态
-
-    AgentScanType:
-      type: string
-      enum: [idle, ipAliveScan, fastPortScan, fullPortScan, serviceScan, vulnScan, pocScan, webScan, passScan, proxyScan, dirScan, subDomainScan, apiScan, fileScan, otherScan]
-      description: Agent扫描类型
-
-    # 聚合体：性能统计
     AggregatedPerformance:
       type: object
       properties:
-        cpu_avg:   { type: number, format: float }
-        cpu_max:   { type: number, format: float }
-        cpu_min:   { type: number, format: float }
-        mem_avg:   { type: number, format: float }
-        mem_max:   { type: number, format: float }
-        mem_min:   { type: number, format: float }
-        disk_avg:  { type: number, format: float }
-        disk_max:  { type: number, format: float }
-        disk_min:  { type: number, format: float }
-        running_tasks_total:   { type: integer, format: int64 }
-        completed_tasks_total: { type: integer, format: int64 }
-        failed_tasks_total:    { type: integer, format: int64 }
-
-    # 统计响应
+        cpu_avg: { type: number, format: float }
+        cpu_max: { type: number, format: float }
+        cpu_min: { type: number, format: float }
+        memory_avg: { type: number, format: float }
+        memory_max: { type: number, format: float }
+        memory_min: { type: number, format: float }
+        disk_avg: { type: number, format: float }
+        disk_max: { type: number, format: float }
+        disk_min: { type: number, format: float }
+        running_tasks_total: { type: integer }
+        completed_tasks_total: { type: integer }
+        failed_tasks_total: { type: integer }
     AgentStatisticsResponse:
       type: object
       properties:
-        total_agents:  { type: integer, format: int64 }
-        online_agents: { type: integer, format: int64 }
-        offline_agents:{ type: integer, format: int64 }
+        total_agents: { type: integer }
+        online_agents: { type: integer }
+        offline_agents: { type: integer }
         work_status_distribution:
           type: object
-          additionalProperties: { type: integer, format: int64 }
+          additionalProperties:
+            type: integer
         scan_type_distribution:
           type: object
-          additionalProperties: { type: integer, format: int64 }
+          additionalProperties:
+            type: integer
         performance:
           $ref: '#/components/schemas/AggregatedPerformance'
-
-    # 负载分析
     AgentLoadItem:
       type: object
       properties:
-        agent_id:     { type: string }
-        cpu_usage:    { type: number, format: float }
+        agent_id: { type: string }
+        cpu_usage: { type: number, format: float }
         memory_usage: { type: number, format: float }
-        running_tasks:{ type: integer }
-        load_score:   { type: number, format: float }
-        work_status:  { $ref: '#/components/schemas/AgentWorkStatus' }
-        scan_type:    { $ref: '#/components/schemas/AgentScanType' }
-        timestamp:    { type: string, format: date-time }
-
+        running_tasks: { type: integer }
+        load_score: { type: number, format: float }
+        work_status: { $ref: '#/components/schemas/AgentWorkStatus' }
+        scan_type: { type: string }
+        timestamp: { type: string, format: date-time }
     AgentLoadBalanceResponse:
       type: object
       properties:
@@ -312,24 +139,21 @@ components:
           type: array
           items: { $ref: '#/components/schemas/AgentLoadItem' }
         advice: { type: string }
-
-    # 性能分析
     AgentPerformanceItem:
       type: object
       properties:
-        agent_id:     { type: string }
-        cpu_usage:    { type: number, format: float }
+        agent_id: { type: string }
+        cpu_usage: { type: number, format: float }
         memory_usage: { type: number, format: float }
-        disk_usage:   { type: number, format: float }
-        network_bytes_sent: { type: integer, format: int64 }
-        network_bytes_recv: { type: integer, format: int64 }
+        disk_usage: { type: number, format: float }
+        network_bytes_sent: { type: integer }
+        network_bytes_recv: { type: integer }
         failed_tasks: { type: integer }
-        timestamp:    { type: string, format: date-time }
-
+        timestamp: { type: string, format: date-time }
     AgentPerformanceAnalysisResponse:
       type: object
       properties:
-        aggregated:   { $ref: '#/components/schemas/AggregatedPerformance' }
+        aggregated: { $ref: '#/components/schemas/AggregatedPerformance' }
         top_cpu:
           type: array
           items: { $ref: '#/components/schemas/AgentPerformanceItem' }
@@ -339,92 +163,289 @@ components:
         top_network:
           type: array
           items: { $ref: '#/components/schemas/AgentPerformanceItem' }
-        top_failed_tasks:
+        top_failed:
           type: array
           items: { $ref: '#/components/schemas/AgentPerformanceItem' }
-
-    # 容量分析
     AgentCapacityItem:
       type: object
       properties:
-        agent_id:     { type: string }
-        cpu_usage:    { type: number, format: float }
+        agent_id: { type: string }
+        cpu_usage: { type: number, format: float }
         memory_usage: { type: number, format: float }
-        disk_usage:   { type: number, format: float }
-        reason:       { type: string, description: 过载原因(cpu/memory/disk) }
-        timestamp:    { type: string, format: date-time }
-
+        disk_usage: { type: number, format: float }
+        reason: { type: string, description: 'cpu|memory|disk' }
+        timestamp: { type: string, format: date-time }
     AgentCapacityAnalysisResponse:
       type: object
       properties:
-        online_agents:   { type: integer, format: int64 }
-        overloaded:      { type: integer, format: int64 }
-        cpu_threshold:   { type: number, format: float }
-        mem_threshold:   { type: number, format: float }
-        disk_threshold:  { type: number, format: float }
-        average_headroom:{ type: number, format: float }
-        capacity_score:  { type: number, format: float }
+        online_agents: { type: integer }
+        overloaded_agents: { type: integer }
+        cpu_threshold: { type: number, format: float }
+        memory_threshold: { type: number, format: float }
+        disk_threshold: { type: number, format: float }
+        average_headroom: { type: number, format: float }
+        capacity_score: { type: number, format: float }
         bottlenecks:
           type: object
-          additionalProperties: { type: integer, format: int64 }
-          description: 瓶颈构成（cpu/memory/disk 计数）
+          additionalProperties:
+            type: integer
         recommendations: { type: string }
         overloaded_list:
           type: array
           items: { $ref: '#/components/schemas/AgentCapacityItem' }
-
-  responses:
-    BadRequest:
-      description: 请求参数错误
-      content:
-        application/json:
-          schema:
-            allOf:
-              - $ref: '#/components/schemas/APIResponse'
-              - type: object
-                properties:
-                  code: { example: 400 }
-                  status: { example: failed }
-                  message: { example: 请求参数错误 }
-                  error: { example: "Invalid request format" }
-
-    Unauthorized:
-      description: 未授权访问
-      content:
-        application/json:
-          schema:
-            allOf:
-              - $ref: '#/components/schemas/APIResponse'
-              - type: object
-                properties:
-                  code: { example: 401 }
-                  status: { example: failed }
-                  message: { example: 未授权访问 }
-                  error: { example: "Invalid or missing authentication token" }
-
-    InternalServerError:
-      description: 服务器内部错误
-      content:
-        application/json:
-          schema:
-            allOf:
-              - $ref: '#/components/schemas/APIResponse'
-              - type: object
-                properties:
-                  code: { example: 500 }
-                  status: { example: failed }
-                  message: { example: 服务器内部错误 }
-                  error: { example: "Internal server error" }
-
-securitySchemes:
-  BearerAuth:
-    type: http
-    scheme: bearer
-    bearerFormat: JWT
-    description: |
-      使用JWT Bearer Token进行认证
-      
-      请求头：`Authorization: Bearer <your_jwt_token>`
-
-security:
-  - BearerAuth: []
+    APIResponse_AgentStatistics:
+      allOf:
+        - $ref: '#/components/schemas/APIResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AgentStatisticsResponse'
+    APIResponse_AgentLoadBalance:
+      allOf:
+        - $ref: '#/components/schemas/APIResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AgentLoadBalanceResponse'
+    APIResponse_AgentPerformanceAnalysis:
+      allOf:
+        - $ref: '#/components/schemas/APIResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AgentPerformanceAnalysisResponse'
+    APIResponse_AgentCapacityAnalysis:
+      allOf:
+        - $ref: '#/components/schemas/APIResponseBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AgentCapacityAnalysisResponse'
+    APIResponse_Error:
+      allOf:
+        - $ref: '#/components/schemas/APIResponseBase'
+paths:
+  /agent/statistics:
+    get:
+      tags: [Agent-Analysis]
+      summary: 获取Agent统计信息
+      description: 基于 agent_metrics 快照计算在线数量、状态分布、性能聚合等
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WindowSecondsParam'
+        - $ref: '#/components/parameters/GroupIdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_AgentStatistics'
+              examples:
+                default:
+                  value:
+                    code: 200
+                    status: success
+                    message: OK
+                    data:
+                      total_agents: 12
+                      online_agents: 10
+                      offline_agents: 2
+                      work_status_distribution: { idle: 6, working: 4, exception: 0 }
+                      scan_type_distribution: { fullPortScan: 3, webScan: 2, idle: 7 }
+                      performance:
+                        cpu_avg: 23.5
+                        cpu_max: 88.1
+                        cpu_min: 1.2
+                        memory_avg: 41.3
+                        memory_max: 92.0
+                        memory_min: 8.3
+                        disk_avg: 58.1
+                        disk_max: 79.5
+                        disk_min: 15.2
+                        running_tasks_total: 5
+                        completed_tasks_total: 132
+                        failed_tasks_total: 3
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }
+        '401':
+          description: 未授权
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }
+  /agent/load-balance:
+    get:
+      tags: [Agent-Analysis]
+      summary: 获取Agent负载均衡信息
+      description: 计算并返回高负载TopN与低负载TopN，以及调度建议
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WindowSecondsParam'
+        - $ref: '#/components/parameters/TopNParam'
+        - $ref: '#/components/parameters/GroupIdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_AgentLoadBalance'
+              examples:
+                default:
+                  value:
+                    code: 200
+                    status: success
+                    message: OK
+                    data:
+                      top_busy_agents:
+                        - agent_id: a-01
+                          cpu_usage: 82.3
+                          memory_usage: 77.2
+                          running_tasks: 3
+                          load_score: 171.0
+                          work_status: working
+                          scan_type: fullPortScan
+                          timestamp: 2025-11-17T08:00:00Z
+                      top_idle_agents:
+                        - agent_id: a-07
+                          cpu_usage: 3.2
+                          memory_usage: 8.1
+                          running_tasks: 0
+                          load_score: 5.7
+                          work_status: idle
+                          scan_type: idle
+                          timestamp: 2025-11-17T08:00:00Z
+                      advice: 优先将新任务调度到负载较低的Agent；对高负载Agent限流或延迟分配。
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }
+        '401':
+          description: 未授权
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }
+  /agent/performance:
+    get:
+      tags: [Agent-Analysis]
+      summary: 获取Agent性能分析
+      description: 返回聚合性能与多维TopN（CPU/内存/网络/失败任务）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WindowSecondsParam'
+        - $ref: '#/components/parameters/TopNParam'
+        - $ref: '#/components/parameters/GroupIdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_AgentPerformanceAnalysis'
+              examples:
+                default:
+                  value:
+                    code: 200
+                    status: success
+                    message: OK
+                    data:
+                      aggregated:
+                        cpu_avg: 31.2
+                        cpu_max: 90.4
+                        cpu_min: 2.1
+                        memory_avg: 49.5
+                        memory_max: 93.1
+                        memory_min: 7.4
+                        disk_avg: 55.0
+                        disk_max: 82.9
+                        disk_min: 20.3
+                        running_tasks_total: 7
+                        completed_tasks_total: 280
+                        failed_tasks_total: 5
+                      top_cpu:
+                        - agent_id: a-03
+                          cpu_usage: 90.4
+                          memory_usage: 71.3
+                          disk_usage: 62.1
+                          network_bytes_sent: 12400
+                          network_bytes_recv: 5600
+                          failed_tasks: 0
+                          timestamp: 2025-11-17T08:00:00Z
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }
+        '401':
+          description: 未授权
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }
+  /agent/capacity:
+    get:
+      tags: [Agent-Analysis]
+      summary: 获取Agent容量分析
+      description: 返回容量评分、瓶颈分布与过载明细
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WindowSecondsParam'
+        - $ref: '#/components/parameters/GroupIdParam'
+        - $ref: '#/components/parameters/CPUThresholdParam'
+        - $ref: '#/components/parameters/MemoryThresholdParam'
+        - $ref: '#/components/parameters/DiskThresholdParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_AgentCapacityAnalysis'
+              examples:
+                default:
+                  value:
+                    code: 200
+                    status: success
+                    message: OK
+                    data:
+                      online_agents: 10
+                      overloaded_agents: 2
+                      cpu_threshold: 80
+                      memory_threshold: 80
+                      disk_threshold: 80
+                      average_headroom: 42.6
+                      capacity_score: 42.6
+                      bottlenecks: { cpu: 1, memory: 1, disk: 0 }
+                      recommendations: 容量总体健康
+                      overloaded_list:
+                        - agent_id: a-02
+                          cpu_usage: 88.1
+                          memory_usage: 79.2
+                          disk_usage: 70.3
+                          reason: cpu
+                          timestamp: 2025-11-17T08:00:00Z
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }
+        '401':
+          description: 未授权
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/APIResponse_Error' }

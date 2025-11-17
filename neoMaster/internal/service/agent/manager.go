@@ -34,8 +34,10 @@ type AgentManagerService interface {
 	DeleteAgentGroup(groupID string) error                                                                                            // 删除分组
 	AddAgentToGroup(req *agentModel.AgentGroupMemberRequest) (*agentModel.AgentGroupMember, error)
 	RemoveAgentFromGroup(req *agentModel.AgentGroupMemberRequest) error
-	GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, error) // 获取分组成员（分页形参）
-	SetAgentGroupStatus(groupID string, status int) error                                     // 设置分组状态(1-激活 0-禁用 分组)
+	// 获取分组成员（分页形参）
+	// 说明：为支持 Controller 统一分页包装，返回成员列表与总数
+	GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, int64, error)
+	SetAgentGroupStatus(groupID string, status int) error // 设置分组状态(1-激活 0-禁用 分组)
 	// // 分组标签管理 （后续补充-分组标签类型CRUD操作）
 	// AddGroupTag(req *agentModel.GroupTagTypeRequest) error
 	// RemoveGroupTag(req *agentModel.GroupTagTypeRequest) error
@@ -860,7 +862,11 @@ func (s *agentManagerService) RemoveAgentFromGroup(req *agentModel.AgentGroupMem
 }
 
 // GetAgentsInGroup 获取分组成员服务（分页形参）
-func (s *agentManagerService) GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, error) {
+// 变更说明：
+// - 为了让 Handler 层能够返回统一的 system.PaginationResponse，需要在服务层返回总数 total
+// - 返回值从 ([]*AgentInfo, error) 调整为 ([]*AgentInfo, int64, error)
+// - 这样 Controller 可以据此计算 total_pages / has_next / has_previous，并包装到统一分页响应中
+func (s *agentManagerService) GetAgentsInGroup(page int, pageSize int, groupID string) ([]*agentModel.AgentInfo, int64, error) {
 	if groupID == "" {
 		err := fmt.Errorf("group_id不能为空")
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentsInGroup", "", map[string]interface{}{
@@ -871,7 +877,7 @@ func (s *agentManagerService) GetAgentsInGroup(page int, pageSize int, groupID s
 			"page":      page,
 			"page_size": pageSize,
 		})
-		return nil, err
+		return nil, 0, err
 	}
 	if page <= 0 {
 		page = 1
@@ -880,6 +886,7 @@ func (s *agentManagerService) GetAgentsInGroup(page int, pageSize int, groupID s
 		pageSize = 10
 	}
 
+	// 从仓储层获取成员列表与总数；此处 total 由数据库 count 统计获得
 	agents, total, err := s.agentRepo.GetAgentsInGroup(page, pageSize, groupID)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentsInGroup", "", map[string]interface{}{
@@ -890,7 +897,7 @@ func (s *agentManagerService) GetAgentsInGroup(page int, pageSize int, groupID s
 			"page":      page,
 			"page_size": pageSize,
 		})
-		return nil, fmt.Errorf("获取分组成员失败: %v", err)
+		return nil, 0, fmt.Errorf("获取分组成员失败: %v", err)
 	}
 
 	infos := make([]*agentModel.AgentInfo, 0, len(agents))
@@ -909,7 +916,8 @@ func (s *agentManagerService) GetAgentsInGroup(page int, pageSize int, groupID s
 		"total":     total,
 	})
 
-	return infos, nil
+	// 返回列表与总数，供 Handler 做统一分页包装
+	return infos, total, nil
 }
 
 // SetAgentGroupStatus 设置Agent分组状态(1-激活 0-禁用 分组)

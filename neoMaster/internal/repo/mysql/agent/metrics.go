@@ -389,56 +389,56 @@ func (r *agentRepository) GetMetricsSince(since time.Time) ([]*agentModel.AgentM
 	return list, nil
 }
 
-// GetMetricsByAgentIDs 按代理ID集合过滤获取快照
+// GetMetricsByAgentIDs 按AgentID集合过滤获取快照
 func (r *agentRepository) GetMetricsByAgentIDs(agentIDs []string) ([]*agentModel.AgentMetrics, error) {
-    var list []*agentModel.AgentMetrics
-    if len(agentIDs) == 0 {
-        return list, nil
-    }
-    if err := r.db.Model(&agentModel.AgentMetrics{}).Where("agent_id IN ?", agentIDs).Order("timestamp DESC").Find(&list).Error; err != nil {
-        logger.LogError(err, "", 0, "", "repo.agent.GetMetricsByAgentIDs", "gorm", map[string]interface{}{
-            "operation": "get_metrics_by_agent_ids",
-            "option":    "db.Find(agent_metrics)",
-            "func_name": "repo.agent.GetMetricsByAgentIDs",
-            "count_ids": len(agentIDs),
-        })
-        return nil, err
-    }
-    logger.LogInfo("Metrics by agent IDs retrieved", "", 0, "", "repo.agent.GetMetricsByAgentIDs", "gorm", map[string]interface{}{
-        "operation": "get_metrics_by_agent_ids",
-        "option":    "result.success",
-        "func_name": "repo.agent.GetMetricsByAgentIDs",
-        "count_ids": len(agentIDs),
-        "count":     len(list),
-    })
-    return list, nil
+	var list []*agentModel.AgentMetrics
+	if len(agentIDs) == 0 {
+		return list, nil
+	}
+	if err := r.db.Model(&agentModel.AgentMetrics{}).Where("agent_id IN ?", agentIDs).Order("timestamp DESC").Find(&list).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetMetricsByAgentIDs", "gorm", map[string]interface{}{
+			"operation": "get_metrics_by_agent_ids",
+			"option":    "db.Find(agent_metrics)",
+			"func_name": "repo.agent.GetMetricsByAgentIDs",
+			"count_ids": len(agentIDs),
+		})
+		return nil, err
+	}
+	logger.LogInfo("Metrics by agent IDs retrieved", "", 0, "", "repo.agent.GetMetricsByAgentIDs", "gorm", map[string]interface{}{
+		"operation": "get_metrics_by_agent_ids",
+		"option":    "result.success",
+		"func_name": "repo.agent.GetMetricsByAgentIDs",
+		"count_ids": len(agentIDs),
+		"count":     len(list),
+	})
+	return list, nil
 }
 
-// GetMetricsByAgentIDsSince 按代理ID集合+时间窗口过滤获取快照
+// GetMetricsByAgentIDsSince 按AgentID集合+时间窗口过滤获取快照
 func (r *agentRepository) GetMetricsByAgentIDsSince(agentIDs []string, since time.Time) ([]*agentModel.AgentMetrics, error) {
-    var list []*agentModel.AgentMetrics
-    if len(agentIDs) == 0 {
-        return list, nil
-    }
-    if err := r.db.Model(&agentModel.AgentMetrics{}).
-        Where("agent_id IN ? AND timestamp >= ?", agentIDs, since).
-        Order("timestamp DESC").Find(&list).Error; err != nil {
-        logger.LogError(err, "", 0, "", "repo.agent.GetMetricsByAgentIDsSince", "gorm", map[string]interface{}{
-            "operation": "get_metrics_by_agent_ids_since",
-            "option":    "db.Find(agent_metrics)",
-            "func_name": "repo.agent.GetMetricsByAgentIDsSince",
-            "count_ids": len(agentIDs),
-            "since":     since,
-        })
-        return nil, err
-    }
-    logger.LogInfo("Metrics by agent IDs since retrieved", "", 0, "", "repo.agent.GetMetricsByAgentIDsSince", "gorm", map[string]interface{}{
-        "operation": "get_metrics_by_agent_ids_since",
-        "option":    "result.success",
-        "func_name": "repo.agent.GetMetricsByAgentIDsSince",
-        "count_ids": len(agentIDs),
-        "since":     since,
-        "count":     len(list),
-    })
-    return list, nil
+	var list []*agentModel.AgentMetrics
+	if len(agentIDs) == 0 {
+		return list, nil
+	}
+	if err := r.db.Model(&agentModel.AgentMetrics{}).
+		Where("agent_id IN ? AND timestamp >= ?", agentIDs, since).
+		Order("timestamp DESC").Find(&list).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetMetricsByAgentIDsSince", "gorm", map[string]interface{}{
+			"operation": "get_metrics_by_agent_ids_since",
+			"option":    "db.Find(agent_metrics)",
+			"func_name": "repo.agent.GetMetricsByAgentIDsSince",
+			"count_ids": len(agentIDs),
+			"since":     since,
+		})
+		return nil, err
+	}
+	logger.LogInfo("Metrics by agent IDs since retrieved", "", 0, "", "repo.agent.GetMetricsByAgentIDsSince", "gorm", map[string]interface{}{
+		"operation": "get_metrics_by_agent_ids_since",
+		"option":    "result.success",
+		"func_name": "repo.agent.GetMetricsByAgentIDsSince",
+		"count_ids": len(agentIDs),
+		"since":     since,
+		"count":     len(list),
+	})
+	return list, nil
 }

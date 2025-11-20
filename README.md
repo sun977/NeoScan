@@ -121,3 +121,4 @@ go build -o neoAgent
 **注： 项目处于开发阶段，功能完善度较低，后续会慢慢补充完善(请勿剽窃设计用于商业用途)。**
 
 ![sponsor](https://vps.town/static/images/sponsor.png)
+感谢vps.town提供的服务器赞助不支持

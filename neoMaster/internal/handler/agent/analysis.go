@@ -1,5 +1,5 @@
 /**
- * Agent高级查询与统计控制器（占位）
+ * Agent高级查询与统计控制器
  * 作者: Sun977
  * 日期: 2025-11-07
  * 说明: 与Agent高级查询与统计相关的 Handler 方法占位，未来承载数据分析与统计接口。
@@ -21,7 +21,7 @@ import (
 	"neomaster/internal/pkg/utils"
 )
 
-// GetAgentStatistics 获取Agent统计信息（占位实现）
+// GetAgentStatistics 获取Agent统计信息
 func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	currentUserID := utils.GetCurrentUserIDFromGinContext(c)
@@ -65,7 +65,7 @@ func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }
 
-// GetAgentLoadBalance 获取Agent负载均衡状态（占位实现）
+// GetAgentLoadBalance 获取Agent负载均衡状态
 func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	currentUserID := utils.GetCurrentUserIDFromGinContext(c)
@@ -116,7 +116,7 @@ func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }
 
-// GetAgentPerformanceAnalysis 获取Agent性能分析（占位实现）
+// GetAgentPerformanceAnalysis 获取Agent性能分析
 func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	currentUserID := utils.GetCurrentUserIDFromGinContext(c)
@@ -168,7 +168,7 @@ func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }
 
-// GetAgentCapacityAnalysis 获取Agent容量分析（占位实现）
+// GetAgentCapacityAnalysis 获取Agent容量分析
 func (h *AgentHandler) GetAgentCapacityAnalysis(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	currentUserID := utils.GetCurrentUserIDFromGinContext(c)

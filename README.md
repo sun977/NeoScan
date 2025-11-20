@@ -119,3 +119,5 @@ go build -o neoAgent
 - [数据模型设计](sdds/05.NeoScan系统使用的数据模型设计v1.0.md)
 
 **注： 项目处于开发阶段，功能完善度较低，后续会慢慢补充完善(请勿剽窃设计用于商业用途)。**
+
+https://vps.town/static/images/sponsor.png

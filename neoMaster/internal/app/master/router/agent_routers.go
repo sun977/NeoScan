@@ -59,11 +59,11 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.GET("/metrics", r.agentHandler.GetAgentListAllMetrics)    // 获取所有Agent性能快照列表 [Master端从AgentMetrics表分页查询]
 		agentManageGroup.POST("/:id/metrics/pull", r.agentPullMetricsPlaceholder)  // 🔴 从Agent端拉取该Agent性能并更新 [Master->Agent接口 + Master端数据库更新]
 		agentManageGroup.POST("/metrics/pull", r.agentBatchPullMetricsPlaceholder) // 🔴 批量拉取所有Agent性能并更新 [Master->Agent接口并发 + Master端数据库更新]
+		agentManageGroup.POST("/:id/metrics", r.agentHandler.CreateAgentMetrics)   // 创建/上报Agent性能指标记录 [Master端数据库插入] Agent/采集器主动上报（push）入库（保留，受限权限）
+		agentManageGroup.PUT("/:id/metrics", r.agentHandler.UpdateAgentMetrics)    // 更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
 		// agentManageGroup.GET("/:id/metrics/history", r.agentGetMetricsHistoryPlaceholder) // 已弃用：历史性能数据（当前为单快照模型，不保留历史）
-		agentManageGroup.POST("/:id/metrics", r.agentHandler.CreateAgentMetrics) // 创建/上报Agent性能指标记录 [Master端数据库插入] Agent/采集器主动上报（push）入库（保留，受限权限）
-		agentManageGroup.PUT("/:id/metrics", r.agentHandler.UpdateAgentMetrics)  // 更新Agent性能指标快照 [Master端数据库更新] 手动修复/回填最新快照（保留，受限权限）
 
-		// ==================== Agent高级查询和统计路由（✅ Master端完全独立实现 - 数据分析） ====================
+		// ==================== Agent高级查询和统计路由（Master端完全独立实现 - 数据分析） ====================
 		agentManageGroup.GET("/statistics", r.agentHandler.GetAgentStatistics)           // 获取Agent统计信息 [Master端聚合查询：在线数量、状态分布、性能统计]
 		agentManageGroup.GET("/load-balance", r.agentHandler.GetAgentLoadBalance)        // 获取Agent负载均衡信息 [Master端计算：任务分配、资源使用率]
 		agentManageGroup.GET("/performance", r.agentHandler.GetAgentPerformanceAnalysis) // 获取Agent性能分析 [Master端分析：分布与TopN]

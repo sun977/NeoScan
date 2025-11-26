@@ -1,4 +1,4 @@
-# Asset模型设计v1.0
+﻿# Asset模型设计v1.0
 
 ## 扫描编排器 - 扫描过程梳理
 一个扫描项目 --- 多个扫描工作流 --- 每个扫描工作流包含多个扫描阶段 --- 每个扫描阶段只允许一个工具
@@ -157,13 +157,85 @@
 特点：结构繁杂不统一，不能系统直接使用，需要转换为统一的资产模型
 同步方式：文件导入，第三方数据库导入，第三方API接口导入等
 
+字段建议（RawAsset，统一原始入库格式，避免各接入源的特殊情况蔓延到系统内）：
+- `id`：自增主键
+- `source_type`：数据来源类型（`file`/`db`/`api`/`manual`）
+- `source_name`：来源名称或连接标识（文件路径、库名、API标识等）
+- `external_id`：来源系统中的主键或唯一键（可选）
+- `payload`：原始数据 JSON（不做字段拆分，保证完整可回溯）
+- `checksum`：原始记录校验（用于幂等与去重）
+- `import_batch_id`：导入批次标识（便于回滚与审计）
+- `imported_at`：导入时间
+- `normalize_status`：规范化状态（`pending`/`success`/`failed`）
+- `normalize_error`：规范化失败原因（可选）
+
+设计理由：
+- 用一个统一的原料表承接异构数据，最大化好品味：把特殊情况隔离在入口，后续流程只处理规范化后的统一结构。
+- 保留 `payload` 原始 JSON 与批次信息，保证Never break userspace：任何字段变动都可追溯到原始记录。
+
 ### 初始网段资产模型
-定义：系统可以使用的原始资产数据(可作为扫描的开始数据表 - 如 asset_network)
+定义：系统可以使用的原始资产数据(可作为扫描的开始数据表 - 如 `asset_network`)
 特点：结构简单统一，可以作为系统使用的资产数据
 同步方式：系统自动生成，定时任务生成，手动生成等
 
+字段建议（AssetNetwork，作为编排器输入的标准化种子资产）：
+- `id`：自增主键
+- `cidr`：网段（如 `192.168.1.0/24`），作为唯一标识
+- `priority`：调度优先级（整数，越大越优先）
+- `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）
+- `source_ref`：来源引用（指向 RawAsset 或人工录入人/任务）
+- `created_by`：创建人或系统任务 ID
+- `created_at`：创建时间
+- `status`：`active`/`paused`/`retired`（用于扫描启停策略）
+
+设计理由：
+- 使用 `cidr` 作为唯一输入，避免冗余存储 `start_ip/end_ip`，降低复杂度；范围计算由服务层按需派生。
+- 引入 `priority`/`status` 支持编排器的调度与控制，贴合实用主义。
+
 ### 扫描阶段资产模型
+定义：每个扫描阶段（探活、端口、服务、漏洞、Web等）产出的阶段结果，用于驱动下一个阶段的输入。
+
+统一模型（StageResult，消除多表多类型的特殊分支）：
+- `id`：自增主键
+- `workflow_id`：所属工作流 ID
+- `stage_id`：阶段 ID（按编排器定义唯一）
+- `result_kind`：结果类型枚举（`ip_alive`/`port_scan`/`service_fingerprint`/`vuln_finding`/`web_endpoint` 等）
+- `target_type`：`ip`/`domain`/`url`
+- `target_value`：目标值（如 `192.168.1.10` 或 `example.com`）
+- `attributes`：结构化属性 JSON（与工具输出对齐，如端口列表、指纹、CPE、证据）
+- `evidence`：原始证据 JSON（工具原始输出的必要片段）
+- `produced_at`：产生时间
+- `producer`：工具标识与版本（如 `nmap 7.93`，`nuclei 3.x`）
+
+典型 `result_kind` 映射：
+- `ip_alive`：探活结果（`attributes.alive=true`，`attributes.protocols=[icmp,tcp]`）
+- `port_scan`：端口扫描（`attributes.ports=[{port,proto,state,service_hint}]`）
+- `service_fingerprint`：服务指纹（`attributes.services=[{port,proto,name,version,cpe}]`）
+- `vuln_finding`：漏洞发现（`attributes.findings=[{id,cve,severity,confidence,evidence_ref}]`）
+- `web_endpoint`：Web 端点（`attributes.endpoints=[{url,status,tech,framework}]`）
+
+设计理由：
+- 好品味：一个统一的 `StageResult` 让特殊情况消失无需为每个阶段再造一张专用表，减少分支与耦合。
+- 保留 `attributes` 与 `evidence` JSON，实现不同工具的输出兼容；下一阶段只消费需要的字段即可。
 
 ### 最终结果资产模型
+定义：面向查询与报表的规范化资产视图，聚合并去重所有阶段结果。
 
+核心实体与字段建议：
+- `AssetHost`（主机资产）
+  - `id`，`ip`，`hostname`（可选），`os`（可选），`last_seen_at`
+  - `source_stage_ids`：来源阶段 ID 列表（追溯）
+- `AssetService`（服务资产）
+  - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`last_seen_at`
+- `AssetWeb`（Web 资产）
+  - `id`，`host_id`（可选），`url`，`tech_stack`（JSON），`status`，`last_seen_at`
+- `AssetVuln`（漏洞资产）
+  - `id`，`target_type`（`host|service|web`），`target_ref_id`，`cve`/`id`，`severity`（统一到 `low|medium|high|critical`），`confidence`，`evidence`（JSON），`first_seen_at`，`last_seen_at`，`status`（`open|confirmed|resolved|ignored`）
 
+聚合与去重策略：
+- 以 `ip`、`port+proto`、`url`、`cve+target` 建立唯一键；多次扫描合并为同一资产记录，更新 `last_seen_at`。
+- 保留 `source_stage_ids` 与 `evidence`，做到Never break userspace：任何报表与审计都可回溯到阶段输出。
+
+设计理由：
+- 分离阶段结果（过程数据）与最终资产（沉淀数据），严格遵守层级结构：编排器输出  资产聚合  查询/报表。
+- 规范化实体边界（Host/Service/Web/Vuln）使查询简单、索引清晰，避免深层嵌套与过度多态带来的复杂度。

@@ -1,5 +1,4 @@
-﻿-- Active: 1757988234394@@127.0.0.1@3306@neoscan_dev
-# Asset模型设计v1.0
+﻿# Asset模型设计v1.0
 
 ## 扫描编排器 - 扫描过程梳理
 一个扫描项目 --- 多个扫描工作流 --- 每个扫描工作流包含多个扫描阶段 --- 每个扫描阶段只允许一个工具
@@ -152,19 +151,19 @@
 
 
 
-# 设计原则
+## 设计原则
 资产分类不是靠“为每种资产新建一张表”来体现，而是靠统一的数据结构与少量枚举/标签在不同层（种子、阶段、最终实体）中表达类型与关系。这种设计消除了特殊情况、降低复杂度，并保持向后兼容
 
-数据结构分层清晰：
+### 数据结构分层清晰：
 - 原料入口统一： RawAsset 吸收异构来源，避免分类在入口处爆炸。
 - 编排种子： AssetNetwork 作为扫描起点，仅用 cidr 驱动目标范围。
 - 阶段结果统一： StageResult 用 result_kind 与 target_type 表示输出种类和目标类型。
 - 最终资产实体： AssetHost/AssetService/AssetWeb/AssetVuln 四类规范化实体承载查询与报表）。
 
-分类体现
+### 分类体现
 - IP/网段资产
   - 编排输入：网段用 AssetNetwork.cidr 表示。
-  - 阶段结果：目标类型为 ip （ StageResult.target_type ），探活/端口等由 result_kind 区分（。
+  - 阶段结果：目标类型为 ip （ StageResult.target_type ），探活/端口等由 result_kind 区分。
   - 最终实体：主机归一到 AssetHost ，服务归一到 AssetService 。
 - 应用资产
   - 网络应用（非 Web）：归一到 AssetService ，用 name/version/cpe/fingerprint 定义类型与指纹）。
@@ -278,3 +277,6 @@
 设计理由：
 - 分离阶段结果（过程数据）与最终资产（沉淀数据），严格遵守层级结构：编排器输出  资产聚合  查询/报表。
 - 规范化实体边界（Host/Service/Web/Vuln）使查询简单、索引清晰，避免深层嵌套与过度多态带来的复杂度。
+
+
+

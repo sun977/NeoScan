@@ -267,11 +267,10 @@
   - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`tags`（JSON 对象，含 `asset_kind`：`container|database` 等），`last_seen_at`
 - `AssetWeb`（Web 资产）
   - `id`，`host_id`（可选），`url`，`tech_stack`（JSON，含 `asset_kind`：`api` 等），`status`，`last_seen_at`
-- `AssetVuln`（漏洞资产）
-  - `id`，`target_type`（`host|service|web`），`target_ref_id`，`cve`/`id`，`severity`（统一到 `low|medium|high|critical`），`confidence`，`evidence`（JSON），`first_seen_at`，`last_seen_at`，`status`（`open|confirmed|resolved|ignored`）
+
 
 聚合与去重策略：
-- 以 `ip`、`port+proto`、`url`、`cve+target` 建立唯一键；多次扫描合并为同一资产记录，更新 `last_seen_at`。
+- 以 `ip`、`port+proto`、`url` 建立唯一键；多次扫描合并为同一资产记录，更新 `last_seen_at`。
 - 保留 `source_stage_ids` 与 `evidence`，做到Never break userspace：任何报表与审计都可回溯到阶段输出。
 
 设计理由：
@@ -286,3 +285,27 @@
 
 
 
+
+## 漏洞情报资产模型
+定义：独立维护的漏洞情报实体，来源可为阶段扫描输出（`vuln_finding`）、指纹推断（CPECVE）、外部导入（平台/库/API）、人工确认/复核。
+
+字段建议（AssetVuln）：
+- `id`
+- `target_type`：`host|service|web|api`
+- `target_ref_id`：指向对应实体的 ID（`AssetHost/AssetService/AssetWeb`）
+- `cve`/`id`：漏洞标识（优先 CVE）
+- `severity`：`low|medium|high|critical`
+- `confidence`：置信度（01 或离散等级）
+- `evidence`：JSON（工具原始证据片段）
+- `attributes`：JSON（CVSS、向量、exploit/patch、advisory_refs、intel_source、intel_ref、detection_method 等）
+- `first_seen_at`，`last_seen_at`
+- `status`：`open|confirmed|resolved|ignored`
+
+去重与回溯：
+- 唯一键：`cve + target_type + target_ref_id`；多来源 upsert，更新 `last_seen_at`。
+- 保留 `source_stage_ids` 与 `evidence`，做到 Never break userspace：任何报表与审计都可回溯到阶段输出或外部来源。
+
+设计理由：
+- 漏洞是情报/发现，不是主机/服务的固有属性；独立实体消除嵌套存储的特殊情况。
+- 查询与报表口径统一（按主机/服务/URL 的漏洞分布、严重度、趋势）。
+- 与工作流是否包含漏洞阶段解耦：无该阶段时仍可由推断或外部情报生成，零破坏现有结构。

@@ -264,9 +264,9 @@
   - `id`，`ip`，`hostname`（可选），`os`（可选），`last_seen_at`
   - `source_stage_ids`：来源阶段 ID 列表（追溯）
 - `AssetService`（服务资产）
-  - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`last_seen_at`
+  - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`tags`（JSON 对象，含 `asset_kind`：`container|database` 等），`last_seen_at`
 - `AssetWeb`（Web 资产）
-  - `id`，`host_id`（可选），`url`，`tech_stack`（JSON），`status`，`last_seen_at`
+  - `id`，`host_id`（可选），`url`，`tech_stack`（JSON，含 `asset_kind`：`api` 等），`status`，`last_seen_at`
 - `AssetVuln`（漏洞资产）
   - `id`，`target_type`（`host|service|web`），`target_ref_id`，`cve`/`id`，`severity`（统一到 `low|medium|high|critical`），`confidence`，`evidence`（JSON），`first_seen_at`，`last_seen_at`，`status`（`open|confirmed|resolved|ignored`）
 
@@ -277,6 +277,12 @@
 设计理由：
 - 分离阶段结果（过程数据）与最终资产（沉淀数据），严格遵守层级结构：编排器输出  资产聚合  查询/报表。
 - 规范化实体边界（Host/Service/Web/Vuln）使查询简单、索引清晰，避免深层嵌套与过度多态带来的复杂度。
+轻量级分类标签（避免 schema 膨胀）：
+- 统一使用 `asset_kind` 表达资产类别：container、database、api 等。
+- AssetService.tags.asset_kind 用于服务类分类；AssetWeb.tech_stack.asset_kind 用于 Web/API 类分类。
+- 其余标签可在 `tags/` 或 `tech_stack/` 中自由扩展，不新增顶层字段，保持模型简洁、可演进。
+
+
 
 
 

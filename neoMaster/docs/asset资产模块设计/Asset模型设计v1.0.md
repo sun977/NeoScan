@@ -161,6 +161,7 @@
 - 最终资产实体： AssetHost/AssetService/AssetWeb 三类规范化实体承载查询与报表；漏洞情报资产独立维护为 AssetVuln。
 
 ### 分类体现
+资产类型用 asset_type 字段明确表达：AssetService.asset_type=service|database|container，AssetWeb.asset_type=web|api；不使用 tags/tech_stack 中的 asset_kind。
 - IP/网段资产
   - 编排输入：网段用 AssetNetwork.cidr 表示。
   - 阶段结果：目标类型为 ip （ StageResult.target_type ），探活/端口等由 result_kind 区分。
@@ -183,7 +184,7 @@
   - 最终实体：归一到 AssetWeb ，用 url/tech_stack/status 表示接口端点和框架。
 设计原则与理由
 
-- 好品味：不为每种“资产种类”拉一张新表。统一入口（RawAsset）、统一阶段（StageResult）、统一最终实体（Host/Service/Web/Vuln），分类通过少量枚举/标签/指纹体现。
+- 好品味：不为每种“资产种类”拉一张新表。统一入口（RawAsset）、统一阶段（StageResult）、统一最终实体（Host/Service/Web） + 独立漏洞情报 AssetVuln，分类通过少量枚举/标签/指纹体现。
 - Never break userspace：保留 payload/evidence/source_stage_ids 做全链路回溯（docs/asset资产模型设计v1.0.md:224, 237）。
 - 实用主义：只在“查询/报表真的需要”时再引入新实体，否则用现有 tech_stack/fingerprint/tags 足以满足分类与检索。
 
@@ -264,9 +265,9 @@
   - `id`，`ip`，`hostname`（可选），`os`（可选），`last_seen_at`
   - `source_stage_ids`：来源阶段 ID 列表（追溯）
 - `AssetService`（服务资产）
-  - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`tags`（JSON 对象，含 `asset_kind`：`container|database` 等），`last_seen_at`
+  - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`asset_type`（`service|database|container`），`tags`（JSON），`last_seen_at`
 - `AssetWeb`（Web 资产）
-  - `id`，`host_id`（可选），`url`，`tech_stack`（JSON，含 `asset_kind`：`api` 等），`status`，`last_seen_at`
+  - `id`，`host_id`（可选），`url`，`asset_type`（`web|api`），`tech_stack`（JSON），`status`，`last_seen_at`
 
 
 聚合与去重策略：
@@ -276,11 +277,10 @@
 设计理由：
 - 分离阶段结果（过程数据）与最终资产（沉淀数据），严格遵守层级结构：编排器输出  资产聚合  查询/报表。
 - 规范化实体边界（Host/Service/Web/Vuln）使查询简单、索引清晰，避免深层嵌套与过度多态带来的复杂度。
-轻量级分类标签（避免 schema 膨胀）：
-- 统一使用 `asset_kind` 表达资产类别：container、database、api 等。
-- AssetService.tags.asset_kind 用于服务类分类；AssetWeb.tech_stack.asset_kind 用于 Web/API 类分类。
-- 其余标签可在 `tags/` 或 `tech_stack/` 中自由扩展，不新增顶层字段，保持模型简洁、可演进。
-
+资产类型字段（明确分类，避免歧义）：
+- 统一使用 `asset_type` 表达资产类型，不使用 `tags/tech_stack` 中的 `asset_kind`。
+- `AssetService.asset_type=service|database|container`；`AssetWeb.asset_type=web|api`。
+- `tags/tech_stack` 继续作为信息容器（技术栈、标签），与类型字段解耦。
 
 ## 漏洞情报资产模型
 定义：独立维护的漏洞情报实体，来源可为阶段扫描输出（`vuln_finding`）、指纹推断（CPECVE）、外部导入（平台/库/API）、人工确认/复核。
@@ -305,4 +305,7 @@
 - 漏洞是情报/发现，不是主机/服务的固有属性；独立实体消除嵌套存储的特殊情况。
 - 查询与报表口径统一（按主机/服务/URL 的漏洞分布、严重度、趋势）。
 - 与工作流是否包含漏洞阶段解耦：无该阶段时仍可由推断或外部情报生成，零破坏现有结构。
+
+
+
 

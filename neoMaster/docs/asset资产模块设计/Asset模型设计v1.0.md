@@ -170,7 +170,6 @@
 - 应用资产
   - 网络应用(非Web)：归一到 AssetService ，用 asset_type=service 表示资产类型，cpe/fingerprint(指纹定义专门的json结构和字段) 定义指纹。
   - Web应用：归一到 AssetWeb ，用 asset_type=web 表示资产类型，用 url/tech_stack/status 表示端点与技术栈。
-  - 跨服务的“业务应用”：归一到 AssetService ，用 asset_type=other 表示资产类型。
 - 域名资产
   - 识别与归类：归一到 AssetWeb ，asset_type=domain 表示资产类型是域名。
   - 阶段结果：目标类型为 target_type=domain (StageResult.target_type)。

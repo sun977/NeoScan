@@ -263,12 +263,12 @@
 
 核心实体与字段建议：
 - `AssetHost`（主机资产）
-  - `id`，`ip`，`hostname`（可选），`os`（可选），`last_seen_at`
+  - `id`，`ip`，`hostname`（可选），`os`（可选），`tags`（JSON），`last_seen_at`
   - `source_stage_ids`：来源阶段 ID 列表（追溯）
 - `AssetService`（服务资产）
   - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`asset_type`（`service|database|container`），`tags`（JSON），`last_seen_at`
 - `AssetWeb`（Web 资产）
-  - `id`，`host_id`（可选），`domain`（可选），`url`，`asset_type`（`web|api`），`tech_stack`（JSON），`status`，`last_seen_at`
+  - `id`，`host_id`（可选），`domain`（可选），`url`，`asset_type`（`web|api`），`tech_stack`（JSON），`status`，`tags`（JSON），`last_seen_at`
 
 
 聚合与去重策略：

@@ -184,8 +184,8 @@
   - 最终实体：归一到 AssetWeb ，用 url/tech_stack/status 表示接口端点和框架。
 设计原则与理由
 
-- 好品味：不为每种“资产种类”拉一张新表。统一入口（RawAsset）、统一阶段（StageResult）、统一最终实体（Host/Service/Web） + 独立漏洞情报 AssetVuln，分类通过少量枚举/标签/指纹体现。
-- Never break userspace：保留 payload/evidence/source_stage_ids 做全链路回溯（docs/asset资产模型设计v1.0.md:224, 237）。
+- 好品味：不为每种“资产种类”拉一张新表。统一入口（RawAsset）、统一阶段（StageResult）、统一最终实体（Host/Service/Web） + 独立漏洞情报 AssetVuln，资产分类 asset_type 体现。
+- Never break userspace：保留 payload/evidence/source_stage_ids 做全链路回溯。
 - 实用主义：只在“查询/报表真的需要”时再引入新实体，否则用现有 tech_stack/fingerprint/tags 足以满足分类与检索。
 
 

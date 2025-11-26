@@ -157,37 +157,39 @@
 ### 数据结构分层清晰：
 - 原料入口统一： RawAsset 吸收异构来源，避免分类在入口处爆炸。
 - 编排种子： AssetNetwork 作为扫描起点，仅用 cidr 驱动目标范围。
-- 阶段结果统一： StageResult 用 result_kind 与 target_type 表示输出种类和目标类型。
+- 阶段结果统一： StageResult 用 result_type 与 target_type 表示输出种类和目标类型。
 - 最终资产实体： AssetHost/AssetService/AssetWeb 三类规范化实体承载查询与报表；漏洞情报资产独立维护为 AssetVuln。
+【三种类型：资产类型 asset_type，目标类型 target_type，结果类型 result_type，类型的取值需要固定】
 
 ### 分类体现
-资产类型用 asset_type 字段明确表达：AssetService.asset_type=service|database|container，AssetWeb.asset_type=web|api；不使用 tags/tech_stack 中的 asset_kind。
+资产类型用 asset_type 字段明确表达：AssetService.asset_type=service|database|container，AssetWeb.asset_type=web|api|domain；
 - IP/网段资产
   - 编排输入：网段用 AssetNetwork.cidr 表示。
-  - 阶段结果：目标类型为 ip （ StageResult.target_type ），探活/端口等由 result_kind 区分。
+  - 阶段结果：目标类型为 ip （ StageResult.target_type ），探活/端口等由 result_type 区分。
   - 最终实体：主机归一到 AssetHost ，服务归一到 AssetService 。
 - 应用资产
-  - 网络应用（非 Web）：归一到 AssetService ，用 name/version/cpe/fingerprint 定义类型与指纹。
-  - Web 应用：归一到 AssetWeb ，用 url/tech_stack/status 表示端点与技术栈。
-  - 跨服务的“业务应用”：不单独新建“应用表”，用 tags （在生成侧）与实体之间的关系表示聚合，避免一堆特殊情况。
+  - 网络应用(非Web)：归一到 AssetService ，用 asset_type=service 表示资产类型，cpe/fingerprint(指纹定义专门的json结构和字段) 定义指纹。
+  - Web应用：归一到 AssetWeb ，用 asset_type=web 表示资产类型，用 url/tech_stack/status 表示端点与技术栈。
+  - 跨服务的“业务应用”：归一到 AssetService ，用 asset_type=other 表示资产类型。
 - 域名资产
-  - 阶段结果：目标类型为 domain （ StageResult.target_type ）。
-  - 最终实体：通常体现在 AssetWeb.url （含域名）， host_id 可选用于映射解析归属。
+  - 识别与归类：归一到 AssetWeb ，asset_type=domain 表示资产类型是域名。
+  - 阶段结果：目标类型为 target_type=domain (StageResult.target_type)。
+  - 最终实体：通常体现在 AssetWeb.domain， host_id 可选用于映射解析归属。
 - 容器资产
-  - 识别与归类：由 StageResult.attributes 承载容器/编排信息（如 Docker/K8s 指纹），最终归一到 AssetService （服务进程端口）和 AssetHost （宿主机/节点），通过 fingerprint/tags 标注容器维度。
+  - 识别与归类：用 asset_type=container 表示资产类型，由 StageResult.attributes 承载容器/编排信息（如 Docker/K8s 指纹），最终归一到 AssetService （服务进程端口）和 AssetHost （宿主机/节点），通过 fingerprint/tags 标注容器维度。
   - 不单独新建 AssetContainer ，除非报告/查询确实需要一类实体；当前设计用指纹+关系即可体现。
 - 数据库资产
-  - 归一到 AssetService ：通过 name （如 mysql / postgres ）、 port 、 version 、 cpe/fingerprint 表示。
-  - 阶段识别： StageResult.result_kind=service_fingerprint 填充指纹属性。
+  - 识别与归类：归一到 AssetService ，用 asset_type=database 表示资产类型，cpe/fingerprint(指纹定义专门的json结构和字段) 定义指纹。
+  - 阶段识别： StageResult.result_type=database。
 - API资产
-  - 阶段结果： result_kind=web_endpoint ，在 attributes.endpoints 表示 API 端点，技术栈可含 openapi/rest/graphql 等。
+  - 识别与归类：归一到 AssetWeb ，用 asset_type=api 表示资产类型，cpe/fingerprint(指纹定义专门的json结构和字段) 定义指纹。
+  - 阶段结果： result_type=web_endpoint ，在 attributes.endpoints 表示 API 端点，技术栈可含 openapi/rest/graphql 等。
   - 最终实体：归一到 AssetWeb ，用 url/tech_stack/status 表示接口端点和框架。
 设计原则与理由
 
 - 好品味：不为每种“资产种类”拉一张新表。统一入口（RawAsset）、统一阶段（StageResult）、统一最终实体（Host/Service/Web） + 独立漏洞情报 AssetVuln，资产分类 asset_type 体现。
 - Never break userspace：保留 payload/evidence/source_stage_ids 做全链路回溯。
 - 实用主义：只在“查询/报表真的需要”时再引入新实体，否则用现有 tech_stack/fingerprint/tags 足以满足分类与检索。
-
 
 
 ## 资产模型
@@ -238,7 +240,7 @@
 - `id`：自增主键
 - `workflow_id`：所属工作流 ID
 - `stage_id`：阶段 ID（按编排器定义唯一）
-- `result_kind`：结果类型枚举（`ip_alive`/`port_scan`/`service_fingerprint`/`vuln_finding`/`web_endpoint` 等）
+- `result_type`：结果类型枚举（`ip_alive`/`port_scan`/`service_fingerprint`/`vuln_finding`/`web_endpoint` 等）
 - `target_type`：`ip`/`domain`/`url`
 - `target_value`：目标值（如 `192.168.1.10` 或 `example.com`）
 - `attributes`：结构化属性 JSON（与工具输出对齐，如端口列表、指纹、CPE、证据）
@@ -246,7 +248,7 @@
 - `produced_at`：产生时间
 - `producer`：工具标识与版本（如 `nmap 7.93`，`nuclei 3.x`）
 
-典型 `result_kind` 映射：
+典型 `result_type` 映射：
 - `ip_alive`：探活结果（`attributes.alive=true`，`attributes.protocols=[icmp,tcp]`）
 - `port_scan`：端口扫描（`attributes.ports=[{port,proto,state,service_hint}]`）
 - `service_fingerprint`：服务指纹（`attributes.services=[{port,proto,name,version,cpe}]`）
@@ -267,7 +269,7 @@
 - `AssetService`（服务资产）
   - `id`，`host_id`，`port`，`proto`，`name`，`version`，`cpe`，`fingerprint`（JSON），`asset_type`（`service|database|container`），`tags`（JSON），`last_seen_at`
 - `AssetWeb`（Web 资产）
-  - `id`，`host_id`（可选），`url`，`asset_type`（`web|api`），`tech_stack`（JSON），`status`，`last_seen_at`
+  - `id`，`host_id`（可选），`domain`（可选），`url`，`asset_type`（`web|api`），`tech_stack`（JSON），`status`，`last_seen_at`
 
 
 聚合与去重策略：

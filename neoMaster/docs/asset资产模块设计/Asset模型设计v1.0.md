@@ -1,4 +1,5 @@
-﻿# Asset模型设计v1.0
+﻿-- Active: 1757988234394@@127.0.0.1@3306@neoscan_dev
+# Asset模型设计v1.0
 
 ## 扫描编排器 - 扫描过程梳理
 一个扫描项目 --- 多个扫描工作流 --- 每个扫描工作流包含多个扫描阶段 --- 每个扫描阶段只允许一个工具
@@ -148,6 +149,44 @@
 - 2. 使用哪种扫描的工具 - Nuclei
 - 3. 扫描工具的参数 - Nuclei的参数 --- (-t cve -l /path/to/hosts.txt -o /path/to/output.txt)
 - 4. 扫描策略是什么【同上】
+
+
+
+# 设计原则
+资产分类不是靠“为每种资产新建一张表”来体现，而是靠统一的数据结构与少量枚举/标签在不同层（种子、阶段、最终实体）中表达类型与关系。这种设计消除了特殊情况、降低复杂度，并保持向后兼容
+
+数据结构分层清晰：
+- 原料入口统一： RawAsset 吸收异构来源，避免分类在入口处爆炸。
+- 编排种子： AssetNetwork 作为扫描起点，仅用 cidr 驱动目标范围。
+- 阶段结果统一： StageResult 用 result_kind 与 target_type 表示输出种类和目标类型。
+- 最终资产实体： AssetHost/AssetService/AssetWeb/AssetVuln 四类规范化实体承载查询与报表）。
+
+分类体现
+- IP/网段资产
+  - 编排输入：网段用 AssetNetwork.cidr 表示。
+  - 阶段结果：目标类型为 ip （ StageResult.target_type ），探活/端口等由 result_kind 区分（。
+  - 最终实体：主机归一到 AssetHost ，服务归一到 AssetService 。
+- 应用资产
+  - 网络应用（非 Web）：归一到 AssetService ，用 name/version/cpe/fingerprint 定义类型与指纹）。
+  - Web 应用：归一到 AssetWeb ，用 url/tech_stack/status 表示端点与技术栈。
+  - 跨服务的“业务应用”：不单独新建“应用表”，用 tags （在生成侧）与实体之间的关系表示聚合，避免一堆特殊情况。
+- 域名资产
+  - 阶段结果：目标类型为 domain （ StageResult.target_type ）。
+  - 最终实体：通常体现在 AssetWeb.url （含域名）， host_id 可选用于映射解析归属。
+- 容器资产
+  - 识别与归类：由 StageResult.attributes 承载容器/编排信息（如 Docker/K8s 指纹），最终归一到 AssetService （服务进程端口）和 AssetHost （宿主机/节点），通过 fingerprint/tags 标注容器维度。
+  - 不单独新建 AssetContainer ，除非报告/查询确实需要一类实体；当前设计用指纹+关系即可体现。
+- 数据库资产
+  - 归一到 AssetService ：通过 name （如 mysql / postgres ）、 port 、 version 、 cpe/fingerprint 表示。
+  - 阶段识别： StageResult.result_kind=service_fingerprint 填充指纹属性。
+- API资产
+  - 阶段结果： result_kind=web_endpoint ，在 attributes.endpoints 表示 API 端点，技术栈可含 openapi/rest/graphql 等。
+  - 最终实体：归一到 AssetWeb ，用 url/tech_stack/status 表示接口端点和框架。
+设计原则与理由
+
+- 好品味：不为每种“资产种类”拉一张新表。统一入口（RawAsset）、统一阶段（StageResult）、统一最终实体（Host/Service/Web/Vuln），分类通过少量枚举/标签/指纹体现。
+- Never break userspace：保留 payload/evidence/source_stage_ids 做全链路回溯（docs/asset资产模型设计v1.0.md:224, 237）。
+- 实用主义：只在“查询/报表真的需要”时再引入新实体，否则用现有 tech_stack/fingerprint/tags 足以满足分类与检索。
 
 
 

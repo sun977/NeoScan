@@ -166,7 +166,7 @@
   - 阶段结果：目标类型为 ip （ StageResult.target_type ），探活/端口等由 result_kind 区分。
   - 最终实体：主机归一到 AssetHost ，服务归一到 AssetService 。
 - 应用资产
-  - 网络应用（非 Web）：归一到 AssetService ，用 name/version/cpe/fingerprint 定义类型与指纹）。
+  - 网络应用（非 Web）：归一到 AssetService ，用 name/version/cpe/fingerprint 定义类型与指纹。
   - Web 应用：归一到 AssetWeb ，用 url/tech_stack/status 表示端点与技术栈。
   - 跨服务的“业务应用”：不单独新建“应用表”，用 tags （在生成侧）与实体之间的关系表示聚合，避免一堆特殊情况。
 - 域名资产

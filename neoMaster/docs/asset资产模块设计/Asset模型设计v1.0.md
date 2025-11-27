@@ -160,8 +160,7 @@
 - 3. 扫描工具的参数 - Nuclei的参数 --- (-t cve -l /path/to/hosts.txt -o /path/to/output.txt)
 - 4. 扫描策略是什么【同上】
 
-
-
+    
 ## 设计原则
 资产分类不是靠“为每种资产新建一张表”来体现，而是靠统一的数据结构与少量枚举/标签在不同层（种子、阶段、最终实体）中表达类型与关系。这种设计消除了特殊情况、降低复杂度，并保持向后兼容
 
@@ -203,6 +202,15 @@
 
 
 ## 资产模型
+### 数据流转设计
+RawAsset (系统外异构原始数据)
+↓ (规范化处理)
+RawAssetNetwork (系统内可维护网段资产)
+↓ (拆分处理)
+AssetNetwork (扫描任务)
+↓ (扫描执行)
+AssetNetworkScan (扫描记录)
+
 ### 原料资产模型
 定义：通过不同的方式接入到本系统的资产数据类型
 特点：结构繁杂不统一，不能系统直接使用，需要转换为统一的资产模型
@@ -216,17 +224,55 @@
 - `payload`：原始数据 JSON（不做字段拆分，保证完整可回溯）
 - `checksum`：原始记录校验（用于幂等与去重）
 - `import_batch_id`：导入批次标识（便于回滚与审计）
+- `priority`：处理优先级（整数，越大越优先）
+- `tags`：标签（JSON数组，用于分类标记）
+- `processing_config`：处理配置（JSON，指定该数据源的特殊处理策略）
 - `imported_at`：导入时间
 - `normalize_status`：规范化状态（`pending`/`success`/`failed`）
 - `normalize_error`：规范化失败原因（可选）
+- `created_at`：创建时间
+- `updated_at`：更新时间
 
 设计理由：
 - 用一个统一的原料表承接异构数据，最大化好品味：把特殊情况隔离在入口，后续流程只处理规范化后的统一结构。
 - 保留 `payload` 原始 JSON 与批次信息，保证Never break userspace：任何字段变动都可追溯到原始记录。
+- 引入 `priority` 字段支持不同数据源的处理优先级
+- 添加 `tags` 字段便于对原始资产进行分类标记
+- 增加 `processing_config` 字段支持不同来源数据的差异化处理策略
 
-### 系统内网段资产模型
+### 系统内网段资产模型 - 系统可维护的网段资产表
+定义：系统可以使用的原始资产数据(可作为系统使用的资产数据表)，存储网段资产
+可以用来生成 asset_network 表并开始扫描任务
 
-### 初始网段资产模型 - 扫描使用
+字段建议（RawAssetNetwork）：
+- `id`：自增主键
+- `network`：网段（如 `192.168.0.0/16`）保持原始网段，不进行拆分
+- `priority`：调度优先级（整数，越大越优先）
+- `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）
+- `source_type`：数据来源类型（`file`/`db`/`api`/`manual`）
+- `source_identifier`：来源标识（文件路径、数据库表名、API地址等）
+- `status`：`active`(应该扫描)/`paused`(暂停扫描)/`retired`(不再扫描)（用于调度器控制扫描启停策略）
+- `note`：备注
+- `created_by`：创建人或系统任务 ID
+- `created_at`：创建时间
+- `updated_at`：更新时间
+
+约束：
+- 主键：`id`
+- 唯一约束：`network`
+
+InternalAssetNetwork 表索引：
+- 主键索引：`id`
+- 唯一索引：`network`
+- 查询索引：`status`, `priority`
+
+设计理由：
+- 作为系统内部使用的网段资产表，用于生成扫描任务
+- 保持原始网段不进行拆分，由后续处理流程进行拆分
+- 包含必要的调度和管理字段
+- 通过source_type和source_identifier替代source_ref，提供更清晰的来源信息
+
+### 初始网段资产模型 - 专注于扫描任务
 定义：系统可以使用的原始资产数据(可作为扫描的开始数据表 - 如 `asset_network`)
 特点：结构简单统一，可以作为系统使用的资产数据
 同步方式：系统自动生成，定时任务生成，手动生成等
@@ -240,11 +286,12 @@
 - `round`：扫描轮次（整数，默认为1）【可统计扫描频率，性能趋势，比较不同轮次结果等（骚操作字段）】
 - `priority`：调度优先级（整数，越大越优先）
 - `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）
-- `source_ref`：来源引用（指向 RawAsset 或人工录入人/任务）
+- `source_ref`：来源引用（(指向 RawAssetNetwork.id)
 - `status`：`active`(应该扫描)/`paused`(暂停扫描)/`retired`(不再扫描)（用于调度器控制扫描启停策略，语义控制层面，表示网段的可用性状态）【调度状态】
 - `scan_status`：扫描状态（`pending`/`scanning`/`completed`/`failed`） (用于扫描执行器和监控系统记录实际扫描状态)【执行状态】
 - `last_scan_at`：最后一次扫描完成时间（便于快速查询最近扫描时间）
 - `next_scan_at`：预计下次扫描时间（用于定时扫描策略）
+- `note`：备注
 - `created_by`：创建人或系统任务 ID
 - `created_at`：创建时间
 - `updated_at`：更新时间（任何字段更新，记录有变动自动更新）
@@ -284,7 +331,7 @@ split_order 使用方式和场景：
 4. 异常恢复：当扫描中断后重启时，可通过 split_order 快速定位从哪个子网段继续扫描
 5. 负载均衡：在分布式扫描环境中，可根据 split_order 将连续的网段分配给不同的扫描节点
 
-### 网段扫描记录模型
+### 网段扫描记录模型 - 专注于扫描任务过程
 定义：记录每个网段的扫描历史和当前分配的Agent
 
 字段建议（AssetNetworkScan）：
@@ -301,6 +348,7 @@ split_order 使用方式和场景：
 - `finished_at`：扫描完成时间（可为空）
 - `assigned_at`：分配给Agent的时间
 - `scan_result_ref`：扫描结果引用（可选，指向扫描结果ID）
+- `note`：备注
 - `retry_count`：重试次数
 - `created_at`：创建时间
 - `updated_at`：更新时间

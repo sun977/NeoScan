@@ -340,7 +340,8 @@ split_order 使用方式和场景：
 - `agent_id`：外键，指向执行扫描的Agent ID
 - `scan_status`：扫描状态(表示当下扫描状态) （`pending`/`scanning`/`completed`/`failed`） 和 AssetNetwork.scan_status（表示整体扫描状态） 字段一致
 - `round`：扫描轮次（与AssetNetwork.round对应）
-- `scan_config`：扫描配置快照（JSON，记录当时使用的扫描工具和参数）
+- `scan_tool`：使用的扫描工具（如 nmap, masscan 等）
+- `scan_config`：扫描配置快照（JSON，记录当时使用的扫描参数）
 - `result_count`：扫描结果数量（记录本次扫描发现的资产数量）
 - `duration`：扫描耗时（秒，记录扫描任务执行时间）
 - `error_message`：错误信息（扫描失败时记录详细错误信息）

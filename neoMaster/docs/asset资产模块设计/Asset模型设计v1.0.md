@@ -1,4 +1,4 @@
-# Asset模型设计v1.0
+﻿# Asset模型设计v1.0
 
 ## 扫描编排器 - 扫描过程梳理
 一个扫描项目 --- 多个扫描工作流 --- 每个扫描工作流包含多个扫描阶段 --- 每个扫描阶段只允许一个工具
@@ -247,6 +247,10 @@ AssetNetworkScan (扫描记录)
 字段建议（RawAssetNetwork）：
 - `id`：自增主键
 - `network`：网段（如 `192.168.0.0/16`）保持原始网段，不进行拆分
+- `description`: 资产信息描述
+- `exclude_ip`: 排除的IP或CIDR（列表）
+- `location`：地理位置（可选，可以是机房名称、区域名称等）
+- `network_type`：网络类型（`internal`内网/`external`互联网/`isolation`隔离区）
 - `priority`：调度优先级（整数，越大越优先）
 - `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）
 - `source_type`：数据来源类型（`file`/`db`/`api`/`manual`）
@@ -261,7 +265,7 @@ AssetNetworkScan (扫描记录)
 - 主键：`id`
 - 唯一约束：`network`
 
-InternalAssetNetwork 表索引：
+RawAssetNetwork 表索引：
 - 主键索引：`id`
 - 唯一索引：`network`
 - 查询索引：`status`, `priority`
@@ -284,6 +288,7 @@ InternalAssetNetwork 表索引：
 - `split_from_id`：外键，指向 AssetNetwork.id (指向拆分来源网段记录的ID)
 - `split_order`：拆分顺序，用于追踪拆分过程
 - `round`：扫描轮次（整数，默认为1）【可统计扫描频率，性能趋势，比较不同轮次结果等（骚操作字段）】
+- `network_type`：网络类型（`internal`内网/`external`互联网/`isolation`隔离区）
 - `priority`：调度优先级（整数，越大越优先）
 - `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）
 - `source_ref`：来源引用（(指向 RawAssetNetwork.id)

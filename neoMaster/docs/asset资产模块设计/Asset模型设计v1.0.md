@@ -203,8 +203,12 @@
 
 
 ## 资产模型
-### 数据流转设计
-RawAsset (系统外异构原始数据)
+不同类型的资产通过 RawAsset 进来之后，会被分到特定的模型进行规范化处理，没有对 RawAsset 专门设计 asset_type 字段，而采用 tags 的json方式区分
+- 网络资产 需要特殊处理（CIDR分割）并经历 RawAsset → RawAssetNetwork → AssetNetwork → AssetNetworkScan 流程
+- 域名资产 直接从RawAsset到AssetWeb等最终实体（后续补充）
+- 其他资产类型 有各自的处理路径（后续补充）
+### 网段资产数据流转设计
+RawAsset (系统外异构原始数据) --- 理论上RawAsset还包含其他类型资产，只是目前只考虑网段资产，别的类型资产处理方式后续规划
 
     ↓ (规范化处理)
 
@@ -232,7 +236,7 @@ AssetNetworkScan (扫描记录)
 - `checksum`：原始记录校验（用于幂等与去重）
 - `import_batch_id`：导入批次标识（便于回滚与审计）
 - `priority`：处理优先级（整数，越大越优先）
-- `tags`：标签（JSON数组，用于分类标记）
+- `tags`：标签（JSON数组，用于分类标记）【使用tags字段区分资产类型，可以同一个资产属于多种类型，文件《RawAsset_tags结构设计.md》中详细说明tags结构json设计】
 - `processing_config`：处理配置（JSON，指定该数据源的特殊处理策略）
 - `imported_at`：导入时间
 - `normalize_status`：规范化状态（`pending`/`success`/`failed`）

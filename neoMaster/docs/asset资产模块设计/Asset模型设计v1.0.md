@@ -165,10 +165,11 @@
 资产分类不是靠“为每种资产新建一张表”来体现，而是靠统一的数据结构与少量枚举/标签在不同层（种子、阶段、最终实体）中表达类型与关系。这种设计消除了特殊情况、降低复杂度，并保持向后兼容
 
 ### 数据结构分层清晰：
-- 原料入口统一： RawAsset 吸收异构来源，避免分类在入口处爆炸。
-- 编排种子： AssetNetwork 作为扫描起点，仅用 cidr 驱动目标范围。
-- 阶段结果统一： StageResult 用 result_type 与 target_type 表示输出种类和目标类型。
-- 最终资产实体： AssetHost/AssetService/AssetWeb 三类规范化实体承载查询与报表；漏洞情报资产独立维护为 AssetVuln。
+1. 原料入口统一： RawAsset 吸收异构来源，避免分类在入口处爆炸。
+2. 初步规范化：RawAsset经过处理形成RawAssetNetwork（系统内可维护网段资产）
+3. 编排种子： AssetNetwork 作为扫描起点，仅用 cidr 驱动目标范围。 
+4. 阶段结果统一： StageResult 用 result_type 与 target_type 表示输出种类和目标类型。
+5. 最终资产实体： AssetHost/AssetService/AssetWeb 三类规范化实体承载查询与报表；漏洞情报资产独立维护为 AssetVuln。
 【三种类型：资产类型 asset_type，目标类型 target_type，结果类型 result_type，类型的取值需要固定】
 
 ### 分类体现

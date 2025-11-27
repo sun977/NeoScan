@@ -243,14 +243,22 @@
 - `source_ref`：来源引用（指向 RawAsset 或人工录入人/任务）
 - `status`：`active`(应该扫描)/`paused`(暂停扫描)/`retired`(不再扫描)（用于调度器控制扫描启停策略，语义控制层面，表示网段的可用性状态）【调度状态】
 - `scan_status`：扫描状态（`pending`/`scanning`/`completed`/`failed`） (用于扫描执行器和监控系统记录实际扫描状态)【执行状态】
+- `last_scan_at`：最后一次扫描完成时间（便于快速查询最近扫描时间）
+- `next_scan_at`：预计下次扫描时间（用于定时扫描策略）
 - `created_by`：创建人或系统任务 ID
 - `created_at`：创建时间
-- `updated_at`：更新时间
+- `updated_at`：更新时间（任何字段更新，记录有变动自动更新）
 
 约束：
 - 主键：`id`
 - 外键：`split_from_id` REFERENCES `AssetNetwork(id)`
 - 唯一约束：`(network, cidr)`
+
+AssetNetwork 表索引：
+- 主键索引：`id`
+- 唯一索引：`(network, cidr)`
+- 外键索引：`split_from_id`
+- 查询索引：`status`, `scan_status`, `round`, `priority`
 
 设计理由：
 - 使用 `cidr` 作为实际扫描单元，确保所有网段都在 /24 或更小范围内，控制扫描任务粒度
@@ -285,6 +293,10 @@ split_order 使用方式和场景：
 - `agent_id`：外键，指向执行扫描的Agent ID
 - `scan_status`：扫描状态(表示当下扫描状态) （`pending`/`scanning`/`completed`/`failed`） 和 AssetNetwork.scan_status（表示整体扫描状态） 字段一致
 - `round`：扫描轮次（与AssetNetwork.round对应）
+- `scan_config`：扫描配置快照（JSON，记录当时使用的扫描工具和参数）
+- `result_count`：扫描结果数量（记录本次扫描发现的资产数量）
+- `duration`：扫描耗时（秒，记录扫描任务执行时间）
+- `error_message`：错误信息（扫描失败时记录详细错误信息）
 - `started_at`：扫描开始时间
 - `finished_at`：扫描完成时间（可为空）
 - `assigned_at`：分配给Agent的时间
@@ -300,6 +312,11 @@ split_order 使用方式和场景：
 - 索引：`network_id`（提高查询效率）
 - 索引：`agent_id`（提高按Agent查询效率）
 - 索引：`scan_status`（提高按状态查询效率）
+
+AssetNetworkScan 表索引：
+- 主键索引：`id`
+- 外键索引：`network_id`, `agent_id`
+- 查询索引：`scan_status`, `round`, `started_at`, `finished_at`
 
 设计理由：
 - 通过单独的表记录扫描历史，支持一个网段被多次扫描的场景

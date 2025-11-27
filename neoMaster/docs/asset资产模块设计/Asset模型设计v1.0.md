@@ -237,6 +237,7 @@
 - `cidr`：拆分后的网段（如 `192.168.1.0/24`）
 - `split_from_id`：外键，指向 AssetNetwork.id (指向拆分来源网段记录的ID)
 - `split_order`：拆分顺序，用于追踪拆分过程
+- `round`：扫描轮次（整数，默认为1）【可统计扫描频率，性能趋势，比较不同轮次结果等（骚操作字段）】
 - `priority`：调度优先级（整数，越大越优先）
 - `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）
 - `source_ref`：来源引用（指向 RawAsset 或人工录入人/任务）
@@ -282,12 +283,15 @@ split_order 使用方式和场景：
 - `id`：自增主键
 - `network_id`：外键，指向 AssetNetwork.id
 - `agent_id`：外键，指向执行扫描的Agent ID
-- `scan_status`：扫描状态
+- `scan_status`：扫描状态(表示当下扫描状态) （`pending`/`scanning`/`completed`/`failed`） 和 AssetNetwork.scan_status（表示整体扫描状态） 字段一致
+- `round`：扫描轮次（与AssetNetwork.round对应）
 - `started_at`：扫描开始时间
 - `finished_at`：扫描完成时间（可为空）
 - `assigned_at`：分配给Agent的时间
 - `scan_result_ref`：扫描结果引用（可选，指向扫描结果ID）
 - `retry_count`：重试次数
+- `created_at`：创建时间
+- `updated_at`：更新时间
 
 约束：
 - 主键：`id`
@@ -302,6 +306,12 @@ split_order 使用方式和场景：
 - 保留完整的扫描生命周期信息（分配时间、开始时间、完成时间）
 - 支持按Agent、网段、状态等多种维度查询
 - 可扩展性强，便于增加新的扫描相关字段
+
+样例：
+network_id=1 的扫描历史：
+id=1, scan_status=completed (第一次扫描)
+id=2, scan_status=completed (第二次扫描)
+id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 
 
 ### 扫描阶段资产模型

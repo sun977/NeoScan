@@ -2,7 +2,7 @@
 
 ## 概述
 
-根据资产模型设计文档，RawAsset模型使用tags字段（JSON数组）来进行资产分类标记，而不是使用固定的资产类型字段。这种设计提供了更高的灵活性和扩展性。
+根据资产模型设计文档，RawAsset模型使用asset_metadata字段（JSON数组）来进行资产分类标记，而不是使用固定的资产类型字段。这种设计提供了更高的灵活性和扩展性。
 
 ## Tags结构设计
 
@@ -171,7 +171,7 @@ sequenceDiagram
     participant RN as RawAssetNetwork
     participant AW as AssetWeb
     
-    RA->>TP: 解析tags
+    RA->>TP: 解析asset_metadata
     TP->>TP: 识别primary类型
     alt network类型
         TP->>RN: 路由至网络资产处理
@@ -197,4 +197,4 @@ sequenceDiagram
 - source_info提供了完整的数据来源追踪能力
 
 ### 5. 兼容现有设计
-- 符合系统使用tags进行灵活分类的整体设计理念
+- 符合系统使用asset_metadata进行灵活分类的整体设计理念

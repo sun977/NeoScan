@@ -247,9 +247,11 @@ AssetNetworkScan (扫描记录)
 字段建议（RawAssetNetwork）：
 - `id`：自增主键
 - `network`：网段（如 `192.168.0.0/16`）保持原始网段，不进行拆分
+- `name`：资产名称（如 `公司内网`）
 - `description`: 资产信息描述
 - `exclude_ip`: 排除的IP或CIDR（列表）
 - `location`：地理位置（可选，可以是机房名称、区域名称等）
+- `security_zone`：网络安全区域（可选，逻辑概念，如DMZ，数据防护区等）
 - `network_type`：网络类型（`internal`内网/`external`互联网/`isolation`隔离区）
 - `priority`：调度优先级（整数，越大越优先）
 - `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）

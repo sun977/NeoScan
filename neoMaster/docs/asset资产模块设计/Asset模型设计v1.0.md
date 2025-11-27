@@ -236,7 +236,8 @@ AssetNetworkScan (扫描记录)
 - `checksum`：原始记录校验（用于幂等与去重）
 - `import_batch_id`：导入批次标识（便于回滚与审计）
 - `priority`：处理优先级（整数，越大越优先）
-- `tags`：标签（JSON数组，用于分类标记）【使用tags字段区分资产类型，可以同一个资产属于多种类型，文件《RawAsset_tags结构设计.md》中详细说明tags结构json设计】
+- `asset_metadata`：资产元数据（JSON数组，用于分类标记等）【使用asset_metadata字段区分资产类型，可以同一个资产属于多种类型，文件《RawAsset_asset_metadata结构设计.md》中详细说明asset_metadata结构json设计】
+- `tags`：标签（JSON 数组，归档用途，如业务线、敏感域）【["production", "critical", "internal"]】
 - `processing_config`：处理配置（JSON，指定该数据源的特殊处理策略）
 - `imported_at`：导入时间
 - `normalize_status`：规范化状态（`pending`/`success`/`failed`）
@@ -250,6 +251,17 @@ AssetNetworkScan (扫描记录)
 - 引入 `priority` 字段支持不同数据源的处理优先级
 - 添加 `tags` 字段便于对原始资产进行分类标记
 - 增加 `processing_config` 字段支持不同来源数据的差异化处理策略
+
+字段使用说明：
+1. tags使用：
+- 保持标签简洁，使用下划线命名法
+- 避免过于复杂的标签层次
+- 标签应该具有业务意义
+2. asset_metadata使用：
+- 遵循预定义的结构
+- 避免随意添加未定义的字段
+- 保持数据的一致性和完整性
+
 
 ### 系统内网段资产模型 - 系统可维护的网段资产表
 定义：系统可以使用的原始资产数据(可作为系统使用的资产数据表)，存储网段资产

@@ -1,10 +1,10 @@
-# RawAsset Tags结构设计
+# RawAsset asset_metadata结构设计
 
 ## 概述
 
 根据资产模型设计文档，RawAsset模型使用asset_metadata字段（JSON数组）来进行资产分类标记，而不是使用固定的资产类型字段。这种设计提供了更高的灵活性和扩展性。
 
-## Tags结构设计
+## Asset_metadata结构设计
 
 ```json
 {
@@ -148,7 +148,7 @@
 
 ```mermaid
 graph TD
-    A[RawAsset with Tags] --> B{解析Tags}
+    A[RawAsset with Asset_metadata] --> B{解析Asset_metadata}
     B --> C[资产类型识别]
     B --> D[业务上下文分析]
     B --> E[处理策略确定]
@@ -162,7 +162,7 @@ graph TD
     E --> M[优先级/特殊处理]
 ```
 
-## 处理流程中的Tags使用
+## 处理流程中的Asset_metadata使用
 
 ```mermaid
 sequenceDiagram
@@ -181,6 +181,50 @@ sequenceDiagram
     end
     TP->>RA: 更新处理状态
 ```
+
+## 完整的RawAsset模型示例
+```json
+{
+  "id": 12345,
+  "source_type": "cmdb",
+  "source_name": "资产管理系统",
+  "payload": {
+    "ip": "192.168.1.100",
+    "hostname": "web-server-01"
+  },
+  "priority": 10,
+  "tags": ["production", "critical", "web_server"],
+  "asset_metadata": {
+    "asset_types": ["network"],
+    "classification": {
+      "primary": "network",
+      "secondary": ["internal", "production"]
+    },
+    "business_context": {
+      "department": "IT",
+      "project": "infrastructure-discovery",
+      "environment": "production",
+      "criticality": "high"
+    },
+    "source_info": {
+      "origin": "cmdb",
+      "import_batch": "batch-20251127-001",
+      "trust_level": "high"
+    },
+    "processing_hints": {
+      "priority_override": 10,
+      "exclude_from_scanning": false,
+      "special_handling": ["cidr_split_required"]
+    }
+  },
+  "processing_config": {
+    "scan_profile": "full_scan",
+    "tools": ["nmap", "nessus"]
+  }
+}
+```
+
+
 
 ## 优势分析
 

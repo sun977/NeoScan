@@ -476,7 +476,7 @@ output_config 结构样例：
     "save_type": "extract_fields",  // 保存类型（stage_result/final_asset/extract_fields）
     "table_name": "stage_results", // 目标表名（当save_type为final_asset时使用）
     "extract_fields": {   // 提取字段配置（当save_type为extract_fields时使用）
-      "fields": [
+      "fields": [   // 提取的字段列表
         "target_value",
         "result_type",
         "attributes.os",
@@ -484,8 +484,8 @@ output_config 结构样例：
         "attributes.ports",
         "produced_at"
       ],
-      "target_table": "custom_scanned_hosts",  // 这里可以根据实际需求修改表名，不同的表名有自己的字段【所以有一个StageResult向别的表转换的步骤】
-      "field_mapping": {
+      "target_table": "custom_scanned_hosts",  // 这里可以根据实际需求修改表名
+      "field_mapping": {   // 提取字段 和 目标表字段的映射关系
         "target_value": "ip_address",
         "attributes.os": "operating_system",
         "attributes.hostname": "host_name",

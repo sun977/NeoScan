@@ -474,7 +474,7 @@ output_config 结构样例：
   "save_to_database": {
     "enabled": true,
     "save_type": "extract_fields",  // 保存类型（stage_result/final_asset/extract_fields）
-    "table_name": "stage_results", // 目标表名（当save_type为final_asset时使用）
+    "table_name": "extract_fields", // 目标表名（当save_type为final_asset时使用） 如果保存类型为stage_result时保存默认表，为final_asset是说明需要转换
     "extract_fields": {   // 提取字段配置（当save_type为extract_fields时使用）
       "fields": [   // 提取的字段列表
         "target_value",

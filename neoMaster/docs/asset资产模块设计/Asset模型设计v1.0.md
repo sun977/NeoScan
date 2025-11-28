@@ -444,6 +444,7 @@ id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 注：
 - 由于中间结果落表了，所以需要定期清理历史数据，避免数据量过大。（定期清理需要根据留存时间确定）
 - 中间结果落表需要考虑数据量，最好是根据大小批量插入（支持事务），避免数据库性能下降。
+- 如果阶段结果转存到非默认表stage_results，这里需要做表结构的转换，然后落到对应表中
 
 优化建议：
 - 批量大小平衡：批量太小无法有效利用数据库连接，太大可能导致内存压力和超时
@@ -472,8 +473,25 @@ output_config 结构样例：
   },
   "save_to_database": {
     "enabled": true,
-    "save_type": "stage_result",
-    "table_name": "stage_results",
+    "save_type": "extract_fields",  // 保存类型（stage_result/final_asset/extract_fields）
+    "table_name": "stage_results", // 目标表名（当save_type为final_asset时使用）
+    "extract_fields": {   // 提取字段配置（当save_type为extract_fields时使用）
+      "fields": [
+        "target_value",
+        "result_type",
+        "attributes.os",
+        "attributes.hostname",
+        "attributes.ports",
+        "produced_at"
+      ],
+      "target_table": "custom_scanned_hosts",  // 这里可以根据实际需求修改表名，不同的表名有自己的字段【所以有一个StageResult向别的表转换的步骤】
+      "field_mapping": {
+        "target_value": "ip_address",
+        "attributes.os": "operating_system",
+        "attributes.hostname": "host_name",
+        "produced_at": "scan_time"
+      }
+    },
     "retention_days": 30
   },
   "save_to_file": {
@@ -530,6 +548,97 @@ graph TD
     L -->|否| O
     J -->|否| O
 ```
+
+完整扫描阶段流程图：
+```mermaid
+graph TD
+    A[扫描阶段完成] --> B[获取处理配置]
+    B --> C{是否启用数据库保存?}
+    C -->|否| D[仅内存处理]
+    C -->|是| E{保存类型}
+    E -->|stage_result| F[直接保存到StageResult表]
+    E -->|final_asset| G[转换为目标资产表]
+    E -->|extract_fields| H[提取指定字段]
+    H --> I[应用字段映射]
+    I --> J[保存到指定表]
+    G --> K{目标表类型}
+    K -->|asset_hosts| L[转换为AssetHost并保存]
+    K -->|asset_services| M[转换为AssetService并保存]
+    K -->|asset_webs| N[转换为AssetWeb并保存]
+    K -->|asset_vulns| O[转换为AssetVuln并保存]
+    F --> P[处理完成]
+    L --> P
+    M --> P
+    N --> P
+    O --> P
+    J --> P
+    D --> P
+```
+任务下发阶段：Master将任务分配给多个Agent
+并行执行阶段：各个Agent并行执行扫描任务
+结果上报阶段：Agents通过gRPC将结果批量上传给Master
+结果处理阶段：Master根据output_config配置进行不同的处理：
+直接保存到StageResult表
+转换并保存到最终资产表（AssetHost等）
+提取指定字段并保存到自定义表
+传递到下一阶段任务
+数据维护阶段：定期清理过期数据
+结果查询阶段：用户查询各类资产信息
+
+
+Master-Agent处理全流程图：
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Master as Master节点
+    participant DB as 数据库
+    participant Agent1 as Agent 1
+    participant Agent2 as Agent 2
+    participant AgentN as Agent N
+
+    User->>Master: 创建扫描项目和工作流
+    Master->>Master: 解析工作流定义
+    Master->>DB: 存储项目和工作流信息
+    
+    Master->>Master: 拆分扫描任务
+    Master->>Agent1: 下发任务1 (gRPC)
+    Master->>Agent2: 下发任务2 (gRPC)
+    Master->>AgentN: 下发任务N (gRPC)
+    
+    Agent1->>Agent1: 执行扫描任务
+    Agent2->>Agent2: 执行扫描任务
+    AgentN->>AgentN: 执行扫描任务
+    
+    Agent1->>Agent1: 生成StageResult结果
+    Agent1->>Master: 批量上传结果 (gRPC数据面)
+    
+    Agent2->>Agent2: 生成StageResult结果
+    Agent2->>Master: 批量上传结果 (gRPC数据面)
+    
+    AgentN->>AgentN: 生成StageResult结果
+    AgentN->>Master: 批量上传结果 (gRPC数据面)
+    
+    Master->>Master: 接收并缓存结果到队列
+    Master->>Master: 批量处理结果
+    
+    Master->>Master: 解析output_config配置
+    Master->>DB: 根据配置保存到StageResult表
+    
+    Master->>Master: 检查是否需要转换到最终资产表
+    Master->>DB: 转换并保存到AssetHost/AssetService等表
+    
+    Master->>Master: 检查是否需要提取字段
+    Master->>DB: 提取字段并保存到指定表
+    
+    Master->>Master: 检查是否需要传递到下一阶段
+    Master->>Agent1: 下发下一阶段任务 (gRPC)
+    
+    Master->>DB: 定期清理过期数据
+    User->>Master: 查询扫描结果
+    Master->>DB: 查询各类资产表
+    Master->>User: 返回结果给用户
+```
+
 
 
 

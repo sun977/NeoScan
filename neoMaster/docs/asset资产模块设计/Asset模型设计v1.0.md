@@ -504,52 +504,61 @@ output_config 结构样例：
 
 ```
 
-Agent端处理流程图：
-```mermaid
-graph TD
-    A[扫描阶段执行] --> B[生成StageResult]
-    B --> C[读取output_config配置]
-    C --> D{输出到下一阶段?}
-    D -->|是| E[提取指定字段]
-    E --> F[发送到下一阶段队列]
-    D -->|否| G[跳过阶段传递]
-    C --> H{保存到数据库?}
-    H -->|是| I[写入StageResult表]
-    H -->|否| J[跳过数据库保存]
-    C --> K{保存到文件?}
-    K -->|是| L[序列化为指定格式]
-    L --> M[写入文件系统]
-    K -->|否| N[跳过文件保存]
-    F --> O[结果处理完成]
-    G --> O
-    I --> O
-    J --> O
-    M --> O
-    N --> O
-```
-
-matser-agent处理流程
+Matser-Agent处理流程
 ```mermaid
 graph TD
     A[Agent执行扫描] --> B[生成StageResult]
     B --> C[批量发送给Master]
-    C --> D{Master接收缓冲区是否满?}
-    D -->|否| E[放入处理队列]
-    D -->|是| F[暂时拒绝或减速]
-    E --> G[批量处理器]
-    G --> H[批量插入数据库]
-    G --> I[根据output_config处理]
-    I --> J{保存到文件?}
-    J -->|是| K[序列化并写入文件系统]
-    I --> L{传递到下一阶段?}
-    L -->|是| M[准备下一阶段任务]
-    M --> N[下发给Agent]
-    K --> O[处理完成]
-    L -->|否| O
-    J -->|否| O
+    
+    C --> D[Master接收结果]
+    D --> E[缓存到处理队列]
+    
+    E --> F[批量处理器]
+    F --> G[解析output_config配置]
+    
+    G --> H{是否保存到数据库?}
+    H -->|是| I{保存类型}
+    H -->|否| J[跳过数据库保存]
+    
+    I -->|stage_result| K[批量插入StageResult表]
+    I -->|final_asset| L[转换到最终资产表]
+    I -->|extract_fields| M[提取字段保存到指定表]
+    
+    L --> N{目标表类型}
+    N -->|asset_hosts| O[转换为AssetHost并保存]
+    N -->|asset_services| P[转换为AssetService并保存]
+    N -->|asset_webs| Q[转换为AssetWeb并保存]
+    N -->|asset_vulns| R[转换为AssetVuln并保存]
+    
+    M --> S[提取指定字段]
+    S --> T[应用字段映射]
+    T --> U[保存到自定义表]
+    
+    G --> V{是否传递到下一阶段}
+    V -->|是| W[准备下一阶段任务]
+    V -->|否| X[跳过阶段传递]
+    W --> Y[下发任务给Agents]
+    X --> Z[处理完成]
+    Y --> AA[Agent执行扫描]
+    AA --> B
+    
+    G --> AB{是否保存到文件}
+    AB -->|是| AC[序列化并写入文件]
+    AB -->|否| AD[跳过文件保存]
+    
+    K --> AE[处理完成]
+    O --> AE
+    P --> AE
+    Q --> AE
+    R --> AE
+    U --> AE
+    AC --> AE
+    AD --> AE
+    J --> AE
+    X --> AE
 ```
 
-完整扫描阶段流程图：
+阶段扫描完成后处理流程图：
 ```mermaid
 graph TD
     A[扫描阶段完成] --> B[获取处理配置]
@@ -574,16 +583,16 @@ graph TD
     J --> P
     D --> P
 ```
-任务下发阶段：Master将任务分配给多个Agent
-并行执行阶段：各个Agent并行执行扫描任务
-结果上报阶段：Agents通过gRPC将结果批量上传给Master
-结果处理阶段：Master根据output_config配置进行不同的处理：
-直接保存到StageResult表
-转换并保存到最终资产表（AssetHost等）
-提取指定字段并保存到自定义表
-传递到下一阶段任务
-数据维护阶段：定期清理过期数据
-结果查询阶段：用户查询各类资产信息
+1. 任务下发阶段：Master将任务分配给多个Agent
+2. 并行执行阶段：各个Agent并行执行扫描任务
+3. 结果上报阶段：Agents通过gRPC将结果批量上传给Master
+4. 结果处理阶段：Master根据output_config配置进行不同的处理：
+5. 直接保存到StageResult表
+6. 转换并保存到最终资产表（AssetHost等）
+7. 提取指定字段并保存到自定义表
+8. 传递到下一阶段任务
+9. 数据维护阶段：定期清理过期数据
+10. 结果查询阶段：用户查询各类资产信息
 
 
 Master-Agent处理全流程图：

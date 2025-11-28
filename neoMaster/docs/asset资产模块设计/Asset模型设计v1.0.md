@@ -504,6 +504,42 @@ output_config 结构样例：
 
 ```
 
+阶段扫描完成后处理流程图：
+```mermaid
+graph TD
+    A[扫描阶段完成] --> B[获取处理配置]
+    B --> C{是否启用数据库保存?}
+    C -->|否| D[仅内存处理]
+    C -->|是| E{保存类型}
+    E -->|stage_result| F[直接保存到StageResult表]
+    E -->|final_asset| G[转换为目标资产表]
+    E -->|extract_fields| H[提取指定字段]
+    H --> I[应用字段映射]
+    I --> J[保存到指定表]
+    G --> K{目标表类型}
+    K -->|asset_hosts| L[转换为AssetHost并保存]
+    K -->|asset_services| M[转换为AssetService并保存]
+    K -->|asset_webs| N[转换为AssetWeb并保存]
+    K -->|asset_vulns| O[转换为AssetVuln并保存]
+    F --> P[处理完成]
+    L --> P
+    M --> P
+    N --> P
+    O --> P
+    J --> P
+    D --> P
+```
+1. 任务下发阶段：Master将任务分配给多个Agent
+2. 并行执行阶段：各个Agent并行执行扫描任务
+3. 结果上报阶段：Agents通过gRPC将结果批量上传给Master
+4. 结果处理阶段：Master根据output_config配置进行不同的处理：
+5. 直接保存到StageResult表
+6. 转换并保存到最终资产表（AssetHost等）
+7. 提取指定字段并保存到自定义表
+8. 传递到下一阶段任务
+9. 数据维护阶段：定期清理过期数据
+10. 结果查询阶段：用户查询各类资产信息
+
 Matser-Agent处理流程
 ```mermaid
 graph TD
@@ -557,42 +593,6 @@ graph TD
     J --> AE
     X --> AE
 ```
-
-阶段扫描完成后处理流程图：
-```mermaid
-graph TD
-    A[扫描阶段完成] --> B[获取处理配置]
-    B --> C{是否启用数据库保存?}
-    C -->|否| D[仅内存处理]
-    C -->|是| E{保存类型}
-    E -->|stage_result| F[直接保存到StageResult表]
-    E -->|final_asset| G[转换为目标资产表]
-    E -->|extract_fields| H[提取指定字段]
-    H --> I[应用字段映射]
-    I --> J[保存到指定表]
-    G --> K{目标表类型}
-    K -->|asset_hosts| L[转换为AssetHost并保存]
-    K -->|asset_services| M[转换为AssetService并保存]
-    K -->|asset_webs| N[转换为AssetWeb并保存]
-    K -->|asset_vulns| O[转换为AssetVuln并保存]
-    F --> P[处理完成]
-    L --> P
-    M --> P
-    N --> P
-    O --> P
-    J --> P
-    D --> P
-```
-1. 任务下发阶段：Master将任务分配给多个Agent
-2. 并行执行阶段：各个Agent并行执行扫描任务
-3. 结果上报阶段：Agents通过gRPC将结果批量上传给Master
-4. 结果处理阶段：Master根据output_config配置进行不同的处理：
-5. 直接保存到StageResult表
-6. 转换并保存到最终资产表（AssetHost等）
-7. 提取指定字段并保存到自定义表
-8. 传递到下一阶段任务
-9. 数据维护阶段：定期清理过期数据
-10. 结果查询阶段：用户查询各类资产信息
 
 
 Master-Agent处理全流程图：

@@ -648,8 +648,75 @@ sequenceDiagram
     Master->>User: 返回结果给用户
 ```
 
+### 新增AssetWebDetail实体 --- 需要落库
+定义：专门用于存储通过Web爬取获得的详细信息
 
+字段建议（AssetWebDetail）：
+- `id`：自增主键
+- `asset_web_id`：外键，关联AssetWeb表
+- `crawl_time`：爬取时间
+- `crawl_status`：爬取状态（success, failed, timeout）
+- `error_message`：错误信息（如果爬取失败）
+- `content_details`（JSON）：详细内容信息
+  - `title`：页面标题
+  - `subtitle`：页面副标题
+  - `footer`：页面底部信息
+  - `cms`：内容管理系统识别
+  - `x_powered_by`：服务器技术栈信息
+  - `response_headers`：HTTP响应头信息
+  - `response_body`：HTTP响应体内容
+  - `security_headers`：安全相关头部信息
+  - `tech_stack_details`：详细技术栈信息
+  - `forms`：页面表单信息
+  - `links`：页面链接信息
+  - `metadata`：页面元数据
+- `login_indicators`：登录相关标识
+- `cookies`：Cookie信息
+- `screenshot`：页面截图存储路径或base64编码
+- `created_at`：创建时间
+- `updated_at`：更新时间
 
+设计理由：
+- 将Web详细信息与基础Web资产分离，避免AssetWeb表过于臃肿
+- 专门处理需要额外工具和时间获取的信息
+- 支持按需加载，提高查询性能
+
+查询策略：
+1. 基础查询：
+    - 直接从AssetWeb.basic_info获取
+    - 查询速度快，资源消耗低
+
+2. 详细查询：
+    - 通过AssetWeb.id关联查询WebDetail.asset_web_id
+    - 获取完整Web资产信息
+    - 查询较慢，资源消耗高
+
+### 字段分类
+1. 基础字段（扫描工具可获取，例如Nmap）：
+    - ip, port, service, product, version等
+
+2. 中级字段（需要专门工具）：
+    - title, server, http_code，banner等
+    - 存储在 AssetWeb.basic_info JSON字段中
+
+3. 高级字段（需要Web爬取）：
+    - cms, x_powered_by, subtitle, footer, response等
+    - 存储在独立的WebDetail实体中
+    
+### Web详细信息获取阶段
+1. 输入：AssetWeb实体（包含基础URL信息）
+2. 工具：
+    - HTTP客户端（获取基础页面信息）
+    - WhatWeb/Wappalyzer（CMS识别）
+    - 自定义爬虫（获取详细内容）
+    - 截图工具（页面截图）
+3. 输出：
+    - WebDetail实体
+    - 更新AssetWeb实体中的部分字段
+4. 配置：
+    - 深度级别（0-基本信息，1-详细信息，2-完整内容）
+    - 超时设置
+    - 重试机制
 
 ### 最终结果资产模型
 定义：面向查询与报表的规范化资产视图，聚合并去重所有阶段结果。
@@ -663,6 +730,7 @@ sequenceDiagram
   - `tags`（JSON），
   - `last_seen_at`
   - `source_stage_ids`：来源阶段 ID 列表（追溯）
+
 - `AssetService`（服务资产）
   - `id`，
   - `host_id`，
@@ -675,16 +743,26 @@ sequenceDiagram
   - `asset_type`（`service|database|container`），
   - `tags`（JSON），
   - `last_seen_at`
+
 - `AssetWeb`（Web 资产）
-  - `id`，
-  - `host_id`（可选），
-  - `domain`（可选），
-  - `url`，
-  - `asset_type`（`web|api`），
-  - `tech_stack`（JSON），
-  - `status`，
-  - `tags`（JSON），
-  - `last_seen_at`
+  - `id`：自增主键
+  - `host_id`（可选）：关联的主机资产ID
+  - `domain`（可选）：域名信息
+  - `url`：完整的URL地址
+  - `asset_type`（`web|api|domain`）：资产类型
+  - `tech_stack`（JSON）：技术栈信息
+  - `status`：资产状态
+  - `tags`（JSON）：标签信息
+  - `basic_info`（JSON）：基础Web信息（工具可直接获取）【无需额外爬取】
+      - `title`：页面标题
+      - `server`：服务器类型
+      - `http_code`：HTTP状态码
+      - `banner`：服务横幅
+      - `protocol`: 使用的协议
+  - `scan_level`：扫描级别（0-基础信息，1-详细信息，2-完整内容）
+  - `last_seen_at`：最后发现时间
+  - `created_at`：创建时间
+  - `updated_at`：更新时间
 
 
 聚合与去重策略：
@@ -698,6 +776,32 @@ sequenceDiagram
 - 统一使用 `asset_type` 表达资产类型，不使用 `tags/tech_stack` 中的 `asset_kind`。
 - `AssetService.asset_type=service|database|container`；`AssetWeb.asset_type=web|api`。
 - `tags/tech_stack` 继续作为信息容器（技术栈、标签），与类型字段解耦。
+
+
+### 数据的获取流程
+```mermaid
+graph TD
+    A[端口扫描阶段] --> B[Nmap扫描]
+    B --> C{是否为Web服务}
+    C -->|是| D[执行HTTP脚本]
+    D --> E[提取基础信息]
+    E --> F[存储到AssetWeb.basic_info]
+    C -->|否| G[跳过Web信息提取]
+    
+    F --> H[扫描完成]
+    G --> H
+    
+    H --> I{是否需要详细信息}
+    I -->|是| J[启动Web爬取阶段]
+    I -->|否| K[结束]
+    
+    J --> L[HTTP深度爬取]
+    L --> M[分析页面内容]
+    M --> N[存储到WebDetail表]
+    N --> K
+```
+
+
 
 ## 漏洞情报资产模型
 定义：独立维护的漏洞情报实体，来源可为阶段扫描输出（`vuln_finding`）、指纹推断（CPECVE）、外部导入（平台/库/API）、人工确认/复核。
@@ -724,5 +828,35 @@ sequenceDiagram
 - 与工作流是否包含漏洞阶段解耦：无该阶段时仍可由推断或外部情报生成，零破坏现有结构。
 
 
+## 现有的最终资产字段模型说明 asset_detail
+
+### 字段详情说明
+| 字段名 | Nmap是否可识别 | Nmap参数 | 原生Nmap字段名称 | 说明 | 字段属性 | 采集工具|
+|--------|------------|----------|------------------|------|----------|-----------|
+| id | - | - | - | 唯一标识符 | 原有字段 | - |
+| ip | 是 | 扫描目标 | ADDRESS | 目标IP地址本身就是扫描输入 | 原有字段 | Nmap |
+| port | 是 | -p, 默认端口范围 | PORT | 扫描发现的开放端口 | 原有字段 | Nmap |
+| state | 是 | 端口扫描结果 | STATE | 端口状态(open, closed, filtered等) | 原有字段 | Nmap |
+| hostname | 部分 | -R | HOSTNAMES | 反向DNS解析得到的主机名 | 新增字段 | 专门工具 |
+| mac_address | 部分 | -PR | MAC | 目标MAC地址 | 新增字段 | 专门工具 |
+| os | 部分 | -O | OSTYPE | 操作系统类型 | 新增字段 (os_cpe/os_details)| Nmap 或 专门工具 |
+| device_type | 部分 | -O | DEVICETYPE | 设备类型 | 新增字段 | Nmap |
+| service | 是 | -sV | SERVICE | 端口上运行的服务识别结果 | 原有字段 | Nmap |
+| product | 是 | -sV | PRODUCT | 识别出的服务产品名称 | 原有字段 | Nmap |
+| version | 是 | -sV | VERSION | 识别出的服务版本 | 原有字段 | Nmap |
+| extrainfo | 是 | -sV | EXTRAINFO | 额外的服务信息 | 原有字段 | Nmap |
+| protocol | 是 | -sV | PROTOCOL | 服务运行的协议 | 原有字段 | Nmap |
+| banner | 是 | --script banner, -sV | BANNER | 服务横幅信息 | 原有字段 | 专门工具 |
+| server | 部分 | --script http-server-header 获取server的响应头 | SERVER HEADER | 特定脚本可识别HTTP服务器头 | 原有字段 | 专门工具 |
+| status_code | 否 | --script http-headers 识别请求头信息 | http-headers | HTTP状态码需要HTTP脚本 | 原有字段 | 专门工具 |
+| title | 部分 | --script http-title 仅当返回是HTML是有效 | http-title | HTTP页面标题需要特定脚本 | 原有字段 | 专门工具 |
+| x_powered_by | 否 | 需要专门工具或自定义脚本 | X-POWERED-BY | Web框架信息，Nmap无法直接识别 | 原有字段 | 专门工具 |
+| subtitle | 否 | 需要专门工具或自定义脚本 | SUBTITLE | 页面副标题，需要内容分析 | 原有字段 | 专门工具 |
+| footer | 否 | 需要专门工具或自定义脚本 | FOOTER | 页面底部信息，需要内容分析 | 原有字段 | 专门工具 |
+| cms | 否 | 需要专门工具如WhatWeb | CMS | 内容管理系统识别，超出Nmap常规功能 | 原有字段 | 专门工具 |
+| response | 否 | 需要专门工具 | RESPONSE | 完整响应内容，超出Nmap常规功能 | 原有字段 | 专门工具 |
+| login | 否 | 需要专门工具或自定义脚本 | LOGIN | 登录相关信息，需要认证探测 | 原有字段 | 专门工具 |
+| createTime | 否 | 数据库生成 | CREATE TIME | 记录创建时间戳 | 原有字段 | - |
+| updateTime | 否 | 数据库生成 | UPDATE TIME | 记录更新时间戳 | 原有字段 | - |
 
 

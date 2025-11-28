@@ -8,6 +8,7 @@
 package utils
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -629,6 +630,89 @@ func StringSliceToJSONArray(slice []string) (string, error) {
 
 	return string(bytes), nil
 }
+
+
+
+// ScanStringSlice 从数据库读取JSON数据并转换为字符串切片
+// 参数: value - 数据库中的值
+// 返回: 字符串切片和错误信息
+func ScanStringSlice(value interface{}) ([]string, error) {
+	if value == nil {
+		return []string{}, nil
+	}
+
+	var str string
+	switch v := value.(type) {
+	case string:
+		str = v
+	case []byte:
+		str = string(v)
+	default:
+		return nil, fmt.Errorf("无法将 %T 转换为字符串切片", value)
+	}
+
+	// 使用现有的JSONArrayToStringSlice函数
+	slice, err := JSONArrayToStringSlice(str)
+	if err != nil {
+		return nil, fmt.Errorf("ScanStringSlice失败: %v", err)
+	}
+
+	return slice, nil
+}
+
+// ValueStringSlice 将字符串切片转换为数据库可存储的JSON格式
+// 参数: slice - 字符串切片
+// 返回: 数据库值和错误信息
+func ValueStringSlice(slice []string) (driver.Value, error) {
+	// 使用现有的StringSliceToJSONArray函数
+	jsonStr, err := StringSliceToJSONArray(slice)
+	if err != nil {
+		return nil, fmt.Errorf("ValueStringSlice失败: %v", err)
+	}
+	return jsonStr, nil
+}
+
+// ScanMapFromJSON 从数据库读取JSON数据并转换为map[string]interface{}
+// 参数: value - 数据库中的值
+// 返回: map和错误信息
+func ScanMapFromJSON(value interface{}) (map[string]interface{}, error) {
+	if value == nil {
+		return map[string]interface{}{}, nil
+	}
+
+	var str string
+	switch v := value.(type) {
+	case string:
+		str = v
+	case []byte:
+		str = string(v)
+	default:
+		return nil, fmt.Errorf("无法将 %T 转换为map", value)
+	}
+
+	if str == "" {
+		return map[string]interface{}{}, nil
+	}
+
+	result := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(str), &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// ValueMapToJSON 将map转换为数据库可存储的JSON格式
+// 参数: m - map
+// 返回: 数据库值和错误信息
+func ValueMapToJSON(m map[string]interface{}) (driver.Value, error) {
+	if len(m) == 0 {
+		return "{}", nil
+	}
+	return json.Marshal(m)
+}
+
+
 
 // PostgreSQLArrayToStringSlice PostgreSQL数组格式转字符串切片
 // 参数: pgArray - PostgreSQL数组字符串，如 {a,b,c}

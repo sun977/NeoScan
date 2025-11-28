@@ -9,8 +9,6 @@ package agent
 
 import (
 	"database/sql/driver"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"neomaster/internal/model/basemodel"
@@ -31,113 +29,160 @@ type StringSlice []string
 // 返回: 错误信息
 // - Agent 表中有 capabilities 和 tags 字段，类型为 JSON (["2", "3"])，存储字符串形式的ID
 // - 每次查询 Agent 数据时，GORM 都会调用 Scan 方法
+//func (s *StringSlice) Scan(value interface{}) error {
+//	if value == nil {
+//		*s = StringSlice{}
+//		return nil
+//	}
+//
+//	var str string
+//	switch v := value.(type) {
+//	case string:
+//		str = v
+//	case []byte:
+//		str = string(v)
+//	default:
+//		return fmt.Errorf("无法将 %T 转换为 StringSlice", value)
+//	}
+//
+//	// 使用convert.go中的转换函数
+//	slice, err := utils.JSONArrayToStringSlice(str)
+//	if err != nil {
+//		return fmt.Errorf("StringSlice.Scan 失败: %v", err)
+//	}
+//
+//	*s = StringSlice(slice)
+//	return nil
+//}
+
 func (s *StringSlice) Scan(value interface{}) error {
-	if value == nil {
-		*s = StringSlice{}
-		return nil
-	}
-
-	var str string
-	switch v := value.(type) {
-	case string:
-		str = v
-	case []byte:
-		str = string(v)
-	default:
-		return fmt.Errorf("无法将 %T 转换为 StringSlice", value)
-	}
-
-	// 使用convert.go中的转换函数
-	slice, err := utils.JSONArrayToStringSlice(str)
+	slice, err := utils.ScanStringSlice(value)
 	if err != nil {
-		return fmt.Errorf("StringSlice.Scan 失败: %v", err)
+		return err
 	}
-
 	*s = StringSlice(slice)
 	return nil
 }
 
 // Value 实现driver.Valuer接口，用于向数据库写入数据
 // 返回: 数据库值和错误信息
+//
+//	func (s StringSlice) Value() (driver.Value, error) {
+//		// 使用convert.go中的转换函数
+//		jsonStr, err := utils.StringSliceToJSONArray([]string(s))
+//		if err != nil {
+//			return nil, fmt.Errorf("StringSlice.Value 失败: %v", err)
+//		}
+//		return jsonStr, nil
+//	}
+//
+// Value 实现driver.Valuer接口，用于向数据库写入数据
 func (s StringSlice) Value() (driver.Value, error) {
-	// 使用convert.go中的转换函数
-	jsonStr, err := utils.StringSliceToJSONArray([]string(s))
-	if err != nil {
-		return nil, fmt.Errorf("StringSlice.Value 失败: %v", err)
-	}
-	return jsonStr, nil
+	return utils.ValueStringSlice([]string(s))
 }
 
 // PluginStatusJSON 插件状态JSON类型
 type PluginStatusJSON map[string]interface{}
 
 // Scan 实现sql.Scanner接口
+//func (p *PluginStatusJSON) Scan(value interface{}) error {
+//	if value == nil {
+//		*p = PluginStatusJSON{}
+//		return nil
+//	}
+//
+//	var str string
+//	switch v := value.(type) {
+//	case string:
+//		str = v
+//	case []byte:
+//		str = string(v)
+//	default:
+//		return fmt.Errorf("无法将 %T 转换为 PluginStatusJSON", value)
+//	}
+//
+//	if str == "" {
+//		*p = PluginStatusJSON{}
+//		return nil
+//	}
+//
+//	return json.Unmarshal([]byte(str), p)
+//}
+
+// Scan 实现sql.Scanner接口
 func (p *PluginStatusJSON) Scan(value interface{}) error {
-	if value == nil {
-		*p = PluginStatusJSON{}
-		return nil
+	result, err := utils.ScanMapFromJSON(value)
+	if err != nil {
+		return err
 	}
-
-	var str string
-	switch v := value.(type) {
-	case string:
-		str = v
-	case []byte:
-		str = string(v)
-	default:
-		return fmt.Errorf("无法将 %T 转换为 PluginStatusJSON", value)
-	}
-
-	if str == "" {
-		*p = PluginStatusJSON{}
-		return nil
-	}
-
-	return json.Unmarshal([]byte(str), p)
+	*p = PluginStatusJSON(result)
+	return nil
 }
 
 // Value 实现driver.Valuer接口
+//func (p PluginStatusJSON) Value() (driver.Value, error) {
+//	if len(p) == 0 {
+//		return "{}", nil
+//	}
+//	return json.Marshal(p)
+//}
+
+// Value 实现driver.Valuer接口
 func (p PluginStatusJSON) Value() (driver.Value, error) {
-	if len(p) == 0 {
-		return "{}", nil
-	}
-	return json.Marshal(p)
+	return utils.ValueMapToJSON(map[string]interface{}(p))
 }
 
 // ConfigTemplateJSON 配置模板JSON类型
 type ConfigTemplateJSON map[string]interface{}
 
 // Scan 实现sql.Scanner接口
+//
+//	func (c *ConfigTemplateJSON) Scan(value interface{}) error {
+//		if value == nil {
+//			*c = ConfigTemplateJSON{}
+//			return nil
+//		}
+//
+//		var str string
+//		switch v := value.(type) {
+//		case string:
+//			str = v
+//		case []byte:
+//			str = string(v)
+//		default:
+//			return fmt.Errorf("无法将 %T 转换为 ConfigTemplateJSON", value)
+//		}
+//
+//		if str == "" {
+//			*c = ConfigTemplateJSON{}
+//			return nil
+//		}
+//
+//		return json.Unmarshal([]byte(str), c)
+//	}
+//
+// Scan 实现sql.Scanner接口
 func (c *ConfigTemplateJSON) Scan(value interface{}) error {
-	if value == nil {
-		*c = ConfigTemplateJSON{}
-		return nil
+	result, err := utils.ScanMapFromJSON(value)
+	if err != nil {
+		return err
 	}
-
-	var str string
-	switch v := value.(type) {
-	case string:
-		str = v
-	case []byte:
-		str = string(v)
-	default:
-		return fmt.Errorf("无法将 %T 转换为 ConfigTemplateJSON", value)
-	}
-
-	if str == "" {
-		*c = ConfigTemplateJSON{}
-		return nil
-	}
-
-	return json.Unmarshal([]byte(str), c)
+	*c = ConfigTemplateJSON(result)
+	return nil
 }
 
 // Value 实现driver.Valuer接口
+//
+//	func (c ConfigTemplateJSON) Value() (driver.Value, error) {
+//		if len(c) == 0 {
+//			return "{}", nil
+//		}
+//		return json.Marshal(c)
+//	}
+//
+// Value 实现driver.Valuer接口
 func (c ConfigTemplateJSON) Value() (driver.Value, error) {
-	if len(c) == 0 {
-		return "{}", nil
-	}
-	return json.Marshal(c)
+	return utils.ValueMapToJSON(map[string]interface{}(c))
 }
 
 // ============================================================================

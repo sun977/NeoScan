@@ -222,7 +222,7 @@ AssetNetwork (扫描任务)
 
 AssetNetworkScan (扫描记录)
 
-### 原料资产模型
+### 原料资产模型 --- 需要落库
 定义：通过不同的方式接入到本系统的资产数据类型
 特点：结构繁杂不统一，不能系统直接使用，需要转换为统一的资产模型
 同步方式：文件导入，第三方数据库导入，第三方API接口导入等
@@ -263,7 +263,7 @@ AssetNetworkScan (扫描记录)
 - 保持数据的一致性和完整性
 
 
-### 系统内网段资产模型 - 系统可维护的网段资产表
+### 系统内网段资产模型 - 系统可维护的网段资产表 --- 需要落库
 定义：系统可以使用的原始资产数据(可作为系统使用的资产数据表)，存储网段资产
 可以用来生成 asset_network 表并开始扫描任务
 
@@ -301,7 +301,7 @@ RawAssetNetwork 表索引：
 - 包含必要的调度和管理字段
 - 通过source_type和source_identifier替代source_ref，提供更清晰的来源信息
 
-### 初始网段资产模型 - 专注于扫描任务
+### 初始网段资产模型 - 专注于扫描任务 --- 需要落库
 定义：系统可以使用的原始资产数据(可作为扫描的开始数据表 - 如 `asset_network`)
 特点：结构简单统一，可以作为系统使用的资产数据
 同步方式：系统自动生成，定时任务生成，手动生成等
@@ -361,7 +361,7 @@ split_order 使用方式和场景：
 4. 异常恢复：当扫描中断后重启时，可通过 split_order 快速定位从哪个子网段继续扫描
 5. 负载均衡：在分布式扫描环境中，可根据 split_order 将连续的网段分配给不同的扫描节点
 
-### 网段扫描记录模型 - 专注于扫描任务过程
+### 网段扫描记录模型 - 专注于扫描任务过程 --- 需要落库
 定义：记录每个网段的扫描历史和当前分配的Agent
 
 字段建议（AssetNetworkScan）：
@@ -410,13 +410,14 @@ id=2, scan_status=completed (第二次扫描)
 id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 
 
-### 扫描阶段资产模型
+### 扫描阶段资产模型  --- 需要落库(配置文件可选配落库)
 定义：每个扫描阶段（探活、端口、服务、漏洞、Web等）产出的阶段结果，用于驱动下一个阶段的输入。
 
 统一模型（StageResult，消除多表多类型的特殊分支）：
 - `id`：自增主键
 - `workflow_id`：所属工作流 ID
 - `stage_id`：阶段 ID（按编排器定义唯一）
+- `agent_id`：执行扫描的 Agent ID（新增字段）【master添加agentID】
 - `result_type`：结果类型枚举（`ip_alive`/`port_scan`/`service_fingerprint`/`vuln_finding`/`web_endpoint` 等）
 - `target_type`：`ip`/`domain`/`url`
 - `target_value`：目标值（如 `192.168.1.10` 或 `example.com`）
@@ -424,6 +425,9 @@ id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 - `evidence`：原始证据 JSON（工具原始输出的必要片段）
 - `produced_at`：产生时间
 - `producer`：工具标识与版本（如 `nmap 7.93`，`nuclei 3.x`）
+- `output_config`：输出配置 JSON（记录该阶段结果的输出配置，包括是否保存到文件、数据库或传递到下一阶段）
+- `created_at`：创建时间
+- `updated_at`：更新时间
 
 典型 `result_type` 映射：
 - `ip_alive`：探活结果（`attributes.alive=true`，`attributes.protocols=[icmp,tcp]`）
@@ -435,6 +439,99 @@ id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 设计理由：
 - 好品味：一个统一的 `StageResult` 让特殊情况消失无需为每个阶段再造一张专用表，减少分支与耦合。
 - 保留 `attributes` 与 `evidence` JSON，实现不同工具的输出兼容；下一阶段只消费需要的字段即可。
+- 添加 `output_config` 字段用于记录输出配置，支持三种输出方式（文件、数据库、下一阶段）的灵活配置。
+
+注：
+- 由于中间结果落表了，所以需要定期清理历史数据，避免数据量过大。（定期清理需要根据留存时间确定）
+- 中间结果落表需要考虑数据量，最好是根据大小批量插入（支持事务），避免数据库性能下降。
+
+优化建议：
+- 批量大小平衡：批量太小无法有效利用数据库连接，太大可能导致内存压力和超时
+- 异步处理：使用缓冲队列和后台goroutine处理写入操作，避免阻塞主线程
+- 错误处理：要有完善的错误处理机制，避免因为个别错误影响整个批量操作
+- 监控指标：收集性能指标以便优化和故障排查
+- 连接池优化：合理配置数据库连接池参数
+- 索引设计：为常用查询字段建立合适的索引
+- 自适应调整：根据系统负载动态调整批量大小和处理策略
+  
+matser-agent架构（master通过gRpc接收agent的结果数据）
+- 批量传输：Agent端批量发送结果给Master，减少网络开销
+- 批量存储：Master端批量写入数据库，提高I/O效率
+- 并发处理：使用多个worker并发处理不同Agent的结果
+- 流量控制：防止Master被过多结果压垮
+- 分区表：数据库表按时间分区，提高查询性能
+- 连接池优化：合理配置数据库连接池参数
+
+output_config 结构样例：
+```JSON
+{
+  "output_to_next_stage": {
+    "enabled": true,
+    "target_stage_id": 2,
+    "output_fields": ["ip", "port", "service"]
+  },
+  "save_to_database": {
+    "enabled": true,
+    "save_type": "stage_result",
+    "table_name": "stage_results",
+    "retention_days": 30
+  },
+  "save_to_file": {
+    "enabled": true,
+    "file_path": "/var/scan/results/stage1_output.json",
+    "file_format": "json",
+    "retention_days": 7
+  }
+}
+
+```
+
+Agent端处理流程图：
+```mermaid
+graph TD
+    A[扫描阶段执行] --> B[生成StageResult]
+    B --> C[读取output_config配置]
+    C --> D{输出到下一阶段?}
+    D -->|是| E[提取指定字段]
+    E --> F[发送到下一阶段队列]
+    D -->|否| G[跳过阶段传递]
+    C --> H{保存到数据库?}
+    H -->|是| I[写入StageResult表]
+    H -->|否| J[跳过数据库保存]
+    C --> K{保存到文件?}
+    K -->|是| L[序列化为指定格式]
+    L --> M[写入文件系统]
+    K -->|否| N[跳过文件保存]
+    F --> O[结果处理完成]
+    G --> O
+    I --> O
+    J --> O
+    M --> O
+    N --> O
+```
+
+matser-agent处理流程
+```mermaid
+graph TD
+    A[Agent执行扫描] --> B[生成StageResult]
+    B --> C[批量发送给Master]
+    C --> D{Master接收缓冲区是否满?}
+    D -->|否| E[放入处理队列]
+    D -->|是| F[暂时拒绝或减速]
+    E --> G[批量处理器]
+    G --> H[批量插入数据库]
+    G --> I[根据output_config处理]
+    I --> J{保存到文件?}
+    J -->|是| K[序列化并写入文件系统]
+    I --> L{传递到下一阶段?}
+    L -->|是| M[准备下一阶段任务]
+    M --> N[下发给Agent]
+    K --> O[处理完成]
+    L -->|否| O
+    J -->|否| O
+```
+
+
 
 ### 最终结果资产模型
 定义：面向查询与报表的规范化资产视图，聚合并去重所有阶段结果。

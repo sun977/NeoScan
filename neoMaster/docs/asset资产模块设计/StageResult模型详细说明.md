@@ -21,7 +21,8 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 | `evidence` | JSON | 原始证据 |
 | `produced_at` | timestamp | 产生时间 |
 | `producer` | string | 工具标识与版本 |
-| `output_config` | JSON | 输出配置 |
+| `output_config_hash` | string | 输出配置指纹（引用ScanStage.output_config的哈希） |
+| `output_actions` | JSON | 实际执行的轻量动作摘要（save_type/target_table/retention等） |
 | `created_at` | timestamp | 创建时间 |
 | `updated_at` | timestamp | 更新时间 |
 
@@ -219,45 +220,18 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 - "nuclei 3.x"
 - "masscan 1.3.2"
 
-#### 7. output_config（输出配置）
-记录该阶段结果的输出配置，包含是否保存到文件、数据库或传递到下一阶段的配置。
+#### 7. output_config_hash（输出配置指纹）
+记录执行时引用的 `ScanStage.output_config` 的哈希指纹（例如 `sha256`），用于审计与复现，避免在结果侧复制整块配置。
+
+#### 8. output_actions（实际执行摘要）
+记录实际执行的轻量动作摘要，而非完整配置，便于快速判断处理行为：
 
 ```json
 {
-  "output_to_next_stage": {
-    "enabled": true,
-    "target_stage_id": 2,
-    "output_fields": ["ip", "port", "service"]
-  },
-  "save_to_database": {
-    "enabled": true,
-    "save_type": "extract_fields",
-    "table_name": "extract_fields",
-    "extract_fields": {
-      "fields": [
-        "target_value",
-        "result_type",
-        "attributes.os",
-        "attributes.hostname",
-        "attributes.ports",
-        "produced_at"
-      ],
-      "target_table": "custom_scanned_hosts",
-      "field_mapping": {
-        "target_value": "ip_address",
-        "attributes.os": "operating_system",
-        "attributes.hostname": "host_name",
-        "produced_at": "scan_time"
-      }
-    },
-    "retention_days": 30
-  },
-  "save_to_file": {
-    "enabled": true,
-    "file_path": "/var/scan/results/stage1_output.json",
-    "file_format": "json",
-    "retention_days": 7
-  }
+  "save_type": "extract_fields",
+  "target_table": "custom_scanned_hosts",
+  "retention_days": 30,
+  "extract_fields_id": "ef-123"
 }
 ```
 
@@ -277,7 +251,7 @@ graph TD
 ```
 
 ### 2. 结果处理流程
-根据output_config配置，StageResult可以有不同的处理方式：
+结果处理以 `ScanStage.output_config` 为意图来源，通过 `stage_id` 获取并解析；同时在 `StageResult` 中记录 `output_config_hash` 与 `output_actions` 作为审计快照：
 
 ```mermaid
 graph TD

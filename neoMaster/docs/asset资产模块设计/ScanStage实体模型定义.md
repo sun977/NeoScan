@@ -53,7 +53,7 @@ ScanStage实体用于定义扫描工作流中的单个扫描阶段。它包含�
 {
   "target_sources": [
     {
-      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage
+      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
       "source_value": "/path/to/targets.txt",  // 根据类型的具体值
       "target_type": "ip_range"        // 目标类型：ip/ip_range/domain/url
     }

@@ -437,10 +437,19 @@ id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 
 典型 `result_type` 映射：
 - `ip_alive`：探活结果（`attributes.alive=true`，`attributes.protocols=[icmp,tcp]`）
-- `port_scan`：端口扫描（`attributes.ports=[{port,proto,state,service_hint}]`）
-- `service_fingerprint`：服务指纹（`attributes.services=[{port,proto,name,version,cpe}]`）
+- `fast_port_scan`：快速端口扫描（`attributes.ports=[{port,proto,state,service_hint}]`）
+- `full_port_scan`：全端口扫描（`attributes.ports=[{port,proto,state,service_hint}]`）
+- `service_fingerprint`：服务指纹识别（`attributes.services=[{port,proto,name,version,cpe}]`）
 - `vuln_finding`：漏洞发现（`attributes.findings=[{id,cve,severity,confidence,evidence_ref}]`）
-- `web_endpoint`：Web 端点（`attributes.endpoints=[{url,status,tech,framework}]`）
+- `poc_scan`：PoC验证扫描（`attributes.pocs=[{name,status,evidence,description}]`）
+- `web_endpoint`：Web端点发现（`attributes.endpoints=[{url,status,tech,framework}]`）
+- `password_audit`：密码安全审计（`attributes.credentials=[{service,username,password,status,cracked}]`）
+- `proxy_detection`：代理检测（`attributes.proxies=[{port,proto,type,anonymity,response_time}]`）
+- `directory_scan`：目录扫描（`attributes.directories=[{path,status,size,technique}]`）
+- `subdomain_discovery`：子域名发现（`attributes.subdomains=[{subdomain,ip,cdn,status}]`）
+- `api_discovery`：API发现（`attributes.apis=[{endpoint,method,spec_format,spec_url}]`）
+- `file_discovery`：文件发现（`attributes.files=[{filename,path,size,hash,identified_as}]`）
+- `other_scan`：其他类型扫描（`attributes.custom_result={}`）
 
 设计理由：
 - 好品味：一个统一的 `StageResult` 让特殊情况消失无需为每个阶段再造一张专用表，减少分支与耦合。

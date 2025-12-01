@@ -2,7 +2,7 @@
 
 ## 背景
 
-在多阶段扫描工作流中，“上一阶段的结果”需要作为“下一阶段的输入”。错误的做法是把结果数据复制回 `ScanStage`（配置实体）。正确的做法是：在执行时根据 `ScanStage.target_strategy` 引用并解析上一阶段的 `StageResult`，生成当前阶段的目标集。该文档明确两者的分工、输入传递的设计与落地约定。
+在多阶段扫描工作流中，“上一阶段的结果”需要作为“下一阶段的输入”。错误的做法是把结果数据复制回 `ScanStage`（配置实体）。正确的做法是：在执行时根据 `ScanStage.target_policy` 引用并解析上一阶段的 `StageResult`，生成当前阶段的目标集。该文档明确两者的分工、输入传递的设计与落地约定。
 
 ## 设计原则
 
@@ -14,7 +14,7 @@
 ## 实体职责对齐
 
 - `ScanStage`（配置/意图）
-  - 定义阶段类型、工具与参数、`target_strategy`（从何处取输入）、`output_config`（意图级输出策略）。
+  - 定义阶段类型、工具与参数、`target_policy`（从何处取输入）、`output_config`（意图级输出策略）。
   - 位置：`neoMaster/docs/asset资产模块设计/ScanStage实体模型定义.md`
 
 - `StageResult`（事实/结果）
@@ -24,7 +24,7 @@
 
 ## 输入传递设计（不复制，只引用与解析）
 
-在 `ScanStage.target_strategy` 中使用 `source_type=previous_stage` 引用上一阶段的 `StageResult`，并通过统一的“选择器/投影/去重/扩展”生成本阶段工具所需的输入集。
+在 `ScanStage.target_policy` 中使用 `source_type=previous_stage` 引用上一阶段的 `StageResult`，并通过统一的“选择器/投影/去重/扩展”生成本阶段工具所需的输入集。
 
 ### 规范字段
 
@@ -46,7 +46,7 @@
 
 ```json
 {
-  "target_strategy": {
+  "target_policy": {
     "target_sources": [
       {
         "source_type": "previous_stage",
@@ -81,7 +81,7 @@
 
 ```json
 {
-  "target_strategy": {
+  "target_policy": {
     "target_sources": [
       {
         "source_type": "previous_stage",
@@ -112,7 +112,7 @@
 
 ## 执行流程（InputResolver）
 
-- 加载：根据 `ScanStage.stage_id` 与 `target_strategy` 查询上一阶段的 `StageResult`。
+- 加载：根据 `ScanStage.stage_id` 与 `target_policy` 查询上一阶段的 `StageResult`。
 - 过滤：应用 `record_selector.where` 与 `target_type`。
 - 投影：按 `projection.to_inputs` 将 `attributes` 映射为工具输入字段。
 - 去重/扩展：应用 `dedupe` 与 `expand` 生成最终目标集。
@@ -150,7 +150,7 @@ graph TD
 
 - 建议统一 `result_type`：
   - 端口扫描策略二选一：
-    - 统一为 `port_scan`，差异通过 `attributes.summary.scan_strategy=fast/full` 表达；
+    - 统一为 `port_scan`，差异通过 `attributes.summary.scan_policy=fast/full` 表达；
     - 或坚持 `fast_port_scan/full_port_scan` 两类，禁止引入第三个 `port_scan` 名称。
 - 参考枚举来源：`StageResult模型详细说明.md:31-46`。
 

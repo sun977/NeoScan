@@ -17,11 +17,11 @@ ScanStage实体用于定义扫描工作流中的单个扫描阶段。它包含�
 | `stage_type` | string | 阶段类型枚举 |
 | `tool_name` | string | 使用的扫描工具名称 |
 | `tool_params` | string | 扫描工具参数 |
-| `target_strategy` | JSON | 目标策略配置 |
+| `target_policy` | JSON | 目标策略配置 |
 | `execution_policy` | JSON | 执行策略配置 |
 | `performance_settings` | JSON | 性能设置配置 |
 | `output_config` | JSON | 输出配置 |
-| `notification_config` | JSON | 通知配置 |
+| `notify_config` | JSON | 通知配置 |
 | `enabled` | bool | 阶段是否启用 |
 | `created_at` | timestamp | 创建时间 |
 | `updated_at` | timestamp | 更新时间 |
@@ -46,7 +46,7 @@ ScanStage实体用于定义扫描工作流中的单个扫描阶段。它包含�
 - `file_discovery`：文件发现
 - `other_scan`：其他类型扫描
 
-#### 2. target_strategy（目标策略）
+#### 2. target_policy（目标策略）
 定义扫描目标的获取方式和策略：
 
 ```json
@@ -144,13 +144,13 @@ ScanStage实体用于定义扫描工作流中的单个扫描阶段。它包含�
 - 系统在执行阶段为 `output_config` 计算哈希指纹（如 `sha256`）。
 - `StageResult` 不再复制整块配置，只保存 `output_config_hash` 与轻量 `output_actions` 摘要，并通过 `stage_id` 指向本阶段配置，确保审计可复现且避免结果侧膨胀。
 
-#### 6. notification_config（通知配置）
+#### 6. notify_config（通知配置）
 定义扫描阶段的通知设置：
 
 ```json
 {
   "enabled": false,                    // 是否发送通知
-  "notification_methods": ["email"],   // 通知方式：email/sec/wechat/websocket
+  "notify_methods": ["email"],   // 通知方式：email/sec/wechat/websocket
   "recipients": ["admin@example.com"], // 通知接收人
   "message_template": "Stage {stage_name} completed with {result_count} findings"  // 通知模板
 }
@@ -249,7 +249,7 @@ sequenceDiagram
   "stage_type": "fast_port_scan",
   "tool_name": "nmap",
   "tool_params": "-Pn -sS -T4 --open --min-rate=400",
-  "target_strategy": {
+  "target_policy": {
     "target_sources": [
       {
         "source_type": "previous_stage",

@@ -22,6 +22,7 @@ AssetWhitelist实体用于定义统一的资产白名单机制，适用于所有
 | `tags` | JSON | 标签信息 |
 | `scope` | JSON | 作用域配置 |
 | `enabled` | bool | 是否启用 |
+| `note` | string | 备注信息 |
 | `created_at` | timestamp | 创建时间 |
 | `updated_at` | timestamp | 更新时间 |
 

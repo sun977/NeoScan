@@ -431,7 +431,8 @@ id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 - `evidence`：原始证据 JSON（工具原始输出的必要片段）
 - `produced_at`：产生时间
 - `producer`：工具标识与版本（如 `nmap 7.93`，`nuclei 3.x`）
-- `output_config`：输出配置 JSON（记录该阶段结果的输出配置，包括是否保存到文件、数据库或传递到下一阶段）
+- `output_config_hash`：输出配置指纹（执行时引用的 ScanStage.output_config 的哈希，用于审计与复现）
+- `output_actions`：实际执行的轻量动作摘要（如 `save_type`、目标表、留存天数、映射ID），避免复制整块配置
 - `created_at`：创建时间
 - `updated_at`：更新时间
 
@@ -454,7 +455,7 @@ id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 设计理由：
 - 好品味：一个统一的 `StageResult` 让特殊情况消失无需为每个阶段再造一张专用表，减少分支与耦合。
 - 保留 `attributes` 与 `evidence` JSON，实现不同工具的输出兼容；下一阶段只消费需要的字段即可。
-- 添加 `output_config` 字段用于记录输出配置，支持三种输出方式（文件、数据库、下一阶段）的灵活配置。
+- 以 `ScanStage.output_config` 作为唯一意图配置；`StageResult` 仅保存 `output_config_hash` 与 `output_actions` 的轻量快照，避免结果侧复制整块配置，同时保证审计可复现。
 
 注：
 - 由于中间结果落表了，所以需要定期清理历史数据，避免数据量过大。（定期清理需要根据留存时间确定）
@@ -478,7 +479,7 @@ matser-agent架构（master通过gRpc接收agent的结果数据）
 - 分区表：数据库表按时间分区，提高查询性能
 - 连接池优化：合理配置数据库连接池参数
 
-output_config 结构样例：
+ScanStage.output_config 结构样例（意图配置）：
 ```JSON
 {
   "output_to_next_stage": {
@@ -519,6 +520,19 @@ output_config 结构样例：
 
 ```
 
+StageResult侧仅保存输出配置指纹与摘要示例：
+```JSON
+{
+  "output_config_hash": "sha256:a1b2c3...",
+  "output_actions": {
+    "save_type": "extract_fields",
+    "target_table": "custom_scanned_hosts",
+    "retention_days": 30,
+    "extract_fields_id": "ef-123"
+  }
+}
+```
+
 阶段扫描完成后处理流程图：
 ```mermaid
 graph TD
@@ -547,7 +561,7 @@ graph TD
 1. 任务下发阶段：Master将任务分配给多个Agent
 2. 并行执行阶段：各个Agent并行执行扫描任务
 3. 结果上报阶段：Agents通过gRPC将结果批量上传给Master
-4. 结果处理阶段：Master根据output_config配置进行不同的处理：
+4. 结果处理阶段：Master根据 ScanStage.output_config 配置进行不同的处理：
 5. 直接保存到StageResult表
 6. 转换并保存到最终资产表（AssetHost等）
 7. 提取指定字段并保存到自定义表

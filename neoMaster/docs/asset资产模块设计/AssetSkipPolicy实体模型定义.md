@@ -25,6 +25,7 @@ AssetSkipPolicy实体用于定义统一的资产跳过策略机制，适用于�
 | `valid_to` | timestamp | 生效结束时间 |
 | `created_at` | timestamp | 创建时间 |
 | `updated_at` | timestamp | 更新时间 |
+| `note` | string | 备注信息 |
 
 ### 字段详解
 

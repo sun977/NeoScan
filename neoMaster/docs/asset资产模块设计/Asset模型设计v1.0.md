@@ -424,10 +424,10 @@ id=3, scan_status=scanning  (当前正在进行的第三次扫描)
 - `workflow_id`：所属工作流 ID
 - `stage_id`：阶段 ID（按编排器定义唯一）
 - `agent_id`：执行扫描的 Agent ID（新增字段）【master添加agentID】
-- `result_type`：结果类型枚举（`ip_alive`/`port_scan`/`service_fingerprint`/`vuln_finding`/`web_endpoint` 等）
+- `result_type`：结果类型枚举（`ip_alive`/`port_scan`/`service_fingerprint`/`vuln_finding`/`web_endpoint` 等）【结果类型，对应的扫描类型的结果】
 - `target_type`：`ip`/`domain`/`url`
 - `target_value`：目标值（如 `192.168.1.10` 或 `example.com`）
-- `attributes`：结构化属性 JSON（与工具输出对齐，如端口列表、指纹、CPE、证据）
+- `attributes`：结构化属性 JSON（与工具输出对齐，如端口列表、指纹、CPE、证据）【用于存放不同扫描阶段的结果json】
 - `evidence`：原始证据 JSON（工具原始输出的必要片段）
 - `produced_at`：产生时间
 - `producer`：工具标识与版本（如 `nmap 7.93`，`nuclei 3.x`）

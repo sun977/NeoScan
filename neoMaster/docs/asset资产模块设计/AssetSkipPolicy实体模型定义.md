@@ -84,7 +84,7 @@ AssetSkipPolicy实体用于定义统一的资产跳过策略机制，适用于�
 
 ```json
 {
-  "action": "skip",  // skip/log/alert/标记
+  "action": "skip",  // skip/log/alert/tag
   "log_level": "info",
   "alert_channels": ["email", "slack"],
   "custom_tags": {

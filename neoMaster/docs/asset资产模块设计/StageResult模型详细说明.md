@@ -29,11 +29,20 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 
 #### 1. result_type（结果类型）
 用于区分不同扫描阶段的类型：
-- `ip_alive`：探活结果
-- `port_scan`：端口扫描结果
-- `service_fingerprint`：服务指纹识别结果
-- `vuln_finding`：漏洞发现结果
-- `web_endpoint`：Web端点发现结果
+- `ip_alive`：探活结果 (ipAliveScan)
+- `fast_port_scan`：快速端口扫描结果 (fastPortScan)
+- `full_port_scan`：全端口扫描结果 (fullPortScan)
+- `service_fingerprint`：服务指纹识别结果 (serviceScan)
+- `vuln_finding`：漏洞发现结果 (vulnScan)
+- `poc_scan`：PoC验证结果 (pocScan)
+- `web_endpoint`：Web端点发现结果 (webScan)
+- `password_audit`：密码审计结果 (passScan)
+- `proxy_detection`：代理检测结果 (proxyScan)
+- `directory_scan`：目录扫描结果 (dirScan)
+- `subdomain_discovery`：子域发现结果 (subDomainScan)
+- `api_discovery`：API发现结果 (apiScan)
+- `file_discovery`：文件发现结果 (fileScan)
+- `other_scan`：其他扫描结果 (otherScan)
 
 #### 2. target_type（目标类型）
 表示扫描目标的类型：
@@ -95,6 +104,109 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
     {"url": "https://example.com/api", "status": 200, "tech": "Node.js", "framework": "Express"},
     {"url": "https://example.com/admin", "status": 401, "tech": "PHP", "framework": "Laravel"}
   ]
+}
+```
+
+##### 快速端口扫描阶段（fast_port_scan）
+```json
+{
+  "ports": [
+    {"port": 22, "proto": "tcp", "state": "open"},
+    {"port": 443, "proto": "tcp", "state": "open"}
+  ],
+  "summary": {"open_count": 2, "scan_strategy": "top-1000", "elapsed_ms": 1234}
+}
+```
+
+##### 全端口扫描阶段（full_port_scan）
+```json
+{
+  "ports": [
+    {"port": 1, "proto": "tcp", "state": "closed"},
+    {"port": 80, "proto": "tcp", "state": "open", "service_hint": "http"},
+    {"port": 8080, "proto": "tcp", "state": "open", "service_hint": "http-proxy"}
+  ],
+  "summary": {"open_count": 2, "total_scanned": 65535, "elapsed_ms": 123456}
+}
+```
+
+##### PoC验证阶段（poc_scan）
+```json
+{
+  "poc_results": [
+    {"poc_id": "CVE-2021-1234#poc1", "target": "https://example.com", "status": "confirmed", "severity": "high", "evidence_ref": "ref-abc"},
+    {"poc_id": "CVE-2021-5678#poc2", "target": "https://example.com", "status": "not_vulnerable", "severity": "medium", "evidence_ref": "ref-def"}
+  ]
+}
+```
+
+##### 密码审计阶段（password_audit）
+```json
+{
+  "accounts": [
+    {"username": "admin", "service": "ssh", "host": "example.com", "port": 22, "weak_password": true, "credential": "admin:admin123", "success": true},
+    {"username": "dbuser", "service": "mysql", "host": "db.example.com", "port": 3306, "weak_password": false, "success": false}
+  ],
+  "policy": {"max_attempts": 3}
+}
+```
+
+##### 代理检测阶段（proxy_detection）
+```json
+{
+  "proxies": [
+    {"ip": "1.2.3.4", "port": 8080, "type": "http", "open": true, "auth_required": false},
+    {"ip": "5.6.7.8", "port": 1080, "type": "socks5", "open": true, "auth_required": true}
+  ]
+}
+```
+
+##### 目录扫描阶段（directory_scan）
+```json
+{
+  "paths": [
+    {"url": "https://example.com/.git", "status": 200, "length": 1024, "sensitive": true},
+    {"url": "https://example.com/admin/", "status": 403, "length": 312}
+  ]
+}
+```
+
+##### 子域发现阶段（subdomain_discovery）
+```json
+{
+  "subdomains": [
+    {"host": "api.example.com", "ip": "203.0.113.10", "source": "crt.sh"},
+    {"host": "dev.example.com", "ip": "203.0.113.11", "source": "dns-bruteforce"}
+  ]
+}
+```
+
+##### API发现阶段（api_discovery）
+```json
+{
+  "apis": [
+    {"method": "GET", "path": "/v1/users", "status": 200, "auth_required": true},
+    {"method": "POST", "path": "/v1/login", "status": 200, "auth_required": false}
+  ],
+  "spec": {"format": "OpenAPI", "version": "3.0"}
+}
+```
+
+##### 文件发现阶段（file_discovery）
+```json
+{
+  "files": [
+    {"path": "/backup.zip", "url": "https://example.com/backup.zip", "size": 1048576, "mime": "application/zip", "sensitive": true},
+    {"path": "/robots.txt", "url": "https://example.com/robots.txt", "size": 145, "mime": "text/plain", "sensitive": false}
+  ]
+}
+```
+
+##### 其他扫描阶段（other_scan）
+```json
+{
+  "summary": "Custom scan output",
+  "data": {"key": "value", "note": "free-form data"}
 }
 ```
 

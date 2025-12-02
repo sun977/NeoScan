@@ -51,7 +51,7 @@ erDiagram
         string target_type
         json filter_rules
     }
-    ScanStage ..> TargetProvider : "包含(target_policy)"
+    ScanStage ||..|| TargetProvider : "包含(target_policy)"
 
     %% ========================================================
     %% 2. 执行域 (Execution Domain) - 任务与结果

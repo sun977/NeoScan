@@ -27,6 +27,7 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentManageGroup := v1.Group("/agent")
 	agentManageGroup.Use(r.middlewareManager.GinJWTAuthMiddleware())
 	agentManageGroup.Use(r.middlewareManager.GinUserActiveMiddleware())
+	// agentManageGroup.Use(r.middlewareManager.GinRequireAnyRole("user")) // 用户权限检查,用户是否具有user角色
 	{
 		// ==================== Agent基础管理接口(Master端完全独立实现) ====================
 		agentManageGroup.GET("", r.agentHandler.GetAgentList)                   // 获取Agent列表 - 支持分页、status 状态过滤、keyword 关键字模糊查询、tags 标签过滤、capabilities 功能模块过滤 [Master端数据库查询]

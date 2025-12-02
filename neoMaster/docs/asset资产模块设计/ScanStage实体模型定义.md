@@ -4,6 +4,16 @@
 
 ScanStage实体用于定义扫描工作流中的单个扫描阶段。它包含了执行特定类型扫描所需的所有配置信息，包括工具选择、参数配置、目标策略、输出配置等。
 
+
+## ScanStage 和 StageResult 的关系
+Master (大脑)                      Agent (手脚)
+      |                                 ^
+      |--[ ScanStage (JSON/RPC) ]------>|  (Master 告诉 Agent 做什么)
+      |                                 |
+      |<--[ StageResult (JSON/RPC) ]----|  (Agent 告诉 Master 结果是什么)
+      v                                 
+Database (记忆)
+
 ## 模型结构
 
 ### 核心字段

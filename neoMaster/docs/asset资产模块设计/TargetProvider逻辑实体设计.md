@@ -15,9 +15,11 @@ TargetProvider 是一个 **逻辑实体**（不对应数据库表），负责在
 | 字段名 | 类型 | 必填 | 描述 |
 |--------|------|------|------|
 | `source_type` | string | 是 | 来源类型枚举 (`file`, `database`, `api`, `manual`, `previous_stage`) |
+| `query_mode` | string | 否 | 查询模式 (`table`, `view`, `sql`)，默认 `table`，仅针对 `database` 类型有效 |
 | `target_type` | string | 是 | 目标数据类型 (`ip`, `ip_range`, `domain`, `url`) |
-| `source_value` | string | 否 | 来源主值（如文件路径、表名、API地址、阶段ID引用） |
-| `filter_rules` | JSON | 否 | 过滤/查询规则（针对 DB/API/PreviousStage） |
+| `source_value` | string | 否 | 来源主值（表名、视图名、文件路径、API地址） |
+| `custom_sql` | string | 否 | 自定义 SQL 语句（当 query_mode=sql 时必填） |
+| `filter_rules` | JSON | 否 | 过滤/查询规则（针对 table/view/api/previous_stage） |
 | `auth_config` | JSON | 否 | 认证配置（针对 API/DB） |
 | `parser_config` | JSON | 否 | 解析配置（如 CSV 分隔符、JSON 路径） |
 
@@ -52,9 +54,11 @@ TargetProvider 解析后输出的标准目标对象：
 
 ### 2. DatabaseProvider (数据库来源)
 
-从系统资产表或外部数据库视图查询目标。
+从系统资产表或外部数据库查询目标。
 
-- **source_value**: 表名或视图名 (如 `asset_networks`, `custom_view_targets`)。
+#### 模式 A: Table/View (默认)
+- **query_mode**: `table` 或 `view`
+- **source_value**: 表名或视图名 (如 `asset_networks`)。
 - **filter_rules** (SQL 构建器):
   ```json
   {
@@ -65,6 +69,28 @@ TargetProvider 解析后输出的标准目标对象：
     "limit": 1000
   }
   ```
+
+#### 模式 B: Custom SQL (高级)
+- **query_mode**: `sql`
+- **custom_sql**: 完整的 SELECT 语句。
+  ```sql
+  SELECT ip_address 
+  FROM assets a 
+  JOIN departments d ON a.dept_id = d.id 
+  WHERE d.name = 'Finance' 
+    AND a.last_scan_time < DATE_SUB(NOW(), INTERVAL 7 DAY)
+  ```
+- **安全约束**: 
+  - 仅允许 SELECT 语句。
+  - 必须指定返回列名映射（默认取第一列作为 value）。
+- **parser_config** (可选映射):
+  ```json
+  {
+    "value_column": "ip_address", // 哪一列是目标值
+    "meta_columns": ["hostname", "os"] // 哪些列作为 meta 数据携带
+  }
+  ```
+
 - **auth_config** (可选): 如果是连接外部数据库，需提供连接凭证引用。
 
 ### 3. APIProvider (API 来源)

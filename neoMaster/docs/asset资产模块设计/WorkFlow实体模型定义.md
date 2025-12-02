@@ -154,14 +154,14 @@ type NotifyPolicy struct {
 
 ```mermaid
 graph TD
-    Project[Project (调度/编排)] -->|1:N| ProjectWorkflow
-    ProjectWorkflow -->|N:1| Workflow[Workflow (蓝图)]
-    Workflow -->|1:N| ScanStage[ScanStage (原子任务)]
+    Project[Project 调度/编排] -->|1:N| ProjectWorkflow
+    ProjectWorkflow -->|N:1| Workflow[Workflow 蓝图]
+    Workflow -->|1:N| ScanStage[ScanStage 原子任务]
     
     ScanStage -->|Config| TargetProvider[TargetProvider]
     ScanStage -->|Output| StageResult[StageResult]
     
-    subgraph "运行时 (Runtime)"
+    subgraph "运行时 Runtime"
         ProjectExecution --> WorkflowExecution
         WorkflowExecution --> StageExecution
     end

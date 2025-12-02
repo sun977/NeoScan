@@ -546,60 +546,54 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="u1l7qtYoqxW6Vm54AD72-0" value="TargetProvider 扫描目标提供者实体-不需要落库" style="swimlane;fontStyle=3;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeLast=0;collapsible=1;marginBottom=0;rounded=0;shadow=0;strokeWidth=1;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
-          <mxGeometry x="1720" y="-530" width="560" height="460" as="geometry">
+          <mxGeometry x="1720" y="-530" width="510" height="410" as="geometry">
             <mxRectangle x="1040" y="140" width="160" height="26" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-1" value="id：白名单 ID" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="26" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-1" value="配置结构 TargetSourceConfig" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="26" width="510" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-2" value="created_at：创建时间" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="52" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-2" value="source_type：来源类型枚举(file, database, api, manual, previous_stage)" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="52" width="510" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-3" value="updated_at：更新时间" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="78" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-37" value="query_mode：查询模式 (table, view, sql)，默认 table，仅针对 database 类型有效" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="78" width="510" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-4" value="whitelist_name：白名单名称" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="104" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-3" value="target_type：目标类型枚举 (ip,ip_range,domain,url)" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="104" width="510" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-5" value="whitelist_type：白名单类型 [global/scan_type/project/workflow/stage] 【负责整个系统所有类型的加白】" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rounded=0;shadow=0;html=0;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="130" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-4" value="source_value：来源主值（如文件路径,表名,视图名,API地址,阶段ID引用）" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="130" width="510" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-6" value="target_type：目标类型 [ip/ip_range/cidr/domain/url/host/mac/asn/custom]" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="156" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-13" value="filter_rules： 过滤/查询规则（针对 table/view/api/previous_stage）" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="156" width="510" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-7" value="target_value：目标值 [精确匹配、范围匹配、CIDR 表示、通配符、正则]" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rounded=0;shadow=0;html=0;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="182" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-14" value="auth_config：认证配置（针对 API/DB）" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rounded=0;shadow=0;html=0;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="182" width="510" height="26" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-8" value="description：白名单描述信息" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="208" width="560" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-9" value="valid_from：开始生效时间" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="234" width="560" height="30" as="geometry" />
-        </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-10" value="valid_to：失效时间" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="264" width="560" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-11" value="created_by：创建人" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="290" width="560" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-12" value="tags：标签" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="316" width="560" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-13" value="scope：作用域配置" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="342" width="560" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-14" value="enabled：是否启用 [启用/禁用]" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rounded=0;shadow=0;html=0;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="368" width="560" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-15" value="note：备注" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="394" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-15" value="parser_config：解析配置（如 CSV 分隔符、JSON 路径）" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="208" width="510" height="26" as="geometry" />
         </mxCell>
         <mxCell id="u1l7qtYoqxW6Vm54AD72-16" value="" style="line;html=1;strokeWidth=1;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="420" width="560" height="10" as="geometry" />
+          <mxGeometry y="234" width="510" height="10" as="geometry" />
         </mxCell>
-        <mxCell id="u1l7qtYoqxW6Vm54AD72-34" value="解决扫描阶段实体如何获取扫描目标的问题" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
-          <mxGeometry y="430" width="560" height="26" as="geometry" />
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-34" value="解决扫描阶段实体如何获取扫描目标的问题【不同来源类型有自己的字段设计】" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=1" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="244" width="510" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-39" value="TargetProvider 解析后输出的标准目标对象：" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="270" width="510" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-40" value="Type：目标类型 (ip, domain, url)" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="296" width="510" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-54" value="Value：目标值 (192.168.1.1,`example.com）" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="322" width="510" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-55" value="Source：来源标识（用于回溯，如 file:hosts.txt）" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="348" width="510" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="u1l7qtYoqxW6Vm54AD72-56" value="Meta：元数据（如端口、协议、标签，随目标携带）" style="text;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=0" vertex="1" parent="u1l7qtYoqxW6Vm54AD72-0">
+          <mxGeometry y="374" width="510" height="26" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

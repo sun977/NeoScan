@@ -168,14 +168,20 @@ type TargetProvider interface {
 graph LR
     A[ScanStage.target_policy] -->|解析| B(TargetProviderFactory)
     B -->|创建| C{具体 Provider}
-    C -->|File| D[FileProvider]
-    C -->|DB| E[DatabaseProvider]
-    C -->|Prev| F[PreviousStageProvider]
     
-    D -->|读取| G[原始数据]
-    E -->|查询| G
+    C -->|File| D[FileProvider]
+    D -->|Read| G[原始数据]
+    
+    C -->|DB| E[DatabaseProvider]
+    E -->|判断 Mode| E1{query_mode}
+    E1 -->|Table/View| E2[构建 Filter SQL]
+    E1 -->|SQL| E3[执行 Custom SQL]
+    E2 -->|Query| G
+    E3 -->|Query| G
+    
+    C -->|Prev| F[PreviousStageProvider]
     F -->|提取| G
     
-    G -->|标准化| H[Target 列表]
+    G -->|标准化| H[[]Target 列表]
     H -->|去重/白名单| I[最终扫描目标]
 ```

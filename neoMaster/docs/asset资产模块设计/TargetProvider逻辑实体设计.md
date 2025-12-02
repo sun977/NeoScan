@@ -182,6 +182,7 @@ graph LR
     C -->|Prev| F[PreviousStageProvider]
     F -->|提取| G
     
-    G -->|标准化| H[[]Target 列表]
+    G -->|标准化| H["[Target] 列表"]
     H -->|去重/白名单| I[最终扫描目标]
+
 ```

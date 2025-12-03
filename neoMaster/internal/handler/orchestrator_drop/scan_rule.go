@@ -5,7 +5,7 @@
  * @description: 扫描规则管理处理器，提供扫描规则的CRUD操作、状态管理、规则测试等功能
  * @func: 处理扫描规则相关的HTTP请求
  */
-package orchestrator
+package orchestrator_drop
 
 import (
 	"encoding/json"

@@ -5,7 +5,7 @@
  * @description: 第三方扫描工具配置模型，遵循"实用主义"原则 - 解决实际问题，不追求理论完美
  * @func: ScanTool 结构体及相关方法
  */
-package orchestrator
+package orchestrator_drop
 
 import (
 	"encoding/json"

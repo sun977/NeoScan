@@ -31,7 +31,7 @@
 //  	InstallScanTool - 安装扫描工具
 //  	UninstallScanTool - 卸载扫描工具
 
-package orchestrator
+package orchestrator_drop
 
 import (
 	"context"
@@ -42,7 +42,7 @@ import (
 	"strings"
 	"time"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
 )
 
@@ -64,7 +64,7 @@ func NewScanToolService(scanToolRepo *orchestratorRepo.ScanToolRepository) *Scan
 // @param ctx 上下文
 // @param tool 扫描工具配置对象
 // @return 创建的扫描工具配置和错误信息
-func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator.ScanTool) (*orchestrator.ScanTool, error) {
+func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator_drop.ScanTool) (*orchestrator_drop.ScanTool, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if tool == nil {
 		logger.LogBusinessError(errors.New("scan tool is nil"), "", 0, "", "create_scan_tool", "SERVICE", map[string]interface{}{
@@ -139,7 +139,7 @@ func (s *ScanToolService) CreateScanTool(ctx context.Context, tool *orchestrator
 // @param id 扫描工具配置ID
 // @param tool 更新的扫描工具配置对象
 // @return 更新后的扫描工具配置和错误信息
-func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orchestrator.ScanTool) (*orchestrator.ScanTool, error) {
+func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orchestrator_drop.ScanTool) (*orchestrator_drop.ScanTool, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogBusinessError(errors.New("invalid scan tool ID"), "", 0, "", "update_scan_tool", "SERVICE", map[string]interface{}{
@@ -253,7 +253,7 @@ func (s *ScanToolService) UpdateScanTool(ctx context.Context, id uint, tool *orc
 // @param ctx 上下文
 // @param id 扫描工具配置ID
 // @return 扫描工具配置对象和错误信息
-func (s *ScanToolService) GetScanTool(ctx context.Context, id uint) (*orchestrator.ScanTool, error) {
+func (s *ScanToolService) GetScanTool(ctx context.Context, id uint) (*orchestrator_drop.ScanTool, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogBusinessError(errors.New("invalid scan tool ID"), "", 0, "", "get_scan_tool", "SERVICE", map[string]interface{}{
@@ -297,7 +297,7 @@ func (s *ScanToolService) GetScanTool(ctx context.Context, id uint) (*orchestrat
 // @param toolType 工具类型过滤（可选）
 // @param status 状态过滤（可选）
 // @return 扫描工具配置列表、总数和错误信息
-func (s *ScanToolService) ListScanTools(ctx context.Context, offset, limit int, toolType *orchestrator.ScanToolType, status *orchestrator.ScanToolStatus) ([]*orchestrator.ScanTool, int64, error) {
+func (s *ScanToolService) ListScanTools(ctx context.Context, offset, limit int, toolType *orchestrator_drop.ScanToolType, status *orchestrator_drop.ScanToolStatus) ([]*orchestrator_drop.ScanTool, int64, error) {
 	// 参数验证
 	if offset < 0 {
 		offset = 0
@@ -361,7 +361,7 @@ func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 	}
 
 	// 检查工具是否正在使用
-	if tool.Status == orchestrator.ScanToolStatusTesting {
+	if tool.Status == orchestrator_drop.ScanToolStatusTesting {
 		logger.LogBusinessError(errors.New("scan tool is testing"), "", id, "", "delete_scan_tool", "SERVICE", map[string]interface{}{
 			"operation": "delete_scan_tool",
 			"error":     "tool_testing",
@@ -399,7 +399,7 @@ func (s *ScanToolService) DeleteScanTool(ctx context.Context, id uint) error {
 // @param id 扫描工具配置ID
 // @return 错误信息
 func (s *ScanToolService) EnableScanTool(ctx context.Context, id uint) error {
-	return s.updateScanToolStatus(ctx, id, orchestrator.ScanToolStatusEnabled, "enable_scan_tool")
+	return s.updateScanToolStatus(ctx, id, orchestrator_drop.ScanToolStatusEnabled, "enable_scan_tool")
 }
 
 // DisableScanTool 禁用扫描工具
@@ -407,7 +407,7 @@ func (s *ScanToolService) EnableScanTool(ctx context.Context, id uint) error {
 // @param id 扫描工具配置ID
 // @return 错误信息
 func (s *ScanToolService) DisableScanTool(ctx context.Context, id uint) error {
-	return s.updateScanToolStatus(ctx, id, orchestrator.ScanToolStatusDisabled, "disable_scan_tool")
+	return s.updateScanToolStatus(ctx, id, orchestrator_drop.ScanToolStatusDisabled, "disable_scan_tool")
 }
 
 // CheckScanToolHealth 检查扫描工具健康状态
@@ -467,7 +467,7 @@ func (s *ScanToolService) CheckScanToolHealth(ctx context.Context, id uint) (map
 // @param ctx 上下文
 // @param tool 扫描工具配置对象
 // @return 错误信息
-func (s *ScanToolService) ValidateScanToolConfig(ctx context.Context, tool *orchestrator.ScanTool) error {
+func (s *ScanToolService) ValidateScanToolConfig(ctx context.Context, tool *orchestrator_drop.ScanTool) error {
 	// 基础字段验证
 	if strings.TrimSpace(tool.Name) == "" {
 		return errors.New("扫描工具名称不能为空")
@@ -675,7 +675,7 @@ func (s *ScanToolService) GetScanToolPerformance(ctx context.Context, id uint) (
 // GetAvailableScanTools 获取可用扫描工具
 // @param ctx 上下文
 // @return 可用扫描工具列表和错误信息
-func (s *ScanToolService) GetAvailableScanTools(ctx context.Context) ([]*orchestrator.ScanTool, error) {
+func (s *ScanToolService) GetAvailableScanTools(ctx context.Context) ([]*orchestrator_drop.ScanTool, error) {
 	tools, err := s.scanToolRepo.GetAvailableScanTools(ctx)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "get_available_scan_tools", "SERVICE", map[string]interface{}{
@@ -693,7 +693,7 @@ func (s *ScanToolService) GetAvailableScanTools(ctx context.Context) ([]*orchest
 // @param ctx 上下文
 // @param toolType 工具类型
 // @return 扫描工具列表和错误信息
-func (s *ScanToolService) GetScanToolsByType(ctx context.Context, toolType orchestrator.ScanToolType) ([]*orchestrator.ScanTool, error) {
+func (s *ScanToolService) GetScanToolsByType(ctx context.Context, toolType orchestrator_drop.ScanToolType) ([]*orchestrator_drop.ScanTool, error) {
 	tools, err := s.scanToolRepo.GetScanToolsByType(ctx, toolType)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "get_scan_tools_by_type", "SERVICE", map[string]interface{}{
@@ -736,7 +736,7 @@ func (s *ScanToolService) InstallScanTool(ctx context.Context, id uint) error {
 	// 5. 验证安装结果
 
 	// 更新状态为已安装
-	if err := s.scanToolRepo.UpdateScanToolStatus(ctx, id, orchestrator.ScanToolStatusEnabled); err != nil {
+	if err := s.scanToolRepo.UpdateScanToolStatus(ctx, id, orchestrator_drop.ScanToolStatusEnabled); err != nil {
 		return fmt.Errorf("更新工具状态失败: %w", err)
 	}
 
@@ -772,7 +772,7 @@ func (s *ScanToolService) UninstallScanTool(ctx context.Context, id uint) error 
 	}
 
 	// 检查工具是否正在测试中
-	if tool.Status == orchestrator.ScanToolStatusTesting {
+	if tool.Status == orchestrator_drop.ScanToolStatusTesting {
 		return errors.New("扫描工具正在运行中，无法卸载")
 	}
 
@@ -783,7 +783,7 @@ func (s *ScanToolService) UninstallScanTool(ctx context.Context, id uint) error 
 	// 4. 清理环境变量
 
 	// 更新状态为未安装
-	if err := s.scanToolRepo.UpdateScanToolStatus(ctx, id, orchestrator.ScanToolStatusDisabled); err != nil {
+	if err := s.scanToolRepo.UpdateScanToolStatus(ctx, id, orchestrator_drop.ScanToolStatusDisabled); err != nil {
 		return fmt.Errorf("更新工具状态失败: %w", err)
 	}
 
@@ -799,7 +799,7 @@ func (s *ScanToolService) UninstallScanTool(ctx context.Context, id uint) error 
 }
 
 // 私有方法：更新扫描工具状态
-func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, status orchestrator.ScanToolStatus, operation string) error {
+func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, status orchestrator_drop.ScanToolStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
 		logger.LogBusinessError(errors.New("invalid scan tool ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
@@ -859,13 +859,13 @@ func (s *ScanToolService) updateScanToolStatus(ctx context.Context, id uint, sta
 }
 
 // 私有方法：设置默认值
-func (s *ScanToolService) setDefaultValues(tool *orchestrator.ScanTool) {
+func (s *ScanToolService) setDefaultValues(tool *orchestrator_drop.ScanTool) {
 	if tool.Status == 0 {
-		tool.Status = orchestrator.ScanToolStatusDisabled
+		tool.Status = orchestrator_drop.ScanToolStatusDisabled
 	}
 
 	if tool.Type == "" {
-		tool.Type = orchestrator.ScanToolTypeCustom
+		tool.Type = orchestrator_drop.ScanToolTypeCustom
 	}
 
 	// 设置默认的参数配置
@@ -1088,10 +1088,10 @@ func (s *ScanToolService) GetSystemToolStatus(ctx context.Context) (map[string]i
 		typeStats[typeKey]++
 
 		// 统计安装和启用状态
-		if tool.Status == orchestrator.ScanToolStatusEnabled || tool.Status == orchestrator.ScanToolStatusTesting {
+		if tool.Status == orchestrator_drop.ScanToolStatusEnabled || tool.Status == orchestrator_drop.ScanToolStatusTesting {
 			installedCount++
 		}
-		if tool.Status == orchestrator.ScanToolStatusEnabled {
+		if tool.Status == orchestrator_drop.ScanToolStatusEnabled {
 			enabledCount++
 		}
 	}

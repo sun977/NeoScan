@@ -10,11 +10,11 @@ package setup
 import (
 	agentHandler "neomaster/internal/handler/agent"
 	authHandler "neomaster/internal/handler/auth"
-	orchestratorHandler "neomaster/internal/handler/orchestrator"
+	orchestratorHandler "neomaster/internal/handler/orchestrator_drop"
 	systemHandler "neomaster/internal/handler/system"
 	agentService "neomaster/internal/service/agent"
 	authService "neomaster/internal/service/auth"
-	orchestratorService "neomaster/internal/service/orchestrator"
+	orchestratorService "neomaster/internal/service/orchestrator_drop"
 )
 
 // AuthModule 是认证模块的聚合输出

@@ -210,6 +210,9 @@ erDiagram
         string verify_status "验证过程状态(not_verified/queued/verifying/completed)"
         string verified_by "验证来源"
         timestamp verified_at "验证完成时间"
+        string verify_result "验证结果快照(成功时回填Poc输出)"
+        timestamp created_at "创建时间"
+        timestamp updated_at "更新时间"
     }
 
     AssetVulnPoc {
@@ -217,16 +220,14 @@ erDiagram
         uint vuln_id FK "关联漏洞ID"
         string poc_type "PoC类型(payload/script/yaml/command)"
         string name "PoC名称"
-        string verify_url "PoC验证URL"
+        string verify_url "PoC验证URL(可选)"
         string content "PoC内容"
         string description "使用说明"
         string source "来源"
-        string is_valid "是否可用"
+        bool is_valid "是否可用(工具有效性)"
+        int priority "执行优先级"
         string author "作者"
-        string status "验证状态"
-        string verified_msg "验证结果信息"
         string note "备注"
-        timestamp verified_at "验证成功时间"
         timestamp created_at "创建时间"
         timestamp updated_at "更新时间"
     }

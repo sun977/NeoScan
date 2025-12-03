@@ -1,0 +1,30 @@
+package orchestrator
+
+import (
+	"neomaster/internal/model/basemodel"
+)
+
+// ScanStage 扫描阶段定义表
+// 定义工作流中的具体执行步骤，包含工具配置和策略
+// StageType 阶段类型有枚举定义
+type ScanStage struct {
+	basemodel.BaseModel
+
+	WorkflowID          uint64 `json:"workflow_id" gorm:"index;not null;comment:所属工作流ID"`
+	StageOrder          int    `json:"stage_order" gorm:"default:0;comment:阶段顺序"`
+	StageName           string `json:"stage_name" gorm:"size:100;comment:阶段名称"`
+	StageType           string `json:"stage_type" gorm:"size:50;comment:阶段类型枚举(ipAlive/serviceScan/PocScan等)"`
+	ToolName            string `json:"tool_name" gorm:"size:100;comment:使用的扫描工具名称"`
+	ToolParams          string `json:"tool_params" gorm:"type:text;comment:扫描工具参数"`
+	TargetPolicy        string `json:"target_policy" gorm:"type:json;comment:目标策略配置(JSON)"`
+	ExecutionPolicy     string `json:"execution_policy" gorm:"type:json;comment:执行策略配置(JSON)"`
+	PerformanceSettings string `json:"performance_settings" gorm:"type:json;comment:性能设置配置(JSON)"`
+	OutputConfig        string `json:"output_config" gorm:"type:json;comment:输出配置(JSON)"`
+	NotifyConfig        string `json:"notify_config" gorm:"type:json;comment:通知配置(JSON)"`
+	Enabled             bool   `json:"enabled" gorm:"default:true;comment:阶段是否启用"`
+}
+
+// TableName 定义数据库表名
+func (ScanStage) TableName() string {
+	return "scan_stages"
+}

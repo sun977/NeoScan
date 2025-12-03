@@ -35,10 +35,9 @@ func (Workflow) TableName() string {
 type ProjectWorkflow struct {
 	basemodel.BaseModel
 
-	ProjectID  uint64 `json:"project_id" gorm:"primaryKey;autoIncrement:false;comment:项目ID"`
-	WorkflowID uint64 `json:"workflow_id" gorm:"primaryKey;autoIncrement:false;comment:工作流ID"`
+	ProjectID  uint64 `json:"project_id" gorm:"index:idx_project_workflow,unique;not null;comment:项目ID"`
+	WorkflowID uint64 `json:"workflow_id" gorm:"index:idx_project_workflow,unique;not null;comment:工作流ID"`
 	SortOrder  int    `json:"sort_order" gorm:"default:0;comment:执行顺序"`
-	// CreatedAt  int64  `json:"created_at" gorm:"autoCreateTime;comment:创建时间"`
 }
 
 // TableName 定义数据库表名

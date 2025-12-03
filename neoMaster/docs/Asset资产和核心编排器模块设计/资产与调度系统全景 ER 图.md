@@ -134,6 +134,7 @@ erDiagram
     AssetWeb ||--|| AssetWebDetail : "详细信息"
     AssetService ||--o{ AssetVuln : "存在漏洞"
     AssetWeb ||--o{ AssetVuln : "存在漏洞"
+    AssetVuln ||--o{ AssetVulnPoc : "包含PoC"
 
     AssetHost {
         uint id PK "[Table]"
@@ -201,7 +202,23 @@ erDiagram
         json attributes "结构化属性"
         timestamp first_seen_at "首次发现时间"
         timestamp last_seen_at "最后发现时间"
-        string status "状态(open|confirmed|resolved|ignored)"
+        string status "状态(open/confirmed/resolved/ignored/false_positive)"
+        string verify_status "验证过程状态(not_verified/queued/verifying/completed)"
+        string verified_by "验证来源"
+        timestamp verified_at "验证完成时间"
+    }
+
+    AssetVulnPoc {
+        uint id PK "[Table]"
+        uint vuln_id FK "关联漏洞ID"
+        string poc_type "PoC类型(payload/script/yaml/command)"
+        string content "PoC内容"
+        string description "使用说明"
+        string source "来源"
+        string status "验证状态"
+        timestamp verified_at "验证成功时间"
+        timestamp created_at "创建时间"
+        timestamp updated_at "更新时间"
     }
 
     %% ========================================================
@@ -347,6 +364,7 @@ erDiagram
 - **StageResult**: 扫描结果表（日志型，数据量大）。
 - **WorkflowStats**: 运行时统计表（读写分离优化）。
 - **AssetHost / Service / Web / Vuln**: 最终资产表（业务核心）。
+- **AssetVulnPoc**: 漏洞验证/利用代码表（独立实体）。
 - **AssetWebDetail**: Web资产详细信息表（爬虫结果）。
 - **RawAsset / RawAssetNetwork / AssetNetwork**: 外部导入与网段管理表。
 - **AssetNetworkScan**: 网段扫描历史记录表。

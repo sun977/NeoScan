@@ -57,14 +57,25 @@ type AssetVulnPoc struct {
 	Description string `json:"description" gorm:"type:text;comment:PoC详细描述"`
 	Source      string `json:"source" gorm:"size:100;comment:来源(scanner/manual/exploit-db)"`
 	IsValid     bool   `json:"is_valid" gorm:"default:true;comment:PoC本身是否有效(经过测试可用的枪)"` // 标注Poc本身可用状态，可用于poc有效性检测
-	// Status      string     `json:"status" gorm:"size:20;default:'available';comment:验证状态(available:待验证/verified:验证成功/failed:验证失败)"` // 目标的验证状态
-	// VerifiedAt  *time.Time `json:"verified_at" gorm:"comment:验证成功时间"`
-	// VerifiedMsg string     `json:"verified_msg" gorm:"size:255;comment:验证结果信息"` // 验证结果信息
-	Author string `json:"author" gorm:"size:50;comment:作者"`
-	Note   string `json:"note" gorm:"size:255;comment:备注"`
+	Priority    int    `json:"priority" gorm:"default:0;comment:执行优先级(0-100)"`           // 优先级，越小越优先执行，存在多个poc时生效
+	Author      string `json:"author" gorm:"size:50;comment:作者"`
+	Note        string `json:"note" gorm:"size:255;comment:备注"`
 }
 
 // TableName 定义数据库表名
 func (AssetVulnPoc) TableName() string {
 	return "asset_vuln_pocs"
 }
+
+// 一个漏洞有多个 PoC 的情况 (Multiple PoCs)
+// - 数据库状态 ： AssetVulnPoc 表里有多条记录指向同一个 vuln_id （例如一个 Nuclei 模板，一个 Python 脚本，一个 Curl 命令）。
+// - 处理逻辑 (Race to Success 策略) ：
+//   1. 调度器拉取所有 is_valid = true 的 PoC。
+//   2. 排队执行 （通常按 updated_at 或 priority 排序）。
+//   3. 一击即中原则 ：
+//      - 执行 PoC A -> 失败。
+//      - 执行 PoC B -> 成功！
+//      - 立即停止后续 PoC 。
+//      - 将 PoC B 的输出写入 AssetVuln.VerifyResult 。
+//      - 将 AssetVuln.Status 设为 confirmed 。
+//      - 将 AssetVuln.VerifiedBy 设为 poc:{PoC_B_ID} 。

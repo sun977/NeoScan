@@ -26,6 +26,7 @@ type AssetVuln struct {
 	VerifyStatus string     `json:"verify_status" gorm:"size:20;default:'not_verified';comment:验证过程状态(not_verified/queued/verifying/completed)"`
 	VerifiedBy   string     `json:"verified_by" gorm:"size:100;comment:验证来源(manual/poc:{id}/scanner)"`
 	VerifiedAt   *time.Time `json:"verified_at" gorm:"comment:验证完成时间"`
+	VerifyResult string     `json:"verify_result" gorm:"type:text;comment:验证结果快照(成功时回填Poc输出)"`
 }
 
 // TableName 定义数据库表名
@@ -40,24 +41,27 @@ func (AssetVuln) TableName() string {
 // 2. PoC 是"方法"，漏洞是"状态"，两者生命周期不同
 // 3. PoC 代码可能很大，不适合直接存入主表
 // 执行器需要做：
-// 1. 根据 PocType 选择合适的解释器执行 PoC 代码
-// 2. 处理执行结果，更新 AssetVulnPoc 表的 Status 和 VerifiedMsg 字段
+//  1. 根据 PocType 选择合适的解释器或执行器
+//  2. 根据 VerifyURL 找到打击目标
+//     - 如果 VerifyURL 不为空，则直接使用 VerifyURL 作为目标
+//     - 如果 VerifyURL 为空则从关联漏洞的资产中推导（关系链 AssetVulnPoc.VulnID -> AssetVuln.TargetRefID -> AssetWeb.URL 或 AssetService.IP （默认打击））
+//  3. 处理执行结果，更新 AssetVuln 表的 Status 和 VerifyResult 字段等
 type AssetVulnPoc struct {
 	basemodel.BaseModel
 
-	VulnID      uint64     `json:"vuln_id" gorm:"index;not null;comment:关联漏洞ID"`
-	PocType     string     `json:"poc_type" gorm:"size:50;comment:PoC类型(payload/script/yaml/command)"` // 标记poc执行使用哪种解释器，python/nuclei/shell等
-	Name        string     `json:"name" gorm:"size:100;comment:PoC名称"`
-	VerifyURL   string     `json:"verify_url" gorm:"size:2048;comment:验证目标URL(可选)"`      // 例如 http://example.com/product/view?id=100
-	Content     string     `json:"content" gorm:"type:longtext;comment:PoC内容(代码/载荷/路径)"` // 具体的poc代码或路径或payload
-	Description string     `json:"description" gorm:"type:text;comment:PoC详细描述"`
-	Source      string     `json:"source" gorm:"size:100;comment:来源(scanner/manual/exploit-db)"`
-	IsValid     bool       `json:"is_valid" gorm:"default:true;comment:PoC本身是否有效(经过测试可用的枪)"`                                        // 标注Poc本身可用状态，可用于poc有效性检测
-	Status      string     `json:"status" gorm:"size:20;default:'available';comment:验证状态(available:待验证/verified:验证成功/failed:验证失败)"` // 目标的验证状态
-	VerifiedAt  *time.Time `json:"verified_at" gorm:"comment:验证成功时间"`
-	VerifiedMsg string     `json:"verified_msg" gorm:"size:255;comment:验证结果信息"` // 验证结果信息
-	Author      string     `json:"author" gorm:"size:50;comment:作者"`
-	Note        string     `json:"note" gorm:"size:255;comment:备注"`
+	VulnID      uint64 `json:"vuln_id" gorm:"index;not null;comment:关联漏洞ID"`
+	PocType     string `json:"poc_type" gorm:"size:50;comment:PoC类型(payload/script/yaml/command)"` // 标记poc执行使用哪种解释器，python/nuclei/shell等
+	Name        string `json:"name" gorm:"size:100;comment:PoC名称"`
+	VerifyURL   string `json:"verify_url" gorm:"size:2048;comment:验证目标URL(可选，为空则自动从关联漏洞的资产推导)"` // /product/view?id=100
+	Content     string `json:"content" gorm:"type:longtext;comment:PoC内容(代码/载荷/路径)"`            // 具体的poc代码或路径或payload
+	Description string `json:"description" gorm:"type:text;comment:PoC详细描述"`
+	Source      string `json:"source" gorm:"size:100;comment:来源(scanner/manual/exploit-db)"`
+	IsValid     bool   `json:"is_valid" gorm:"default:true;comment:PoC本身是否有效(经过测试可用的枪)"` // 标注Poc本身可用状态，可用于poc有效性检测
+	// Status      string     `json:"status" gorm:"size:20;default:'available';comment:验证状态(available:待验证/verified:验证成功/failed:验证失败)"` // 目标的验证状态
+	// VerifiedAt  *time.Time `json:"verified_at" gorm:"comment:验证成功时间"`
+	// VerifiedMsg string     `json:"verified_msg" gorm:"size:255;comment:验证结果信息"` // 验证结果信息
+	Author string `json:"author" gorm:"size:50;comment:作者"`
+	Note   string `json:"note" gorm:"size:255;comment:备注"`
 }
 
 // TableName 定义数据库表名

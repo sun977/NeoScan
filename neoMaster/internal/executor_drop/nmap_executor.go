@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
 )
 
@@ -55,7 +55,7 @@ func (e *NmapExecutor) IsToolSupported(toolName string) bool {
 }
 
 // ValidateConfig 验证工具配置是否正确
-func (e *NmapExecutor) ValidateConfig(tool *orchestrator.ScanTool) error {
+func (e *NmapExecutor) ValidateConfig(tool *orchestrator_drop.ScanTool) error {
 	if tool == nil {
 		return fmt.Errorf("scan tool cannot be nil")
 	}

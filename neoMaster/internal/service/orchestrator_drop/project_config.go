@@ -39,7 +39,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"
+	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator_drop"
 	"strings"
 	"time"
 

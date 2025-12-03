@@ -11,7 +11,7 @@ import (
 	"context"
 	"time"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 )
 
 // ScanExecutor 扫描工具执行器接口
@@ -30,7 +30,7 @@ type ScanExecutor interface {
 	IsToolSupported(toolName string) bool
 
 	// ValidateConfig 验证工具配置是否正确
-	ValidateConfig(tool *orchestrator.ScanTool) error
+	ValidateConfig(tool *orchestrator_drop.ScanTool) error
 
 	// Execute 执行扫描任务
 	Execute(ctx context.Context, request *ScanRequest) (*ScanResult, error)
@@ -47,14 +47,14 @@ type ScanExecutor interface {
 
 // ScanRequest 扫描请求结构
 type ScanRequest struct {
-	TaskID      string                 `json:"task_id"`     // 任务ID，唯一标识
-	Tool        *orchestrator.ScanTool `json:"tool"`        // 扫描工具配置
-	Target      string                 `json:"target"`      // 扫描目标（IP、域名、URL等）
-	Options     map[string]interface{} `json:"options"`     // 扫描选项
-	Timeout     time.Duration          `json:"timeout"`     // 超时时间
-	OutputPath  string                 `json:"output_path"` // 输出文件路径
-	WorkingDir  string                 `json:"working_dir"` // 工作目录
-	Environment map[string]string      `json:"environment"` // 环境变量
+	TaskID      string                      `json:"task_id"`     // 任务ID，唯一标识
+	Tool        *orchestrator_drop.ScanTool `json:"tool"`        // 扫描工具配置
+	Target      string                      `json:"target"`      // 扫描目标（IP、域名、URL等）
+	Options     map[string]interface{}      `json:"options"`     // 扫描选项
+	Timeout     time.Duration               `json:"timeout"`     // 超时时间
+	OutputPath  string                      `json:"output_path"` // 输出文件路径
+	WorkingDir  string                      `json:"working_dir"` // 工作目录
+	Environment map[string]string           `json:"environment"` // 环境变量
 }
 
 // ScanResult 扫描结果结构

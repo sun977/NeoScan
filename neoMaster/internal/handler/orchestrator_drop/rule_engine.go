@@ -14,8 +14,8 @@ import (
 	"strconv"
 
 	"neomaster/internal/pkg/logger"
-	scanConfigService "neomaster/internal/service/orchestrator"
-	"neomaster/internal/service/orchestrator/rule_engine"
+	scanConfigService "neomaster/internal/service/orchestrator_drop"
+	"neomaster/internal/service/orchestrator_drop/rule_engine"
 
 	"github.com/gin-gonic/gin"
 )

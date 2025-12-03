@@ -1,3 +1,23 @@
+/**
+ * AssetVulnPoc 漏洞资产PoC表
+ * 作者: Sun977
+ * 日期: 2025.12.03
+ * 说明: 存储漏洞资产的PoC工具，每个漏洞资产可以有多个PoC。
+ * - 灵活 : 支持无 PoC、单 PoC、多 PoC。
+ * - 高效 : 只有成功的 PoC 才会修改漏洞状态，避免无效写操作。
+ * - 清晰 : 职责分明，AssetVuln 管状态，AssetVulnPoc 管工具。
+ * 多poc处理逻辑 (Race to Success 策略) ：
+ *   1. 调度器拉取所有 is_valid = true 的 PoC。
+ *   2. 排队执行 （通常按 updated_at 或 priority 排序）。
+ *   3. 一击即中原则 ：
+ *     - 执行 PoC A -> 失败。
+ *     - 执行 PoC B -> 成功！
+ *     - 立即停止后续 PoC 。
+ *     - 将 PoC B 的输出写入 AssetVuln.VerifyResult 。
+ *     - 将 AssetVuln.Status 设为 confirmed 。
+ *     - 将 AssetVuln.VerifiedBy 设为 poc:{PoC_B_ID} 。
+ */
+
 package asset
 
 import (

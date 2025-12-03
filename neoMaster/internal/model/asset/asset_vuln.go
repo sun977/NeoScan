@@ -64,7 +64,7 @@ func (AssetVuln) TableName() string {
 //  1. 根据 PocType 选择合适的解释器或执行器
 //  2. 根据 VerifyURL 找到打击目标
 //     - 如果 VerifyURL 不为空，则直接使用 VerifyURL 作为目标
-//     - 如果 VerifyURL 为空则从关联漏洞的资产中推导（关系链 AssetVulnPoc.VulnID -> AssetVuln.TargetRefID -> AssetWeb.URL 或 AssetService.IP （默认打击））
+//     - 如果 VerifyURL 为空则从关联漏洞的资产中推导（关系链 AssetVulnPoc.VulnID -> AssetVuln.TargetRefID -> AssetWeb.URL 或 AssetService.host_id -> AssetHost.ip （默认打击））
 //  3. 处理执行结果，更新 AssetVuln 表的 Status 和 VerifyResult 字段等
 type AssetVulnPoc struct {
 	basemodel.BaseModel

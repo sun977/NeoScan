@@ -16,10 +16,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/orchestrator"
+	scanConfigService "neomaster/internal/service/orchestrator_drop"
 )
 
 // ScanRuleHandler 扫描规则处理器
@@ -47,7 +47,7 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求参数
-	var req orchestrator.CreateScanRuleRequest
+	var req orchestrator_drop.CreateScanRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("创建扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules",
@@ -92,12 +92,12 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 	}
 
 	// 转换请求结构体为实体结构体
-	rule := &orchestrator.ScanRule{
+	rule := &orchestrator_drop.ScanRule{
 		Name:        req.Name,
 		Description: req.Description,
 		Type:        req.Type,
 		Category:    req.Category,
-		Severity:    orchestrator.ScanRuleSeverity(req.Severity),
+		Severity:    orchestrator_drop.ScanRuleSeverity(req.Severity),
 		Priority:    req.Priority,
 		Status:      req.Status,
 		IsBuiltIn:   req.IsBuiltIn,
@@ -107,9 +107,9 @@ func (h *ScanRuleHandler) CreateScanRule(c *gin.Context) {
 	if req.Config != nil {
 		if enabled, exists := req.Config["enabled"]; exists {
 			if enabledBool, ok := enabled.(bool); ok && enabledBool {
-				rule.Status = orchestrator.ScanRuleStatusEnabled
+				rule.Status = orchestrator_drop.ScanRuleStatusEnabled
 			} else {
-				rule.Status = orchestrator.ScanRuleStatusDisabled
+				rule.Status = orchestrator_drop.ScanRuleStatusDisabled
 			}
 		}
 	}
@@ -360,7 +360,7 @@ func (h *ScanRuleHandler) BatchImportScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求参数
-	var req orchestrator.ImportScanRulesRequest
+	var req orchestrator_drop.ImportScanRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("解析批量导入扫描规则请求参数失败", map[string]interface{}{
 			"path":       "/api/v1/admin/orchestrator/rules/batch-import",
@@ -469,7 +469,7 @@ func (h *ScanRuleHandler) BatchEnableScanRules(c *gin.Context) {
 	}
 
 	// 调用服务层批量启用规则
-	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, orchestrator.ScanRuleStatusEnabled)
+	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, orchestrator_drop.ScanRuleStatusEnabled)
 	if err != nil {
 		logger.Error("批量启用扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/admin/orchestrator/rules/batch-enable",
@@ -557,7 +557,7 @@ func (h *ScanRuleHandler) BatchDisableScanRules(c *gin.Context) {
 	}
 
 	// 调用服务层批量禁用规则
-	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, orchestrator.ScanRuleStatusDisabled)
+	result, err := h.scanRuleService.BatchUpdateScanRuleStatus(c.Request.Context(), req.RuleIDs, orchestrator_drop.ScanRuleStatusDisabled)
 	if err != nil {
 		logger.Error("批量禁用扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/admin/orchestrator/rules/batch-disable",
@@ -637,7 +637,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req orchestrator.UpdateScanRuleRequest
+	var req orchestrator_drop.UpdateScanRuleRequest
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.Error("更新扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules/:id",
@@ -661,7 +661,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 	}
 
 	// 转换请求结构体为实体结构体
-	rule := &orchestrator.ScanRule{}
+	rule := &orchestrator_drop.ScanRule{}
 
 	// 只更新非空字段
 	if req.Name != nil {
@@ -677,7 +677,7 @@ func (h *ScanRuleHandler) UpdateScanRule(c *gin.Context) {
 		rule.Category = *req.Category
 	}
 	if req.Severity != nil {
-		rule.Severity = orchestrator.ScanRuleSeverity(*req.Severity)
+		rule.Severity = orchestrator_drop.ScanRuleSeverity(*req.Severity)
 	}
 	if req.Priority != nil {
 		rule.Priority = *req.Priority
@@ -902,7 +902,7 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析查询参数
-	var req orchestrator.ListScanRulesRequest
+	var req orchestrator_drop.ListScanRulesRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		logger.Error("获取扫描规则列表查询参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules",
@@ -929,20 +929,20 @@ func (h *ScanRuleHandler) ListScanRules(c *gin.Context) {
 	limit := req.PageSize
 
 	// 转换Severity字符串为ScanRuleSeverity类型
-	var severity *orchestrator.ScanRuleSeverity
+	var severity *orchestrator_drop.ScanRuleSeverity
 	if req.Severity != nil {
 		switch *req.Severity {
 		case "low":
-			s := orchestrator.ScanRuleSeverityLow
+			s := orchestrator_drop.ScanRuleSeverityLow
 			severity = &s
 		case "medium":
-			s := orchestrator.ScanRuleSeverityMedium
+			s := orchestrator_drop.ScanRuleSeverityMedium
 			severity = &s
 		case "high":
-			s := orchestrator.ScanRuleSeverityHigh
+			s := orchestrator_drop.ScanRuleSeverityHigh
 			severity = &s
 		case "critical":
-			s := orchestrator.ScanRuleSeverityCritical
+			s := orchestrator_drop.ScanRuleSeverityCritical
 			severity = &s
 		}
 	}
@@ -1164,7 +1164,7 @@ func (h *ScanRuleHandler) MatchScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求体
-	var req orchestrator.MatchScanRulesRequest
+	var req orchestrator_drop.MatchScanRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogBusinessError(err, c.Request.RequestURI, 0, "", "match_scan_rules", "HANDLER", map[string]interface{}{
 			"func_name":  "handler.orchestrator.scan_rule_handler.MatchScanRules",
@@ -1239,7 +1239,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析请求体
-	var req orchestrator.ImportScanRulesRequest
+	var req orchestrator_drop.ImportScanRulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error("导入扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules/import",
@@ -1262,7 +1262,7 @@ func (h *ScanRuleHandler) ImportScanRules(c *gin.Context) {
 	}
 
 	// 解析导入数据
-	var rules []*orchestrator.ScanRule
+	var rules []*orchestrator_drop.ScanRule
 	switch req.Format {
 	case "json":
 		if err := json.Unmarshal([]byte(req.Data), &rules); err != nil {
@@ -1357,7 +1357,7 @@ func (h *ScanRuleHandler) ExportScanRules(c *gin.Context) {
 	requestID := c.GetHeader("X-Request-ID")
 
 	// 解析查询参数
-	var req orchestrator.ExportScanRulesRequest
+	var req orchestrator_drop.ExportScanRulesRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		logger.Error("导出扫描规则查询参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules/export",
@@ -1475,7 +1475,7 @@ func (h *ScanRuleHandler) TestScanRule(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req orchestrator.TestScanRuleRequest
+	var req orchestrator_drop.TestScanRuleRequest
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.Error("测试扫描规则请求参数解析失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules/:id/test",
@@ -1599,7 +1599,7 @@ func (h *ScanRuleHandler) GetScanRulesByType(c *gin.Context) {
 	}
 
 	// 调用服务层按类型获取扫描规则
-	rules, err := h.scanRuleService.GetScanRulesByType(c.Request.Context(), orchestrator.ScanRuleType(ruleType))
+	rules, err := h.scanRuleService.GetScanRulesByType(c.Request.Context(), orchestrator_drop.ScanRuleType(ruleType))
 	if err != nil {
 		logger.Error("按类型获取扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules/type/:type",
@@ -1676,7 +1676,7 @@ func (h *ScanRuleHandler) GetScanRulesBySeverity(c *gin.Context) {
 	}
 
 	// 调用服务层按严重程度获取扫描规则
-	rules, err := h.scanRuleService.GetScanRulesBySeverity(c.Request.Context(), orchestrator.ScanRuleSeverity(severity))
+	rules, err := h.scanRuleService.GetScanRulesBySeverity(c.Request.Context(), orchestrator_drop.ScanRuleSeverity(severity))
 	if err != nil {
 		logger.Error("按严重程度获取扫描规则失败", map[string]interface{}{
 			"path":       "/api/v1/orchestrator/rules/severity/:severity",
@@ -1861,7 +1861,7 @@ func (h *ScanRuleHandler) GetScanRuleMetrics(c *gin.Context) {
 // validateScanRuleRequest 验证扫描规则请求参数
 // @param req 请求参数
 // @return error 验证错误
-func (h *ScanRuleHandler) validateScanRuleRequest(req *orchestrator.CreateScanRuleRequest) error {
+func (h *ScanRuleHandler) validateScanRuleRequest(req *orchestrator_drop.CreateScanRuleRequest) error {
 	// 验证规则名称
 	if req.Name == "" {
 		return system.NewValidationError("扫描规则名称不能为空")

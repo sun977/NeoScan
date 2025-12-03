@@ -35,10 +35,10 @@ import (
 	"strconv"
 	"strings"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/orchestrator"
+	scanConfigService "neomaster/internal/service/orchestrator_drop"
 
 	"github.com/gin-gonic/gin"
 )
@@ -68,7 +68,7 @@ func (h *ScanToolHandler) CreateScanTool(c *gin.Context) {
 	urlPath := c.Request.URL.String()
 
 	// 解析请求体
-	var req orchestrator.ScanTool
+	var req orchestrator_drop.ScanTool
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_scan_tool",
@@ -284,7 +284,7 @@ func (h *ScanToolHandler) UpdateScanTool(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req orchestrator.ScanTool
+	var req orchestrator_drop.ScanTool
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.LogBusinessError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_scan_tool",
@@ -500,16 +500,16 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	}
 
 	// 解析状态过滤参数
-	var statusFilter *orchestrator.ScanToolStatus
+	var statusFilter *orchestrator_drop.ScanToolStatus
 	if status != "" {
-		var s orchestrator.ScanToolStatus
+		var s orchestrator_drop.ScanToolStatus
 		switch status {
 		case "disabled", "0":
-			s = orchestrator.ScanToolStatusDisabled
+			s = orchestrator_drop.ScanToolStatusDisabled
 		case "enabled", "1":
-			s = orchestrator.ScanToolStatusEnabled
+			s = orchestrator_drop.ScanToolStatusEnabled
 		case "testing", "2":
-			s = orchestrator.ScanToolStatusTesting
+			s = orchestrator_drop.ScanToolStatusTesting
 		default:
 			// 无效状态，忽略过滤
 			statusFilter = nil
@@ -520,9 +520,9 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 	}
 
 	// 解析工具类型过滤参数
-	var typeFilter *orchestrator.ScanToolType
+	var typeFilter *orchestrator_drop.ScanToolType
 	if toolType != "" {
-		t := orchestrator.ScanToolType(toolType)
+		t := orchestrator_drop.ScanToolType(toolType)
 		typeFilter = &t
 	}
 
@@ -589,14 +589,14 @@ func (h *ScanToolHandler) ListScanTools(c *gin.Context) {
 // @route POST /api/v1/orchestrator/tools/:id/enable
 // @param c Gin上下文
 func (h *ScanToolHandler) EnableScanTool(c *gin.Context) {
-	h.updateScanToolStatus(c, orchestrator.ScanToolStatusEnabled, "enable_scan_tool", "启用扫描工具")
+	h.updateScanToolStatus(c, orchestrator_drop.ScanToolStatusEnabled, "enable_scan_tool", "启用扫描工具")
 }
 
 // DisableScanTool 禁用扫描工具
 // @route POST /api/v1/orchestrator/tools/:id/disable
 // @param c Gin上下文
 func (h *ScanToolHandler) DisableScanTool(c *gin.Context) {
-	h.updateScanToolStatus(c, orchestrator.ScanToolStatusDisabled, "disable_scan_tool", "禁用扫描工具")
+	h.updateScanToolStatus(c, orchestrator_drop.ScanToolStatusDisabled, "disable_scan_tool", "禁用扫描工具")
 }
 
 // HealthCheckScanTool 扫描工具健康检查
@@ -787,7 +787,7 @@ func (h *ScanToolHandler) GetScanToolMetrics(c *gin.Context) {
 }
 
 // 私有方法：更新扫描工具状态
-func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrator.ScanToolStatus, operation, message string) {
+func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrator_drop.ScanToolStatus, operation, message string) {
 	// 获取请求上下文信息
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
@@ -819,7 +819,7 @@ func (h *ScanToolHandler) updateScanToolStatus(c *gin.Context, status orchestrat
 
 	// 调用Service层更新状态
 	var serviceErr error
-	if status == orchestrator.ScanToolStatusEnabled {
+	if status == orchestrator_drop.ScanToolStatusEnabled {
 		serviceErr = h.scanToolService.EnableScanTool(c.Request.Context(), uint(id))
 	} else {
 		serviceErr = h.scanToolService.DisableScanTool(c.Request.Context(), uint(id))
@@ -977,7 +977,7 @@ func (h *ScanToolHandler) manageScanTool(c *gin.Context, action, message string)
 }
 
 // 私有方法：验证扫描工具请求参数
-func (h *ScanToolHandler) validateScanToolRequest(req *orchestrator.ScanTool) error {
+func (h *ScanToolHandler) validateScanToolRequest(req *orchestrator_drop.ScanTool) error {
 	// 基础字段验证
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("扫描工具名称不能为空")
@@ -1308,7 +1308,7 @@ func (h *ScanToolHandler) GetScanToolsByType(c *gin.Context) {
 		return
 	}
 
-	tools, err := h.scanToolService.GetScanToolsByType(c.Request.Context(), orchestrator.ScanToolType(toolType))
+	tools, err := h.scanToolService.GetScanToolsByType(c.Request.Context(), orchestrator_drop.ScanToolType(toolType))
 	if err != nil {
 		logger.Error("按类型获取扫描工具失败", map[string]interface{}{
 			"path":      "/api/v1/orchestrator/tools/type/:type",

@@ -8,6 +8,33 @@
 
 ```mermaid
 erDiagram
+    AssetUnified {
+        uint id PK "[Table] 统一资产视图"
+        uint project_id FK "所属项目ID"
+        string ip "IP地址"
+        int port "端口号"
+        string host_name "主机名"
+        string os "操作系统"
+        string device_type "设备类型"
+        string mac_address "MAC地址"
+        string protocol "协议"
+        string service "服务名称"
+        string product "产品名称"
+        string version "版本号"
+        string banner "服务横幅"
+        string url "Web入口URL"
+        string title "网页标题"
+        int status_code "HTTP状态码"
+        string component "关键组件/CMS"
+        json tech_stack "详细技术栈"
+        text fingerprint "关键指纹"
+        bool is_web "是否为Web资产"
+        string source "数据来源"
+        timestamp sync_time "同步时间"
+        timestamp created_at "创建时间"
+        timestamp updated_at "更新时间"
+    }
+
     %% ========================================================
     %% 1. 调度域 (Scheduling Domain) - Master 核心配置
     %% ========================================================

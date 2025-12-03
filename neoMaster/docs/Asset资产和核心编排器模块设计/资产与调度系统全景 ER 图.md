@@ -217,7 +217,7 @@ erDiagram
         uint vuln_id FK "关联漏洞ID"
         string poc_type "PoC类型(payload/script/yaml/command)"
         string name "PoC名称"
-        string verify_url "PoC类别"
+        string verify_url "PoC验证URL"
         string content "PoC内容"
         string description "使用说明"
         string source "来源"

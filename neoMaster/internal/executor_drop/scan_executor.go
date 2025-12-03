@@ -5,7 +5,7 @@
  * @description: 第三方扫描工具执行器接口，遵循"Never break userspace"原则
  * @func: 定义统一的扫描工具执行接口，支持nmap、masscan、nuclei等工具
  */
-package executor
+package executor_drop
 
 import (
 	"context"

@@ -25,7 +25,7 @@
 //  	POST   /api/v1/orchestrator/tools/:id/uninstall - 卸载扫描工具
 //  	GET    /api/v1/orchestrator/tools/:id/metrics - 获取工具指标
 
-package orchestrator
+package orchestrator_drop
 
 import (
 	"errors"

@@ -5,7 +5,7 @@
  * @description: 扫描配置相关的响应结构体，遵循"Never break userspace"原则
  * @func: 扫描规则、扫描工具、项目配置等响应模型
  */
-package orchestrator
+package orchestrator_drop
 
 import (
 	"time"

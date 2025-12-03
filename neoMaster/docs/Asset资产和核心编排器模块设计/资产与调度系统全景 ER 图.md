@@ -11,8 +11,21 @@ erDiagram
     %% ========================================================
     %% 1. 调度域 (Scheduling Domain) - Master 核心配置
     %% ========================================================
-    Project ||--o{ ProjectWorkflow : "包含"
-    Workflow ||--o{ ProjectWorkflow : "被引用"
+    ScanToolTemplate {
+        uint id PK "[Table] 工具配置模板"
+        string name "模板名称"
+        string tool_name "所属工具名称"
+        string tool_params "参数模板"
+        string description "描述"
+        string category "分类标签"
+        bool is_public "是否公开"
+        string created_by "创建人"
+        timestamp created_at "创建时间"
+        timestamp updated_at "更新时间"
+    }
+
+    Project ||..|{ ProjectWorkflow : "contains"
+    Workflow ||..|{ ProjectWorkflow : "belongs_to"
     Workflow ||--o{ ScanStage : "定义"
     
     Project {

@@ -1,10 +1,10 @@
 package setup
 
 import (
-	orchestratorHandler "neomaster/internal/handler/orchestrator"
+	orchestratorHandler "neomaster/internal/handler/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
-	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"
-	orchestratorService "neomaster/internal/service/orchestrator"
+	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator_drop"
+	orchestratorService "neomaster/internal/service/orchestrator_drop"
 
 	"gorm.io/gorm"
 )

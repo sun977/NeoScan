@@ -32,10 +32,10 @@ import (
 	"strconv"
 	"strings"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/orchestrator"
+	scanConfigService "neomaster/internal/service/orchestrator_drop"
 
 	"github.com/gin-gonic/gin"
 )
@@ -65,7 +65,7 @@ func (h *ProjectConfigHandler) CreateProjectConfig(c *gin.Context) {
 	urlPath := c.Request.URL.String()
 
 	// 解析请求体
-	var req orchestrator.ProjectConfig
+	var req orchestrator_drop.ProjectConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_project_config",
@@ -281,7 +281,7 @@ func (h *ProjectConfigHandler) UpdateProjectConfig(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req orchestrator.ProjectConfig
+	var req orchestrator_drop.ProjectConfig
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.LogBusinessError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":  "update_project_config",
@@ -496,16 +496,16 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 	}
 
 	// 解析状态过滤参数
-	var statusFilter *orchestrator.ProjectConfigStatus
+	var statusFilter *orchestrator_drop.ProjectConfigStatus
 	if status != "" {
-		var s orchestrator.ProjectConfigStatus
+		var s orchestrator_drop.ProjectConfigStatus
 		switch status {
 		case "inactive", "0":
-			s = orchestrator.ProjectConfigStatusInactive
+			s = orchestrator_drop.ProjectConfigStatusInactive
 		case "active", "1":
-			s = orchestrator.ProjectConfigStatusActive
+			s = orchestrator_drop.ProjectConfigStatusActive
 		case "archived", "2":
-			s = orchestrator.ProjectConfigStatusArchived
+			s = orchestrator_drop.ProjectConfigStatusArchived
 		default:
 			// 无效状态，忽略过滤
 			statusFilter = nil
@@ -576,14 +576,14 @@ func (h *ProjectConfigHandler) ListProjectConfigs(c *gin.Context) {
 // @route POST /api/v1/orchestrator/projects/:id/enable
 // @param c Gin上下文
 func (h *ProjectConfigHandler) EnableProjectConfig(c *gin.Context) {
-	h.updateProjectConfigStatus(c, orchestrator.ProjectConfigStatusActive, "enable_project_config", "启用项目配置")
+	h.updateProjectConfigStatus(c, orchestrator_drop.ProjectConfigStatusActive, "enable_project_config", "启用项目配置")
 }
 
 // DisableProjectConfig 禁用项目配置
 // @route POST /api/v1/orchestrator/projects/:id/disable
 // @param c Gin上下文
 func (h *ProjectConfigHandler) DisableProjectConfig(c *gin.Context) {
-	h.updateProjectConfigStatus(c, orchestrator.ProjectConfigStatusInactive, "disable_project_config", "禁用项目配置")
+	h.updateProjectConfigStatus(c, orchestrator_drop.ProjectConfigStatusInactive, "disable_project_config", "禁用项目配置")
 }
 
 // ReloadProjectConfig 热重载项目配置
@@ -757,7 +757,7 @@ func (h *ProjectConfigHandler) SyncProjectConfig(c *gin.Context) {
 }
 
 // 私有方法：更新项目配置状态
-func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status orchestrator.ProjectConfigStatus, operation, message string) {
+func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status orchestrator_drop.ProjectConfigStatus, operation, message string) {
 	// 获取请求上下文信息
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
@@ -789,7 +789,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 
 	// 调用Service层更新状态
 	var serviceErr error
-	if status == orchestrator.ProjectConfigStatusActive {
+	if status == orchestrator_drop.ProjectConfigStatusActive {
 		serviceErr = h.projectConfigService.EnableProjectConfig(c.Request.Context(), uint(id))
 	} else {
 		serviceErr = h.projectConfigService.DisableProjectConfig(c.Request.Context(), uint(id))
@@ -848,7 +848,7 @@ func (h *ProjectConfigHandler) updateProjectConfigStatus(c *gin.Context, status 
 }
 
 // 私有方法：验证项目配置请求参数
-func (h *ProjectConfigHandler) validateProjectConfigRequest(req *orchestrator.ProjectConfig) error {
+func (h *ProjectConfigHandler) validateProjectConfigRequest(req *orchestrator_drop.ProjectConfig) error {
 	// 基础字段验证
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("项目名称不能为空")

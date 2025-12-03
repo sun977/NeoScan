@@ -57,10 +57,12 @@ erDiagram
     }
 
     ProjectWorkflow {
-        uint project_id PK,FK "[Table] 关联表"
-        uint workflow_id PK,FK
+        uint id PK "[Table] 代理主键"
+        uint project_id FK "项目ID"
+        uint workflow_id FK "工作流ID"
         int sort_order "执行顺序"
         timestamp created_at "创建时间"
+        timestamp updated_at "更新时间"
     }
 
     ScanStage {
@@ -113,7 +115,8 @@ erDiagram
     }
 
     WorkflowStats {
-        uint workflow_id PK,FK "[Table] 热数据"
+        uint id PK "[Table] 代理主键"
+        uint workflow_id FK "工作流ID"
         int total_execs "总执行次数"
         int success_execs "成功次数"
         int failed_execs "失败次数"
@@ -121,7 +124,8 @@ erDiagram
         string last_exec_id "最后一次执行 ID"
         string last_exec_status "最后一次执行状态"
         timestamp last_exec_time "最后一次执行时间"
-        timestamp updated_at "统计更新时间"
+        timestamp created_at "创建时间"
+        timestamp updated_at "更新时间"
     }
 
     %% ========================================================

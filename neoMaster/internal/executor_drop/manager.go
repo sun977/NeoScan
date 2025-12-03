@@ -5,7 +5,7 @@
  * @description: 管理所有扫描工具执行器，提供统一的任务调度和状态管理
  * @func: 执行器注册、任务执行、状态监控等
  */
-package executor
+package executor_drop
 
 import (
 	"context"

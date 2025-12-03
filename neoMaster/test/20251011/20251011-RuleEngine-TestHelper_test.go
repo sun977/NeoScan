@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 )
 
 // TestEnvironment 测试环境结构体
@@ -99,10 +99,10 @@ func initTestData(t *testing.T, db *gorm.DB) {
 		&system.Permission{},
 		&system.UserRole{},
 		&system.RolePermission{},
-		&orchestrator.ScanRule{},
-		&orchestrator.ProjectConfig{},
-		&orchestrator.WorkflowConfig{},
-		&orchestrator.ScanTool{},
+		&orchestrator_drop.ScanRule{},
+		&orchestrator_drop.ProjectConfig{},
+		&orchestrator_drop.WorkflowConfig{},
+		&orchestrator_drop.ScanTool{},
 	)
 	require.NoError(t, err, "测试数据库迁移失败")
 
@@ -199,33 +199,33 @@ func createTestRolesAndPermissions(t *testing.T, db *gorm.DB) {
 
 // createTestScanRules 创建测试扫描规则
 func createTestScanRules(t *testing.T, db *gorm.DB) {
-	testRules := []orchestrator.ScanRule{
+	testRules := []orchestrator_drop.ScanRule{
 		{
 			Name:        "Test IP Filter Rule",
 			Description: "测试IP过滤规则",
-			Type:        orchestrator.ScanRuleTypeFilter,
-			Severity:    orchestrator.ScanRuleSeverityMedium,
+			Type:        orchestrator_drop.ScanRuleTypeFilter,
+			Severity:    orchestrator_drop.ScanRuleSeverityMedium,
 			Condition:   "request_ip == '192.168.1.1'",
 			Action:      "log",
 			Parameters:  "{}", // 提供有效的JSON字符串而不是空值
 			Metadata:    "{}", // 提供有效的JSON字符串而不是空值
-			Status:      orchestrator.ScanRuleStatusEnabled,
+			Status:      orchestrator_drop.ScanRuleStatusEnabled,
 		},
 		{
 			Name:        "Test User Agent Rule",
 			Description: "测试User-Agent规则",
-			Type:        orchestrator.ScanRuleTypeFilter,
-			Severity:    orchestrator.ScanRuleSeverityLow,
+			Type:        orchestrator_drop.ScanRuleTypeFilter,
+			Severity:    orchestrator_drop.ScanRuleSeverityLow,
 			Condition:   "user_agent =~ '^Mozilla.*'",
 			Action:      "allow",
 			Parameters:  "{}", // 提供有效的JSON字符串而不是空值
 			Metadata:    "{}", // 提供有效的JSON字符串而不是空值
-			Status:      orchestrator.ScanRuleStatusEnabled,
+			Status:      orchestrator_drop.ScanRuleStatusEnabled,
 		},
 	}
 
 	for _, rule := range testRules {
-		var existingRule orchestrator.ScanRule
+		var existingRule orchestrator_drop.ScanRule
 		result := db.Where("name = ?", rule.Name).First(&existingRule)
 		if result.Error == gorm.ErrRecordNotFound {
 			err := db.Create(&rule).Error

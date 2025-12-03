@@ -35,7 +35,7 @@
 //  	GetWorkflowStats - 获取工作流统计信息
 //  	GetWorkflowPerformance - 获取工作流性能指标
 
-package orchestrator
+package orchestrator_drop
 
 import (
 	"context"
@@ -46,7 +46,7 @@ import (
 	"strings"
 	"time"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
 )
 
@@ -79,7 +79,7 @@ func NewWorkflowService(
 // @param ctx 上下文
 // @param config 工作流配置对象
 // @return 创建的工作流配置和错误信息
-func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orchestrator.WorkflowConfig) (*orchestrator.WorkflowConfig, error) {
+func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orchestrator_drop.WorkflowConfig) (*orchestrator_drop.WorkflowConfig, error) {
 	// 参数验证 - Linus式：消除特殊情况
 	if config == nil {
 		logger.LogBusinessError(errors.New("workflow config is nil"), "", 0, "", "create_workflow_config", "SERVICE", map[string]interface{}{
@@ -185,7 +185,7 @@ func (s *WorkflowService) CreateWorkflowConfig(ctx context.Context, config *orch
 // @param id 工作流配置ID
 // @param config 更新的工作流配置对象
 // @return 更新后的工作流配置和错误信息
-func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, config *orchestrator.WorkflowConfig) (*orchestrator.WorkflowConfig, error) {
+func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, config *orchestrator_drop.WorkflowConfig) (*orchestrator_drop.WorkflowConfig, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", "update_workflow_config", "SERVICE", map[string]interface{}{
@@ -304,7 +304,7 @@ func (s *WorkflowService) UpdateWorkflowConfig(ctx context.Context, id uint, con
 // @param ctx 上下文
 // @param id 工作流配置ID
 // @return 工作流配置对象和错误信息
-func (s *WorkflowService) GetWorkflowConfig(ctx context.Context, id uint) (*orchestrator.WorkflowConfig, error) {
+func (s *WorkflowService) GetWorkflowConfig(ctx context.Context, id uint) (*orchestrator_drop.WorkflowConfig, error) {
 	// 参数验证
 	if id == 0 {
 		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", "get_workflow_config", "SERVICE", map[string]interface{}{
@@ -349,7 +349,7 @@ func (s *WorkflowService) GetWorkflowConfig(ctx context.Context, id uint) (*orch
 // @param projectID 项目ID过滤（可选）
 // @param triggerType 触发类型过滤（可选）
 // @return 工作流配置列表、总数和错误信息
-func (s *WorkflowService) ListWorkflowConfigs(ctx context.Context, offset, limit int, status *orchestrator.WorkflowStatus, projectID *uint, triggerType *orchestrator.WorkflowTriggerType) ([]*orchestrator.WorkflowConfig, int64, error) {
+func (s *WorkflowService) ListWorkflowConfigs(ctx context.Context, offset, limit int, status *orchestrator_drop.WorkflowStatus, projectID *uint, triggerType *orchestrator_drop.WorkflowTriggerType) ([]*orchestrator_drop.WorkflowConfig, int64, error) {
 	// 参数验证
 	if offset < 0 {
 		offset = 0
@@ -413,7 +413,7 @@ func (s *WorkflowService) DeleteWorkflowConfig(ctx context.Context, id uint) err
 	}
 
 	// 检查工作流是否正在执行
-	if config.Status == orchestrator.WorkflowStatusActive {
+	if config.Status == orchestrator_drop.WorkflowStatusActive {
 		logger.LogBusinessError(errors.New("workflow is running"), "", id, "", "delete_workflow_config", "SERVICE", map[string]interface{}{
 			"operation": "delete_workflow_config",
 			"error":     "workflow_running",
@@ -486,7 +486,7 @@ func (s *WorkflowService) ExecuteWorkflow(ctx context.Context, id uint, params m
 	}
 
 	// 检查工作流状态
-	if config.Status != orchestrator.WorkflowStatusActive {
+	if config.Status != orchestrator_drop.WorkflowStatusActive {
 		logger.LogBusinessError(errors.New("workflow not active"), "", id, "", "execute_workflow", "SERVICE", map[string]interface{}{
 			"operation": "execute_workflow",
 			"error":     "workflow_not_active",
@@ -726,7 +726,7 @@ func (s *WorkflowService) GetWorkflowLogs(ctx context.Context, executionID strin
 // @param ctx 上下文
 // @param config 工作流配置对象
 // @return 错误信息
-func (s *WorkflowService) ValidateWorkflowConfig(ctx context.Context, config *orchestrator.WorkflowConfig) error {
+func (s *WorkflowService) ValidateWorkflowConfig(ctx context.Context, config *orchestrator_drop.WorkflowConfig) error {
 	// 基础字段验证
 	if strings.TrimSpace(config.Name) == "" {
 		return errors.New("工作流名称不能为空")
@@ -745,7 +745,7 @@ func (s *WorkflowService) ValidateWorkflowConfig(ctx context.Context, config *or
 
 	// 步骤定义验证
 	if config.Steps != "" {
-		var stepDefinition []orchestrator.WorkflowStep
+		var stepDefinition []orchestrator_drop.WorkflowStep
 		if err := json.Unmarshal([]byte(config.Steps), &stepDefinition); err != nil {
 			return fmt.Errorf("步骤定义JSON格式无效: %w", err)
 		}
@@ -773,7 +773,7 @@ func (s *WorkflowService) ValidateWorkflowConfig(ctx context.Context, config *or
 // @param id 工作流配置ID
 // @return 错误信息
 func (s *WorkflowService) EnableWorkflowConfig(ctx context.Context, id uint) error {
-	return s.updateWorkflowConfigStatus(ctx, id, orchestrator.WorkflowStatusActive, "enable_workflow_config")
+	return s.updateWorkflowConfigStatus(ctx, id, orchestrator_drop.WorkflowStatusActive, "enable_workflow_config")
 }
 
 // DisableWorkflowConfig 禁用工作流配置
@@ -781,14 +781,14 @@ func (s *WorkflowService) EnableWorkflowConfig(ctx context.Context, id uint) err
 // @param id 工作流配置ID
 // @return 错误信息
 func (s *WorkflowService) DisableWorkflowConfig(ctx context.Context, id uint) error {
-	return s.updateWorkflowConfigStatus(ctx, id, orchestrator.WorkflowStatusInactive, "disable_workflow_config")
+	return s.updateWorkflowConfigStatus(ctx, id, orchestrator_drop.WorkflowStatusInactive, "disable_workflow_config")
 }
 
 // GetWorkflowsByProject 根据项目获取工作流
 // @param ctx 上下文
 // @param projectID 项目ID
 // @return 工作流配置列表和错误信息
-func (s *WorkflowService) GetWorkflowsByProject(ctx context.Context, projectID uint) ([]*orchestrator.WorkflowConfig, error) {
+func (s *WorkflowService) GetWorkflowsByProject(ctx context.Context, projectID uint) ([]*orchestrator_drop.WorkflowConfig, error) {
 	if projectID == 0 {
 		return nil, errors.New("项目ID不能为0")
 	}
@@ -847,7 +847,7 @@ func (s *WorkflowService) GetWorkflowPerformance(ctx context.Context, id uint) (
 }
 
 // 私有方法：更新工作流配置状态
-func (s *WorkflowService) updateWorkflowConfigStatus(ctx context.Context, id uint, status orchestrator.WorkflowStatus, operation string) error {
+func (s *WorkflowService) updateWorkflowConfigStatus(ctx context.Context, id uint, status orchestrator_drop.WorkflowStatus, operation string) error {
 	// 参数验证
 	if id == 0 {
 		logger.LogBusinessError(errors.New("invalid workflow config ID"), "", 0, "", operation, "SERVICE", map[string]interface{}{
@@ -907,13 +907,13 @@ func (s *WorkflowService) updateWorkflowConfigStatus(ctx context.Context, id uin
 }
 
 // 私有方法：设置默认值
-func (s *WorkflowService) setDefaultValues(config *orchestrator.WorkflowConfig) {
+func (s *WorkflowService) setDefaultValues(config *orchestrator_drop.WorkflowConfig) {
 	if config.Status == 0 {
-		config.Status = orchestrator.WorkflowStatusInactive
+		config.Status = orchestrator_drop.WorkflowStatusInactive
 	}
 
 	if config.TriggerType == "" {
-		config.TriggerType = orchestrator.WorkflowTriggerManual
+		config.TriggerType = orchestrator_drop.WorkflowTriggerManual
 	}
 
 	// 设置默认字段值 - 删除不存在的字段
@@ -971,11 +971,11 @@ func (s *WorkflowService) GetSystemScanStatistics(ctx context.Context) (map[stri
 
 		// 统计各种状态数量
 		switch workflow.Status {
-		case orchestrator.WorkflowStatusActive:
+		case orchestrator_drop.WorkflowStatusActive:
 			activeCount++
-		case orchestrator.WorkflowStatusArchived:
+		case orchestrator_drop.WorkflowStatusArchived:
 			completedCount++
-		case orchestrator.WorkflowStatusInactive:
+		case orchestrator_drop.WorkflowStatusInactive:
 			failedCount++
 		}
 	}

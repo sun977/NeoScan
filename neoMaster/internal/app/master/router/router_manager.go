@@ -14,7 +14,7 @@ import (
 	"neomaster/internal/config"
 	agentHandler "neomaster/internal/handler/agent"
 	authHandler "neomaster/internal/handler/auth"
-	orchestratorHandler "neomaster/internal/handler/orchestrator"
+	orchestratorHandler "neomaster/internal/handler/orchestrator_drop"
 	systemHandler "neomaster/internal/handler/system"
 
 	// 统一使用项目封装的日志模块，便于采集规范字段与统一输出

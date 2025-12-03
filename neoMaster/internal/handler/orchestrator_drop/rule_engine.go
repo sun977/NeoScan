@@ -5,7 +5,7 @@
  * @description: 规则引擎管理处理器，提供规则引擎的执行、管理、监控等功能
  * @func: 处理规则引擎相关的HTTP请求
  */
-package orchestrator
+package orchestrator_drop
 
 import (
 	"context"

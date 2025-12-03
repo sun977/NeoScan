@@ -29,7 +29,7 @@
 //  	GET    /api/v1/orchestrator/workflows/:id/logs - 获取工作流日志
 //  	GET    /api/v1/orchestrator/workflows/:id/metrics - 获取工作流指标
 
-package orchestrator
+package orchestrator_drop
 
 import (
 	"errors"

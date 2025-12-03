@@ -5,7 +5,7 @@
  * @description: Nuclei扫描工具的具体执行器实现，支持漏洞扫描和模板执行
  * @func: 执行nuclei命令，解析输出结果，监控执行状态
  */
-package executor
+package executor_drop
 
 import (
 	"context"

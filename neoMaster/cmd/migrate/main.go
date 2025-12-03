@@ -29,7 +29,7 @@ import (
 
 	"neomaster/internal/config"
 	"neomaster/internal/model/agent"
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
@@ -191,10 +191,10 @@ func dropTables(db *gorm.DB, logManager *logger.LoggerManager) error {
 		&agent.AgentMetrics{},
 		&agent.AgentGroup{},
 		&agent.ScanType{},
-		&orchestrator.ProjectConfig{},
-		&orchestrator.ScanTool{},
-		&orchestrator.ScanRule{},
-		&orchestrator.WorkflowConfig{},
+		&orchestrator_drop.ProjectConfig{},
+		&orchestrator_drop.ScanTool{},
+		&orchestrator_drop.ScanRule{},
+		&orchestrator_drop.WorkflowConfig{},
 	}
 
 	for _, model := range models {
@@ -235,10 +235,10 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&agent.ScanType{},
 
 		// Orchestrator模块 - 只使用实际存在的模型
-		&orchestrator.ProjectConfig{},
-		&orchestrator.WorkflowConfig{},
-		&orchestrator.ScanTool{},
-		&orchestrator.ScanRule{},
+		&orchestrator_drop.ProjectConfig{},
+		&orchestrator_drop.WorkflowConfig{},
+		&orchestrator_drop.ScanTool{},
+		&orchestrator_drop.ScanRule{},
 	}
 
 	// 执行自动迁移
@@ -602,12 +602,12 @@ func (s *DataSeeder) seedOrchestratorData() error {
 	s.log.GetLogger().Info("开始填充扫描编排模块测试数据...")
 
 	// 1. 创建扫描工具
-	scanTools := []orchestrator.ScanTool{
+	scanTools := []orchestrator_drop.ScanTool{
 		{
 			Name:            "nmap",
 			DisplayName:     "Nmap Network Scanner",
 			Description:     "Network exploration tool and security scanner",
-			Type:            orchestrator.ScanToolTypePortScan,
+			Type:            orchestrator_drop.ScanToolTypePortScan,
 			Version:         "7.94",
 			ExecutablePath:  "/usr/bin/nmap",
 			WorkingDir:      "/tmp",
@@ -631,7 +631,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			MaxExecutionTime: 1800,
 			MaxMemoryMB:      512,
 			RequiresSudo:     true,
-			Status:           orchestrator.ScanToolStatusEnabled,
+			Status:           orchestrator_drop.ScanToolStatusEnabled,
 			IsBuiltIn:        true,
 			SupportedOS:      "linux,windows,macos",
 			Dependencies:     "nmap package",
@@ -649,7 +649,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			Name:            "masscan",
 			DisplayName:     "Masscan Port Scanner",
 			Description:     "Fast TCP port scanner",
-			Type:            orchestrator.ScanToolTypePortScan,
+			Type:            orchestrator_drop.ScanToolTypePortScan,
 			Version:         "1.3.2",
 			ExecutablePath:  "/usr/bin/masscan",
 			WorkingDir:      "/tmp",
@@ -674,7 +674,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			MaxExecutionTime: 3600,
 			MaxMemoryMB:      256,
 			RequiresSudo:     true,
-			Status:           orchestrator.ScanToolStatusEnabled,
+			Status:           orchestrator_drop.ScanToolStatusEnabled,
 			IsBuiltIn:        true,
 			SupportedOS:      "linux,windows,macos",
 			Dependencies:     "masscan package",
@@ -699,12 +699,12 @@ func (s *DataSeeder) seedOrchestratorData() error {
 
 	// 2. 创建扫描规则
 	// 创建扫描规则测试数据
-	scanRules := []orchestrator.ScanRule{
+	scanRules := []orchestrator_drop.ScanRule{
 		{
 			Name:            "port_scan_filter",
 			DisplayName:     "端口扫描过滤规则",
 			Description:     "过滤常见端口扫描结果",
-			Type:            orchestrator.ScanRuleTypeFilter,
+			Type:            orchestrator_drop.ScanRuleTypeFilter,
 			Category:        "network",
 			Condition:       `{"field": "port", "operator": "in", "value": [80, 443, 22, 21]}`,
 			Action:          `{"type": "allow", "message": "允许常见端口"}`,
@@ -712,10 +712,10 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			ApplicableTools: "nmap,masscan",
 			TargetTypes:     "ip,domain",
 			ScanPhases:      "discovery,enumeration",
-			Severity:        orchestrator.ScanRuleSeverityMedium,
+			Severity:        orchestrator_drop.ScanRuleSeverityMedium,
 			Priority:        5,
 			Confidence:      0.8,
-			Status:          orchestrator.ScanRuleStatusEnabled,
+			Status:          orchestrator_drop.ScanRuleStatusEnabled,
 			IsBuiltIn:       true,
 			Version:         "1.0",
 			Tags:            "network,port,filter",
@@ -726,7 +726,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			Name:            "vulnerability_alert",
 			DisplayName:     "漏洞告警规则",
 			Description:     "检测到高危漏洞时触发告警",
-			Type:            orchestrator.ScanRuleTypeAlert,
+			Type:            orchestrator_drop.ScanRuleTypeAlert,
 			Category:        "security",
 			Condition:       `{"field": "severity", "operator": "gte", "value": "high"}`,
 			Action:          `{"type": "alert", "message": "发现高危漏洞", "parameters": {"notify": true}}`,
@@ -734,10 +734,10 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			ApplicableTools: "nessus,openvas,nuclei",
 			TargetTypes:     "web,service",
 			ScanPhases:      "vulnerability_scan",
-			Severity:        orchestrator.ScanRuleSeverityHigh,
+			Severity:        orchestrator_drop.ScanRuleSeverityHigh,
 			Priority:        9,
 			Confidence:      0.95,
-			Status:          orchestrator.ScanRuleStatusEnabled,
+			Status:          orchestrator_drop.ScanRuleStatusEnabled,
 			IsBuiltIn:       true,
 			Version:         "1.0",
 			Tags:            "security,vulnerability,alert",
@@ -754,7 +754,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 	}
 
 	// 3. 创建项目配置
-	projectConfigs := []orchestrator.ProjectConfig{
+	projectConfigs := []orchestrator_drop.ProjectConfig{
 		{
 			Name:          "demo_web_scan",
 			DisplayName:   "演示Web扫描项目",
@@ -765,7 +765,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			MaxConcurrent: 5,
 			TimeoutSecond: 3600,
 			Priority:      5,
-			Status:        orchestrator.ProjectConfigStatusActive,
+			Status:        orchestrator_drop.ProjectConfigStatusActive,
 			IsEnabled:     true,
 			Tags:          "demo,web,security",
 			Metadata:      `{"project_type": "demo", "environment": "test", "owner": "system"}`,
@@ -781,7 +781,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			MaxConcurrent: 10,
 			TimeoutSecond: 7200,
 			Priority:      8,
-			Status:        orchestrator.ProjectConfigStatusActive,
+			Status:        orchestrator_drop.ProjectConfigStatusActive,
 			IsEnabled:     true,
 			Tags:          "internal,network,compliance",
 			Metadata:      `{"project_type": "production", "environment": "internal", "compliance": "required"}`,
@@ -797,14 +797,14 @@ func (s *DataSeeder) seedOrchestratorData() error {
 	}
 
 	// 4. 创建工作流配置
-	workflowConfigs := []orchestrator.WorkflowConfig{
+	workflowConfigs := []orchestrator_drop.WorkflowConfig{
 		{
 			Name:           "basic_web_scan_workflow",
 			DisplayName:    "基础Web扫描工作流",
 			Description:    "包含端口扫描和漏洞扫描的基础工作流",
 			Version:        "1.0",
 			ProjectID:      1, // 关联到第一个项目
-			TriggerType:    orchestrator.WorkflowTriggerScheduled,
+			TriggerType:    orchestrator_drop.WorkflowTriggerScheduled,
 			CronExpr:       "0 2 * * *", // 每天凌晨2点执行
 			EventFilter:    `{"event_type": "scheduled", "conditions": []}`,
 			Steps:          `[{"id":"port_scan","name":"端口扫描","type":"scan_tool","tool_id":1,"timeout":300},{"id":"vuln_scan","name":"漏洞扫描","type":"scan_tool","tool_id":2,"depends_on":["port_scan"],"timeout":600}]`,
@@ -812,7 +812,7 @@ func (s *DataSeeder) seedOrchestratorData() error {
 			Environment:    `{"SCAN_ENV": "test", "LOG_LEVEL": "info"}`,
 			MaxRetries:     3,
 			TimeoutMinutes: 120,
-			Status:         orchestrator.WorkflowStatusActive,
+			Status:         orchestrator_drop.WorkflowStatusActive,
 			IsEnabled:      true,
 			Tags:           "web,security,automated",
 			Metadata:       `{"author": "system", "category": "security", "priority": "normal"}`,

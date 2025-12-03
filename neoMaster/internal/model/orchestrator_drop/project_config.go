@@ -5,7 +5,7 @@
  * @description: 扫描项目配置数据模型，遵循"好品味"设计原则 - 简洁、无特殊情况、数据结构优先
  * @func: ProjectConfig 结构体及相关方法
  */
-package orchestrator
+package orchestrator_drop
 
 import (
 	"neomaster/internal/model/basemodel"

@@ -5,7 +5,7 @@
  * @description: 扫描规则配置模型，遵循"Never break userspace"原则 - 规则变更不能破坏现有扫描
  * @func: ScanRule 结构体及相关方法
  */
-package orchestrator
+package orchestrator_drop
 
 import (
 	"encoding/json"

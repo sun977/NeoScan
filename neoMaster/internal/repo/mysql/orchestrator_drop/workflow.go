@@ -36,14 +36,14 @@
 //  字段更新:
 //  	UpdateWorkflowConfigFields - 使用map更新特定字段
 
-package orchestrator
+package orchestrator_drop
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
@@ -67,7 +67,7 @@ func NewWorkflowConfigRepository(db *gorm.DB) *WorkflowConfigRepository {
 // @param ctx 上下文
 // @param config 工作流配置对象
 // @return 错误信息
-func (r *WorkflowConfigRepository) CreateWorkflowConfig(ctx context.Context, config *orchestrator.WorkflowConfig) error {
+func (r *WorkflowConfigRepository) CreateWorkflowConfig(ctx context.Context, config *orchestrator_drop.WorkflowConfig) error {
 	config.CreatedAt = time.Now()
 	config.UpdatedAt = time.Now()
 
@@ -89,8 +89,8 @@ func (r *WorkflowConfigRepository) CreateWorkflowConfig(ctx context.Context, con
 // @param ctx 上下文
 // @param id 工作流配置ID
 // @return 工作流配置对象和错误信息
-func (r *WorkflowConfigRepository) GetWorkflowConfigByID(ctx context.Context, id uint) (*orchestrator.WorkflowConfig, error) {
-	var config orchestrator.WorkflowConfig
+func (r *WorkflowConfigRepository) GetWorkflowConfigByID(ctx context.Context, id uint) (*orchestrator_drop.WorkflowConfig, error) {
+	var config orchestrator_drop.WorkflowConfig
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&config).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -118,8 +118,8 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigByID(ctx context.Context, id
 // @param name 工作流名称
 // @param projectID 项目ID（可选，用于区分不同项目的同名工作流）
 // @return 工作流配置对象和错误信息
-func (r *WorkflowConfigRepository) GetWorkflowConfigByName(ctx context.Context, name string, projectID *uint) (*orchestrator.WorkflowConfig, error) {
-	var config orchestrator.WorkflowConfig
+func (r *WorkflowConfigRepository) GetWorkflowConfigByName(ctx context.Context, name string, projectID *uint) (*orchestrator_drop.WorkflowConfig, error) {
+	var config orchestrator_drop.WorkflowConfig
 	query := r.db.WithContext(ctx).Where("name = ?", name)
 
 	if projectID != nil {
@@ -154,7 +154,7 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigByName(ctx context.Context, 
 // @param ctx 上下文
 // @param config 工作流配置对象
 // @return 错误信息
-func (r *WorkflowConfigRepository) UpdateWorkflowConfig(ctx context.Context, config *orchestrator.WorkflowConfig) error {
+func (r *WorkflowConfigRepository) UpdateWorkflowConfig(ctx context.Context, config *orchestrator_drop.WorkflowConfig) error {
 	config.UpdatedAt = time.Now()
 	err := r.db.WithContext(ctx).Save(config).Error
 	if err != nil {
@@ -175,7 +175,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfig(ctx context.Context, con
 // @param id 工作流配置ID
 // @return 错误信息
 func (r *WorkflowConfigRepository) DeleteWorkflowConfig(ctx context.Context, id uint) error {
-	err := r.db.WithContext(ctx).Delete(&orchestrator.WorkflowConfig{}, id).Error
+	err := r.db.WithContext(ctx).Delete(&orchestrator_drop.WorkflowConfig{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "workflow_config_delete", "DELETE", map[string]interface{}{
@@ -195,11 +195,11 @@ func (r *WorkflowConfigRepository) DeleteWorkflowConfig(ctx context.Context, id 
 // @param projectID 项目ID过滤（可选）
 // @param status 状态过滤（可选）
 // @return 工作流配置列表、总数和错误信息
-func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, offset, limit int, projectID *uint, status *orchestrator.WorkflowStatus) ([]*orchestrator.WorkflowConfig, int64, error) {
-	var configs []*orchestrator.WorkflowConfig
+func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, offset, limit int, projectID *uint, status *orchestrator_drop.WorkflowStatus) ([]*orchestrator_drop.WorkflowConfig, int64, error) {
+	var configs []*orchestrator_drop.WorkflowConfig
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{})
+	query := r.db.WithContext(ctx).Model(&orchestrator_drop.WorkflowConfig{})
 
 	// 项目ID过滤
 	if projectID != nil {
@@ -239,9 +239,9 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigList(ctx context.Context, of
 // @param ctx 上下文
 // @param projectID 项目ID
 // @return 工作流配置列表和错误信息
-func (r *WorkflowConfigRepository) GetWorkflowConfigsByProject(ctx context.Context, projectID uint) ([]*orchestrator.WorkflowConfig, error) {
-	var configs []*orchestrator.WorkflowConfig
-	err := r.db.WithContext(ctx).Where("project_config_id = ? AND status = ?", projectID, orchestrator.WorkflowStatusActive).Find(&configs).Error
+func (r *WorkflowConfigRepository) GetWorkflowConfigsByProject(ctx context.Context, projectID uint) ([]*orchestrator_drop.WorkflowConfig, error) {
+	var configs []*orchestrator_drop.WorkflowConfig
+	err := r.db.WithContext(ctx).Where("project_config_id = ? AND status = ?", projectID, orchestrator_drop.WorkflowStatusActive).Find(&configs).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation":  "get_workflow_configs_by_project",
@@ -256,9 +256,9 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigsByProject(ctx context.Conte
 // GetActiveWorkflowConfigs 获取活跃的工作流配置
 // @param ctx 上下文
 // @return 工作流配置列表和错误信息
-func (r *WorkflowConfigRepository) GetActiveWorkflowConfigs(ctx context.Context) ([]*orchestrator.WorkflowConfig, error) {
-	var configs []*orchestrator.WorkflowConfig
-	err := r.db.WithContext(ctx).Where("status = ?", orchestrator.WorkflowStatusActive).Find(&configs).Error
+func (r *WorkflowConfigRepository) GetActiveWorkflowConfigs(ctx context.Context) ([]*orchestrator_drop.WorkflowConfig, error) {
+	var configs []*orchestrator_drop.WorkflowConfig
+	err := r.db.WithContext(ctx).Where("status = ?", orchestrator_drop.WorkflowStatusActive).Find(&configs).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation": "get_active_workflow_configs",
@@ -276,7 +276,7 @@ func (r *WorkflowConfigRepository) GetActiveWorkflowConfigs(ctx context.Context)
 // @return 是否存在和错误信息
 func (r *WorkflowConfigRepository) WorkflowConfigExists(ctx context.Context, name string, projectID *uint) (bool, error) {
 	var count int64
-	query := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("name = ?", name)
+	query := r.db.WithContext(ctx).Model(&orchestrator_drop.WorkflowConfig{}).Where("name = ?", name)
 
 	if projectID != nil {
 		query = query.Where("project_config_id = ?", *projectID)
@@ -299,9 +299,9 @@ func (r *WorkflowConfigRepository) WorkflowConfigExists(ctx context.Context, nam
 // @param ctx 上下文
 // @param triggerType 触发类型
 // @return 工作流配置列表和错误信息
-func (r *WorkflowConfigRepository) GetWorkflowConfigsByTrigger(ctx context.Context, triggerType orchestrator.WorkflowTriggerType) ([]*orchestrator.WorkflowConfig, error) {
-	var configs []*orchestrator.WorkflowConfig
-	err := r.db.WithContext(ctx).Where("trigger_type = ? AND status = ?", triggerType, orchestrator.WorkflowStatusActive).Find(&configs).Error
+func (r *WorkflowConfigRepository) GetWorkflowConfigsByTrigger(ctx context.Context, triggerType orchestrator_drop.WorkflowTriggerType) ([]*orchestrator_drop.WorkflowConfig, error) {
+	var configs []*orchestrator_drop.WorkflowConfig
+	err := r.db.WithContext(ctx).Where("trigger_type = ? AND status = ?", triggerType, orchestrator_drop.WorkflowStatusActive).Find(&configs).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "workflow_config_list", "GET", map[string]interface{}{
 			"operation":    "get_workflow_configs_by_trigger",
@@ -318,8 +318,8 @@ func (r *WorkflowConfigRepository) GetWorkflowConfigsByTrigger(ctx context.Conte
 // @param id 工作流配置ID
 // @param status 新状态
 // @return 错误信息
-func (r *WorkflowConfigRepository) UpdateWorkflowConfigStatus(ctx context.Context, id uint, status orchestrator.WorkflowStatus) error {
-	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
+func (r *WorkflowConfigRepository) UpdateWorkflowConfigStatus(ctx context.Context, id uint, status orchestrator_drop.WorkflowStatus) error {
+	err := r.db.WithContext(ctx).Model(&orchestrator_drop.WorkflowConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":     status,
 		"updated_at": time.Now(),
 	}).Error
@@ -340,7 +340,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfigStatus(ctx context.Contex
 // @param id 工作流配置ID
 // @return 错误信息
 func (r *WorkflowConfigRepository) EnableWorkflowConfig(ctx context.Context, id uint) error {
-	return r.UpdateWorkflowConfigStatus(ctx, id, orchestrator.WorkflowStatusActive)
+	return r.UpdateWorkflowConfigStatus(ctx, id, orchestrator_drop.WorkflowStatusActive)
 }
 
 // DisableWorkflowConfig 禁用工作流配置
@@ -348,7 +348,7 @@ func (r *WorkflowConfigRepository) EnableWorkflowConfig(ctx context.Context, id 
 // @param id 工作流配置ID
 // @return 错误信息
 func (r *WorkflowConfigRepository) DisableWorkflowConfig(ctx context.Context, id uint) error {
-	return r.UpdateWorkflowConfigStatus(ctx, id, orchestrator.WorkflowStatusInactive)
+	return r.UpdateWorkflowConfigStatus(ctx, id, orchestrator_drop.WorkflowStatusInactive)
 }
 
 // UpdateWorkflowConfigStats 更新工作流配置统计信息
@@ -360,7 +360,7 @@ func (r *WorkflowConfigRepository) DisableWorkflowConfig(ctx context.Context, id
 // @param avgExecutionTime 平均执行时间
 // @return 错误信息
 func (r *WorkflowConfigRepository) UpdateWorkflowConfigStats(ctx context.Context, id uint, executionCount, successCount, failureCount int, avgExecutionTime float64) error {
-	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
+	err := r.db.WithContext(ctx).Model(&orchestrator_drop.WorkflowConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"execution_count":     executionCount,
 		"success_count":       successCount,
 		"failure_count":       failureCount,
@@ -407,7 +407,7 @@ func (r *WorkflowConfigRepository) IncrementExecutionCount(ctx context.Context, 
 		updates["avg_execution_time"] = executionTime
 	}
 
-	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(updates).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator_drop.WorkflowConfig{}).Where("id = ?", id).Updates(updates).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
 			"operation":      "increment_execution_count",
@@ -440,7 +440,7 @@ func (r *WorkflowConfigRepository) BeginTx() (*gorm.DB, error) {
 // @param tx 事务对象
 // @param config 工作流配置对象
 // @return 错误信息
-func (r *WorkflowConfigRepository) UpdateWorkflowConfigWithTx(ctx context.Context, tx *gorm.DB, config *orchestrator.WorkflowConfig) error {
+func (r *WorkflowConfigRepository) UpdateWorkflowConfigWithTx(ctx context.Context, tx *gorm.DB, config *orchestrator_drop.WorkflowConfig) error {
 	config.UpdatedAt = time.Now()
 	err := tx.WithContext(ctx).Save(config).Error
 	if err != nil {
@@ -462,7 +462,7 @@ func (r *WorkflowConfigRepository) UpdateWorkflowConfigWithTx(ctx context.Contex
 // @param id 工作流配置ID
 // @return 错误信息
 func (r *WorkflowConfigRepository) DeleteWorkflowConfigWithTx(ctx context.Context, tx *gorm.DB, id uint) error {
-	err := tx.WithContext(ctx).Delete(&orchestrator.WorkflowConfig{}, id).Error
+	err := tx.WithContext(ctx).Delete(&orchestrator_drop.WorkflowConfig{}, id).Error
 	if err != nil {
 		// 记录删除失败日志
 		logger.LogError(err, "", id, "", "workflow_config_delete_with_tx", "DELETE", map[string]interface{}{
@@ -482,7 +482,7 @@ func (r *WorkflowConfigRepository) DeleteWorkflowConfigWithTx(ctx context.Contex
 // @return 错误信息
 func (r *WorkflowConfigRepository) UpdateWorkflowConfigFields(ctx context.Context, id uint, fields map[string]interface{}) error {
 	fields["updated_at"] = time.Now()
-	err := r.db.WithContext(ctx).Model(&orchestrator.WorkflowConfig{}).Where("id = ?", id).Updates(fields).Error
+	err := r.db.WithContext(ctx).Model(&orchestrator_drop.WorkflowConfig{}).Where("id = ?", id).Updates(fields).Error
 	if err != nil {
 		logger.LogError(err, "", id, "", "workflow_config_update", "PUT", map[string]interface{}{
 			"operation": "update_workflow_config_fields",

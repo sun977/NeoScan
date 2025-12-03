@@ -23,7 +23,7 @@
 //  	POST   /api/v1/orchestrator/projects/:id/reload - 热重载项目配置
 //  	POST   /api/v1/orchestrator/projects/:id/sync - 同步项目配置
 
-package orchestrator
+package orchestrator_drop
 
 import (
 	"errors"

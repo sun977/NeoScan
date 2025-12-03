@@ -25,8 +25,8 @@ import (
 	"gorm.io/gorm"
 
 	"neomaster/internal/app/master/router"
-	"neomaster/internal/handler/orchestrator"
-	"neomaster/internal/service/orchestrator/rule_engine"
+	"neomaster/internal/handler/orchestrator_drop"
+	"neomaster/internal/service/orchestrator_drop/rule_engine"
 )
 
 // RuleEngineIntegrationTestSuite 规则引擎集成测试套件
@@ -34,7 +34,7 @@ type RuleEngineIntegrationTestSuite struct {
 	suite.Suite
 	engine      *gin.Engine
 	ruleEngine  *rule_engine.RuleEngine
-	handler     *orchestrator.RuleEngineHandler
+	handler     *orchestrator_drop.RuleEngineHandler
 	testToken   string
 	testRuleIDs []uint
 	db          *gorm.DB

@@ -27,14 +27,17 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 	// 1. Repository 初始化
 	hostRepo := assetRepo.NewAssetHostRepository(db)
 	networkRepo := assetRepo.NewAssetNetworkRepository(db)
+	policyRepo := assetRepo.NewAssetPolicyRepository(db)
 
 	// 2. Service 初始化
 	hostService := assetService.NewAssetHostService(hostRepo)
 	networkService := assetService.NewAssetNetworkService(networkRepo)
+	policyService := assetService.NewAssetPolicyService(policyRepo)
 
 	// 3. Handler 初始化
 	hostHandler := assetHandler.NewAssetHostHandler(hostService)
 	networkHandler := assetHandler.NewAssetNetworkHandler(networkService)
+	policyHandler := assetHandler.NewAssetPolicyHandler(policyService)
 
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
@@ -45,7 +48,10 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 	return &AssetModule{
 		AssetHostHandler:    hostHandler,
 		AssetNetworkHandler: networkHandler,
+		AssetPolicyHandler:  policyHandler,
+
 		AssetHostService:    hostService,
 		AssetNetworkService: networkService,
+		AssetPolicyService:  policyService,
 	}
 }

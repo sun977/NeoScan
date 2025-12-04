@@ -114,14 +114,16 @@ type AgentModule struct {
 // - AssetHostService：对应的业务服务实例。
 type AssetModule struct {
 	// Handlers
+	AssetRawHandler     *assetHandler.RawAssetHandler
 	AssetHostHandler    *assetHandler.AssetHostHandler
 	AssetNetworkHandler *assetHandler.AssetNetworkHandler
 	AssetPolicyHandler  *assetHandler.AssetPolicyHandler
-	AssetRawHandler     *assetHandler.RawAssetHandler
+	AssetWebHandler     *assetHandler.AssetWebHandler
 
 	// Services
+	AssetRawService     *assetService.RawAssetService
 	AssetHostService    *assetService.AssetHostService
 	AssetNetworkService *assetService.AssetNetworkService
 	AssetPolicyService  *assetService.AssetPolicyService
-	AssetRawService     *assetService.RawAssetService
+	AssetWebService     *assetService.AssetWebService
 }

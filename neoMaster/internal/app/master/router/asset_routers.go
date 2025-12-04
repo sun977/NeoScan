@@ -32,6 +32,17 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			// 主机服务列表
 			hosts.GET("/:id/services", r.assetHostHandler.ListServicesByHost)
 		}
+
+		// 网段管理
+		networks := assetGroup.Group("/networks")
+		{
+			networks.POST("", r.assetNetworkHandler.CreateNetwork)                     // 创建网段
+			networks.GET("/:id", r.assetNetworkHandler.GetNetwork)                     // 获取网段详情
+			networks.PUT("/:id", r.assetNetworkHandler.UpdateNetwork)                  // 更新网段
+			networks.DELETE("/:id", r.assetNetworkHandler.DeleteNetwork)               // 删除网段
+			networks.GET("", r.assetNetworkHandler.ListNetworks)                       // 获取网段列表
+			networks.PATCH("/:id/scan-status", r.assetNetworkHandler.UpdateScanStatus) // 更新网段扫描状态
+		}
 	}
 
 	// logger.WithFields(map[string]interface{}{

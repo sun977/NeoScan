@@ -41,7 +41,8 @@ type Router struct {
 	// Agent管理相关Handler
 	agentHandler *agentHandler.AgentHandler
 	// 资产管理相关Handler
-	assetHostHandler *assetHandler.AssetHostHandler
+	assetHostHandler    *assetHandler.AssetHostHandler
+	assetNetworkHandler *assetHandler.AssetNetworkHandler
 	// 扫描配置相关Handler
 	// projectConfigHandler *orchestratorHandler.ProjectConfigHandler
 	// workflowHandler      *orchestratorHandler.WorkflowHandler
@@ -98,6 +99,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	// 从 AgentModule 中获取聚合后的 Handler（分组功能已合并到 ManagerService 内部）
 	agentHandler := agentModule.AgentHandler
 	assetHostHandler := assetModule.AssetHostHandler
+	assetNetworkHandler := assetModule.AssetNetworkHandler
 
 	// 从 OrchestratorModule 中获取聚合后的处理器
 	// projectConfigHandler := orchestratorModule.ProjectConfigHandler
@@ -125,7 +127,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		// Agent管理相关Handler
 		agentHandler: agentHandler,
 		// 资产管理相关Handler
-		assetHostHandler: assetHostHandler,
+		assetHostHandler:    assetHostHandler,
+		assetNetworkHandler: assetNetworkHandler,
 		// 扫描配置相关Handler
 		// projectConfigHandler: projectConfigHandler,
 		// workflowHandler:      workflowHandler,

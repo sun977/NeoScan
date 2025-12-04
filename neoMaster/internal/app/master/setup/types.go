@@ -121,6 +121,7 @@ type AssetModule struct {
 	AssetWebHandler     *assetHandler.AssetWebHandler
 	AssetVulnHandler    *assetHandler.AssetVulnHandler
 	AssetUnifiedHandler *assetHandler.AssetUnifiedHandler
+	AssetScanHandler    *assetHandler.AssetScanHandler
 
 	// Services
 	AssetRawService     *assetService.RawAssetService
@@ -130,4 +131,5 @@ type AssetModule struct {
 	AssetWebService     *assetService.AssetWebService
 	AssetVulnService    *assetService.AssetVulnService
 	AssetUnifiedService *assetService.AssetUnifiedService
+	AssetScanService    *assetService.AssetScanService
 }

@@ -8,6 +8,8 @@
 package router
 
 import (
+	"neomaster/internal/pkg/logger"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -100,10 +102,39 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			webs.GET("/:id/detail", r.assetWebHandler.GetWebDetail)  // 获取Web详细信息
 			webs.PUT("/:id/detail", r.assetWebHandler.SaveWebDetail) // 保存Web详细信息
 		}
+
+		// 漏洞资产管理
+		vulns := assetGroup.Group("/vulns")
+		{
+			// 漏洞情报管理
+			vulns.POST("", r.assetVulnHandler.CreateVuln)       // 创建漏洞
+			vulns.GET("/:id", r.assetVulnHandler.GetVuln)       // 获取漏洞详情
+			vulns.PUT("/:id", r.assetVulnHandler.UpdateVuln)    // 更新漏洞信息
+			vulns.DELETE("/:id", r.assetVulnHandler.DeleteVuln) // 删除漏洞
+			vulns.GET("", r.assetVulnHandler.ListVulns)         // 获取漏洞列表
+
+			// PoC管理
+			vulns.POST("/pocs", r.assetVulnHandler.CreatePoc)              // 创建PoC
+			vulns.GET("/pocs/:id", r.assetVulnHandler.GetPoc)              // 获取PoC详情
+			vulns.PUT("/pocs/:id", r.assetVulnHandler.UpdatePoc)           // 更新PoC
+			vulns.DELETE("/pocs/:id", r.assetVulnHandler.DeletePoc)        // 删除PoC
+			vulns.GET("/:vuln_id/pocs", r.assetVulnHandler.ListPocsByVuln) // 获取漏洞关联的PoC列表
+		}
+
+		// 统一资产视图
+		unified := assetGroup.Group("/unified")
+		{
+			unified.POST("", r.assetUnifiedHandler.CreateUnifiedAsset)        // 创建统一资产
+			unified.POST("/upsert", r.assetUnifiedHandler.UpsertUnifiedAsset) // 插入或更新统一资产
+			unified.GET("/:id", r.assetUnifiedHandler.GetUnifiedAsset)        // 获取统一资产详情
+			unified.PUT("/:id", r.assetUnifiedHandler.UpdateUnifiedAsset)     // 更新统一资产
+			unified.DELETE("/:id", r.assetUnifiedHandler.DeleteUnifiedAsset)  // 删除统一资产
+			unified.GET("", r.assetUnifiedHandler.ListUnifiedAssets)          // 获取统一资产列表
+		}
 	}
 
-	// logger.WithFields(map[string]interface{}{
-	// 	"path": "router.asset",
-	// 	"func": "setupAssetRoutes",
-	// }).Info("资产管理路由注册完成")
+	logger.WithFields(map[string]interface{}{
+		"path": "router.asset",
+		"func": "setupAssetRoutes",
+	}).Info("资产管理路由注册完成")
 }

@@ -87,6 +87,19 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			}
 		}
 
+		// Web资产管理
+		webs := assetGroup.Group("/webs")
+		{
+			webs.POST("", r.assetWebHandler.CreateWeb)       // 创建Web资产
+			webs.GET("/:id", r.assetWebHandler.GetWeb)       // 获取Web资产详情
+			webs.PUT("/:id", r.assetWebHandler.UpdateWeb)    // 更新Web资产
+			webs.DELETE("/:id", r.assetWebHandler.DeleteWeb) // 删除Web资产
+			webs.GET("", r.assetWebHandler.ListWebs)         // 获取Web资产列表
+
+			// Web详细信息
+			webs.GET("/:id/detail", r.assetWebHandler.GetWebDetail)  // 获取Web详细信息
+			webs.PUT("/:id/detail", r.assetWebHandler.SaveWebDetail) // 保存Web详细信息
+		}
 	}
 
 	// logger.WithFields(map[string]interface{}{

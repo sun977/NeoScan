@@ -13,6 +13,7 @@ import (
 	"neomaster/internal/app/master/middleware"
 	"neomaster/internal/config"
 	agentHandler "neomaster/internal/handler/agent"
+	assetHandler "neomaster/internal/handler/asset"
 	authHandler "neomaster/internal/handler/auth"
 	systemHandler "neomaster/internal/handler/system"
 
@@ -39,6 +40,8 @@ type Router struct {
 	sessionHandler    *systemHandler.SessionHandler
 	// Agent管理相关Handler
 	agentHandler *agentHandler.AgentHandler
+	// 资产管理相关Handler
+	assetHostHandler *assetHandler.AssetHostHandler
 	// 扫描配置相关Handler
 	// projectConfigHandler *orchestratorHandler.ProjectConfigHandler
 	// workflowHandler      *orchestratorHandler.WorkflowHandler
@@ -87,11 +90,14 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 
 	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
 	agentModule := setup.BuildAgentModule(db)
+	// 通过 setup.BuildAssetModule 初始化资产管理模块
+	assetModule := setup.BuildAssetModule(db)
 	// // 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块（项目配置/工作流/工具/规则/规则引擎聚合）
 	// orchestratorModule := setup.BuildOrchestratorModule(db)
 
 	// 从 AgentModule 中获取聚合后的 Handler（分组功能已合并到 ManagerService 内部）
 	agentHandler := agentModule.AgentHandler
+	assetHostHandler := assetModule.AssetHostHandler
 
 	// 从 OrchestratorModule 中获取聚合后的处理器
 	// projectConfigHandler := orchestratorModule.ProjectConfigHandler
@@ -118,6 +124,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		sessionHandler:    sessionHandler,
 		// Agent管理相关Handler
 		agentHandler: agentHandler,
+		// 资产管理相关Handler
+		assetHostHandler: assetHostHandler,
 		// 扫描配置相关Handler
 		// projectConfigHandler: projectConfigHandler,
 		// workflowHandler:      workflowHandler,
@@ -208,6 +216,8 @@ func (r *Router) registerRoutes() {
 	// r.setupOrchestratorRoutes(v1)
 	// Agent 管理路由（需要 JWT 认证）
 	r.setupAgentRoutes(v1)
+	// 资产管理路由（需要 JWT 认证）
+	r.setupAssetRoutes(v1)
 	// 健康检查路由
 	r.setupHealthRoutes(api)
 

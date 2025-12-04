@@ -9,12 +9,12 @@ package setup
 
 import (
 	agentHandler "neomaster/internal/handler/agent"
+	assetHandler "neomaster/internal/handler/asset"
 	authHandler "neomaster/internal/handler/auth"
-	orchestratorHandler "neomaster/internal/handler/orchestrator_drop"
 	systemHandler "neomaster/internal/handler/system"
 	agentService "neomaster/internal/service/agent"
+	assetService "neomaster/internal/service/asset"
 	authService "neomaster/internal/service/auth"
-	orchestratorService "neomaster/internal/service/orchestrator_drop"
 )
 
 // AuthModule 是认证模块的聚合输出
@@ -89,17 +89,33 @@ type AgentModule struct {
 // 字段说明：
 // - ProjectConfigHandler/WorkflowHandler/ScanToolHandler/ScanRuleHandler/RuleEngineHandler：对外用于路由注册的处理器。
 // - ProjectConfigService/WorkflowService/ScanToolService/ScanRuleService：对应的业务服务实例，便于必要时复用或编写独立测试。
-type OrchestratorModule struct {
-	// Handlers（扫描编排器相关处理器）
-	ProjectConfigHandler *orchestratorHandler.ProjectConfigHandler
-	WorkflowHandler      *orchestratorHandler.WorkflowHandler
-	ScanToolHandler      *orchestratorHandler.ScanToolHandler
-	ScanRuleHandler      *orchestratorHandler.ScanRuleHandler
-	RuleEngineHandler    *orchestratorHandler.RuleEngineHandler
+// type OrchestratorModule struct {
+// 	// Handlers（扫描编排器相关处理器）
+// 	ProjectConfigHandler *orchestratorHandler.ProjectConfigHandler
+// 	WorkflowHandler      *orchestratorHandler.WorkflowHandler
+// 	ScanToolHandler      *orchestratorHandler.ScanToolHandler
+// 	ScanRuleHandler      *orchestratorHandler.ScanRuleHandler
+// 	RuleEngineHandler    *orchestratorHandler.RuleEngineHandler
 
-	// Services（对外暴露以供 router_manager 或其他模块使用）
-	ProjectConfigService *orchestratorService.ProjectConfigService
-	WorkflowService      *orchestratorService.WorkflowService
-	ScanToolService      *orchestratorService.ScanToolService
-	ScanRuleService      *orchestratorService.ScanRuleService
+// 	// Services（对外暴露以供 router_manager 或其他模块使用）
+// 	ProjectConfigService *orchestratorService.ProjectConfigService
+// 	WorkflowService      *orchestratorService.WorkflowService
+// 	ScanToolService      *orchestratorService.ScanToolService
+// 	ScanRuleService      *orchestratorService.ScanRuleService
+// }
+
+// AssetModule 是资产管理模块的聚合输出
+// 设计目的：
+// - 将资产管理相关的 Service 与 Handler 作为一个整体进行初始化与对外暴露。
+// - 保持分层约束与模块边界：setup 层仅负责依赖装配（Repository → Service → Handler）。
+//
+// 字段说明：
+// - AssetHostHandler：对外用于路由注册的处理器。
+// - AssetHostService：对应的业务服务实例。
+type AssetModule struct {
+	// Handlers
+	AssetHostHandler *assetHandler.AssetHostHandler
+
+	// Services
+	AssetHostService *assetService.AssetHostService
 }

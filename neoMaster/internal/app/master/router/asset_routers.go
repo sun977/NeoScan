@@ -131,6 +131,17 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			unified.DELETE("/:id", r.assetUnifiedHandler.DeleteUnifiedAsset)  // 删除统一资产
 			unified.GET("", r.assetUnifiedHandler.ListUnifiedAssets)          // 获取统一资产列表
 		}
+
+		// 资产扫描记录管理
+		scans := assetGroup.Group("/scans")
+		{
+			scans.POST("", r.assetScanHandler.CreateScan)                                 // 创建扫描记录
+			scans.GET("/:id", r.assetScanHandler.GetScan)                                 // 获取扫描记录详情
+			scans.PUT("/:id", r.assetScanHandler.UpdateScan)                              // 更新扫描记录
+			scans.DELETE("/:id", r.assetScanHandler.DeleteScan)                           // 删除扫描记录
+			scans.GET("", r.assetScanHandler.ListScans)                                   // 获取扫描记录列表
+			scans.GET("/latest/:network_id", r.assetScanHandler.GetLatestScanByNetworkID) // 获取指定网络ID的最新扫描记录
+		}
 	}
 
 	logger.WithFields(map[string]interface{}{

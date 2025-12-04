@@ -20,6 +20,25 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 	}
 
 	{
+		// 原始资产管理
+		rawAssets := assetGroup.Group("/raw-assets")
+		{
+			rawAssets.POST("", r.assetRawHandler.CreateRawAsset)                   // 创建原始资产
+			rawAssets.GET("/:id", r.assetRawHandler.GetRawAsset)                   // 获取原始资产详情
+			rawAssets.PATCH("/:id/status", r.assetRawHandler.UpdateRawAssetStatus) // 更新原始资产状态
+			rawAssets.GET("", r.assetRawHandler.ListRawAssets)                     // 获取原始资产列表
+		}
+
+		// 待处理网段管理
+		rawNetworks := assetGroup.Group("/raw-networks")
+		{
+			rawNetworks.POST("", r.assetRawHandler.CreateRawNetwork)              // 创建待处理网段
+			rawNetworks.GET("/:id", r.assetRawHandler.GetRawNetwork)              // 获取待处理网段详情
+			rawNetworks.POST("/:id/approve", r.assetRawHandler.ApproveRawNetwork) // 批准待处理网段
+			rawNetworks.POST("/:id/reject", r.assetRawHandler.RejectRawNetwork)   // 拒绝待处理网段
+			rawNetworks.GET("", r.assetRawHandler.ListRawNetworks)                // 获取待处理网段列表
+		}
+
 		// 主机资产管理
 		hosts := assetGroup.Group("/hosts")
 		{
@@ -67,6 +86,7 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 				skipPolicies.GET("", r.assetPolicyHandler.ListSkipPolicies)        // 获取跳过策略列表
 			}
 		}
+
 	}
 
 	// logger.WithFields(map[string]interface{}{

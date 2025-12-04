@@ -41,9 +41,11 @@ type Router struct {
 	// Agent管理相关Handler
 	agentHandler *agentHandler.AgentHandler
 	// 资产管理相关Handler
+	assetRawHandler     *assetHandler.RawAssetHandler
 	assetHostHandler    *assetHandler.AssetHostHandler
 	assetNetworkHandler *assetHandler.AssetNetworkHandler
 	assetPolicyHandler  *assetHandler.AssetPolicyHandler
+
 	// 扫描配置相关Handler
 	// projectConfigHandler *orchestratorHandler.ProjectConfigHandler
 	// workflowHandler      *orchestratorHandler.WorkflowHandler
@@ -102,6 +104,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetHostHandler := assetModule.AssetHostHandler
 	assetNetworkHandler := assetModule.AssetNetworkHandler
 	assetPolicyHandler := assetModule.AssetPolicyHandler
+	assetRawHandler := assetModule.AssetRawHandler
 
 	// 从 OrchestratorModule 中获取聚合后的处理器
 	// projectConfigHandler := orchestratorModule.ProjectConfigHandler
@@ -129,9 +132,11 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		// Agent管理相关Handler
 		agentHandler: agentHandler,
 		// 资产管理相关Handler
+		assetRawHandler:     assetRawHandler,
 		assetHostHandler:    assetHostHandler,
 		assetNetworkHandler: assetNetworkHandler,
 		assetPolicyHandler:  assetPolicyHandler,
+
 		// 扫描配置相关Handler
 		// projectConfigHandler: projectConfigHandler,
 		// workflowHandler:      workflowHandler,

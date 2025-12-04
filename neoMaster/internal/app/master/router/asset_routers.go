@@ -43,6 +43,30 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			networks.GET("", r.assetNetworkHandler.ListNetworks)                       // 获取网段列表
 			networks.PATCH("/:id/scan-status", r.assetNetworkHandler.UpdateScanStatus) // 更新网段扫描状态
 		}
+
+		// 资产策略管理
+		policies := assetGroup.Group("/policies")
+		{
+			// 白名单管理
+			whitelists := policies.Group("/whitelists")
+			{
+				whitelists.POST("", r.assetPolicyHandler.CreateWhitelist)       // 创建白名单
+				whitelists.GET("/:id", r.assetPolicyHandler.GetWhitelist)       // 获取白名单详情
+				whitelists.PUT("/:id", r.assetPolicyHandler.UpdateWhitelist)    // 更新白名单
+				whitelists.DELETE("/:id", r.assetPolicyHandler.DeleteWhitelist) // 删除白名单
+				whitelists.GET("", r.assetPolicyHandler.ListWhitelists)         // 获取白名单列表
+			}
+
+			// 跳过策略管理
+			skipPolicies := policies.Group("/skip-policies")
+			{
+				skipPolicies.POST("", r.assetPolicyHandler.CreateSkipPolicy)       // 创建跳过策略
+				skipPolicies.GET("/:id", r.assetPolicyHandler.GetSkipPolicy)       // 获取跳过策略详情
+				skipPolicies.PUT("/:id", r.assetPolicyHandler.UpdateSkipPolicy)    // 更新跳过策略
+				skipPolicies.DELETE("/:id", r.assetPolicyHandler.DeleteSkipPolicy) // 删除跳过策略
+				skipPolicies.GET("", r.assetPolicyHandler.ListSkipPolicies)        // 获取跳过策略列表
+			}
+		}
 	}
 
 	// logger.WithFields(map[string]interface{}{

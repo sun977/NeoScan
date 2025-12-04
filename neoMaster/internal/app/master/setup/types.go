@@ -116,8 +116,10 @@ type AssetModule struct {
 	// Handlers
 	AssetHostHandler    *assetHandler.AssetHostHandler
 	AssetNetworkHandler *assetHandler.AssetNetworkHandler
+	AssetPolicyHandler  *assetHandler.AssetPolicyHandler
 
 	// Services
 	AssetHostService    *assetService.AssetHostService
 	AssetNetworkService *assetService.AssetNetworkService
+	AssetPolicyService  *assetService.AssetPolicyService
 }

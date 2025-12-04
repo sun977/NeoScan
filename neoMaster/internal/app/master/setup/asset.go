@@ -28,16 +28,19 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 	hostRepo := assetRepo.NewAssetHostRepository(db)
 	networkRepo := assetRepo.NewAssetNetworkRepository(db)
 	policyRepo := assetRepo.NewAssetPolicyRepository(db)
+	rawRepo := assetRepo.NewRawAssetRepository(db)
 
 	// 2. Service 初始化
 	hostService := assetService.NewAssetHostService(hostRepo)
 	networkService := assetService.NewAssetNetworkService(networkRepo)
 	policyService := assetService.NewAssetPolicyService(policyRepo)
+	rawService := assetService.NewRawAssetService(rawRepo)
 
 	// 3. Handler 初始化
 	hostHandler := assetHandler.NewAssetHostHandler(hostService)
 	networkHandler := assetHandler.NewAssetNetworkHandler(networkService)
 	policyHandler := assetHandler.NewAssetPolicyHandler(policyService)
+	rawHandler := assetHandler.NewRawAssetHandler(rawService)
 
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
@@ -46,12 +49,16 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 	}).Info("资产管理模块初始化完成")
 
 	return &AssetModule{
+		// Handlers
 		AssetHostHandler:    hostHandler,
 		AssetNetworkHandler: networkHandler,
 		AssetPolicyHandler:  policyHandler,
+		AssetRawHandler:     rawHandler,
 
+		// Services
 		AssetHostService:    hostService,
 		AssetNetworkService: networkService,
 		AssetPolicyService:  policyService,
+		AssetRawService:     rawService,
 	}
 }

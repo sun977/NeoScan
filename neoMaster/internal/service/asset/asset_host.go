@@ -8,6 +8,14 @@ import (
 	assetrepo "neomaster/internal/repo/mysql/asset"
 )
 
+// // AssetHostServiceInterface 资产主机服务接口
+// // 定义资产主机服务的方法，用于处理主机和服务资产的业务逻辑
+// type AssetHostServiceInterface interface {
+// 	CreateHost(ctx context.Context, host *asset.AssetHost) error
+// 	GetHost(ctx context.Context, id uint64) (*asset.AssetHost, error)
+// 	UpdateHost(ctx context.Context, host *asset.AssetHost) error
+// }
+
 // AssetHostService 资产主机服务
 // 负责处理主机和服务资产的业务逻辑
 type AssetHostService struct {

@@ -30,6 +30,7 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 	networkRepo := assetRepo.NewAssetNetworkRepository(db)
 	policyRepo := assetRepo.NewAssetPolicyRepository(db)
 	webRepo := assetRepo.NewAssetWebRepository(db)
+	vulnRepo := assetRepo.NewAssetVulnRepository(db)
 
 	// 2. Service 初始化
 	rawService := assetService.NewRawAssetService(rawRepo)
@@ -37,6 +38,7 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 	networkService := assetService.NewAssetNetworkService(networkRepo)
 	policyService := assetService.NewAssetPolicyService(policyRepo)
 	webService := assetService.NewAssetWebService(webRepo)
+	vulnService := assetService.NewAssetVulnService(vulnRepo)
 
 	// 3. Handler 初始化
 	rawHandler := assetHandler.NewRawAssetHandler(rawService)
@@ -44,6 +46,7 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 	networkHandler := assetHandler.NewAssetNetworkHandler(networkService)
 	policyHandler := assetHandler.NewAssetPolicyHandler(policyService)
 	webHandler := assetHandler.NewAssetWebHandler(webService)
+	vulnHandler := assetHandler.NewAssetVulnHandler(vulnService)
 
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
@@ -57,11 +60,13 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 		AssetNetworkHandler: networkHandler,
 		AssetPolicyHandler:  policyHandler,
 		AssetWebHandler:     webHandler,
+		AssetVulnHandler:    vulnHandler,
 
 		AssetRawService:     rawService,
 		AssetHostService:    hostService,
 		AssetNetworkService: networkService,
 		AssetPolicyService:  policyService,
 		AssetWebService:     webService,
+		AssetVulnService:    vulnService,
 	}
 }

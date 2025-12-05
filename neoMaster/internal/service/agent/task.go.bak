@@ -8,7 +8,7 @@ import (
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
 	agentRepository "neomaster/internal/repo/mysql/agent"
-	taskDispatcher "neomaster/internal/service/orchestrator/task_dispatcher"
+	taskDispatcher "neomaster/internal/service/orchestrator/core/task_dispatcher"
 )
 
 // AgentTaskService Agent任务服务接口

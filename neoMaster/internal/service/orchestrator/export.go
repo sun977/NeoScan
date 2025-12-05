@@ -2,8 +2,8 @@ package orchestrator
 
 import (
 	"neomaster/internal/service/orchestrator/allocator"
-	"neomaster/internal/service/orchestrator/core/task_dispatcher"
 	"neomaster/internal/service/orchestrator/policy"
+	"neomaster/internal/service/orchestrator/task_dispatcher"
 )
 
 // 核心组件接口导出 (Facade Pattern)
@@ -18,3 +18,6 @@ type PolicyEnforcer = policy.PolicyEnforcer
 
 // ResourceAllocator 资源调度器接口别名
 type ResourceAllocator = allocator.ResourceAllocator
+
+// AgentTaskService Agent任务服务接口别名
+type AgentTaskService = task_dispatcher.AgentTaskService

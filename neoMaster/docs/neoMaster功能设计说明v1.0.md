@@ -1098,7 +1098,54 @@ Response:
 }
 ```
 
-### 4.8 系统管理接口
+### 4.8 编排器 Agent 任务接口 (Orchestrator Agent Task API)
+
+#### Agent 拉取任务
+```http
+GET /api/v1/orchestrator/agent/{agent_id}/tasks
+Authorization: Bearer <access_token>
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "agent_id": "agent-001",
+      "task_id": "task-123",
+      "task_type": "masscan",
+      "status": "assigned",
+      "assigned_at": "2025-12-06T10:00:00Z",
+      "message": "Task fetched successfully",
+      "tool_name": "masscan",
+      "tool_params": "{\"rate\":\"1000\",\"ports\":\"80,443\"}",
+      "input_target": "192.168.1.0/24"
+    }
+  ]
+}
+```
+
+#### Agent 更新任务状态
+```http
+POST /api/v1/orchestrator/agent/{agent_id}/tasks/{task_id}/status
+Content-Type: application/json
+Authorization: Bearer <access_token>
+
+{
+  "status": "running",
+  "result": "{\"progress\": 50}",
+  "error": ""
+}
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": null
+}
+```
+
+### 4.9 系统管理接口
 
 #### 用户管理
 ```http
@@ -1303,6 +1350,53 @@ Response:
       }
     ]
   }
+}
+```
+
+### 4.10 编排器 Agent 任务接口
+
+#### 拉取任务
+```http
+GET /api/v1/orchestrator/agent/{agent_id}/tasks
+Authorization: Bearer <access_token>
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "agent_id": "agent-001",
+      "task_id": "task-123",
+      "task_type": "masscan",
+      "status": "assigned",
+      "assigned_at": "2025-12-06T10:00:00Z",
+      "message": "Task fetched successfully",
+      "tool_name": "masscan",
+      "tool_params": "{\"rate\":\"1000\",\"ports\":\"80,443\"}",
+      "input_target": "192.168.1.0/24"
+    }
+  ]
+}
+```
+
+#### 更新任务状态
+```http
+POST /api/v1/orchestrator/agent/{agent_id}/tasks/{task_id}/status
+Content-Type: application/json
+Authorization: Bearer <access_token>
+
+{
+  "status": "running",
+  "result": "",
+  "error_msg": ""
+}
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": null
 }
 ```
 

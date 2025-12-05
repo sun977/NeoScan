@@ -39,6 +39,27 @@ func (r *WorkflowRepository) CreateWorkflow(ctx context.Context, workflow *orcmo
 	return nil
 }
 
+// GetWorkflowsByProjectID 获取项目关联的所有工作流
+func (r *WorkflowRepository) GetWorkflowsByProjectID(ctx context.Context, projectID uint64) ([]*orcmodel.Workflow, error) {
+	var workflows []*orcmodel.Workflow
+	// 使用 Join 查询关联的工作流
+	err := r.db.WithContext(ctx).
+		Table("workflows").
+		Joins("JOIN project_workflows ON workflows.id = project_workflows.workflow_id").
+		Where("project_workflows.project_id = ?", projectID).
+		Order("project_workflows.sort_order ASC").
+		Find(&workflows).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_workflows_by_project_id", "REPO", map[string]interface{}{
+			"operation":  "get_workflows_by_project_id",
+			"project_id": projectID,
+		})
+		return nil, err
+	}
+	return workflows, nil
+}
+
 // GetWorkflowByID 根据ID获取工作流
 func (r *WorkflowRepository) GetWorkflowByID(ctx context.Context, id uint64) (*orcmodel.Workflow, error) {
 	var workflow orcmodel.Workflow

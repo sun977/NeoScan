@@ -45,11 +45,16 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentManageGroup.GET("/:id/config", r.agentGetConfigPlaceholder)    // ✅ 获取Agent配置 [Master端从数据库读取配置]
 		agentManageGroup.PUT("/:id/config", r.agentUpdateConfigPlaceholder) // 🟡 更新Agent配置 [Master端存储配置 + 🔴 推送到Agent端应用]
 
-		// ==================== Agent任务管理路由（🔴 需要Agent端配合实现 - Agent端执行任务） ====================
-		agentManageGroup.GET("/:id/tasks", r.agentGetTasksPlaceholder)               // 🔴 获取Agent当前任务 [需要Agent端返回正在执行的任务状态]
-		agentManageGroup.POST("/:id/tasks", r.agentCreateTaskPlaceholder)            // 🔴 分配任务给Agent [需要Master->Agent通信，下发扫描任务]
-		agentManageGroup.GET("/:id/tasks/:task_id", r.agentGetTaskPlaceholder)       // 🔴 获取任务执行状态 [需要Agent端返回任务执行进度和结果]
-		agentManageGroup.DELETE("/:id/tasks/:task_id", r.agentDeleteTaskPlaceholder) // 🔴 取消Agent任务 [需要Master->Agent通信，取消正在执行的任务]
+		// ==================== Agent任务管理路由 ====================
+		// ============== Agent任务管理路由（🔴 需要Agent端配合实现 - Agent端执行任务） ====================
+		// agentManageGroup.GET("/:id/tasks", r.agentHandler.FetchTasks)                        // 🔴 获取Agent当前任务 [需要Agent端返回正在执行的任务状态]
+		// agentManageGroup.POST("/:id/tasks/:task_id/status", r.agentHandler.UpdateTaskStatus) // 🔴 更新任务状态 [Agent端上报任务状态]
+		// agentManageGroup.POST("/:id/tasks", r.agentCreateTaskPlaceholder)                    // 🔴 分配任务给Agent [需要Master->Agent通信，下发扫描任务]
+		// agentManageGroup.GET("/:id/tasks/:task_id", r.agentGetTaskPlaceholder)               // 🔴 获取任务执行状态 [需要Agent端返回任务执行进度和结果]
+		// agentManageGroup.DELETE("/:id/tasks/:task_id", r.agentDeleteTaskPlaceholder)         // 🔴 取消Agent任务 [需要Master->Agent通信，取消正在执行的任务]
+		// 注意：Agent任务管理路由已迁移至 Orchestrator 模块 (orchestrator_routers.go)
+		// 路径保持 /agent/:id/tasks 不变，但由 Orchestrator 的 AgentTaskHandler 处理
+		// 此处不再注册，避免路由冲突
 
 		// ==================== Agent性能指标管理路由（🟡 混合实现 - Master读库 + Agent接口） ====================
 		// 设计说明：
@@ -178,48 +183,6 @@ func (r *Router) agentUpdateConfigPlaceholder(c *gin.Context) {
 }
 
 // ==================== Agent任务管理占位符 ====================
-
-// agentGetTasksPlaceholder 获取Agent任务列表占位符
-func (r *Router) agentGetTasksPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取Agent任务列表功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentCreateTaskPlaceholder 为Agent创建任务占位符
-func (r *Router) agentCreateTaskPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "为Agent创建任务功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentGetTaskPlaceholder 获取特定任务信息占位符
-func (r *Router) agentGetTaskPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "获取特定任务信息功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"task_id":   c.Param("task_id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
-
-// agentDeleteTaskPlaceholder 删除Agent任务占位符
-func (r *Router) agentDeleteTaskPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "删除Agent任务功能待实现",
-		"status":    "placeholder",
-		"agent_id":  c.Param("id"),
-		"task_id":   c.Param("task_id"),
-		"timestamp": logger.NowFormatted(),
-	})
-}
 
 // ==================== Agent日志管理占位符 ====================
 

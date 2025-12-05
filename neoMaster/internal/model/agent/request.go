@@ -100,6 +100,16 @@ type AgentCapabilityRequest struct {
 	Capability string `json:"capability" validate:"required"` // 能力名称，必填
 }
 
+// AgentTaskResultRequest Agent任务结果上报请求结构
+type AgentTaskResultRequest struct {
+	TaskID      string      `json:"task_id" validate:"required"` // 任务ID，必填
+	AgentID     string      `json:"agent_id" validate:"required"` // AgentID，必填
+	Status      string      `json:"status" validate:"required"`  // 任务状态 (running, completed, failed)
+	Result      interface{} `json:"result"`                      // 任务结果数据 (JSON对象或字符串)
+	Error       string      `json:"error"`                       // 错误信息
+	CompletedAt int64       `json:"completed_at"`                // 完成时间戳
+}
+
 // // UpdateAgentTagsRequest 更新指定 Agent 标签列表请求结构
 // type UpdateAgentTagsRequest struct {
 // 	AgentID string   `json:"agent_id" validate:"required"` // Agent业务ID，必填

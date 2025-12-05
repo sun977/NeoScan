@@ -51,11 +51,12 @@ type Router struct {
 	assetUnifiedHandler *assetHandler.AssetUnifiedHandler
 	assetScanHandler    *assetHandler.AssetScanHandler
 
-	// 扫描配置相关Handler
+	// 编排器相关Handler
 	projectHandler          *orchestratorHandler.ProjectHandler
 	workflowHandler         *orchestratorHandler.WorkflowHandler
 	scanStageHandler        *orchestratorHandler.ScanStageHandler
 	scanToolTemplateHandler *orchestratorHandler.ScanToolTemplateHandler
+	agentTaskHandler        *orchestratorHandler.AgentTaskHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -96,12 +97,22 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	permissionHandler := rbacModule.PermissionHandler
 	sessionHandler := systemHandler.NewSessionHandler(authModule.SessionService)
 
-	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
-	agentModule := setup.BuildAgentModule(db)
 	// 通过 setup.BuildAssetModule 初始化资产管理模块
 	assetModule := setup.BuildAssetModule(db)
+
 	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块
 	orchestratorModule := setup.BuildOrchestratorModule(db)
+
+	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
+	// TaskDispatcher 现已完全由 Orchestrator 管理，AgentModule 不再需要注入
+	agentModule := setup.BuildAgentModule(db)
+
+	// 从 OrchestratorModule 中获取聚合后的处理器
+	projectHandler := orchestratorModule.ProjectHandler
+	workflowHandler := orchestratorModule.WorkflowHandler
+	scanStageHandler := orchestratorModule.ScanStageHandler
+	scanToolTemplateHandler := orchestratorModule.ScanToolTemplateHandler
+	agentTaskHandler := orchestratorModule.AgentTaskHandler
 
 	// 从 AgentModule 中获取聚合后的 Handler（分组功能已合并到 ManagerService 内部）
 	assetRawHandler := assetModule.AssetRawHandler
@@ -113,12 +124,6 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetVulnHandler := assetModule.AssetVulnHandler
 	assetUnifiedHandler := assetModule.AssetUnifiedHandler
 	assetScanHandler := assetModule.AssetScanHandler
-
-	// 从 OrchestratorModule 中获取聚合后的处理器
-	projectHandler := orchestratorModule.ProjectHandler
-	workflowHandler := orchestratorModule.WorkflowHandler
-	scanStageHandler := orchestratorModule.ScanStageHandler
-	scanToolTemplateHandler := orchestratorModule.ScanToolTemplateHandler
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -153,6 +158,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		workflowHandler:         workflowHandler,
 		scanStageHandler:        scanStageHandler,
 		scanToolTemplateHandler: scanToolTemplateHandler,
+		agentTaskHandler:        agentTaskHandler,
 	}
 }
 

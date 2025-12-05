@@ -41,6 +41,24 @@ func (r *ScanStageRepository) CreateStage(ctx context.Context, stage *orcmodel.S
 	return nil
 }
 
+// GetStagesByWorkflowID 获取工作流的所有阶段 (按顺序)
+func (r *ScanStageRepository) GetStagesByWorkflowID(ctx context.Context, workflowID uint64) ([]*orcmodel.ScanStage, error) {
+	var stages []*orcmodel.ScanStage
+	err := r.db.WithContext(ctx).
+		Where("workflow_id = ? AND enabled = ?", workflowID, true).
+		Order("stage_order ASC").
+		Find(&stages).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_stages_by_workflow_id", "REPO", map[string]interface{}{
+			"operation":   "get_stages_by_workflow_id",
+			"workflow_id": workflowID,
+		})
+		return nil, err
+	}
+	return stages, nil
+}
+
 // GetStageByID 根据ID获取扫描阶段
 func (r *ScanStageRepository) GetStageByID(ctx context.Context, id uint64) (*orcmodel.ScanStage, error) {
 	var stage orcmodel.ScanStage

@@ -125,6 +125,11 @@ type AgentTaskAssignmentResponse struct {
 	Status     AgentTaskStatus `json:"status"`      // 任务状态
 	AssignedAt time.Time       `json:"assigned_at"` // 任务分配时间
 	Message    string          `json:"message"`     // 响应消息
+
+	// 任务执行参数 (新增)
+	ToolName    string `json:"tool_name,omitempty"`    // 工具名称
+	ToolParams  string `json:"tool_params,omitempty"`  // 工具参数
+	InputTarget string `json:"input_target,omitempty"` // 输入目标
 }
 
 // AgentGroupResponse Agent分组响应结构

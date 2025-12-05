@@ -11,7 +11,7 @@ import (
 
 // BuildAgentModule 构建 Agent 管理模块
 // 责任边界：
-// - 初始化 Agent 相关的仓库与服务（Manager/Monitor/Config/Task）。
+// - 初始化 Agent 相关的仓库与服务（Manager/Monitor/Config）。
 // - 聚合为统一的 AgentHandler（内部组合上述服务），供 router_manager 进行路由注册。
 // - setup 层仅负责“依赖装配”，不在此处编写业务逻辑，实现与测试保持在各自的 package 中。
 //
@@ -31,19 +31,20 @@ func BuildAgentModule(db *gorm.DB) *AgentModule {
 
 	// 1) 初始化仓库（统一由 gorm 管理数据库连接与事务）
 	agentRepository := agentRepo.NewAgentRepository(db)
+	// TaskRepository 现由 Orchestrator 模块管理，Agent 模块仅做 Agent 本身管理
 
 	// 2) 初始化服务（遵循 Handler → Service → Repository 层级调用约束）
 	managerService := agentService.NewAgentManagerService(agentRepository)
 	monitorService := agentService.NewAgentMonitorService(agentRepository)
 	configService := agentService.NewAgentConfigService(agentRepository)
-	taskService := agentService.NewAgentTaskService(agentRepository)
+	// AgentTaskService 已移至 Orchestrator 模块
 
 	// 3) 聚合处理器（控制器）：分组功能已合并到 ManagerService 内部
 	agentHandler := agentHandler.NewAgentHandler(
 		managerService,
 		monitorService,
 		configService,
-		taskService,
+		// taskService, // 已移除
 	)
 
 	// 4) 聚合输出模块，便于路由层与其他模块按需使用
@@ -52,7 +53,6 @@ func BuildAgentModule(db *gorm.DB) *AgentModule {
 		ManagerService: managerService,
 		MonitorService: monitorService,
 		ConfigService:  configService,
-		TaskService:    taskService,
 	}
 
 	logger.WithFields(map[string]interface{}{

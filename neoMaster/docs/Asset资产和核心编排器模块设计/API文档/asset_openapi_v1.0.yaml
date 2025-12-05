@@ -1,0 +1,1084 @@
+openapi: 3.0.0
+info:
+  title: NeoScan Asset Management API
+  description: API for managing assets in NeoScan system, including raw assets, hosts, networks, policies, web assets, vulnerabilities, unified assets, and scan records.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Production server
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    APIResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Operation successful
+        data:
+          type: object
+        error:
+          type: string
+    
+    PaginationResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+        has_next:
+          type: boolean
+        has_previous:
+          type: boolean
+        data:
+          type: array
+          items:
+            type: object
+
+    RawAsset:
+      type: object
+      properties:
+        id:
+          type: integer
+        source:
+          type: string
+        content:
+          type: string
+        normalize_status:
+          type: string
+          enum: [pending, processed, failed]
+    
+    RawNetwork:
+      type: object
+      properties:
+        id:
+          type: integer
+        network:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+
+    AssetHost:
+      type: object
+      properties:
+        id:
+          type: integer
+        ip:
+          type: string
+        hostname:
+          type: string
+        os:
+          type: string
+        status:
+          type: string
+    
+    AssetNetwork:
+      type: object
+      properties:
+        id:
+          type: integer
+        cidr:
+          type: string
+        name:
+          type: string
+        scan_status:
+          type: string
+          enum: [idle, scanning, completed, failed]
+
+    AssetWhitelist:
+      type: object
+      properties:
+        id:
+          type: integer
+        whitelist_name:
+          type: string
+        target_type:
+          type: string
+          enum: [ip, domain, network]
+        target_value:
+          type: string
+        enabled:
+          type: boolean
+
+    AssetSkipPolicy:
+      type: object
+      properties:
+        id:
+          type: integer
+        policy_name:
+          type: string
+        match_criteria:
+          type: string
+        enabled:
+          type: boolean
+
+    AssetWeb:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        domain:
+          type: string
+        port:
+          type: integer
+        title:
+          type: string
+    
+    AssetVuln:
+      type: object
+      properties:
+        id:
+          type: integer
+        cve:
+          type: string
+        title:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low, info]
+        status:
+          type: string
+          enum: [active, fixed, ignored]
+
+    AssetUnified:
+      type: object
+      properties:
+        id:
+          type: integer
+        ip:
+          type: string
+        source:
+          type: string
+        asset_type:
+          type: string
+
+    AssetScan:
+      type: object
+      properties:
+        id:
+          type: integer
+        network_id:
+          type: integer
+        agent_id:
+          type: integer
+        scan_status:
+          type: string
+          enum: [pending, running, completed, failed]
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Raw Assets
+  /asset/raw-assets:
+    post:
+      summary: Create Raw Asset
+      tags: [Raw Assets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RawAsset'
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+    get:
+      summary: List Raw Assets
+      tags: [Raw Assets]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+        - in: query
+          name: source
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PaginationResponse'
+
+  /asset/raw-assets/{id}:
+    get:
+      summary: Get Raw Asset
+      tags: [Raw Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    
+  /asset/raw-assets/{id}/status:
+    patch:
+      summary: Update Raw Asset Status
+      tags: [Raw Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                err_msg:
+                  type: string
+      responses:
+        200:
+          description: Success
+
+  # Raw Networks
+  /asset/raw-networks:
+    post:
+      summary: Create Raw Network
+      tags: [Raw Networks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RawNetwork'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Raw Networks
+      tags: [Raw Networks]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+
+  /asset/raw-networks/{id}/approve:
+    post:
+      summary: Approve Raw Network
+      tags: [Raw Networks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  /asset/raw-networks/{id}/reject:
+    post:
+      summary: Reject Raw Network
+      tags: [Raw Networks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  # Hosts
+  /asset/hosts:
+    post:
+      summary: Create Host
+      tags: [Hosts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetHost'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Hosts
+      tags: [Hosts]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: ip
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+
+  /asset/hosts/{id}:
+    get:
+      summary: Get Host
+      tags: [Hosts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Host
+      tags: [Hosts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetHost'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Host
+      tags: [Hosts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  /asset/hosts/{id}/services:
+    get:
+      summary: List Services by Host
+      tags: [Hosts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  # Networks
+  /asset/networks:
+    post:
+      summary: Create Network
+      tags: [Networks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetNetwork'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Networks
+      tags: [Networks]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  /asset/networks/{id}:
+    get:
+      summary: Get Network
+      tags: [Networks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Network
+      tags: [Networks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetNetwork'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Network
+      tags: [Networks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  /asset/networks/{id}/scan-status:
+    patch:
+      summary: Update Network Scan Status
+      tags: [Networks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        200:
+          description: Success
+
+  # Policies - Whitelists
+  /asset/policies/whitelists:
+    post:
+      summary: Create Whitelist
+      tags: [Policies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetWhitelist'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Whitelists
+      tags: [Policies]
+      responses:
+        200:
+          description: Success
+
+  /asset/policies/whitelists/{id}:
+    get:
+      summary: Get Whitelist
+      tags: [Policies]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Whitelist
+      tags: [Policies]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetWhitelist'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Whitelist
+      tags: [Policies]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  # Policies - Skip Policies
+  /asset/policies/skip-policies:
+    post:
+      summary: Create Skip Policy
+      tags: [Policies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetSkipPolicy'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Skip Policies
+      tags: [Policies]
+      responses:
+        200:
+          description: Success
+
+  /asset/policies/skip-policies/{id}:
+    get:
+      summary: Get Skip Policy
+      tags: [Policies]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Skip Policy
+      tags: [Policies]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetSkipPolicy'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Skip Policy
+      tags: [Policies]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  # Web Assets
+  /asset/webs:
+    post:
+      summary: Create Web Asset
+      tags: [Web Assets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetWeb'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Web Assets
+      tags: [Web Assets]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: domain
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+
+  /asset/webs/{id}:
+    get:
+      summary: Get Web Asset
+      tags: [Web Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Web Asset
+      tags: [Web Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetWeb'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Web Asset
+      tags: [Web Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  /asset/webs/{id}/detail:
+    get:
+      summary: Get Web Asset Detail
+      tags: [Web Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Save Web Asset Detail
+      tags: [Web Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        200:
+          description: Success
+
+  # Vulnerabilities
+  /asset/vulns:
+    post:
+      summary: Create Vulnerability
+      tags: [Vulnerabilities]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetVuln'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Vulnerabilities
+      tags: [Vulnerabilities]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: severity
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+
+  /asset/vulns/{id}:
+    get:
+      summary: Get Vulnerability
+      tags: [Vulnerabilities]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Vulnerability
+      tags: [Vulnerabilities]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetVuln'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Vulnerability
+      tags: [Vulnerabilities]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  # PoC
+  /asset/vulns/pocs:
+    post:
+      summary: Create PoC
+      tags: [Vulnerabilities]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        201:
+          description: Created
+
+  /asset/vulns/pocs/{id}:
+    get:
+      summary: Get PoC
+      tags: [Vulnerabilities]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update PoC
+      tags: [Vulnerabilities]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete PoC
+      tags: [Vulnerabilities]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  /asset/vulns/{id}/pocs:
+    get:
+      summary: List PoCs by Vulnerability
+      tags: [Vulnerabilities]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  # Unified Assets
+  /asset/unified:
+    post:
+      summary: Create Unified Asset
+      tags: [Unified Assets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetUnified'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Unified Assets
+      tags: [Unified Assets]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: ip
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+
+  /asset/unified/upsert:
+    post:
+      summary: Upsert Unified Asset
+      tags: [Unified Assets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetUnified'
+      responses:
+        200:
+          description: Success
+
+  /asset/unified/{id}:
+    get:
+      summary: Get Unified Asset
+      tags: [Unified Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Unified Asset
+      tags: [Unified Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetUnified'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Unified Asset
+      tags: [Unified Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  # Scans
+  /asset/scans:
+    post:
+      summary: Create Scan Record
+      tags: [Scans]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetScan'
+      responses:
+        201:
+          description: Created
+    get:
+      summary: List Scan Records
+      tags: [Scans]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+
+  /asset/scans/{id}:
+    get:
+      summary: Get Scan Record
+      tags: [Scans]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+    put:
+      summary: Update Scan Record
+      tags: [Scans]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetScan'
+      responses:
+        200:
+          description: Success
+    delete:
+      summary: Delete Scan Record
+      tags: [Scans]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success
+
+  /asset/scans/latest/{network_id}:
+    get:
+      summary: Get Latest Scan by Network ID
+      tags: [Scans]
+      parameters:
+        - in: path
+          name: network_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Success

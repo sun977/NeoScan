@@ -10,6 +10,7 @@ CREATE TABLE `projects` (
   `name` varchar(100) NOT NULL COMMENT 'é¡¹ç›®å”¯ä¸€æ ‡è¯†å',
   `display_name` varchar(200) DEFAULT NULL COMMENT 'æ˜¾ç¤ºåç§°',
   `description` text COMMENT 'é¡¹ç›®æè¿°',
+  `target_scope` text COMMENT 'ç›®æ ‡èŒƒå›´(CIDR/Domainåˆ—è¡¨)',
   `status` varchar(20) DEFAULT 'idle' COMMENT 'è¿è¡ŒçŠ¶æ€',
   `enabled` tinyint(1) DEFAULT '1' COMMENT 'æ˜¯å¦å¯ç”¨',
   `schedule_type` varchar(20) DEFAULT 'immediate' COMMENT 'è°ƒåº¦ç±»å‹',
@@ -166,3 +167,40 @@ CREATE TABLE `scan_tool_templates` (
   KEY `idx_scan_tool_templates_tool_name` (`tool_name`),
   KEY `idx_scan_tool_templates_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='æ‰«æå·¥å…·å‚æ•°æ¨¡æ¿è¡¨';
+
+-- ----------------------------
+-- Table structure for agent_tasks
+-- ----------------------------
+DROP TABLE IF EXISTS \gent_tasks\;
+CREATE TABLE \gent_tasks\ (
+  \id\ bigint unsigned NOT NULL AUTO_INCREMENT,
+  \created_at\ datetime(3) DEFAULT NULL,
+  \updated_at\ datetime(3) DEFAULT NULL,
+  \deleted_at\ datetime(3) DEFAULT NULL,
+  \	ask_id\ varchar(100) NOT NULL COMMENT 'ÈÎÎñÎ¨Ò»±êÊ¶ID',
+  \project_id\ bigint unsigned NOT NULL COMMENT 'ËùÊôÏîÄ¿ID',
+  \workflow_id\ bigint unsigned NOT NULL COMMENT 'ËùÊô¹¤×÷Á÷ID',
+  \stage_id\ bigint unsigned NOT NULL COMMENT 'ËùÊô½×¶ÎID',
+  \gent_id\ varchar(100) DEFAULT NULL COMMENT 'Ö´ĞĞAgentµÄID',
+  \status\ varchar(20) DEFAULT 'pending' COMMENT 'ÈÎÎñ×´Ì¬',
+  \priority\ int DEFAULT '0' COMMENT 'ÈÎÎñÓÅÏÈ¼¶',
+  \	ask_type\ varchar(20) DEFAULT 'tool' COMMENT 'ÈÎÎñÀàĞÍ',
+  \	ool_name\ varchar(100) DEFAULT NULL COMMENT '¹¤¾ßÃû³Æ',
+  \	ool_params\ text COMMENT '¹¤¾ß²ÎÊı',
+  \input_target\ json DEFAULT NULL COMMENT 'ÊäÈëÄ¿±ê(JSON)',
+  \equired_tags\ json DEFAULT NULL COMMENT 'Ö´ĞĞËùĞè±êÇ©(JSON)',
+  \output_result\ json DEFAULT NULL COMMENT 'Êä³ö½á¹ûÕªÒª(JSON)',
+  \error_msg\ text COMMENT '´íÎóĞÅÏ¢',
+  \ssigned_at\ datetime(3) DEFAULT NULL COMMENT '·ÖÅäÊ±¼ä',
+  \started_at\ datetime(3) DEFAULT NULL COMMENT '¿ªÊ¼Ö´ĞĞÊ±¼ä',
+  \inished_at\ datetime(3) DEFAULT NULL COMMENT 'Íê³ÉÊ±¼ä',
+  \	imeout\ int DEFAULT '3600' COMMENT '³¬Ê±Ê±¼ä(Ãë)',
+  PRIMARY KEY (\id\),
+  UNIQUE KEY \idx_agent_tasks_task_id\ (\	ask_id\),
+  KEY \idx_agent_tasks_project_id\ (\project_id\),
+  KEY \idx_agent_tasks_workflow_id\ (\workflow_id\),
+  KEY \idx_agent_tasks_stage_id\ (\stage_id\),
+  KEY \idx_agent_tasks_agent_id\ (\gent_id\),
+  KEY \idx_agent_tasks_deleted_at\ (\deleted_at\)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AgentÈÎÎñ±í';
+

@@ -151,28 +151,6 @@ CREATE TABLE `agent_group_members` (
     CONSTRAINT `fk_agent_group_members_group` FOREIGN KEY (`group_id`) REFERENCES `agent_groups` (`group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent分组成员关联表';
 
--- 7. Agent任务分配表 (agent_task_assignments)
--- 对应Go结构体: AgentTaskAssignment (使用BaseModel)
-CREATE TABLE `agent_task_assignments` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
-    `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID',
-    `task_id` varchar(100) NOT NULL COMMENT '任务ID',
-    `task_type` varchar(50) NOT NULL COMMENT '任务类型',
-    `assigned_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '任务分配时间',
-    `started_at` datetime DEFAULT NULL COMMENT '任务开始时间',
-    `completed_at` datetime DEFAULT NULL COMMENT '任务完成时间',
-    `status` varchar(20) NOT NULL DEFAULT 'assigned' COMMENT '任务状态:assigned-已分配,running-运行中,completed-已完成,failed-已失败',
-    `result` text DEFAULT NULL COMMENT '任务执行结果',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
-    PRIMARY KEY (`id`),
-    KEY `idx_agent_task_assignments_agent_id` (`agent_id`),
-    KEY `idx_agent_task_assignments_task_id` (`task_id`),
-    KEY `idx_agent_task_assignments_status` (`status`),
-    KEY `idx_agent_task_assignments_assigned_at` (`assigned_at`),
-    KEY `idx_agent_task_assignments_task_type` (`task_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent任务分配表';
-
 -- 8. Agent扫描类型表 (agent_scan_types)
 -- 对应Go结构体: ScanType (使用BaseModel)
 CREATE TABLE `agent_scan_types` (

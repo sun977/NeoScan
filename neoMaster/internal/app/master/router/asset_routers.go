@@ -19,6 +19,7 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 	// 使用 JWT 中间件保护
 	if r.middlewareManager != nil {
 		assetGroup.Use(r.middlewareManager.GinJWTAuthMiddleware())
+		assetGroup.Use(r.middlewareManager.GinUserActiveMiddleware())
 	}
 
 	{
@@ -114,11 +115,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			vulns.GET("", r.assetVulnHandler.ListVulns)         // 获取漏洞列表
 
 			// PoC管理
-			vulns.POST("/pocs", r.assetVulnHandler.CreatePoc)              // 创建PoC
-			vulns.GET("/pocs/:id", r.assetVulnHandler.GetPoc)              // 获取PoC详情
-			vulns.PUT("/pocs/:id", r.assetVulnHandler.UpdatePoc)           // 更新PoC
-			vulns.DELETE("/pocs/:id", r.assetVulnHandler.DeletePoc)        // 删除PoC
-			vulns.GET("/:id/pocs", r.assetVulnHandler.ListPocsByVuln)      // 获取漏洞关联的PoC列表
+			vulns.POST("/pocs", r.assetVulnHandler.CreatePoc)         // 创建PoC
+			vulns.GET("/pocs/:id", r.assetVulnHandler.GetPoc)         // 获取PoC详情
+			vulns.PUT("/pocs/:id", r.assetVulnHandler.UpdatePoc)      // 更新PoC
+			vulns.DELETE("/pocs/:id", r.assetVulnHandler.DeletePoc)   // 删除PoC
+			vulns.GET("/:id/pocs", r.assetVulnHandler.ListPocsByVuln) // 获取漏洞关联的PoC列表
 		}
 
 		// 统一资产视图

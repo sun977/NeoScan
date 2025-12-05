@@ -40,7 +40,7 @@ Controller/Handler → Service → Repository → Database
 2. **认证授权模块**：JWT + RBAC权限控制
 3. **配置管理模块**：支持热重载的多环境配置
 4. **数据模型**：
-   - Agent相关：Agent、AgentConfig、AgentMetrics、AgentTaskAssignment
+   - Agent相关：Agent、AgentConfig、AgentMetrics
    - 扫描类型：AgentScanType枚举（11种扫描类型）
    - 任务状态：AgentTaskStatus枚举
 

@@ -171,36 +171,35 @@ CREATE TABLE `scan_tool_templates` (
 -- ----------------------------
 -- Table structure for agent_tasks
 -- ----------------------------
-DROP TABLE IF EXISTS \gent_tasks\;
-CREATE TABLE \gent_tasks\ (
-  \id\ bigint unsigned NOT NULL AUTO_INCREMENT,
-  \created_at\ datetime(3) DEFAULT NULL,
-  \updated_at\ datetime(3) DEFAULT NULL,
-  \deleted_at\ datetime(3) DEFAULT NULL,
-  \	ask_id\ varchar(100) NOT NULL COMMENT 'ÈÎÎñÎ¨Ò»±êÊ¶ID',
-  \project_id\ bigint unsigned NOT NULL COMMENT 'ËùÊôÏîÄ¿ID',
-  \workflow_id\ bigint unsigned NOT NULL COMMENT 'ËùÊô¹¤×÷Á÷ID',
-  \stage_id\ bigint unsigned NOT NULL COMMENT 'ËùÊô½×¶ÎID',
-  \gent_id\ varchar(100) DEFAULT NULL COMMENT 'Ö´ĞĞAgentµÄID',
-  \status\ varchar(20) DEFAULT 'pending' COMMENT 'ÈÎÎñ×´Ì¬',
-  \priority\ int DEFAULT '0' COMMENT 'ÈÎÎñÓÅÏÈ¼¶',
-  \	ask_type\ varchar(20) DEFAULT 'tool' COMMENT 'ÈÎÎñÀàĞÍ',
-  \	ool_name\ varchar(100) DEFAULT NULL COMMENT '¹¤¾ßÃû³Æ',
-  \	ool_params\ text COMMENT '¹¤¾ß²ÎÊı',
-  \input_target\ json DEFAULT NULL COMMENT 'ÊäÈëÄ¿±ê(JSON)',
-  \equired_tags\ json DEFAULT NULL COMMENT 'Ö´ĞĞËùĞè±êÇ©(JSON)',
-  \output_result\ json DEFAULT NULL COMMENT 'Êä³ö½á¹ûÕªÒª(JSON)',
-  \error_msg\ text COMMENT '´íÎóĞÅÏ¢',
-  \ssigned_at\ datetime(3) DEFAULT NULL COMMENT '·ÖÅäÊ±¼ä',
-  \started_at\ datetime(3) DEFAULT NULL COMMENT '¿ªÊ¼Ö´ĞĞÊ±¼ä',
-  \inished_at\ datetime(3) DEFAULT NULL COMMENT 'Íê³ÉÊ±¼ä',
-  \	imeout\ int DEFAULT '3600' COMMENT '³¬Ê±Ê±¼ä(Ãë)',
-  PRIMARY KEY (\id\),
-  UNIQUE KEY \idx_agent_tasks_task_id\ (\	ask_id\),
-  KEY \idx_agent_tasks_project_id\ (\project_id\),
-  KEY \idx_agent_tasks_workflow_id\ (\workflow_id\),
-  KEY \idx_agent_tasks_stage_id\ (\stage_id\),
-  KEY \idx_agent_tasks_agent_id\ (\gent_id\),
-  KEY \idx_agent_tasks_deleted_at\ (\deleted_at\)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AgentÈÎÎñ±í';
-
+DROP TABLE IF EXISTS `agent_tasks`;
+CREATE TABLE `agent_tasks` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  `deleted_at` datetime(3) DEFAULT NULL,
+  `task_id` varchar(100) NOT NULL COMMENT 'ä»»åŠ¡å”¯ä¸€æ ‡è¯†ID',
+  `project_id` bigint unsigned NOT NULL COMMENT 'æ‰€å±é¡¹ç›®ID',
+  `workflow_id` bigint unsigned NOT NULL COMMENT 'æ‰€å±å·¥ä½œæµID',
+  `stage_id` bigint unsigned NOT NULL COMMENT 'æ‰€å±é˜¶æ®µID',
+  `agent_id` varchar(100) DEFAULT NULL COMMENT 'æ‰§è¡ŒAgentçš„ID',
+  `status` varchar(20) DEFAULT 'pending' COMMENT 'ä»»åŠ¡çŠ¶æ€(pending/assigned/running/completed/failed)',
+  `priority` int DEFAULT '0' COMMENT 'ä»»åŠ¡ä¼˜å…ˆçº§',
+  `task_type` varchar(20) DEFAULT 'tool' COMMENT 'ä»»åŠ¡ç±»å‹',
+  `tool_name` varchar(100) DEFAULT NULL COMMENT 'å·¥å…·åç§°',
+  `tool_params` text COMMENT 'å·¥å…·å‚æ•°',
+  `input_target` json DEFAULT NULL COMMENT 'è¾“å…¥ç›®æ ‡(JSON)',
+  `required_tags` json DEFAULT NULL COMMENT 'æ‰§è¡Œæ‰€éœ€æ ‡ç­¾(JSON)',
+  `output_result` json DEFAULT NULL COMMENT 'è¾“å‡ºç»“æœæ‘˜è¦(JSON)',
+  `error_msg` text COMMENT 'é”™è¯¯ä¿¡æ¯',
+  `assigned_at` datetime(3) DEFAULT NULL COMMENT 'åˆ†é…æ—¶é—´',
+  `started_at` datetime(3) DEFAULT NULL COMMENT 'å¼€å§‹æ‰§è¡Œæ—¶é—´',
+  `finished_at` datetime(3) DEFAULT NULL COMMENT 'å®Œæˆæ—¶é—´',
+  `timeout` int DEFAULT '3600' COMMENT 'è¶…æ—¶æ—¶é—´(ç§’)',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_agent_tasks_task_id` (`task_id`),
+  KEY `idx_agent_tasks_project_id` (`project_id`),
+  KEY `idx_agent_tasks_workflow_id` (`workflow_id`),
+  KEY `idx_agent_tasks_stage_id` (`stage_id`),
+  KEY `idx_agent_tasks_agent_id` (`agent_id`),
+  KEY `idx_agent_tasks_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agentä»»åŠ¡è¡¨';

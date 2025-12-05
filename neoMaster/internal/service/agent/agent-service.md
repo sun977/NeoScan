@@ -25,7 +25,7 @@
 ### 与任务编排器的集成分析
 结合 orchestrator 的设计，Agent模型能很好地支持：
 
-1. **分布式任务分发**：`AgentTaskAssignment`记录任务分配
+1. **分布式任务分发**：集成 Orchestrator 模块进行任务分配和管理
 2. **能力匹配**：`Capabilities`字段支持工具能力匹配
 3. **负载均衡**：`AgentMetrics`提供负载信息
 4. **配置推送**：`AgentConfig`支持版本化配置管理

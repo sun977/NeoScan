@@ -42,6 +42,17 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			rawNetworks.GET("", r.assetRawHandler.ListRawNetworks)                // 获取待处理网段列表
 		}
 
+		// 网段管理
+		networks := assetGroup.Group("/networks")
+		{
+			networks.POST("", r.assetNetworkHandler.CreateNetwork)                     // 创建网段
+			networks.GET("/:id", r.assetNetworkHandler.GetNetwork)                     // 获取网段详情
+			networks.PUT("/:id", r.assetNetworkHandler.UpdateNetwork)                  // 更新网段
+			networks.DELETE("/:id", r.assetNetworkHandler.DeleteNetwork)               // 删除网段
+			networks.GET("", r.assetNetworkHandler.ListNetworks)                       // 获取网段列表
+			networks.PATCH("/:id/scan-status", r.assetNetworkHandler.UpdateScanStatus) // 更新网段扫描状态
+		}
+
 		// 主机资产管理
 		hosts := assetGroup.Group("/hosts")
 		{
@@ -55,15 +66,18 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			hosts.GET("/:id/services", r.assetHostHandler.ListServicesByHost)
 		}
 
-		// 网段管理
-		networks := assetGroup.Group("/networks")
+		// Web资产管理
+		webs := assetGroup.Group("/webs")
 		{
-			networks.POST("", r.assetNetworkHandler.CreateNetwork)                     // 创建网段
-			networks.GET("/:id", r.assetNetworkHandler.GetNetwork)                     // 获取网段详情
-			networks.PUT("/:id", r.assetNetworkHandler.UpdateNetwork)                  // 更新网段
-			networks.DELETE("/:id", r.assetNetworkHandler.DeleteNetwork)               // 删除网段
-			networks.GET("", r.assetNetworkHandler.ListNetworks)                       // 获取网段列表
-			networks.PATCH("/:id/scan-status", r.assetNetworkHandler.UpdateScanStatus) // 更新网段扫描状态
+			webs.POST("", r.assetWebHandler.CreateWeb)       // 创建Web资产
+			webs.GET("/:id", r.assetWebHandler.GetWeb)       // 获取Web资产详情
+			webs.PUT("/:id", r.assetWebHandler.UpdateWeb)    // 更新Web资产
+			webs.DELETE("/:id", r.assetWebHandler.DeleteWeb) // 删除Web资产
+			webs.GET("", r.assetWebHandler.ListWebs)         // 获取Web资产列表
+
+			// Web详细信息
+			webs.GET("/:id/detail", r.assetWebHandler.GetWebDetail)  // 获取Web详细信息
+			webs.PUT("/:id/detail", r.assetWebHandler.SaveWebDetail) // 保存Web详细信息
 		}
 
 		// 资产策略管理
@@ -88,20 +102,6 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 				skipPolicies.DELETE("/:id", r.assetPolicyHandler.DeleteSkipPolicy) // 删除跳过策略
 				skipPolicies.GET("", r.assetPolicyHandler.ListSkipPolicies)        // 获取跳过策略列表
 			}
-		}
-
-		// Web资产管理
-		webs := assetGroup.Group("/webs")
-		{
-			webs.POST("", r.assetWebHandler.CreateWeb)       // 创建Web资产
-			webs.GET("/:id", r.assetWebHandler.GetWeb)       // 获取Web资产详情
-			webs.PUT("/:id", r.assetWebHandler.UpdateWeb)    // 更新Web资产
-			webs.DELETE("/:id", r.assetWebHandler.DeleteWeb) // 删除Web资产
-			webs.GET("", r.assetWebHandler.ListWebs)         // 获取Web资产列表
-
-			// Web详细信息
-			webs.GET("/:id/detail", r.assetWebHandler.GetWebDetail)  // 获取Web详细信息
-			webs.PUT("/:id/detail", r.assetWebHandler.SaveWebDetail) // 保存Web详细信息
 		}
 
 		// 漏洞资产管理

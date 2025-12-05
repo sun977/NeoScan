@@ -9,6 +9,7 @@ package setup
 import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
+	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/core/task_dispatcher"
 
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
@@ -38,10 +39,17 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 	// AgentTaskService 需要 AgentRepository
 	agentRepository := agentRepo.NewAgentRepository(db)
 
-	// 2. Core Components 初始化 (Policy Enforcer, Resource Allocator, Task Dispatcher)
+	// 2. Core Components 初始化 (Policy Enforcer, Resource Allocator, Task Dispatcher, Scheduler)
 	policyEnforcer := policy.NewPolicyEnforcer(projectRepo)
 	resourceAllocator := allocator.NewResourceAllocator()
 	dispatcher := task_dispatcher.NewTaskDispatcher(taskRepo, policyEnforcer, resourceAllocator)
+	schedulerService := scheduler.NewSchedulerService(
+		projectRepo,
+		workflowRepo,
+		scanStageRepo,
+		taskRepo,
+		agentRepository,
+	)
 
 	// 3. Service 初始化
 	projectService := orchestratorService.NewProjectService(projectRepo)
@@ -78,6 +86,7 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 		AgentTaskService:        agentTaskService,
 
 		// Core Components
-		TaskDispatcher: dispatcher,
+		TaskDispatcher:   dispatcher,
+		SchedulerService: schedulerService,
 	}
 }

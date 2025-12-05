@@ -62,7 +62,8 @@ func (r *AssetPolicyRepository) UpdateWhitelist(ctx context.Context, whitelist *
 	if whitelist == nil || whitelist.ID == 0 {
 		return errors.New("invalid whitelist or id")
 	}
-	err := r.db.WithContext(ctx).Save(whitelist).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(whitelist).Updates(whitelist).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_whitelist", "REPO", map[string]interface{}{
 			"operation": "update_whitelist",
@@ -162,7 +163,8 @@ func (r *AssetPolicyRepository) UpdateSkipPolicy(ctx context.Context, policy *as
 	if policy == nil || policy.ID == 0 {
 		return errors.New("invalid policy or id")
 	}
-	err := r.db.WithContext(ctx).Save(policy).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(policy).Updates(policy).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_skip_policy", "REPO", map[string]interface{}{
 			"operation": "update_skip_policy",

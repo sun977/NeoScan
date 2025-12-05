@@ -262,14 +262,14 @@ func (h *AssetScanHandler) ListScans(c *gin.Context) {
 
 	var networkID uint64
 	if val := c.Query("network_id"); val != "" {
-		if nid, err := strconv.ParseUint(val, 10, 64); err == nil {
+		if nid, err1 := strconv.ParseUint(val, 10, 64); err1 == nil {
 			networkID = nid
 		}
 	}
 
 	var agentID uint64
 	if val := c.Query("agent_id"); val != "" {
-		if aid, err := strconv.ParseUint(val, 10, 64); err == nil {
+		if aid, err2 := strconv.ParseUint(val, 10, 64); err2 == nil {
 			agentID = aid
 		}
 	}

@@ -63,7 +63,8 @@ func (r *AssetScanRepository) UpdateScan(ctx context.Context, scan *asset.AssetN
 	if scan == nil || scan.ID == 0 {
 		return errors.New("invalid scan or id")
 	}
-	err := r.db.WithContext(ctx).Save(scan).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(scan).Updates(scan).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_scan", "REPO", map[string]interface{}{
 			"operation": "update_scan",

@@ -12,7 +12,7 @@ type AssetWeb struct {
 
 	HostID     uint64     `json:"host_id" gorm:"index;default:0;comment:主机ID(可选)"`
 	Domain     string     `json:"domain" gorm:"size:255;index;comment:域名(可选)"`
-	URL        string     `json:"url" gorm:"size:2048;comment:完整的URL地址"` // URL可能很长
+	URL        string     `json:"url" gorm:"column:url;size:2048;comment:完整的URL地址"` // URL可能很长
 	AssetType  string     `json:"asset_type" gorm:"size:50;default:'web';comment:资产类型(web/api/domain)"`
 	TechStack  string     `json:"tech_stack" gorm:"type:json;comment:技术栈信息(JSON)"`
 	Status     string     `json:"status" gorm:"size:20;default:'active';comment:资产状态"`

@@ -118,3 +118,64 @@ func (r *ProjectRepository) ListProjects(ctx context.Context, page, pageSize int
 
 	return projects, total, nil
 }
+
+// -----------------------------------------------------------------------------
+// ProjectWorkflow (项目-工作流关联)
+// -----------------------------------------------------------------------------
+
+// AddWorkflowToProject 关联工作流到项目
+func (r *ProjectRepository) AddWorkflowToProject(ctx context.Context, projectID, workflowID uint64, sortOrder int) error {
+	association := &orcmodel.ProjectWorkflow{
+		ProjectID:  projectID,
+		WorkflowID: workflowID,
+		SortOrder:  sortOrder,
+	}
+	err := r.db.WithContext(ctx).Create(association).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "add_workflow_to_project", "REPO", map[string]interface{}{
+			"operation":   "add_workflow_to_project",
+			"project_id":  projectID,
+			"workflow_id": workflowID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveWorkflowFromProject 从项目中移除工作流
+func (r *ProjectRepository) RemoveWorkflowFromProject(ctx context.Context, projectID, workflowID uint64) error {
+	err := r.db.WithContext(ctx).
+		Where("project_id = ? AND workflow_id = ?", projectID, workflowID).
+		Delete(&orcmodel.ProjectWorkflow{}).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "remove_workflow_from_project", "REPO", map[string]interface{}{
+			"operation":   "remove_workflow_from_project",
+			"project_id":  projectID,
+			"workflow_id": workflowID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetWorkflowsByProjectID 获取项目关联的所有工作流
+func (r *ProjectRepository) GetWorkflowsByProjectID(ctx context.Context, projectID uint64) ([]*orcmodel.Workflow, error) {
+	var workflows []*orcmodel.Workflow
+	// 联表查询：通过 project_workflows 中间表连接 workflows 表
+	err := r.db.WithContext(ctx).
+		Table("workflows").
+		Select("workflows.*").
+		Joins("JOIN project_workflows ON workflows.id = project_workflows.workflow_id").
+		Where("project_workflows.project_id = ?", projectID).
+		Order("project_workflows.sort_order ASC").
+		Scan(&workflows).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_workflows_by_project_id", "REPO", map[string]interface{}{
+			"operation":  "get_workflows_by_project_id",
+			"project_id": projectID,
+		})
+		return nil, err
+	}
+	return workflows, nil
+}

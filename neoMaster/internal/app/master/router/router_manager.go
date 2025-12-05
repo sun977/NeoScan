@@ -15,6 +15,7 @@ import (
 	agentHandler "neomaster/internal/handler/agent"
 	assetHandler "neomaster/internal/handler/asset"
 	authHandler "neomaster/internal/handler/auth"
+	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 
 	// 统一使用项目封装的日志模块，便于采集规范字段与统一输出
@@ -51,11 +52,10 @@ type Router struct {
 	assetScanHandler    *assetHandler.AssetScanHandler
 
 	// 扫描配置相关Handler
-	// projectConfigHandler *orchestratorHandler.ProjectConfigHandler
-	// workflowHandler      *orchestratorHandler.WorkflowHandler
-	// scanToolHandler      *orchestratorHandler.ScanToolHandler
-	// scanRuleHandler      *orchestratorHandler.ScanRuleHandler
-	// ruleEngineHandler    *orchestratorHandler.RuleEngineHandler
+	projectHandler          *orchestratorHandler.ProjectHandler
+	workflowHandler         *orchestratorHandler.WorkflowHandler
+	scanStageHandler        *orchestratorHandler.ScanStageHandler
+	scanToolTemplateHandler *orchestratorHandler.ScanToolTemplateHandler
 }
 
 // NewRouter 创建路由管理器实例
@@ -100,8 +100,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	agentModule := setup.BuildAgentModule(db)
 	// 通过 setup.BuildAssetModule 初始化资产管理模块
 	assetModule := setup.BuildAssetModule(db)
-	// // 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块（项目配置/工作流/工具/规则/规则引擎聚合）
-	// orchestratorModule := setup.BuildOrchestratorModule(db)
+	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块
+	orchestratorModule := setup.BuildOrchestratorModule(db)
 
 	// 从 AgentModule 中获取聚合后的 Handler（分组功能已合并到 ManagerService 内部）
 	assetRawHandler := assetModule.AssetRawHandler
@@ -115,11 +115,10 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetScanHandler := assetModule.AssetScanHandler
 
 	// 从 OrchestratorModule 中获取聚合后的处理器
-	// projectConfigHandler := orchestratorModule.ProjectConfigHandler
-	// workflowHandler := orchestratorModule.WorkflowHandler
-	// scanToolHandler := orchestratorModule.ScanToolHandler
-	// scanRuleHandler := orchestratorModule.ScanRuleHandler
-	// ruleEngineHandler := orchestratorModule.RuleEngineHandler
+	projectHandler := orchestratorModule.ProjectHandler
+	workflowHandler := orchestratorModule.WorkflowHandler
+	scanStageHandler := orchestratorModule.ScanStageHandler
+	scanToolTemplateHandler := orchestratorModule.ScanToolTemplateHandler
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -149,12 +148,11 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		assetUnifiedHandler: assetUnifiedHandler,
 		assetScanHandler:    assetScanHandler,
 
-		// 扫描配置相关Handler
-		// projectConfigHandler: projectConfigHandler,
-		// workflowHandler:      workflowHandler,
-		// scanToolHandler:      scanToolHandler,
-		// scanRuleHandler:      scanRuleHandler,
-		// ruleEngineHandler:    ruleEngineHandler,
+		// 扫描编排器相关Handler
+		projectHandler:          projectHandler,
+		workflowHandler:         workflowHandler,
+		scanStageHandler:        scanStageHandler,
+		scanToolTemplateHandler: scanToolTemplateHandler,
 	}
 }
 
@@ -235,8 +233,8 @@ func (r *Router) registerRoutes() {
 	r.setupUserRoutes(v1)
 	// 管理员路由（需要管理员权限）
 	r.setupAdminRoutes(v1)
-	// // 扫描编排器配置路由（需要 JWT 认证）
-	// r.setupOrchestratorRoutes(v1)
+	// 扫描编排器配置路由（需要 JWT 认证）
+	r.setupOrchestratorRoutes(v1)
 	// Agent 管理路由（需要 JWT 认证）
 	r.setupAgentRoutes(v1)
 	// 资产管理路由（需要 JWT 认证）

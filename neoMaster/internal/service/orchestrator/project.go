@@ -116,3 +116,59 @@ func (s *ProjectService) ListProjects(ctx context.Context, page, pageSize int, s
 	}
 	return projects, total, nil
 }
+
+// AddWorkflowToProject 关联工作流到项目
+func (s *ProjectService) AddWorkflowToProject(ctx context.Context, projectID, workflowID uint64, sortOrder int) error {
+	// 检查项目是否存在
+	project, err := s.repo.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if project == nil {
+		return errors.New("project not found")
+	}
+
+	// 这里也可以检查 workflow 是否存在，但由于没有注入 WorkflowRepo，
+	// 且数据库层可能有外键约束，或者单纯信任输入（由前端保证有效性，或数据库报错），
+	// 暂时直接调用 Repo。若数据库无外键，可能会插入无效 workflow_id，需注意。
+	// 更好的做法是在 Service 初始化时注入 WorkflowRepo，或者在 ProjectRepo 中提供 CheckWorkflowExist。
+	// 鉴于当前架构，我们先直接尝试添加。
+
+	err = s.repo.AddWorkflowToProject(ctx, projectID, workflowID, sortOrder)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_workflow_to_project", "SERVICE", map[string]interface{}{
+			"operation":   "add_workflow_to_project",
+			"project_id":  projectID,
+			"workflow_id": workflowID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveWorkflowFromProject 从项目中移除工作流
+func (s *ProjectService) RemoveWorkflowFromProject(ctx context.Context, projectID, workflowID uint64) error {
+	err := s.repo.RemoveWorkflowFromProject(ctx, projectID, workflowID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_workflow_from_project", "SERVICE", map[string]interface{}{
+			"operation":   "remove_workflow_from_project",
+			"project_id":  projectID,
+			"workflow_id": workflowID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetProjectWorkflows 获取项目关联的所有工作流
+func (s *ProjectService) GetProjectWorkflows(ctx context.Context, projectID uint64) ([]*orcmodel.Workflow, error) {
+	workflows, err := s.repo.GetWorkflowsByProjectID(ctx, projectID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_project_workflows", "SERVICE", map[string]interface{}{
+			"operation":  "get_project_workflows",
+			"project_id": projectID,
+		})
+		return nil, err
+	}
+	return workflows, nil
+}

@@ -118,7 +118,7 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			vulns.GET("/pocs/:id", r.assetVulnHandler.GetPoc)              // 获取PoC详情
 			vulns.PUT("/pocs/:id", r.assetVulnHandler.UpdatePoc)           // 更新PoC
 			vulns.DELETE("/pocs/:id", r.assetVulnHandler.DeletePoc)        // 删除PoC
-			vulns.GET("/:vuln_id/pocs", r.assetVulnHandler.ListPocsByVuln) // 获取漏洞关联的PoC列表
+			vulns.GET("/:id/pocs", r.assetVulnHandler.ListPocsByVuln)      // 获取漏洞关联的PoC列表
 		}
 
 		// 统一资产视图

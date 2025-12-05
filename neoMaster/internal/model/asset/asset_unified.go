@@ -18,7 +18,7 @@ type AssetUnified struct {
 
 	// --- 核心索引 ---
 	ProjectID uint64 `json:"project_id" gorm:"index;not null;comment:所属项目ID"` // 用于项目数据隔离，场景：用户打开“项目A的资产列表”
-	IP        string `json:"ip" gorm:"size:50;index;not null;comment:IP地址"`
+	IP        string `json:"ip" gorm:"column:ip;size:50;index;not null;comment:IP地址"`
 	Port      int    `json:"port" gorm:"index;not null;comment:端口号"`
 
 	// --- Host 层信息 ---

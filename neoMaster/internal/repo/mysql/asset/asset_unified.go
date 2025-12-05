@@ -63,7 +63,8 @@ func (r *AssetUnifiedRepository) UpdateUnifiedAsset(ctx context.Context, asset *
 	if asset == nil || asset.ID == 0 {
 		return errors.New("invalid asset or id")
 	}
-	err := r.db.WithContext(ctx).Save(asset).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(asset).Updates(asset).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_unified_asset", "REPO", map[string]interface{}{
 			"operation": "update_unified_asset",

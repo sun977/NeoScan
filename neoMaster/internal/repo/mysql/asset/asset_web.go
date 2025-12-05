@@ -80,7 +80,8 @@ func (r *AssetWebRepository) UpdateWeb(ctx context.Context, web *assetmodel.Asse
 	if web == nil || web.ID == 0 {
 		return errors.New("invalid web or id")
 	}
-	err := r.db.WithContext(ctx).Save(web).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(web).Updates(web).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_web", "REPO", map[string]interface{}{
 			"operation": "update_web",
@@ -168,7 +169,8 @@ func (r *AssetWebRepository) CreateOrUpdateDetail(ctx context.Context, detail *a
 
 	// 存在，更新
 	detail.ID = existing.ID
-	return r.db.WithContext(ctx).Save(detail).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	return r.db.WithContext(ctx).Model(detail).Updates(detail).Error
 }
 
 // GetDetailByWebID 根据WebID获取详细信息

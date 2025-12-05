@@ -10,7 +10,7 @@ import (
 type AssetHost struct {
 	basemodel.BaseModel
 
-	IP             string     `json:"ip" gorm:"size:50;uniqueIndex;not null;comment:IP地址"`
+	IP             string     `json:"ip" gorm:"column:ip;size:50;uniqueIndex;not null;comment:IP地址"`
 	Hostname       string     `json:"hostname" gorm:"size:200;comment:主机名"`
 	OS             string     `json:"os" gorm:"size:100;comment:操作系统"`
 	Tags           string     `json:"tags" gorm:"type:json;comment:标签(JSON)"`

@@ -511,7 +511,7 @@ func (h *AssetVulnHandler) ListPocsByVuln(c *gin.Context) {
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
-	vulnIDStr := c.Param("vuln_id")
+	vulnIDStr := c.Param("id")
 	vulnID, err := strconv.ParseUint(vulnIDStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, system.APIResponse{

@@ -3,9 +3,10 @@ package asset
 import (
 	"context"
 	"errors"
-	"gorm.io/gorm"
 	assetmodel "neomaster/internal/model/asset"
 	"neomaster/internal/pkg/logger"
+
+	"gorm.io/gorm"
 )
 
 // AssetVulnRepository 漏洞资产仓库
@@ -62,7 +63,8 @@ func (r *AssetVulnRepository) UpdateVuln(ctx context.Context, vuln *assetmodel.A
 	if vuln == nil || vuln.ID == 0 {
 		return errors.New("invalid vuln or id")
 	}
-	err := r.db.WithContext(ctx).Save(vuln).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(vuln).Updates(vuln).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_vuln", "REPO", map[string]interface{}{
 			"operation": "update_vuln",
@@ -169,7 +171,8 @@ func (r *AssetVulnRepository) UpdatePoc(ctx context.Context, poc *assetmodel.Ass
 	if poc == nil || poc.ID == 0 {
 		return errors.New("invalid poc or id")
 	}
-	err := r.db.WithContext(ctx).Save(poc).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(poc).Updates(poc).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_poc", "REPO", map[string]interface{}{
 			"operation": "update_poc",

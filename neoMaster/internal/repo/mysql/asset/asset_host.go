@@ -79,7 +79,8 @@ func (r *AssetHostRepository) UpdateHost(ctx context.Context, host *asset.AssetH
 	if host == nil || host.ID == 0 {
 		return errors.New("invalid host or id")
 	}
-	err := r.db.WithContext(ctx).Save(host).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(host).Updates(host).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_host", "REPO", map[string]interface{}{
 			"operation": "update_host",

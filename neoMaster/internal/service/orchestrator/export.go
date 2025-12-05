@@ -2,8 +2,8 @@ package orchestrator
 
 import (
 	"neomaster/internal/service/orchestrator/allocator"
+	"neomaster/internal/service/orchestrator/core/task_dispatcher"
 	"neomaster/internal/service/orchestrator/policy"
-	"neomaster/internal/service/orchestrator/task_dispatcher"
 )
 
 // 核心组件接口导出 (Facade Pattern)

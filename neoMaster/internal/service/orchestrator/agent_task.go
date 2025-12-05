@@ -17,9 +17,9 @@ import (
 type AgentTaskService interface {
 	// Agent任务管理
 	AssignTask(req *agentModel.AgentTaskAssignRequest) (*agentModel.AgentTaskAssignmentResponse, error)
-	GetAgentTasks(agentID string) ([]*agentModel.AgentTaskAssignmentResponse, error)
-	UpdateTaskStatus(taskID string, status string, result string, errorMsg string) error // 更新任务状态
-	CancelTask(taskID string) error                                                      // 取消任务
+	FetchTasks(ctx context.Context, agentID string) ([]*agentModel.AgentTaskAssignmentResponse, error)
+	UpdateTaskStatus(ctx context.Context, taskID string, status string, result string, errorMsg string) error // 更新任务状态
+	CancelTask(ctx context.Context, taskID string) error                                                      // 取消任务
 }
 
 // agentTaskService Agent任务服务实现
@@ -78,14 +78,11 @@ func (s *agentTaskService) AssignTask(req *agentModel.AgentTaskAssignRequest) (*
 	}, nil
 }
 
-// GetAgentTasks 获取Agent任务列表服务
-func (s *agentTaskService) GetAgentTasks(agentID string) ([]*agentModel.AgentTaskAssignmentResponse, error) {
-	ctx := context.Background()
-
-	// 0. 获取 Agent 信息
+// FetchTasks 获取Agent任务列表服务
+func (s *agentTaskService) FetchTasks(ctx context.Context, agentID string) ([]*agentModel.AgentTaskAssignmentResponse, error) {
+	// 0. 验证 Agent
 	agent, err := s.agentRepo.GetByID(agentID)
 	if err != nil {
-		// 如果是 RecordNotFound，也算错误
 		return nil, fmt.Errorf("failed to get agent info: %v", err)
 	}
 	if agent == nil {
@@ -102,7 +99,7 @@ func (s *agentTaskService) GetAgentTasks(agentID string) ([]*agentModel.AgentTas
 	newTasks, err := s.dispatcher.Dispatch(ctx, agent, len(tasks))
 	if err != nil {
 		// 分发失败仅记录日志，不影响返回已有任务
-		logger.LogError(err, "failed to dispatch tasks", 0, "", "service.agent.task.GetAgentTasks", "INTERNAL", nil)
+		logger.LogError(err, "failed to dispatch tasks", 0, "", "service.agent.task.FetchTasks", "INTERNAL", nil)
 	} else if len(newTasks) > 0 {
 		tasks = append(tasks, newTasks...)
 	}
@@ -116,12 +113,15 @@ func (s *agentTaskService) GetAgentTasks(agentID string) ([]*agentModel.AgentTas
 		}
 
 		response = append(response, &agentModel.AgentTaskAssignmentResponse{
-			AgentID:    t.AgentID,
-			TaskID:     t.TaskID,
-			TaskType:   t.ToolName, // Use ToolName as TaskType
-			Status:     agentModel.AgentTaskStatus(t.Status),
-			AssignedAt: assignedAt,
-			Message:    "Task fetched successfully",
+			AgentID:     t.AgentID,
+			TaskID:      t.TaskID,
+			TaskType:    t.ToolName, // Use ToolName as TaskType
+			Status:      agentModel.AgentTaskStatus(t.Status),
+			AssignedAt:  assignedAt,
+			ToolName:    t.ToolName,
+			ToolParams:  t.ToolParams,
+			InputTarget: t.InputTarget,
+			Message:     "Task fetched successfully",
 		})
 	}
 
@@ -129,9 +129,7 @@ func (s *agentTaskService) GetAgentTasks(agentID string) ([]*agentModel.AgentTas
 }
 
 // UpdateTaskStatus 更新任务状态服务
-func (s *agentTaskService) UpdateTaskStatus(taskID string, status string, result string, errorMsg string) error {
-	ctx := context.Background()
-
+func (s *agentTaskService) UpdateTaskStatus(ctx context.Context, taskID string, status string, result string, errorMsg string) error {
 	// 1. 验证任务是否存在
 	task, err := s.taskRepo.GetTaskByID(ctx, taskID)
 	if err != nil {
@@ -184,7 +182,6 @@ func (s *agentTaskService) UpdateTaskStatus(taskID string, status string, result
 }
 
 // CancelTask 取消任务服务
-func (s *agentTaskService) CancelTask(taskID string) error {
-	ctx := context.Background()
+func (s *agentTaskService) CancelTask(ctx context.Context, taskID string) error {
 	return s.taskRepo.UpdateTaskStatus(ctx, taskID, "cancelled")
 }

@@ -11,10 +11,12 @@ import (
 	agentHandler "neomaster/internal/handler/agent"
 	assetHandler "neomaster/internal/handler/asset"
 	authHandler "neomaster/internal/handler/auth"
+	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 	agentService "neomaster/internal/service/agent"
 	assetService "neomaster/internal/service/asset"
 	authService "neomaster/internal/service/auth"
+	orchestratorService "neomaster/internal/service/orchestrator"
 )
 
 // AuthModule 是认证模块的聚合输出
@@ -87,22 +89,21 @@ type AgentModule struct {
 // - 便于后续测试与扩展：Router 可直接使用该模块暴露的 Handler；需要复用某个 Service 时也可从该模块获取。
 //
 // 字段说明：
-// - ProjectConfigHandler/WorkflowHandler/ScanToolHandler/ScanRuleHandler/RuleEngineHandler：对外用于路由注册的处理器。
-// - ProjectConfigService/WorkflowService/ScanToolService/ScanRuleService：对应的业务服务实例，便于必要时复用或编写独立测试。
-// type OrchestratorModule struct {
-// 	// Handlers（扫描编排器相关处理器）
-// 	ProjectConfigHandler *orchestratorHandler.ProjectConfigHandler
-// 	WorkflowHandler      *orchestratorHandler.WorkflowHandler
-// 	ScanToolHandler      *orchestratorHandler.ScanToolHandler
-// 	ScanRuleHandler      *orchestratorHandler.ScanRuleHandler
-// 	RuleEngineHandler    *orchestratorHandler.RuleEngineHandler
+// - ProjectHandler/WorkflowHandler/ScanStageHandler/ScanToolTemplateHandler：对外用于路由注册的处理器。
+// - ProjectService/WorkflowService/ScanStageService/ScanToolTemplateService：对应的业务服务实例，便于必要时复用或编写独立测试。
+type OrchestratorModule struct {
+	// Handlers（扫描编排器相关处理器）
+	ProjectHandler          *orchestratorHandler.ProjectHandler
+	WorkflowHandler         *orchestratorHandler.WorkflowHandler
+	ScanStageHandler        *orchestratorHandler.ScanStageHandler
+	ScanToolTemplateHandler *orchestratorHandler.ScanToolTemplateHandler
 
-// 	// Services（对外暴露以供 router_manager 或其他模块使用）
-// 	ProjectConfigService *orchestratorService.ProjectConfigService
-// 	WorkflowService      *orchestratorService.WorkflowService
-// 	ScanToolService      *orchestratorService.ScanToolService
-// 	ScanRuleService      *orchestratorService.ScanRuleService
-// }
+	// Services（对外暴露以供 router_manager 或其他模块使用）
+	ProjectService          *orchestratorService.ProjectService
+	WorkflowService         *orchestratorService.WorkflowService
+	ScanStageService        *orchestratorService.ScanStageService
+	ScanToolTemplateService *orchestratorService.ScanToolTemplateService
+}
 
 // AssetModule 是资产管理模块的聚合输出
 // 设计目的：

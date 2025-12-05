@@ -19,13 +19,13 @@ import (
 	"log"
 	"neomaster/internal/service/orchestrator/core/scheduler"
 
-	"github.com/go-redis/redis/v8"
-	"gorm.io/gorm"
 	"neomaster/internal/app/master/router"
-	"neomaster/internal/app/master/setup"
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
+
+	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
 )
 
 // App 应用程序结构体
@@ -150,10 +150,8 @@ func NewApp() (*App, error) {
 	router.SetupRoutes()
 
 	// 初始化调度引擎
-	var schedulerService scheduler.SchedulerService
-	if db != nil {
-		schedulerService = setup.BuildSchedulerService(db)
-	}
+	// 通过 Router 获取 OrchestratorModule 中初始化的 SchedulerService
+	schedulerService := router.GetSchedulerService()
 
 	return &App{
 		router:    router,

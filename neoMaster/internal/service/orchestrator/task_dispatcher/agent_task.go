@@ -1,4 +1,4 @@
-package orchestrator
+package task_dispatcher
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepository "neomaster/internal/repo/mysql/agent"
 	orchestratorRepository "neomaster/internal/repo/mysql/orchestrator"
-	taskDispatcher "neomaster/internal/service/orchestrator/core/task_dispatcher"
 )
 
 // AgentTaskService Agent任务服务接口
@@ -26,7 +25,7 @@ type AgentTaskService interface {
 type agentTaskService struct {
 	agentRepo  agentRepository.AgentRepository       // Agent数据访问层
 	taskRepo   orchestratorRepository.TaskRepository // 任务数据访问层
-	dispatcher taskDispatcher.TaskDispatcher         // 任务分发器
+	dispatcher TaskDispatcher                        // 任务分发器
 }
 
 // NewAgentTaskService 创建Agent任务服务实例
@@ -34,7 +33,7 @@ type agentTaskService struct {
 func NewAgentTaskService(
 	agentRepo agentRepository.AgentRepository,
 	taskRepo orchestratorRepository.TaskRepository,
-	dispatcher taskDispatcher.TaskDispatcher,
+	dispatcher TaskDispatcher,
 ) AgentTaskService {
 	return &agentTaskService{
 		agentRepo:  agentRepo,

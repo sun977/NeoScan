@@ -9,14 +9,15 @@ package setup
 import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
-	"neomaster/internal/service/orchestrator/core/task_dispatcher"
+	"neomaster/internal/service/orchestrator/task_dispatcher"
 
-	"gorm.io/gorm"
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"
 	orchestratorService "neomaster/internal/service/orchestrator"
 	"neomaster/internal/service/orchestrator/allocator"
 	"neomaster/internal/service/orchestrator/policy"
+
+	"gorm.io/gorm"
 )
 
 // BuildOrchestratorModule 构建扫描编排器模块
@@ -47,7 +48,8 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 	workflowService := orchestratorService.NewWorkflowService(workflowRepo)
 	scanStageService := orchestratorService.NewScanStageService(scanStageRepo)
 	scanToolTemplateService := orchestratorService.NewScanToolTemplateService(scanToolTemplateRepo)
-	agentTaskService := orchestratorService.NewAgentTaskService(agentRepository, taskRepo, dispatcher)
+	// agentTaskService := orchestratorService.NewAgentTaskService(agentRepository, taskRepo, dispatcher)
+	agentTaskService := task_dispatcher.NewAgentTaskService(agentRepository, taskRepo, dispatcher)
 
 	// 4. Handler 初始化
 	projectHandler := orchestratorHandler.NewProjectHandler(projectService)

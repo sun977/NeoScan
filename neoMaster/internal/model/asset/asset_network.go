@@ -11,7 +11,7 @@ type AssetNetwork struct {
 	basemodel.BaseModel
 
 	Network     string     `json:"network" gorm:"size:50;index;not null;comment:原始网段"`
-	CIDR        string     `json:"cidr" gorm:"size:50;index;not null;comment:拆分后的网段(CIDR格式)"`
+	CIDR        string     `json:"cidr" gorm:"column:cidr;size:50;index;not null;comment:拆分后的网段(CIDR格式)"`
 	SplitFromID uint64     `json:"split_from_id" gorm:"index;default:0;comment:拆分来源ID(指向RawAssetNetwork)"`
 	SplitOrder  int        `json:"split_order" gorm:"default:0;comment:拆分顺序"`
 	Round       int        `json:"round" gorm:"default:0;comment:扫描轮次"`

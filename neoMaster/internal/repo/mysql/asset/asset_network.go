@@ -79,7 +79,8 @@ func (r *AssetNetworkRepository) UpdateNetwork(ctx context.Context, network *ass
 	if network == nil || network.ID == 0 {
 		return errors.New("invalid network or id")
 	}
-	err := r.db.WithContext(ctx).Save(network).Error
+	// 使用 Updates 而不是 Save，以支持部分更新并避免覆盖 CreatedAt 等字段
+	err := r.db.WithContext(ctx).Model(network).Updates(network).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_network", "REPO", map[string]interface{}{
 			"operation": "update_network",

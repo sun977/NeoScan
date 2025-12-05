@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"neomaster/internal/model/orchestrator"
 	"os"
 	"time"
 
@@ -232,6 +233,7 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&agent.AgentMetrics{},
 		&agent.AgentGroup{},
 		&agent.AgentGroupMember{},
+		&orchestrator.AgentTask{},
 		&agent.ScanType{},
 
 		// Orchestrator模块 - 只使用实际存在的模型

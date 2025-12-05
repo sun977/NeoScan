@@ -14,24 +14,27 @@
 package master
 
 import (
+	"context"
 	"fmt"
 	"log"
-
-	"neomaster/internal/app/master/router"
-	"neomaster/internal/config"
-	"neomaster/internal/pkg/database"
-	"neomaster/internal/pkg/logger"
+	"neomaster/internal/service/orchestrator/core/scheduler"
 
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
+	"neomaster/internal/app/master/router"
+	"neomaster/internal/app/master/setup"
+	"neomaster/internal/config"
+	"neomaster/internal/pkg/database"
+	"neomaster/internal/pkg/logger"
 )
 
 // App 应用程序结构体
 type App struct {
-	router *router.Router
-	db     *gorm.DB
-	redis  *redis.Client
-	config *config.Config
+	router    *router.Router
+	db        *gorm.DB
+	redis     *redis.Client
+	config    *config.Config
+	scheduler scheduler.SchedulerService
 }
 
 // NewApp 创建新的应用程序实例
@@ -146,11 +149,18 @@ func NewApp() (*App, error) {
 	// 设置路由
 	router.SetupRoutes()
 
+	// 初始化调度引擎
+	var schedulerService scheduler.SchedulerService
+	if db != nil {
+		schedulerService = setup.BuildSchedulerService(db)
+	}
+
 	return &App{
-		router: router,
-		db:     db,
-		redis:  redisClient,
-		config: cfg,
+		router:    router,
+		db:        db,
+		redis:     redisClient,
+		config:    cfg,
+		scheduler: schedulerService,
 	}, nil
 }
 
@@ -162,6 +172,20 @@ func (a *App) GetRouter() *router.Router { // 返回类型使用router包中的R
 // GetConfig 获取配置实例
 func (a *App) GetConfig() *config.Config {
 	return a.config
+}
+
+// StartScheduler 启动调度引擎
+func (a *App) StartScheduler(ctx context.Context) {
+	if a.scheduler != nil {
+		a.scheduler.Start(ctx)
+	}
+}
+
+// StopScheduler 停止调度引擎
+func (a *App) StopScheduler() {
+	if a.scheduler != nil {
+		a.scheduler.Stop()
+	}
 }
 
 // Start 启动应用程序（可选方法，用于未来扩展）

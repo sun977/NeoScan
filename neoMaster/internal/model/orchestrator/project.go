@@ -15,6 +15,7 @@ type Project struct {
 	Name           string         `json:"name" gorm:"size:100;uniqueIndex;not null;comment:项目唯一标识名"`
 	DisplayName    string         `json:"display_name" gorm:"size:200;comment:显示名称"`
 	Description    string         `json:"description" gorm:"type:text;comment:项目描述"`
+	TargetScope    string         `json:"target_scope" gorm:"type:text;comment:目标范围(CIDR/Domain列表)"`
 	Status         string         `json:"status" gorm:"size:20;default:'idle';comment:运行状态(idle/running/paused/finished/error)"`
 	Enabled        bool           `json:"enabled" gorm:"default:true;comment:是否启用"`
 	ScheduleType   string         `json:"schedule_type" gorm:"size:20;default:'immediate';comment:调度类型(immediate/cron/api/event)"`

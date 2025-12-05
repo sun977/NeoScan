@@ -3,9 +3,10 @@ package orchestrator
 import (
 	"context"
 	"errors"
-	"gorm.io/gorm"
 	orcmodel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
+
+	"gorm.io/gorm"
 )
 
 // ProjectRepository 项目仓库
@@ -37,6 +38,19 @@ func (r *ProjectRepository) CreateProject(ctx context.Context, project *orcmodel
 		return err
 	}
 	return nil
+}
+
+// GetRunningProjects 获取所有正在运行的项目
+func (r *ProjectRepository) GetRunningProjects(ctx context.Context) ([]*orcmodel.Project, error) {
+	var projects []*orcmodel.Project
+	err := r.db.WithContext(ctx).Where("status = ?", "running").Find(&projects).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_running_projects", "REPO", map[string]interface{}{
+			"operation": "get_running_projects",
+		})
+		return nil, err
+	}
+	return projects, nil
 }
 
 // GetProjectByID 根据ID获取项目

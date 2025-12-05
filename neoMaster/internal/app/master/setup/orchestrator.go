@@ -8,12 +8,15 @@ package setup
 
 import (
 	"neomaster/internal/pkg/logger"
+	agentRepo "neomaster/internal/repo/mysql/agent"
+	"neomaster/internal/service/orchestrator/core/task_dispatcher"
 
+	"gorm.io/gorm"
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"
 	orchestratorService "neomaster/internal/service/orchestrator"
-
-	"gorm.io/gorm"
+	"neomaster/internal/service/orchestrator/allocator"
+	"neomaster/internal/service/orchestrator/policy"
 )
 
 // BuildOrchestratorModule 构建扫描编排器模块
@@ -29,18 +32,29 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 	workflowRepo := orchestratorRepo.NewWorkflowRepository(db)
 	scanStageRepo := orchestratorRepo.NewScanStageRepository(db)
 	scanToolTemplateRepo := orchestratorRepo.NewScanToolTemplateRepository(db)
+	// TaskDispatcher 需要 TaskRepository (虽属 Agent 域，但被编排器核心组件使用)
+	taskRepo := orchestratorRepo.NewTaskRepository(db)
+	// AgentTaskService 需要 AgentRepository
+	agentRepository := agentRepo.NewAgentRepository(db)
 
-	// 2. Service 初始化
+	// 2. Core Components 初始化 (Policy Enforcer, Resource Allocator, Task Dispatcher)
+	policyEnforcer := policy.NewPolicyEnforcer(projectRepo)
+	resourceAllocator := allocator.NewResourceAllocator()
+	dispatcher := task_dispatcher.NewTaskDispatcher(taskRepo, policyEnforcer, resourceAllocator)
+
+	// 3. Service 初始化
 	projectService := orchestratorService.NewProjectService(projectRepo)
 	workflowService := orchestratorService.NewWorkflowService(workflowRepo)
 	scanStageService := orchestratorService.NewScanStageService(scanStageRepo)
 	scanToolTemplateService := orchestratorService.NewScanToolTemplateService(scanToolTemplateRepo)
+	agentTaskService := orchestratorService.NewAgentTaskService(agentRepository, taskRepo, dispatcher)
 
-	// 3. Handler 初始化
+	// 4. Handler 初始化
 	projectHandler := orchestratorHandler.NewProjectHandler(projectService)
 	workflowHandler := orchestratorHandler.NewWorkflowHandler(workflowService)
 	scanStageHandler := orchestratorHandler.NewScanStageHandler(scanStageService)
 	scanToolTemplateHandler := orchestratorHandler.NewScanToolTemplateHandler(scanToolTemplateService)
+	agentTaskHandler := orchestratorHandler.NewAgentTaskHandler(agentTaskService)
 
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.orchestrator",
@@ -53,10 +67,15 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 		WorkflowHandler:         workflowHandler,
 		ScanStageHandler:        scanStageHandler,
 		ScanToolTemplateHandler: scanToolTemplateHandler,
+		AgentTaskHandler:        agentTaskHandler,
 
 		ProjectService:          projectService,
 		WorkflowService:         workflowService,
 		ScanStageService:        scanStageService,
 		ScanToolTemplateService: scanToolTemplateService,
+		AgentTaskService:        agentTaskService,
+
+		// Core Components
+		TaskDispatcher: dispatcher,
 	}
 }

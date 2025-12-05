@@ -64,13 +64,13 @@ type SystemRBACModule struct {
 
 // AgentModule 是 Agent 管理模块的聚合输出
 // 设计目的：
-// - 将 Agent 管理域（Manager/Monitor/Config/Task）的 Service 与聚合后的 Handler 作为一个整体对外暴露，减少 router_manager 中的初始化样板代码。
+// - 将 Agent 管理域（Manager/Monitor/Config）的 Service 与聚合后的 Handler 作为一个整体对外暴露。
 // - 保持分层约束与模块边界：setup 层仅负责依赖装配（Repository → Service → Handler），不侵入具体业务实现。
 // - 便于后续扩展：若其他模块需要复用某个 Agent Service，可直接从该 Module 获取。
 //
 // 字段说明：
 // - AgentHandler：对外用于路由注册的统一处理器入口（内部组合了所有 Agent 相关服务）。
-// - ManagerService/MonitorService/ConfigService/TaskService：便于在必要时复用具体服务或编写独立测试。
+// - ManagerService/MonitorService/ConfigService：便于在必要时复用具体服务或编写独立测试。
 type AgentModule struct {
 	// Handler（对外路由处理器）
 	AgentHandler *agentHandler.AgentHandler
@@ -79,30 +79,35 @@ type AgentModule struct {
 	ManagerService agentService.AgentManagerService
 	MonitorService agentService.AgentMonitorService
 	ConfigService  agentService.AgentConfigService
-	TaskService    agentService.AgentTaskService
+	// TaskService 移至 OrchestratorModule
 }
 
-// OrchestratorModule 是扫描编排器（项目配置/工作流/工具/规则/规则引擎）模块的聚合输出
+// OrchestratorModule 是扫描编排器（项目配置/工作流/工具/规则/规则引擎/任务分发）模块的聚合输出
 // 设计目的：
 // - 将扫描配置相关的 Service 与 Handler 作为一个整体进行初始化与对外暴露，路由层只做“装配与注册”。
 // - 与 Agent、Auth、System RBAC 模块保持同一风格，统一在 setup 层进行依赖装配，遵循 Handler → Service → Repository 的层级约束。
 // - 便于后续测试与扩展：Router 可直接使用该模块暴露的 Handler；需要复用某个 Service 时也可从该模块获取。
 //
 // 字段说明：
-// - ProjectHandler/WorkflowHandler/ScanStageHandler/ScanToolTemplateHandler：对外用于路由注册的处理器。
-// - ProjectService/WorkflowService/ScanStageService/ScanToolTemplateService：对应的业务服务实例，便于必要时复用或编写独立测试。
+// - ProjectHandler/WorkflowHandler/ScanStageHandler/ScanToolTemplateHandler/AgentTaskHandler：对外用于路由注册的处理器。
+// - ProjectService/WorkflowService/ScanStageService/ScanToolTemplateService/AgentTaskService：对应的业务服务实例。
 type OrchestratorModule struct {
 	// Handlers（扫描编排器相关处理器）
 	ProjectHandler          *orchestratorHandler.ProjectHandler
 	WorkflowHandler         *orchestratorHandler.WorkflowHandler
 	ScanStageHandler        *orchestratorHandler.ScanStageHandler
 	ScanToolTemplateHandler *orchestratorHandler.ScanToolTemplateHandler
+	AgentTaskHandler        *orchestratorHandler.AgentTaskHandler // 新增
 
 	// Services（对外暴露以供 router_manager 或其他模块使用）
 	ProjectService          *orchestratorService.ProjectService
 	WorkflowService         *orchestratorService.WorkflowService
 	ScanStageService        *orchestratorService.ScanStageService
 	ScanToolTemplateService *orchestratorService.ScanToolTemplateService
+	AgentTaskService        orchestratorService.AgentTaskService // 新增 (interface type)
+
+	// Core Components (核心组件)
+	TaskDispatcher orchestratorService.TaskDispatcher
 }
 
 // AssetModule 是资产管理模块的聚合输出

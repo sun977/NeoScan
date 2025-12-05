@@ -9,7 +9,7 @@ package setup
 import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
-	"neomaster/internal/service/orchestrator/task_dispatcher"
+	"neomaster/internal/service/orchestrator/core/task_dispatcher"
 
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"

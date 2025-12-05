@@ -50,11 +50,19 @@ func main() {
 		}
 	}()
 
+	// 启动调度引擎
+	ctxScheduler, cancelScheduler := context.WithCancel(context.Background())
+	app.StartScheduler(ctxScheduler)
+
 	// 等待中断信号以优雅地关闭服务器
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
+
+	// 停止调度引擎
+	cancelScheduler()
+	app.StopScheduler()
 
 	// 给服务器5秒钟的时间来完成现有请求
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

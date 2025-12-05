@@ -8,7 +8,8 @@ import (
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
 	agentRepository "neomaster/internal/repo/mysql/agent"
-	taskDispatcher "neomaster/internal/service/orchestrator/task_dispatcher"
+	orchestratorRepository "neomaster/internal/repo/mysql/orchestrator"
+	taskDispatcher "neomaster/internal/service/orchestrator/core/task_dispatcher"
 )
 
 // AgentTaskService Agent任务服务接口
@@ -23,16 +24,16 @@ type AgentTaskService interface {
 
 // agentTaskService Agent任务服务实现
 type agentTaskService struct {
-	agentRepo  agentRepository.AgentRepository // Agent数据访问层
-	taskRepo   agentRepository.TaskRepository  // 任务数据访问层
-	dispatcher taskDispatcher.TaskDispatcher   // 任务分发器
+	agentRepo  agentRepository.AgentRepository       // Agent数据访问层
+	taskRepo   orchestratorRepository.TaskRepository // 任务数据访问层
+	dispatcher taskDispatcher.TaskDispatcher         // 任务分发器
 }
 
 // NewAgentTaskService 创建Agent任务服务实例
 // 遵循依赖注入原则，保持代码的可测试性
 func NewAgentTaskService(
 	agentRepo agentRepository.AgentRepository,
-	taskRepo agentRepository.TaskRepository,
+	taskRepo orchestratorRepository.TaskRepository,
 	dispatcher taskDispatcher.TaskDispatcher,
 ) AgentTaskService {
 	return &agentTaskService{

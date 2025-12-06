@@ -7,6 +7,8 @@
 package setup
 
 import (
+	"time"
+
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	"neomaster/internal/service/orchestrator/core/scheduler"
@@ -49,6 +51,7 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 		scanStageRepo,
 		taskRepo,
 		agentRepository,
+		10*time.Second, // 默认轮询间隔
 	)
 
 	// 3. Service 初始化

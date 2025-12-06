@@ -20,8 +20,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// SetupWorkflowTestEnv 初始化工作流测试环境
-func SetupWorkflowTestEnv() (*gin.Engine, *gorm.DB, *router.Router, error) {
+// SetupCronTestEnv 初始化 Cron 测试环境
+func SetupCronTestEnv() (*gin.Engine, *gorm.DB, *router.Router, error) {
 	// 1. 初始化日志
 	logger.InitLogger(&config.LogConfig{
 		Level:  "info",
@@ -77,7 +77,6 @@ func SetupWorkflowTestEnv() (*gin.Engine, *gorm.DB, *router.Router, error) {
 	// 连接 Redis
 	redisClient, err := database.NewRedisConnection(redisConfig)
 	if err != nil {
-		// 如果 Redis 连接失败，尝试继续（某些测试可能不需要 Redis）
 		fmt.Printf("Warning: failed to connect to redis: %v\n", err)
 	}
 
@@ -102,14 +101,14 @@ func SetupWorkflowTestEnv() (*gin.Engine, *gorm.DB, *router.Router, error) {
 	return appRouter.GetEngine(), db, appRouter, nil
 }
 
-// TestWorkflowScheduler 测试工作流调度
-func TestWorkflowScheduler(t *testing.T) {
+// TestCronScheduler 测试 Cron 调度
+func TestCronScheduler(t *testing.T) {
 	// 1. 初始化环境
-	engine, db, _, err := SetupWorkflowTestEnv()
+	engine, db, _, err := SetupCronTestEnv()
 	if err != nil {
 		t.Fatalf("Setup failed: %v", err)
 	}
-	_ = engine // 这里的测试主要关注后台调度，不一定通过 HTTP 触发
+	_ = engine
 
 	// 清理旧数据
 	db.Exec("DELETE FROM agent_tasks")
@@ -118,22 +117,28 @@ func TestWorkflowScheduler(t *testing.T) {
 	db.Exec("DELETE FROM workflows")
 	db.Exec("DELETE FROM projects")
 
-	// 1. 创建 Project
+	// 2. 创建 Project (Cron 类型)
+	// 设置 LastExecTime 为 2 分钟前，Cron 为每分钟执行 (* * * * *)
+	// 这样 Next 执行时间应该是 1 分钟前，也就是应该立即触发
+	lastExecTime := time.Now().Add(-2 * time.Minute)
 	project := orcModel.Project{
-		Name:         "Test Project",
-		Status:       "running", // 必须是 running 才能被调度
+		Name:         "Cron Test Project",
+		Status:       "idle",      // 初始状态 idle
+		ScheduleType: "cron",      // 调度类型 cron
+		CronExpr:     "* * * * *", // 每分钟
+		Enabled:      true,
 		ExtendedData: `{"targets": ["192.168.1.1"]}`,
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
 		Tags:         "[]",
+		LastExecTime: &lastExecTime,
 	}
 	err = db.Create(&project).Error
 	assert.NoError(t, err)
 
-	// 2. 创建 Workflow
+	// 3. 创建 Workflow (Dummy)
 	workflow := orcModel.Workflow{
-		Name:         "Test Workflow",
-		Description:  "For testing scheduler",
+		Name:         "Cron Workflow",
 		Enabled:      true,
 		GlobalVars:   "{}",
 		PolicyConfig: "{}",
@@ -142,35 +147,33 @@ func TestWorkflowScheduler(t *testing.T) {
 	err = db.Create(&workflow).Error
 	assert.NoError(t, err)
 
-	// 关联 Project 和 Workflow
+	// 关联
 	projectWorkflow := orcModel.ProjectWorkflow{
 		ProjectID:  uint64(project.ID),
 		WorkflowID: uint64(workflow.ID),
 		SortOrder:  1,
 	}
-	err = db.Create(&projectWorkflow).Error
-	assert.NoError(t, err)
+	db.Create(&projectWorkflow)
 
-	// 3. 创建 ScanStage
+	// 4. 创建 Stage
 	stage := orcModel.ScanStage{
 		WorkflowID:          uint64(workflow.ID),
-		StageName:           "Test Stage 1",
+		StageName:           "Cron Stage",
 		StageOrder:          1,
-		ToolName:            "nmap",
+		ToolName:            "ping",
 		TargetPolicy:        "{}",
 		ExecutionPolicy:     "{}",
 		PerformanceSettings: "{}",
 		OutputConfig:        "{}",
 		NotifyConfig:        "{}",
+		Enabled:             true,
 	}
-	err = db.Create(&stage).Error
-	assert.NoError(t, err)
+	db.Create(&stage)
 
-	// 4. 启动调度器
+	// 5. 启动调度器
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 手动初始化调度器以使用短轮询间隔 (1s)
 	projectRepo := orcRepo.NewProjectRepository(db)
 	workflowRepo := orcRepo.NewWorkflowRepository(db)
 	stageRepo := orcRepo.NewScanStageRepository(db)
@@ -187,22 +190,24 @@ func TestWorkflowScheduler(t *testing.T) {
 	)
 	schedulerService.Start(ctx)
 
-	// 5. 等待调度 (调度循环 1s，我们等待 3s 确保至少运行一次)
-	fmt.Println("Waiting for scheduler...")
-	time.Sleep(3 * time.Second)
+	// 6. 等待调度
+	fmt.Println("Waiting for cron trigger...")
+	// 应该在第一次检查时就触发
+	time.Sleep(2 * time.Second)
 
-	// 6. 验证任务生成
+	// 7. 验证 Project 状态变为 running
+	var updatedProject orcModel.Project
+	err = db.First(&updatedProject, project.ID).Error
+	assert.NoError(t, err)
+	
+	fmt.Printf("Project Status: %s, LastExecTime: %v\n", updatedProject.Status, updatedProject.LastExecTime)
+	assert.Equal(t, "running", updatedProject.Status, "Project status should be running")
+	assert.True(t, updatedProject.LastExecTime.After(lastExecTime), "LastExecTime should be updated")
+
+	// 8. 验证任务生成
 	var tasks []orcModel.AgentTask
 	err = db.Where("project_id = ?", project.ID).Find(&tasks).Error
 	assert.NoError(t, err)
-
-	// 验证是否有任务生成
-	if assert.NotEmpty(t, tasks, "Scheduler should generate tasks") {
-		task := tasks[0]
-		assert.Equal(t, uint64(project.ID), task.ProjectID)
-		assert.Equal(t, uint64(stage.ID), task.StageID)
-		assert.Equal(t, "pending", task.Status)
-		assert.Equal(t, "nmap", task.ToolName)
-		fmt.Printf("Task generated: ID=%s, Tool=%s, Status=%s\n", task.TaskID, task.ToolName, task.Status)
-	}
+	assert.NotEmpty(t, tasks, "Should have generated tasks")
+	fmt.Printf("Generated %d tasks\n", len(tasks))
 }

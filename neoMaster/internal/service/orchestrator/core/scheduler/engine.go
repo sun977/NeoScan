@@ -9,6 +9,8 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
+
+	"github.com/robfig/cron/v3"
 )
 
 // SchedulerService 调度引擎服务接口
@@ -20,12 +22,13 @@ type SchedulerService interface {
 type schedulerService struct {
 	projectRepo   *orcRepo.ProjectRepository
 	workflowRepo  *orcRepo.WorkflowRepository
-	stageRepo *orcRepo.ScanStageRepository
-	taskRepo  orcRepo.TaskRepository
+	stageRepo     *orcRepo.ScanStageRepository
+	taskRepo      orcRepo.TaskRepository
 	agentRepo     agentRepo.AgentRepository
 	taskGenerator TaskGenerator
 
 	stopChan chan struct{}
+	interval time.Duration
 }
 
 // NewSchedulerService 创建调度引擎服务
@@ -35,7 +38,11 @@ func NewSchedulerService(
 	stageRepo *orcRepo.ScanStageRepository,
 	taskRepo orcRepo.TaskRepository,
 	agentRepo agentRepo.AgentRepository,
+	interval time.Duration,
 ) SchedulerService {
+	if interval <= 0 {
+		interval = 10 * time.Second
+	}
 	return &schedulerService{
 		projectRepo:   projectRepo,
 		workflowRepo:  workflowRepo,
@@ -44,12 +51,15 @@ func NewSchedulerService(
 		agentRepo:     agentRepo,
 		taskGenerator: NewTaskGenerator(),
 		stopChan:      make(chan struct{}),
+		interval:      interval,
 	}
 }
 
 // Start 启动调度引擎
 func (s *schedulerService) Start(ctx context.Context) {
-	logger.LogInfo("Starting Scheduler Engine...", "", 0, "", "service.scheduler.Start", "", nil)
+	logger.LogInfo("Starting Scheduler Engine...", "", 0, "", "service.scheduler.Start", "", map[string]interface{}{
+		"interval": s.interval.String(),
+	})
 	go s.loop(ctx)
 }
 
@@ -61,8 +71,11 @@ func (s *schedulerService) Stop() {
 
 // loop 调度循环
 func (s *schedulerService) loop(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second) // 每10秒轮询一次
+	ticker := time.NewTicker(s.interval) // 使用配置的轮询间隔
 	defer ticker.Stop()
+
+	// 立即执行一次调度
+	s.schedule(ctx)
 
 	for {
 		select {
@@ -78,6 +91,9 @@ func (s *schedulerService) loop(ctx context.Context) {
 
 // schedule 执行单次调度逻辑
 func (s *schedulerService) schedule(ctx context.Context) {
+	// 0. 检查定时任务触发
+	s.checkScheduledProjects(ctx)
+
 	// 1. 获取运行中的项目
 	projects, err := s.projectRepo.GetRunningProjects(ctx)
 	if err != nil {
@@ -93,6 +109,75 @@ func (s *schedulerService) schedule(ctx context.Context) {
 
 	for _, project := range projects {
 		s.processProject(ctx, project)
+	}
+}
+
+// checkScheduledProjects 检查是否有定时任务需要触发
+func (s *schedulerService) checkScheduledProjects(ctx context.Context) {
+	projects, err := s.projectRepo.GetScheduledProjects(ctx)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "service.scheduler.checkScheduledProjects", "REPO", nil)
+		return
+	}
+
+	if len(projects) == 0 {
+		return
+	}
+
+	// 使用标准 Cron 解析器 (5位: 分 时 日 月 周)
+	// 如果需要支持秒级，可以使用 cron.NewParser(cron.Second | cron.Minute | ...)
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	now := time.Now()
+
+	for _, project := range projects {
+		if project.CronExpr == "" {
+			continue
+		}
+
+		schedule, err := parser.Parse(project.CronExpr)
+		if err != nil {
+			logger.LogError(err, "", 0, "", "service.scheduler.checkScheduledProjects", "INTERNAL", map[string]interface{}{
+				"project_id": project.ID,
+				"cron_expr":  project.CronExpr,
+				"msg":        "invalid cron expression",
+			})
+			continue
+		}
+
+		// 计算上次执行后的下一次执行时间
+		// 如果 LastExecTime 为 nil (从未执行过)，则假设上次执行时间为 CreatedAt
+		var lastTime time.Time
+		if project.LastExecTime != nil {
+			lastTime = *project.LastExecTime
+		} else {
+			lastTime = project.CreatedAt
+		}
+
+		// 防御性编程：如果 lastTime 是零值，设为很久以前
+		if lastTime.IsZero() {
+			lastTime = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		}
+
+		nextTime := schedule.Next(lastTime)
+
+		// 如果下一次执行时间 <= 当前时间，说明到了执行时间 (或者错过了执行时间)
+		// 并且 nextTime 不能是零值 (如果 cron 表达式不再匹配任何时间)
+		if !nextTime.IsZero() && (nextTime.Before(now) || nextTime.Equal(now)) {
+			logger.LogInfo("Triggering scheduled project", "", 0, "", "service.scheduler.checkScheduledProjects", "", map[string]interface{}{
+				"project_id": project.ID,
+				"next_time":  nextTime,
+				"now":        now,
+			})
+
+			// 触发项目执行
+			project.Status = "running"
+			project.LastExecTime = &now
+			if err := s.projectRepo.UpdateProject(ctx, project); err != nil {
+				logger.LogError(err, "", 0, "", "service.scheduler.checkScheduledProjects", "REPO", map[string]interface{}{
+					"project_id": project.ID,
+				})
+			}
+		}
 	}
 }
 

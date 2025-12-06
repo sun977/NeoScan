@@ -53,6 +53,19 @@ func (r *ProjectRepository) GetRunningProjects(ctx context.Context) ([]*orcmodel
 	return projects, nil
 }
 
+// GetScheduledProjects 获取所有配置了Cron调度的空闲项目
+func (r *ProjectRepository) GetScheduledProjects(ctx context.Context) ([]*orcmodel.Project, error) {
+	var projects []*orcmodel.Project
+	err := r.db.WithContext(ctx).Where("status = ? AND enabled = ? AND schedule_type = ?", "idle", true, "cron").Find(&projects).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_scheduled_projects", "REPO", map[string]interface{}{
+			"operation": "get_scheduled_projects",
+		})
+		return nil, err
+	}
+	return projects, nil
+}
+
 // GetProjectByID 根据ID获取项目
 func (r *ProjectRepository) GetProjectByID(ctx context.Context, id uint64) (*orcmodel.Project, error) {
 	var project orcmodel.Project

@@ -11,6 +11,9 @@ import (
 	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
+	agentRepo "neomaster/internal/repo/mysql/agent"
+	orcRepo "neomaster/internal/repo/mysql/orchestrator"
+	"neomaster/internal/service/orchestrator/core/scheduler"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -101,7 +104,8 @@ func SetupWorkflowTestEnv() (*gin.Engine, *gorm.DB, *router.Router, error) {
 
 // TestWorkflowScheduler 测试工作流调度
 func TestWorkflowScheduler(t *testing.T) {
-	engine, db, appRouter, err := SetupWorkflowTestEnv()
+	// 1. 初始化环境
+	engine, db, _, err := SetupWorkflowTestEnv()
 	if err != nil {
 		t.Fatalf("Setup failed: %v", err)
 	}
@@ -166,12 +170,26 @@ func TestWorkflowScheduler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	scheduler := appRouter.GetSchedulerService()
-	scheduler.Start(ctx)
+	// 手动初始化调度器以使用短轮询间隔 (1s)
+	projectRepo := orcRepo.NewProjectRepository(db)
+	workflowRepo := orcRepo.NewWorkflowRepository(db)
+	stageRepo := orcRepo.NewScanStageRepository(db)
+	taskRepo := orcRepo.NewTaskRepository(db)
+	agentRepository := agentRepo.NewAgentRepository(db)
 
-	// 5. 等待调度 (调度循环 10s，我们等待 15s 确保至少运行一次)
+	schedulerService := scheduler.NewSchedulerService(
+		projectRepo,
+		workflowRepo,
+		stageRepo,
+		taskRepo,
+		agentRepository,
+		1*time.Second,
+	)
+	schedulerService.Start(ctx)
+
+	// 5. 等待调度 (调度循环 1s，我们等待 3s 确保至少运行一次)
 	fmt.Println("Waiting for scheduler...")
-	time.Sleep(15 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// 6. 验证任务生成
 	var tasks []orcModel.AgentTask

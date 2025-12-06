@@ -25,10 +25,32 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 		return nil, nil
 	}
 
-	// 目标分片策略
-	// 默认每 50 个目标一个任务，避免单个任务过大
-	// TODO: 从 PerformanceSettings 获取分片大小
+	// 解析 PerformanceSettings
 	chunkSize := 50
+	timeout := 3600
+	if stage.PerformanceSettings != "" {
+		var perf map[string]interface{}
+		if err := json.Unmarshal([]byte(stage.PerformanceSettings), &perf); err == nil {
+			if cs, ok := perf["chunk_size"].(float64); ok && cs > 0 {
+				chunkSize = int(cs)
+			}
+			if to, ok := perf["timeout"].(float64); ok && to > 0 {
+				timeout = int(to)
+			}
+		}
+	}
+
+	// 解析 ExecutionPolicy
+	priority := 0
+	if stage.ExecutionPolicy != "" {
+		var exec map[string]interface{}
+		if err := json.Unmarshal([]byte(stage.ExecutionPolicy), &exec); err == nil {
+			if p, ok := exec["priority"].(float64); ok {
+				priority = int(p)
+			}
+		}
+	}
+
 	var tasks []*orcModel.AgentTask
 
 	for i := 0; i < len(targets); i += chunkSize {
@@ -48,23 +70,20 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			return nil, fmt.Errorf("failed to generate task ID: %v", err)
 		}
 
-		// TODO: 从 ExecutionPolicy 获取优先级
-		priority := 0
-
-		// TODO: 从 PerformanceSettings 获取超时
-		timeout := 3600
-
 		task := &orcModel.AgentTask{
-			TaskID:      taskID,
-			ProjectID:   projectID,
-			WorkflowID:  stage.WorkflowID,
-			StageID:     uint64(stage.ID),
-			Status:      "pending",
-			Priority:    priority,
-			ToolName:    stage.ToolName,
-			ToolParams:  stage.ToolParams,
-			InputTarget: string(targetsJSON),
-			Timeout:     timeout,
+			TaskID:       taskID,
+			ProjectID:    projectID,
+			WorkflowID:   stage.WorkflowID,
+			StageID:      uint64(stage.ID),
+			Status:       "pending",
+			Priority:     priority,
+			TaskType:     "tool", // Explicitly set default
+			ToolName:     stage.ToolName,
+			ToolParams:   stage.ToolParams,
+			InputTarget:  string(targetsJSON),
+			RequiredTags: "[]", // Default empty JSON array
+			OutputResult: "{}", // Default empty JSON object
+			Timeout:      timeout,
 		}
 		tasks = append(tasks, task)
 	}

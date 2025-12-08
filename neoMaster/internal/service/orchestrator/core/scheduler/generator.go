@@ -21,6 +21,7 @@ func NewTaskGenerator() TaskGenerator {
 
 // GenerateTasks 根据 Stage 和目标生成任务
 func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []string) ([]*orcModel.AgentTask, error) {
+	// 如果没有目标，则返回 nil
 	if len(targets) == 0 {
 		return nil, nil
 	}

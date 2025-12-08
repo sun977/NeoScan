@@ -122,7 +122,8 @@ func TestWorkflowScheduler(t *testing.T) {
 	project := orcModel.Project{
 		Name:         "Test Project",
 		Status:       "running", // 必须是 running 才能被调度
-		ExtendedData: `{"targets": ["192.168.1.1"]}`,
+		TargetScope:  "192.168.1.1",
+		ExtendedData: "{}", // Required for MySQL JSON column
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
 		Tags:         "[]",

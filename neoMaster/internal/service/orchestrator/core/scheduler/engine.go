@@ -24,7 +24,7 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
-	"neomaster/internal/service/orchestrator/core/target"
+	"neomaster/internal/service/orchestrator/policy"
 
 	"github.com/robfig/cron/v3" // 定时任务库
 )
@@ -42,7 +42,7 @@ type schedulerService struct {
 	taskRepo       orcRepo.TaskRepository
 	agentRepo      agentRepo.AgentRepository
 	taskGenerator  TaskGenerator         // 任务生成器接口
-	targetProvider target.TargetProvider // 目标提供者接口
+	targetProvider policy.TargetProvider // 目标提供者接口
 
 	stopChan chan struct{} // 停止信号通道
 	interval time.Duration // 轮询间隔, 默认10秒
@@ -67,7 +67,7 @@ func NewSchedulerService(
 		taskRepo:       taskRepo,
 		agentRepo:      agentRepo,
 		taskGenerator:  NewTaskGenerator(),
-		targetProvider: target.NewTargetProvider(),
+		targetProvider: policy.NewTargetProvider(),
 		stopChan:       make(chan struct{}),
 		interval:       interval,
 	}

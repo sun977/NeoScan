@@ -1,3 +1,17 @@
+// SchedulerService 调度引擎服务接口
+//  1. 启动调度引擎
+//  2. 停止调度引擎
+//
+// 调度引擎的工作流程如下：
+// 1.启动后按照设定的时间间隔（默认10秒）循环执行调度逻辑
+// 2.每次调度首先检查是否有定时项目需要触发执行
+// 3.获取所有处于"running"状态的项目进行处理
+// 4.对每个项目：
+// - 检查是否有正在运行的任务，如有则等待
+// - 获取最新任务状态，如果上一个任务失败则暂停项目
+// - 查找下一个需要执行的阶段
+// - 如果没有下一阶段则标记项目为完成
+// - 否则生成新任务并存入数据库供agent执行
 package scheduler
 
 import (
@@ -10,7 +24,7 @@ import (
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
 
-	"github.com/robfig/cron/v3"
+	"github.com/robfig/cron/v3" // 定时任务库
 )
 
 // SchedulerService 调度引擎服务接口
@@ -25,10 +39,10 @@ type schedulerService struct {
 	stageRepo     *orcRepo.ScanStageRepository
 	taskRepo      orcRepo.TaskRepository
 	agentRepo     agentRepo.AgentRepository
-	taskGenerator TaskGenerator
+	taskGenerator TaskGenerator // 任务生成器接口
 
-	stopChan chan struct{}
-	interval time.Duration
+	stopChan chan struct{} // 停止信号通道
+	interval time.Duration // 轮询间隔, 默认10秒
 }
 
 // NewSchedulerService 创建调度引擎服务
@@ -60,7 +74,7 @@ func (s *schedulerService) Start(ctx context.Context) {
 	logger.LogInfo("Starting Scheduler Engine...", "", 0, "", "service.scheduler.Start", "", map[string]interface{}{
 		"interval": s.interval.String(),
 	})
-	go s.loop(ctx)
+	go s.loop(ctx) // 启动调度循环
 }
 
 // Stop 停止调度引擎
@@ -70,6 +84,8 @@ func (s *schedulerService) Stop() {
 }
 
 // loop 调度循环
+// 1. 立即执行一次调度
+// 2. 按照配置的轮询间隔执行调度
 func (s *schedulerService) loop(ctx context.Context) {
 	ticker := time.NewTicker(s.interval) // 使用配置的轮询间隔
 	defer ticker.Stop()
@@ -79,17 +95,20 @@ func (s *schedulerService) loop(ctx context.Context) {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-ctx.Done(): // 上下文取消信号
 			return
-		case <-s.stopChan:
+		case <-s.stopChan: // 停止信号
 			return
-		case <-ticker.C:
+		case <-ticker.C: // 轮询信号
 			s.schedule(ctx)
 		}
 	}
 }
 
 // schedule 执行单次调度逻辑
+// 1. 检查是否有定时任务需要触发
+// 2. 获取运行中的项目
+// 3. 处理每个项目的扫描阶段
 func (s *schedulerService) schedule(ctx context.Context) {
 	// 0. 检查定时任务触发
 	s.checkScheduledProjects(ctx)
@@ -113,6 +132,9 @@ func (s *schedulerService) schedule(ctx context.Context) {
 }
 
 // checkScheduledProjects 检查是否有定时任务需要触发
+// 1. 获取所有已配置定时任务的项目
+// 2. 解析 Cron 表达式
+// 3. 检查是否到了执行时间
 func (s *schedulerService) checkScheduledProjects(ctx context.Context) {
 	projects, err := s.projectRepo.GetScheduledProjects(ctx)
 	if err != nil {
@@ -182,6 +204,13 @@ func (s *schedulerService) checkScheduledProjects(ctx context.Context) {
 }
 
 // processProject 处理单个项目的调度
+//  1. 检查是否有正在运行的任务 (Barrier: 只有当所有任务都完成/失败后，才进行下一步)
+//  2. 获取该项目最新的任务状态 (用于判断上一阶段结果)
+//  3. 判断状态
+//     Case B: 上一个任务失败，暂停项目
+//     Case C: 初始启动 或 上一个任务完成 -> 寻找下一个 Stage
+//     Case D: 没有下一个 Stage 了 -> 项目完成
+//     Case E: 生成新任务
 func (s *schedulerService) processProject(ctx context.Context, project *orcModel.Project) {
 	loggerFields := map[string]interface{}{
 		"project_id":   project.ID,
@@ -274,6 +303,10 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 }
 
 // findNextStage 查找下一个需要执行的 Stage
+//  1. 获取项目关联的所有 Workflow (暂时假设一个 Project 只关联一个 Workflow)
+//  2. 检查是否有上一个任务
+//     Case A: 没有上一个任务 -> 返回第一个 Stage
+//     Case B: 有上一个任务 -> 找到上一个 Stage，返回它的下一个 Stage
 func (s *schedulerService) findNextStage(ctx context.Context, project *orcModel.Project, lastTask *orcModel.AgentTask) (*orcModel.ScanStage, error) {
 	// 获取项目关联的所有 Workflow
 	workflows, err := s.workflowRepo.GetWorkflowsByProjectID(ctx, uint64(project.ID))
@@ -306,6 +339,8 @@ func (s *schedulerService) findNextStage(ctx context.Context, project *orcModel.
 	return s.getNextStage(stages, lastTask.StageID), nil
 }
 
+// getFirstStage 获取第一个 Stage
+//  1. 遍历所有 Stage，找到 order 最小的 Stage
 func (s *schedulerService) getFirstStage(stages []*orcModel.ScanStage) *orcModel.ScanStage {
 	// 寻找 order 最小的 stage
 	if len(stages) == 0 {
@@ -320,6 +355,9 @@ func (s *schedulerService) getFirstStage(stages []*orcModel.ScanStage) *orcModel
 	return first
 }
 
+// getNextStage 获取下一个 Stage
+//  1. 找到当前 stage 的 order
+//  2. 遍历所有 Stage，找到 order 比 currentOrder 大且最小的 Stage
 func (s *schedulerService) getNextStage(stages []*orcModel.ScanStage, currentStageID uint64) *orcModel.ScanStage {
 	// 1. 找到当前 stage 的 order
 	var currentOrder int

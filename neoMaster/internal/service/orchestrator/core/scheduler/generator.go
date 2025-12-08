@@ -1,3 +1,16 @@
+// GenerateTasks 根据 Stage 和目标生成任务
+// 任务生成器工作流程：
+// 1.接收扫描阶段信息、项目ID和目标列表作为输入
+// 2.解析阶段的性能设置，获取任务分块大小和超时设置
+// 3.解析阶段的执行策略，获取任务优先级
+// 4.将目标列表按照分块大小分割成多个批次
+// 5.为每个批次创建一个任务，包含：
+// - 唯一的任务ID
+// - 项目、工作流和阶段的关联信息
+// - 工具名称和参数
+// - 当前批次的目标列表
+// - 优先级和超时设置
+// 6.返回所有生成的任务列表
 package scheduler
 
 import (
@@ -72,7 +85,7 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 	//     "username": "user",
 	//     "password": "pass"
 	//   },
-	//   "priority": 1,                       // 任务优先级（1-10，默认5） --- 编排器-任务生成器-使用
+	//   "priority": 1,                       // 任务优先级（1-10，默认5） 优先级越高，越先被执行
 	// }
 	priority := 0
 	if stage.ExecutionPolicy != "" {
@@ -84,8 +97,9 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 		}
 	}
 
+	// 初始化任务列表并分批处理目标
 	var tasks []*orcModel.AgentTask
-
+	//// 1.分批处理目标
 	for i := 0; i < len(targets); i += chunkSize {
 		end := i + chunkSize
 		if end > len(targets) {
@@ -93,30 +107,33 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 		}
 		chunk := targets[i:end]
 
+		// 序列化目标列表为 JSON 字符串
 		targetsJSON, err := json.Marshal(chunk)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal targets: %v", err)
 		}
 
+		// 生成任务ID
 		taskID, err := utils.GenerateUUID()
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate task ID: %v", err)
 		}
 
+		// 2.创建任务对象并添加到任务列表中
 		task := &orcModel.AgentTask{
-			TaskID:       taskID,
-			ProjectID:    projectID,
-			WorkflowID:   stage.WorkflowID,
-			StageID:      uint64(stage.ID),
-			Status:       "pending",
-			Priority:     priority,
-			TaskType:     "tool", // Explicitly set default
-			ToolName:     stage.ToolName,
-			ToolParams:   stage.ToolParams,
-			InputTarget:  string(targetsJSON),
-			RequiredTags: "[]", // Default empty JSON array
-			OutputResult: "{}", // Default empty JSON object
-			Timeout:      timeout,
+			TaskID:       taskID,              // 任务ID
+			ProjectID:    projectID,           // 项目ID
+			WorkflowID:   stage.WorkflowID,    // 工作流ID
+			StageID:      uint64(stage.ID),    // 阶段ID
+			Status:       "pending",           // 任务状态 (pending, running, completed, failed)
+			Priority:     priority,            // 任务优先级
+			TaskType:     "tool",              // Explicitly set default
+			ToolName:     stage.ToolName,      // 工具名称
+			ToolParams:   stage.ToolParams,    // 工具参数
+			InputTarget:  string(targetsJSON), // 当前批次的目标列表（JSON 字符串）
+			RequiredTags: "[]",                // Default empty JSON array 执行所需标签(JSON)
+			OutputResult: "{}",                // Default empty JSON object 输出结果摘要(JSON)
+			Timeout:      timeout,             // 任务超时时间（秒）--- stage.PerformanceSettings["timeout"]
 		}
 		tasks = append(tasks, task)
 	}

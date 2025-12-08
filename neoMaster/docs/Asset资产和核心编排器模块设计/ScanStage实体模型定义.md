@@ -75,7 +75,8 @@ Database (记忆)
       "source_value": "/path/to/whitelist.txt"
     }
   ],
-  "skip_conditions": [                 // 跳过条件
+  "skip_enabled": true,                // 是否启用跳过条件
+  "skip_conditions": [                 // 跳过条件,列表中可添加多个条件
     {
       "condition_field": "device_type",
       "operator": "equals",

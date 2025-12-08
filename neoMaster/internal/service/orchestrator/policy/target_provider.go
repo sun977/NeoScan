@@ -1,5 +1,6 @@
 // 目标提供者
-// - 这个组件负责解析 ScanStage.TargetPolicy ，并将其“翻译”为具体的 IP/URL 列表。
+// 处理多元异构数据，将其转换为统一的 Target 格式作为扫描目标
+
 package policy
 
 import (
@@ -14,8 +15,8 @@ import (
 // TargetProvider 目标提供者服务接口
 // 负责解析 TargetPolicy 并返回具体的扫描目标列表
 type TargetProvider interface {
-	// ResolveTargets 解析策略并返回目标列表 (兼容旧接口)
-	ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]string, error)
+	// ResolveTargets 解析策略并返回目标列表
+	ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error)
 	// RegisterProvider 注册新的目标源提供者
 	RegisterProvider(name string, provider SourceProvider)
 	// CheckHealth 检查所有已注册 Provider 的健康状态
@@ -79,9 +80,13 @@ func NewTargetProvider() TargetProvider {
 	// 注册内置提供者
 	svc.RegisterProvider("manual", &ManualProvider{})
 	svc.RegisterProvider("project_target", &ProjectTargetProvider{})
-	// TODO: 注册 file, database, api, previous_stage
+
+	// 注册待实现的提供者 (占位符)
 	svc.RegisterProvider("file", &StubProvider{name: "file"})
 	svc.RegisterProvider("database", &StubProvider{name: "database"})
+	svc.RegisterProvider("api", &StubProvider{name: "api"})
+	svc.RegisterProvider("previous_stage", &StubProvider{name: "previous_stage"})
+
 	return svc
 }
 
@@ -103,10 +108,10 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 }
 
 // ResolveTargets 解析目标
-func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]string, error) {
+func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) {
 	// 1. 如果策略为空，默认使用种子目标
 	if policyJSON == "" || policyJSON == "{}" {
-		return seedTargets, nil
+		return p.fallbackToSeed(seedTargets), nil
 	}
 
 	var config TargetPolicyConfig
@@ -115,16 +120,15 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 			"error":  err.Error(),
 			"policy": policyJSON,
 		})
-		return seedTargets, nil
+		return p.fallbackToSeed(seedTargets), nil
 	}
 
 	// 2. 如果没有配置源，也使用种子目标
 	if len(config.TargetSources) == 0 {
-		return seedTargets, nil
+		return p.fallbackToSeed(seedTargets), nil
 	}
 
 	// 3. 并发/顺序获取所有目标
-	// 为了简化，目前串行执行，后续可优化为并发
 	allTargets := make([]Target, 0)
 	for _, sourceConfig := range config.TargetSources {
 		p.mu.RLock()
@@ -135,7 +139,7 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 			logger.LogWarn("Unknown source type", "", 0, "", "ResolveTargets", "", map[string]interface{}{
 				"type": sourceConfig.SourceType,
 			})
-			continue
+			continue // 跳过未知的源类型
 		}
 
 		targets, err := provider.Provide(ctx, sourceConfig, seedTargets)
@@ -143,23 +147,36 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 			logger.LogError(err, "Provider failed to get targets", 0, "", "ResolveTargets", "", map[string]interface{}{
 				"type": sourceConfig.SourceType,
 			})
-			// 策略：单个源失败是否影响整体？目前仅记录错误，继续执行其他源
-			continue
+			continue // 跳过失败的源
 		}
 		allTargets = append(allTargets, targets...)
 	}
 
-	// 4. 去重并提取 Value
+	// 4. 去重 (基于 Value)
 	targetSet := make(map[string]struct{})
-	result := make([]string, 0, len(allTargets))
+	result := make([]Target, 0, len(allTargets))
 	for _, t := range allTargets {
 		if _, ok := targetSet[t.Value]; !ok {
 			targetSet[t.Value] = struct{}{}
-			result = append(result, t.Value)
+			result = append(result, t)
 		}
 	}
 
 	return result, nil
+}
+
+// fallbackToSeed 辅助方法：将种子目标转换为 Target 对象
+func (p *targetProviderService) fallbackToSeed(seedTargets []string) []Target {
+	targets := make([]Target, 0, len(seedTargets))
+	for _, t := range seedTargets {
+		targets = append(targets, Target{
+			Type:   "unknown",
+			Value:  t,
+			Source: "seed",
+			Meta:   nil,
+		})
+	}
+	return targets
 }
 
 // --- 具体 Provider 实现 ---

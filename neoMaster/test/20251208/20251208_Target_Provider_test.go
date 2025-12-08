@@ -15,16 +15,25 @@ func TestTargetProvider_ResolveTargets(t *testing.T) {
 	ctx := context.Background()
 	seedTargets := []string{"192.168.1.1", "192.168.1.2"}
 
+	// Helper function to extract values
+	getValues := func(targets []policy.Target) []string {
+		values := make([]string, len(targets))
+		for i, t := range targets {
+			values[i] = t.Value
+		}
+		return values
+	}
+
 	t.Run("Empty Policy", func(t *testing.T) {
 		targets, err := provider.ResolveTargets(ctx, "", seedTargets)
 		assert.NoError(t, err)
-		assert.Equal(t, seedTargets, targets)
+		assert.Equal(t, seedTargets, getValues(targets))
 	})
 
 	t.Run("Empty JSON Policy", func(t *testing.T) {
 		targets, err := provider.ResolveTargets(ctx, "{}", seedTargets)
 		assert.NoError(t, err)
-		assert.Equal(t, seedTargets, targets)
+		assert.Equal(t, seedTargets, getValues(targets))
 	})
 
 	t.Run("Manual Source", func(t *testing.T) {
@@ -41,8 +50,9 @@ func TestTargetProvider_ResolveTargets(t *testing.T) {
 
 		targets, err := provider.ResolveTargets(ctx, string(jsonBytes), seedTargets)
 		assert.NoError(t, err)
-		assert.Contains(t, targets, "10.0.0.1")
-		assert.Contains(t, targets, "10.0.0.2")
+		vals := getValues(targets)
+		assert.Contains(t, vals, "10.0.0.1")
+		assert.Contains(t, vals, "10.0.0.2")
 		assert.Len(t, targets, 2)
 	})
 
@@ -59,7 +69,7 @@ func TestTargetProvider_ResolveTargets(t *testing.T) {
 
 		targets, err := provider.ResolveTargets(ctx, string(jsonBytes), seedTargets)
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, seedTargets, targets)
+		assert.ElementsMatch(t, seedTargets, getValues(targets))
 	})
 
 	t.Run("Mixed Sources (Manual + Project)", func(t *testing.T) {
@@ -81,8 +91,9 @@ func TestTargetProvider_ResolveTargets(t *testing.T) {
 		targets, err := provider.ResolveTargets(ctx, string(jsonBytes), seedTargets)
 		assert.NoError(t, err)
 		assert.Len(t, targets, 3)
-		assert.Contains(t, targets, "10.0.0.3")
-		assert.Contains(t, targets, "192.168.1.1")
+		vals := getValues(targets)
+		assert.Contains(t, vals, "10.0.0.3")
+		assert.Contains(t, vals, "192.168.1.1")
 	})
 
 	t.Run("Unsupported Source", func(t *testing.T) {
@@ -103,7 +114,8 @@ func TestTargetProvider_ResolveTargets(t *testing.T) {
 		targets, err := provider.ResolveTargets(ctx, string(jsonBytes), seedTargets)
 		assert.NoError(t, err)
 		assert.Len(t, targets, 1)
-		assert.Contains(t, targets, "10.0.0.4")
+		vals := getValues(targets)
+		assert.Contains(t, vals, "10.0.0.4")
 	})
 
 	t.Run("Stub File Source", func(t *testing.T) {

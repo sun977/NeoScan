@@ -43,6 +43,7 @@ type schedulerService struct {
 	agentRepo      agentRepo.AgentRepository
 	taskGenerator  TaskGenerator         // 任务生成器接口
 	targetProvider policy.TargetProvider // 目标提供者接口
+	policyEnforcer policy.PolicyEnforcer // 策略执行器接口
 
 	stopChan chan struct{} // 停止信号通道
 	interval time.Duration // 轮询间隔, 默认10秒
@@ -68,6 +69,7 @@ func NewSchedulerService(
 		agentRepo:      agentRepo,
 		taskGenerator:  NewTaskGenerator(),
 		targetProvider: policy.NewTargetProvider(),
+		policyEnforcer: policy.NewPolicyEnforcer(projectRepo),
 		stopChan:       make(chan struct{}),
 		interval:       interval,
 	}
@@ -308,6 +310,21 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 
 	// 保存任务到数据库
 	for _, task := range newTasks {
+		// 3. 策略检查 (Policy Enforcer)
+		// 在任务落库前进行最后一道"安检"
+		if err := s.policyEnforcer.Enforce(ctx, task); err != nil {
+			logger.LogWarn("Task blocked by policy", "", 0, "", "service.scheduler.processProject", "", map[string]interface{}{
+				"task_id": task.TaskID,
+				"error":   err.Error(),
+			})
+			// 标记任务为失败或拒绝，并保存以便审计？
+			// 这里我们选择直接丢弃不合规的任务，或者将其状态设为 'blocked' 存库
+			// 为了审计，最好存库并标记为 failed/blocked
+			task.Status = "failed"
+			task.ErrorMsg = "Policy violation: " + err.Error()
+			// 继续执行存库，以便用户知道任务被拦截了
+		}
+
 		if err := s.taskRepo.CreateTask(ctx, task); err != nil {
 			logger.LogError(err, "", 0, "", "service.scheduler.processProject", "REPO", loggerFields)
 			continue
@@ -316,6 +333,7 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 			"task_id":  task.TaskID,
 			"stage_id": task.StageID,
 			"tool":     task.ToolName,
+			"status":   task.Status,
 		})
 	}
 }

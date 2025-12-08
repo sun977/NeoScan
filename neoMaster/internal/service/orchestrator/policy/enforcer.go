@@ -1,3 +1,6 @@
+// PolicyEnforcer 策略执行器接口
+// 职责: 在任务下发前的最后一道防线，负责"安检"与合规。
+// 对应文档: 1.2 Policy Enforcer (策略执行器)
 package policy
 
 import (

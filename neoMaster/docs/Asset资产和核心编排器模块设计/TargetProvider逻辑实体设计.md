@@ -162,6 +162,64 @@ type TargetProvider interface {
 }
 ```
 
+## 逻辑流程 (Logic Flow)
+```mermaid
+flowchart TD
+    Start([开始：ResolveTargets]) --> InputCheck{策略配置是否为空？}
+
+    InputCheck -- 是 --> ReturnSeed[降级：返回项目种子目标]
+    InputCheck -- 否 --> ParseConfig[解析 JSON 策略配置]
+
+    ParseConfig --> ValidConfig{解析是否成功？}
+    ValidConfig -- 否 --> LogWarn[记录警告日志] --> ReturnSeed
+    ValidConfig -- 是 --> InitTargets[初始化目标列表为空]
+
+    InitTargets --> LoopStart[循环遍历目标源]
+    LoopStart --> SourceTypeCheck{根据源类型分支}
+
+    SourceTypeCheck -- manual --> ManualProc[按逗号、分号或换行拆分]
+    ManualProc --> CreateTargetManual[创建手动输入目标]
+
+    SourceTypeCheck -- project_target --> SeedProc[使用传入的种子目标]
+    SeedProc --> CreateTargetProject[创建项目种子目标]
+
+    SourceTypeCheck -- file --> FileRead[读取本地文件或 S3]
+    FileRead --> FileParse{文件格式？}
+    FileParse -- line/csv/json --> FileExtract[提取 IP 或域名]
+    FileExtract --> CreateTargetFile[创建文件来源目标]
+
+    SourceTypeCheck -- database --> DBMode{数据库查询模式？}
+    DBMode -- table_or_view --> DBBuild[生成 SELECT 查询语句]
+    DBMode -- custom_sql --> DBCustom[使用自定义 SQL]
+    DBBuild --> DBExec[执行数据库查询]
+    DBCustom --> DBExec
+    DBExec --> DBMap[映射列到目标值和元数据]
+
+    SourceTypeCheck -- api --> APIAuth[注入认证令牌或密钥]
+    APIAuth --> APIReq[发送 HTTP 请求]
+    APIReq --> APIParse[通过 JSONPath 提取数据]
+    APIParse --> CreateTargetAPI[创建 API 来源目标]
+
+    SourceTypeCheck -- previous_stage --> PrevFetch[获取上一阶段结果]
+    PrevFetch --> PrevFilter[按状态或服务过滤]
+    PrevFilter --> CreateTargetPrev[创建前序阶段目标]
+
+    CreateTargetManual --> Append
+    CreateTargetProject --> Append
+    CreateTargetFile --> Append
+    DBMap --> Append
+    CreateTargetAPI --> Append
+    CreateTargetPrev --> Append
+
+    Append --> LoopCheck{是否还有更多源？}
+    LoopCheck -- 是 --> LoopStart
+    LoopCheck -- 否 --> Deduplicate[按目标值去重]
+
+    Deduplicate --> FinalOutput([返回目标列表])
+
+```
+
+
 ## 数据流向
 
 ```mermaid

@@ -30,7 +30,7 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
-	"neomaster/internal/service/orchestrator/policy"
+	"neomaster/internal/service/orchestrator/policy" // 策略执行器模块
 
 	"github.com/robfig/cron/v3" // 定时任务库
 )
@@ -56,6 +56,7 @@ type schedulerService struct {
 }
 
 // NewSchedulerService 创建调度引擎服务
+// 初始化调度引擎服务，设置必要的依赖和参数
 func NewSchedulerService(
 	projectRepo *orcRepo.ProjectRepository,
 	workflowRepo *orcRepo.WorkflowRepository,
@@ -86,7 +87,7 @@ func (s *schedulerService) Start(ctx context.Context) {
 	logger.LogInfo("Starting Scheduler Engine...", "", 0, "", "service.scheduler.Start", "", map[string]interface{}{
 		"interval": s.interval.String(),
 	})
-	go s.loop(ctx) // 启动调度循环
+	go s.loop(ctx) // 启动调度循环 在goroutine中运行主循环
 }
 
 // Stop 停止调度引擎
@@ -216,13 +217,17 @@ func (s *schedulerService) checkScheduledProjects(ctx context.Context) {
 }
 
 // processProject 处理单个项目的调度
-//  1. 检查是否有正在运行的任务 (Barrier: 只有当所有任务都完成/失败后，才进行下一步)
-//  2. 获取该项目最新的任务状态 (用于判断上一阶段结果)
-//  3. 判断状态
-//     Case B: 上一个任务失败，暂停项目
-//     Case C: 初始启动 或 上一个任务完成 -> 寻找下一个 Stage
-//     Case D: 没有下一个 Stage 了 -> 项目完成
-//     Case E: 生成新任务
+// 1.检查是否有正在运行的任务，如果有则等待
+// 2.获取最新的任务以确定上一阶段的结果
+// 3.如果上一任务失败，则暂停整个项目
+// 4.查找下一阶段，如果没有下一阶段则标记项目为完成
+// 5.从项目TargetScope中提取种子目标：
+// - 首先尝试解析为JSON数组
+// - 如果不是JSON，则按常见分隔符（逗号、分号、换行等）分割
+// 6.使用TargetProvider解析最终目标（应用TargetPolicy）
+// 7.使用策略执行器对任务进行策略检查
+// 8.使用任务生成器基于下一阶段和目标生成新任务
+// 9.将新任务保存到数据库
 func (s *schedulerService) processProject(ctx context.Context, project *orcModel.Project) {
 	loggerFields := map[string]interface{}{
 		"project_id":   project.ID,
@@ -296,6 +301,8 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 	}
 
 	// 2. 使用 TargetProvider 解析最终目标 (应用 TargetPolicy)
+	//  1. 解析种子目标 (Seed Targets)
+	//  2. 应用 TargetPolicy 进行转换/过滤
 	resolvedTargets, err := s.targetProvider.ResolveTargets(ctx, nextStage.TargetPolicy, seedTargets)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "TARGET_RESOLVE", loggerFields)

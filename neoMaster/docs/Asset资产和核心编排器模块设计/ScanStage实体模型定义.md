@@ -98,10 +98,11 @@ Database (记忆)
     "username": "user",
     "password": "pass"
   },
-  "schedule_config": {                 // 调度配置
-    "execution_mode": "immediate",     // immediate/scheduled/cron
-    "scheduled_time": "2023-01-01T00:00:00Z"
-  }
+  // "schedule_config": {                 // 调度配置 --- 20251208 不再在stage配置中支持调度方式，使用project.schedule_type从项目维度统一调度
+  //   "execution_mode": "immediate",     // immediate/scheduled/cron
+  //   "scheduled_time": "2023-01-01T00:00:00Z"
+  // }
+  "priority": 1,                       // 任务优先级（1-10，默认5） --- 编排器-任务生成器-使用
 }
 ```
 

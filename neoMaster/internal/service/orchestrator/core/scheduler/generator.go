@@ -20,13 +20,34 @@ func NewTaskGenerator() TaskGenerator {
 }
 
 // GenerateTasks 根据 Stage 和目标生成任务
+// Stage 阶段是 Agent 执行的最小单位。
+// Stage -> Task -> Agent 执行 -> 结果返回 master -> 下一个 Stage -> Agent 执行 -> 结果返回 master -> 结果聚合落库
+// 职责: 根据 ScanStage 配置和目标列表生成 AgentTask 任务
+// 参数:
+//   - stage: 扫描阶段配置，包含任务生成规则
+//   - projectID: 项目ID，用于关联任务
+//   - targets: 扫描目标列表，每个元素为一个目标（IP、域名等）
+//
+// 返回值:
+//   - []*orcModel.AgentTask: 生成的任务列表
+//   - error: 若生成任务过程中发生错误，则返回错误信息
 func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []string) ([]*orcModel.AgentTask, error) {
 	// 如果没有目标，则返回 nil
 	if len(targets) == 0 {
 		return nil, nil
 	}
 
-	// 解析 PerformanceSettings
+	// 解析 PerformanceSettings 参数
+	// 	{
+	//   "scan_rate": 50,        // 扫描速率（每秒发包数）
+	//   "scan_depth": 1,        // 扫描深度（爬虫类工具参数）
+	//   "concurrency": 50,      // 扫描并发数
+	//   "process_count": 50,    // 扫描进程数
+	//   "chunk_size": 50,       // 分块大小（批量处理目标数） --- 编排器-任务生成器-使用
+	//   "timeout": 180,          // 超时时间（秒） --- 编排器-任务生成器-使用
+	//   "retry_count": 3         // 重试次数
+	// }
+	// 其他参数后续添加
 	chunkSize := 50
 	timeout := 3600
 	if stage.PerformanceSettings != "" {
@@ -41,7 +62,18 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 		}
 	}
 
-	// 解析 ExecutionPolicy
+	// 解析 ExecutionPolicy 参数
+	// 	{
+	//   "proxy_config": {                    // 代理配置
+	//     "enabled": true,
+	//     "proxy_type": "http",             // http/https/socks4/socks5
+	//     "address": "proxy.example.com",
+	//     "port": 8080,
+	//     "username": "user",
+	//     "password": "pass"
+	//   },
+	//   "priority": 1,                       // 任务优先级（1-10，默认5） --- 编排器-任务生成器-使用
+	// }
 	priority := 0
 	if stage.ExecutionPolicy != "" {
 		var exec map[string]interface{}

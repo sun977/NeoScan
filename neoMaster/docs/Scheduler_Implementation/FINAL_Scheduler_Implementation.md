@@ -25,6 +25,13 @@
 - **AgentTask**: 统一的任务模型，包含 `TaskType`, `Priority`, `Timeout` 等字段。
 - **Project/Workflow/Stage**: 完整的编排模型支持。
 
+### 2.5 策略与目标管理 (Policy & Target)
+- **TargetProvider**: 实现了基于策略模式的目标解析引擎 (`internal/service/orchestrator/policy/target_provider.go`)。
+  - 支持 `manual` (人工输入) 和 `project_target` (项目种子) 来源。
+  - 预留了 `file`, `database`, `api` 扩展接口。
+  - 实现了 Provider 工厂模式和健康检查机制。
+- **PolicyEnforcer**: 集成了策略执行器，负责任务下发前的合规检查（白名单、范围校验）。
+
 ## 3. 验证结果
 ### 3.1 自动化测试
 - **TestWorkflowScheduler** (`test/20251206/20251206_Workflow_Scheduler_test.go`):
@@ -35,6 +42,11 @@
 - **TestCronScheduler** (`test/20251206/20251206_Cron_Scheduler_test.go`):
   - 验证 Cron 项目的触发机制。
   - 验证触发后状态流转 (idle -> running) 和任务生成。
+  - 结果: **PASS**
+
+- **TestTargetProvider** (`test/20251208/20251208_Target_Provider_test.go`):
+  - 验证多种来源的目标解析 (Manual, Project, Mixed)。
+  - 验证工厂注册和健康检查。
   - 结果: **PASS**
 
 ### 3.2 手动验证

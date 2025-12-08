@@ -303,10 +303,16 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 	// 2. 使用 TargetProvider 解析最终目标 (应用 TargetPolicy)
 	//  1. 解析种子目标 (Seed Targets)
 	//  2. 应用 TargetPolicy 进行转换/过滤
-	resolvedTargets, err := s.targetProvider.ResolveTargets(ctx, nextStage.TargetPolicy, seedTargets)
+	resolvedTargetObjs, err := s.targetProvider.ResolveTargets(ctx, nextStage.TargetPolicy, seedTargets)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "TARGET_RESOLVE", loggerFields)
 		return
+	}
+
+	// 转换 []Target 为 []string，供 GenerateTasks 使用
+	resolvedTargets := make([]string, 0, len(resolvedTargetObjs))
+	for _, t := range resolvedTargetObjs {
+		resolvedTargets = append(resolvedTargets, t.Value)
 	}
 
 	// Fallback if no targets found (Safety net)

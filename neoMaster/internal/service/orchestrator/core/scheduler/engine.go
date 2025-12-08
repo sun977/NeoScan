@@ -17,12 +17,14 @@ package scheduler
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
+	"neomaster/internal/service/orchestrator/core/target"
 
 	"github.com/robfig/cron/v3" // 定时任务库
 )
@@ -34,12 +36,13 @@ type SchedulerService interface {
 }
 
 type schedulerService struct {
-	projectRepo   *orcRepo.ProjectRepository
-	workflowRepo  *orcRepo.WorkflowRepository
-	stageRepo     *orcRepo.ScanStageRepository
-	taskRepo      orcRepo.TaskRepository
-	agentRepo     agentRepo.AgentRepository
-	taskGenerator TaskGenerator // 任务生成器接口
+	projectRepo    *orcRepo.ProjectRepository
+	workflowRepo   *orcRepo.WorkflowRepository
+	stageRepo      *orcRepo.ScanStageRepository
+	taskRepo       orcRepo.TaskRepository
+	agentRepo      agentRepo.AgentRepository
+	taskGenerator  TaskGenerator         // 任务生成器接口
+	targetProvider target.TargetProvider // 目标提供者接口
 
 	stopChan chan struct{} // 停止信号通道
 	interval time.Duration // 轮询间隔, 默认10秒
@@ -58,14 +61,15 @@ func NewSchedulerService(
 		interval = 10 * time.Second
 	}
 	return &schedulerService{
-		projectRepo:   projectRepo,
-		workflowRepo:  workflowRepo,
-		stageRepo:     stageRepo,
-		taskRepo:      taskRepo,
-		agentRepo:     agentRepo,
-		taskGenerator: NewTaskGenerator(),
-		stopChan:      make(chan struct{}),
-		interval:      interval,
+		projectRepo:    projectRepo,
+		workflowRepo:   workflowRepo,
+		stageRepo:      stageRepo,
+		taskRepo:       taskRepo,
+		agentRepo:      agentRepo,
+		taskGenerator:  NewTaskGenerator(),
+		targetProvider: target.NewTargetProvider(),
+		stopChan:       make(chan struct{}),
+		interval:       interval,
 	}
 }
 
@@ -260,29 +264,43 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 	}
 
 	// Case E: 生成新任务
-	// 解析目标 (Target)
-	// TODO: 这里暂时简化，假设 target 就在 project.ExtendedData 或者需要从哪里获取
-	// 实际上，Target 应该是 Project 的一部分，这里我们假设 Project 有 Target 字段或者从 Input 获取
-	// 暂时 mock 一个 target，后续需要完善 Project 模型支持 Target 定义
-	var targets []string
-	// 尝试从 Project 的 ExtendedData 中解析 targets，如果没有则用默认的
-	if project.ExtendedData != "" {
-		var data map[string]interface{}
-		if json.Unmarshal([]byte(project.ExtendedData), &data) == nil {
-			if t, ok := data["targets"].([]interface{}); ok {
-				for _, v := range t {
-					if s, ok := v.(string); ok {
-						targets = append(targets, s)
-					}
+	// 1. 获取种子目标 (Seed Targets) 从 Project.TargetScope 配置
+	var seedTargets []string
+	if project.TargetScope != "" {
+		// 尝试解析为 JSON 数组
+		var targets []string
+		if json.Unmarshal([]byte(project.TargetScope), &targets) == nil {
+			seedTargets = targets
+		} else {
+			// 如果不是 JSON，尝试按逗号、换行符分隔
+			// 支持常见的分隔符：逗号、分号、换行、空格
+			// 这种方式兼容 CIDR/Domain 列表的简单文本格式
+			f := func(c rune) bool {
+				return c == ',' || c == ';' || c == '\n' || c == '\r' || c == ' '
+			}
+			fields := strings.FieldsFunc(project.TargetScope, f)
+			for _, field := range fields {
+				if t := strings.TrimSpace(field); t != "" {
+					seedTargets = append(seedTargets, t)
 				}
 			}
 		}
 	}
-	if len(targets) == 0 {
-		targets = []string{"127.0.0.1"} // Fallback
+
+	// 2. 使用 TargetProvider 解析最终目标 (应用 TargetPolicy)
+	resolvedTargets, err := s.targetProvider.ResolveTargets(ctx, nextStage.TargetPolicy, seedTargets)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "TARGET_RESOLVE", loggerFields)
+		return
 	}
 
-	newTasks, err := s.taskGenerator.GenerateTasks(nextStage, uint64(project.ID), targets)
+	// Fallback if no targets found (Safety net)
+	if len(resolvedTargets) == 0 {
+		logger.LogWarn("No targets resolved, using fallback", "", 0, "", "service.scheduler.processProject", "", loggerFields)
+		resolvedTargets = []string{"127.0.0.1"}
+	}
+
+	newTasks, err := s.taskGenerator.GenerateTasks(nextStage, uint64(project.ID), resolvedTargets)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "INTERNAL", loggerFields)
 		return

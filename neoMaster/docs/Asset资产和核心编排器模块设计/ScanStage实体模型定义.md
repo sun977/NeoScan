@@ -114,7 +114,8 @@ Database (记忆)
   "scan_depth": 1,                     // 扫描深度（爬虫类工具参数）
   "concurrency": 50,                   // 扫描并发数
   "process_count": 50,                 // 扫描进程数
-  "timeout_seconds": 180,              // 超时时间（秒）
+  "chunk_size": 50,                    // 分块大小（批量处理目标数） --- 编排器-任务生成器-使用
+  "timeout": 180,                     // 超时时间（秒） --- 编排器-任务生成器-使用
   "retry_count": 3                     // 重试次数
 }
 ```

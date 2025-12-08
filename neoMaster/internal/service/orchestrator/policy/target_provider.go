@@ -90,6 +90,7 @@ func NewTargetProvider() TargetProvider {
 	return svc
 }
 
+// RegisterProvider 注册新的目标源提供者
 func (p *targetProviderService) RegisterProvider(name string, provider SourceProvider) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -107,13 +108,45 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 	return results
 }
 
-// ResolveTargets 解析目标
+// ResolveTargets 解析策略并返回目标列表 --- 核心实现逻辑
+// 策略解析器：对应 ScanStage.target_policy
+// 1. 如果策略为空，默认使用种子目标
+// 2. 不为空解析 json 策略
+// 3. 并发/顺序获取所有目标
+// 4. 去重 (基于 Value)
+// 策略样例：
+//
+//	{
+//	  "target_sources": [
+//	    {
+//	      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
+//	      "source_value": "/path/to/targets.txt",  // 根据类型的具体值
+//	      "target_type": "ip_range"        // 目标类型：ip/ip_range/domain/url
+//	    }
+//	  ],
+//	  "whitelist_enabled": true,           // 是否启用白名单
+//	  "whitelist_sources": [               // 白名单来源
+//	    {
+//	      "source_type": "file",
+//	      "source_value": "/path/to/whitelist.txt"
+//	    }
+//	  ],
+//	  "skip_enabled": true,                // 是否启用跳过条件
+//	  "skip_conditions": [                 // 跳过条件,列表中可添加多个条件
+//	    {
+//	      "condition_field": "device_type",
+//	      "operator": "equals",
+//	      "value": "honeypot"
+//	    }
+//	  ]
+//	}
 func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) {
 	// 1. 如果策略为空，默认使用种子目标
 	if policyJSON == "" || policyJSON == "{}" {
 		return p.fallbackToSeed(seedTargets), nil
 	}
 
+	// 策略不为空则解析 json 策略
 	var config TargetPolicyConfig
 	if err := json.Unmarshal([]byte(policyJSON), &config); err != nil {
 		logger.LogWarn("Failed to parse target policy, using seed targets", "", 0, "", "ResolveTargets", "", map[string]interface{}{

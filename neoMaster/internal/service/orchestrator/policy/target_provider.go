@@ -1,6 +1,6 @@
 // 目标提供者
 // - 这个组件负责解析 ScanStage.TargetPolicy ，并将其“翻译”为具体的 IP/URL 列表。
-package target
+package policy
 
 import (
 	"context"

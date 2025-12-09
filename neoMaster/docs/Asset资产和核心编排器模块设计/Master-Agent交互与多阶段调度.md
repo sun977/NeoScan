@@ -13,14 +13,17 @@
 
 Master 与 Agent 之间的通讯契约由两个核心实体构成：
 
-```text
-      Master (调度器)                      Agent (执行器)
-            |                                 ^
-            |--[ ScanStage (指令) ]---------->|  Context: "用 Nmap 扫描 IP 1.2.3.4"
-            |                                 |
-            |<--[ StageResult (情报) ]--------|  Context: "IP 1.2.3.4 开放了 80, 443"
-            v                                 
-      Database (记忆)
+```mermaid
+sequenceDiagram
+    participant Master as Master (调度器)
+    participant Agent as Agent (执行器)
+    participant DB as Database (记忆)
+
+    Master->>Agent: [ScanStage (指令)]<br/>command: "用 Nmap 扫描 IP 1.2.3.4"
+    activate Agent
+    Agent-->>Master: [StageResult (结果)]<br/>result: "IP 1.2.3.4 开放了 80, 443"
+    deactivate Agent
+    Master->>DB: 存储结果
 ```
 
 - **ScanStage (Input)**：Master 下发给 Agent 的原子任务包，包含工具配置、目标列表、超时设置等。
@@ -32,26 +35,30 @@ Master 与 Agent 之间的通讯契约由两个核心实体构成：
 
 ### 流程图解
 
-```text
-      Master (大脑 & 调度)                                  Agent (手脚)
-            |                                                    |
-   [1. 下发任务]                                                  |
-(Stage 1: IP探活) --[ ScanStage (Task A) ]---------------------->| 执行 ping/nmap
-            |                                                    |
-   [2. 回收结果]                                                  |
-            |<--[ StageResult (Alive IPs) ]----------------------| 任务完成，Agent 遗忘
-            |                                                    |
-   [3. 决策与转换]                                                |
-(解析 Result, 发现有 10 个 IP 存活)                                |
-(检查 Workflow, 下一步是 "端口扫描")                               |
-(提取 IP, 生成新任务 Task B)                                       |
-            |                                                    |
-   [4. 下发新任务]                                                |
-(Stage 2: 端口扫描) --[ ScanStage (Task B, Target=IPs) ]-------->| 执行 masscan
-            |                                                    |
-            |<--[ StageResult (Open Ports) ]---------------------|
-            v 
-       Database (记忆)
+```mermaid
+sequenceDiagram
+    participant Master as Master (大脑 & 调度)
+    participant Agent as Agent (手脚)
+    participant DB as Database (记忆)
+
+    Note over Master, Agent: 1. 下发任务 (Stage 1: IP探活)
+    Master->>Agent: [ScanStage (Task A)]<br/>执行 ping/nmap
+    activate Agent
+    
+    Note over Master, Agent: 2. 回收结果
+    Agent-->>Master: [StageResult (Alive IPs)]<br/>任务完成，Agent 遗忘
+    deactivate Agent
+
+    Note over Master: 3. 决策与转换<br/>(解析 Result, 发现 10 个存活 IP)<br/>(检查 Workflow, 下一步: 端口扫描)<br/>(提取 IP, 生成新任务 Task B)
+
+    Note over Master, Agent: 4. 下发新任务 (Stage 2: 端口扫描)
+    Master->>Agent: [ScanStage (Task B, Target=IPs)]<br/>执行 masscan
+    activate Agent
+    
+    Agent-->>Master: [StageResult (Open Ports)]
+    deactivate Agent
+    
+    Master->>DB: 存储结果
 ```
 
 ### 详细步骤说明

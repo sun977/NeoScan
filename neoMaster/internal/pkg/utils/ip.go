@@ -1,3 +1,10 @@
+// IP工具包
+// 提供IP地址的标准化、校验和转换功能
+// 后续需要补充的装换：
+// - CIDR2ip：CIDR 转换为 IP 列表
+// - Range2ip：192.168.0.1-192.168.0.100 转换为 IP 列表
+// - IP2int/Int2ip：IP 和 整数 之间的相互转换
+
 package utils
 
 import (

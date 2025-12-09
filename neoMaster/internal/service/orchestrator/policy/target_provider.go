@@ -105,8 +105,8 @@ func NewTargetProvider(db *gorm.DB) TargetProvider {
 	svc.RegisterProvider("manual", &ManualProvider{})                // 手动输入来源提供(前端用户手动输入目标)
 	svc.RegisterProvider("project_target", &ProjectTargetProvider{}) // 项目种子目标提供(直接用项目目标覆盖当前目标)
 	svc.RegisterProvider("file", &FileProvider{})                    // 注册文件提供者
+	svc.RegisterProvider("database", NewDatabaseProvider(db))        // 注册数据库提供者
 	// 注册待实现的提供者
-	svc.RegisterProvider("database", NewDatabaseProvider(db)) // 注册数据库提供者
 	svc.RegisterProvider("api", &StubProvider{name: "api"})
 	svc.RegisterProvider("previous_stage", &StubProvider{name: "previous_stage"})
 

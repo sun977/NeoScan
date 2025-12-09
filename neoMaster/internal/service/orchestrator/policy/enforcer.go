@@ -135,7 +135,7 @@ func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (boo
 		match := false
 		switch w.TargetType {
 		case "ip", "ip_range", "cidr":
-			// 支持单个IP, CIDR, IP范围
+			// 支持单个IP, CIDR(10.0.0.0/24), IP范围(192.168.1.0-192.168.1.255)
 			// 使用统一的 CheckIPInRange 函数检查
 			// 注意：这里用 targetHost，因为 target 可能是 URL
 			isMatch, err := utils.CheckIPInRange(targetHost, w.TargetValue)

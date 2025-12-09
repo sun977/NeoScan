@@ -161,14 +161,14 @@ func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (boo
 						}
 					}
 				} else {
-					// 3. Single IP (Although IsIPRange check should mostly prevent this path if strict,
-					// but let's keep it safe or handle it in else block.
-					// Wait, IsIPRange only returns true if "-" or "/" exists.
-					// So this "Single IP" block inside here is unreachable if IsIPRange definition is strict about "-" or "/".
-					// Let's double check IsIPRange definition: strings.Contains(s, "-") || strings.Contains(s, "/")
-					// So Single IP "1.1.1.1" will return false.
-					// So this block inside IsIPRange is purely for Ranges/CIDRs.
-					// The Single IP case is handled in the else block of the outer if.
+					// 3. 单个 IP (虽然 IsIPRange 检查应该会阻止进入此路径，
+					// 但为了安全起见还是保留，或者在 else 块中处理。
+					// 等等，IsIPRange 仅在包含 "-" 或 "/" 时才返回 true。
+					// 因此，如果 IsIPRange 严格依赖 "-" 或 "/"，这里的"单个 IP"逻辑是不可达的。
+					// 再确认一下 IsIPRange 定义: strings.Contains(s, "-") || strings.Contains(s, "/")
+					// 所以单个 IP "1.1.1.1" 会返回 false。
+					// 因此，IsIPRange 内部这个块纯粹是处理 Range/CIDR 的。
+					// 单个 IP 的情况是在外层 if 的 else 分支处理的。
 				}
 			} else {
 

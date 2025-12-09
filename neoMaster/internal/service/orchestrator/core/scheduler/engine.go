@@ -29,6 +29,7 @@ import (
 	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
+	assetRepo "neomaster/internal/repo/mysql/asset"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
 	"neomaster/internal/service/orchestrator/policy" // 策略执行器模块
 
@@ -70,6 +71,10 @@ func NewSchedulerService(
 	if interval <= 0 {
 		interval = 10 * time.Second
 	}
+
+	// 初始化策略仓库
+	policyRepo := assetRepo.NewAssetPolicyRepository(db)
+
 	return &schedulerService{
 		projectRepo:    projectRepo,
 		workflowRepo:   workflowRepo,
@@ -78,7 +83,7 @@ func NewSchedulerService(
 		agentRepo:      agentRepo,
 		taskGenerator:  NewTaskGenerator(),
 		targetProvider: policy.NewTargetProvider(db),
-		policyEnforcer: policy.NewPolicyEnforcer(projectRepo),
+		policyEnforcer: policy.NewPolicyEnforcer(projectRepo, policyRepo),
 		stopChan:       make(chan struct{}),
 		interval:       interval,
 	}

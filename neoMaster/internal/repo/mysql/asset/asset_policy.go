@@ -198,7 +198,9 @@ func (r *AssetPolicyRepository) ListSkipPolicies(ctx context.Context, page, page
 	if name != "" {
 		query = query.Where("policy_name LIKE ?", "%"+name+"%")
 	}
+	// 修复：之前遗漏了 policyType 筛选
 	if policyType != "" {
+		// 添加 policyType 筛选 模型和数据库表均有 policy_type 字段
 		query = query.Where("policy_type = ?", policyType)
 	}
 
@@ -220,4 +222,36 @@ func (r *AssetPolicyRepository) ListSkipPolicies(ctx context.Context, page, page
 	}
 
 	return policies, total, nil
+}
+
+// -----------------------------------------------------------------------------
+// Policy Enforcer Support Methods
+// -----------------------------------------------------------------------------
+
+// GetEnabledWhitelists 获取所有启用的白名单
+// 用于 PolicyEnforcer 实时检查
+func (r *AssetPolicyRepository) GetEnabledWhitelists(ctx context.Context) ([]*asset.AssetWhitelist, error) {
+	var whitelists []*asset.AssetWhitelist
+	err := r.db.WithContext(ctx).Where("enabled = ?", true).Find(&whitelists).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_enabled_whitelists", "REPO", map[string]interface{}{
+			"operation": "get_enabled_whitelists",
+		})
+		return nil, err
+	}
+	return whitelists, nil
+}
+
+// GetEnabledSkipPolicies 获取所有启用的跳过策略
+// 用于 PolicyEnforcer 实时检查
+func (r *AssetPolicyRepository) GetEnabledSkipPolicies(ctx context.Context) ([]*asset.AssetSkipPolicy, error) {
+	var policies []*asset.AssetSkipPolicy
+	err := r.db.WithContext(ctx).Where("enabled = ?", true).Find(&policies).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_enabled_skip_policies", "REPO", map[string]interface{}{
+			"operation": "get_enabled_skip_policies",
+		})
+		return nil, err
+	}
+	return policies, nil
 }

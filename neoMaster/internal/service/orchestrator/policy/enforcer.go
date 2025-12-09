@@ -10,8 +10,11 @@ import (
 	agentModel "neomaster/internal/model/orchestrator"
 	"net"
 	"strings"
+	"time"
 
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
+	assetrepo "neomaster/internal/repo/mysql/asset"
 	orcrepo "neomaster/internal/repo/mysql/orchestrator"
 )
 
@@ -26,12 +29,14 @@ type PolicyEnforcer interface {
 
 type policyEnforcer struct {
 	projectRepo *orcrepo.ProjectRepository
+	policyRepo  *assetrepo.AssetPolicyRepository
 }
 
 // NewPolicyEnforcer 创建策略执行器
-func NewPolicyEnforcer(projectRepo *orcrepo.ProjectRepository) PolicyEnforcer {
+func NewPolicyEnforcer(projectRepo *orcrepo.ProjectRepository, policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforcer {
 	return &policyEnforcer{
 		projectRepo: projectRepo,
+		policyRepo:  policyRepo,
 	}
 }
 
@@ -71,20 +76,193 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	// 2. WhitelistChecker: 白名单检查 (强制阻断)
 	// 检查目标是否命中 AssetWhitelist
 	for _, target := range targets {
-		if isWhitelisted(target) {
+		isBlocked, ruleName, err := p.checkWhitelist(ctx, target)
+		if err != nil {
+			logger.LogError(err, "whitelist check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
+			return fmt.Errorf("policy check error: %v", err)
+		}
+		if isBlocked {
 			logger.LogInfo("Task blocked by whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-				"task_id": task.TaskID,
-				"target":  target,
+				"task_id":   task.TaskID,
+				"target":    target,
+				"rule_name": ruleName,
 			})
-			return fmt.Errorf("policy violation: target %s is whitelisted", target)
+			return fmt.Errorf("policy violation: target %s is whitelisted by rule: %s", target, ruleName)
 		}
 	}
 
 	// 3. SkipLogicEvaluator: 动态跳过
 	// 执行 AssetSkipPolicy 逻辑 (e.g. 生产环境限制)
-	// TODO: 实现动态跳过逻辑
+	shouldSkip, reason, err := p.checkSkipPolicy(ctx, project)
+	if err != nil {
+		logger.LogError(err, "skip policy check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
+		return fmt.Errorf("policy check error: %v", err)
+	}
+	if shouldSkip {
+		logger.LogInfo("Task skipped by policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
+			"task_id": task.TaskID,
+			"reason":  reason,
+		})
+		return fmt.Errorf("policy violation: task skipped due to policy: %s", reason)
+	}
 
 	return nil
+}
+
+// checkWhitelist 检查目标是否在白名单中
+func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (bool, string, error) {
+	whitelists, err := p.policyRepo.GetEnabledWhitelists(ctx)
+	if err != nil {
+		return false, "", err
+	}
+
+	for _, w := range whitelists {
+		match := false
+		switch w.TargetType {
+		case "ip":
+			// 支持单个IP, CIDR, IP范围
+			if utils.IsIPRange(w.TargetValue) {
+				// 这是一个 IP 范围 (e.g. 192.168.1.1-192.168.1.5)
+				// 或者是 CIDR
+				if utils.IsIPRanger(w.TargetValue) { // 复用 IsIPRanger 逻辑 (它内部调用 IsIPRange)
+					// 这里的 utils.IsIPRanger 只是判断格式，我们需要判断 target 是否在范围内
+					// 抱歉，utils.IsIPRanger 只是返回 bool 表示字符串是否是 Range 格式
+					// 我们需要实际的检查逻辑。
+					// 让我们用 utils.ParseIPPairs 来解析范围，然后看 target 是否在其中。
+					// 但 ParseIPPairs 返回所有 IP，性能太差。
+					// 应该使用 net 库解析 CIDR 或者手动解析 Range。
+
+					// 简单起见，如果 utils 支持 CheckIPInRange 最好。
+					// 目前 utils 似乎没有直接的 CheckIPInRange。
+					// 既然是实时查库，我们在这里做一下解析。
+
+					// 1. CIDR
+					if strings.Contains(w.TargetValue, "/") {
+						_, ipNet, err := net.ParseCIDR(w.TargetValue)
+						if err == nil {
+							if ip := net.ParseIP(target); ip != nil && ipNet.Contains(ip) {
+								match = true
+							}
+						}
+					} else if strings.Contains(w.TargetValue, "-") {
+						// 2. Range (1.1.1.1-1.1.1.5)
+						// 简单的字符串比较在这里行不通，需要转换成数字。
+						// 暂时为了性能和简单，先假设 target 必须是 IP。
+						targetIP := net.ParseIP(target)
+						if targetIP != nil {
+							// 解析 Range
+							parts := strings.Split(w.TargetValue, "-")
+							if len(parts) == 2 {
+								startIP := net.ParseIP(strings.TrimSpace(parts[0]))
+								endIP := net.ParseIP(strings.TrimSpace(parts[1]))
+								if startIP != nil && endIP != nil {
+									if utils.IPCompare(targetIP, startIP) >= 0 && utils.IPCompare(targetIP, endIP) <= 0 {
+										match = true
+									}
+								}
+							}
+						}
+					} else {
+						// 3. Single IP
+						if target == w.TargetValue {
+							match = true
+						}
+					}
+				}
+			} else {
+				// 普通 IP 字符串
+				if target == w.TargetValue {
+					match = true
+				}
+			}
+		case "domain":
+			// 域名匹配：精确匹配或后缀匹配
+			if target == w.TargetValue {
+				match = true
+			} else if strings.HasPrefix(w.TargetValue, ".") && strings.HasSuffix(target, w.TargetValue) {
+				match = true
+			}
+		case "keyword":
+			// 关键字包含
+			if strings.Contains(target, w.TargetValue) {
+				match = true
+			}
+		}
+
+		if match {
+			return true, w.WhitelistName, nil
+		}
+	}
+
+	return false, "", nil
+}
+
+type SkipConditionRules struct {
+	BlockTimeWindows []string `json:"block_time_windows"` // e.g. ["00:00-06:00", "22:00-23:59"]
+	BlockEnvTags     []string `json:"block_env_tags"`     // e.g. ["production", "sensitive"]
+}
+
+// checkSkipPolicy 检查是否应该跳过任务
+func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentModel.Project) (bool, string, error) {
+	policies, err := p.policyRepo.GetEnabledSkipPolicies(ctx)
+	if err != nil {
+		return false, "", err
+	}
+
+	now := time.Now()
+	currentTimeStr := now.Format("15:04") // HH:MM
+
+	for _, policy := range policies {
+		var rules SkipConditionRules
+		if err := json.Unmarshal([]byte(policy.ConditionRules), &rules); err != nil {
+			logger.LogWarn("Failed to parse skip policy rules", "", 0, "", "checkSkipPolicy", "", map[string]interface{}{
+				"policy_id": policy.ID,
+				"error":     err.Error(),
+			})
+			continue // 忽略解析失败的规则
+		}
+
+		// 1. 检查环境标签
+		if len(rules.BlockEnvTags) > 0 {
+			projectTags := parseTags(project.Tags) // 假设 Project.Tags 是 JSON 字符串或逗号分隔
+			for _, blockTag := range rules.BlockEnvTags {
+				for _, projTag := range projectTags {
+					if strings.EqualFold(blockTag, projTag) {
+						return true, fmt.Sprintf("Environment tag '%s' is blocked by policy '%s'", blockTag, policy.PolicyName), nil
+					}
+				}
+			}
+		}
+
+		// 2. 检查时间窗
+		if len(rules.BlockTimeWindows) > 0 {
+			for _, window := range rules.BlockTimeWindows {
+				parts := strings.Split(window, "-")
+				if len(parts) != 2 {
+					continue
+				}
+				start := strings.TrimSpace(parts[0])
+				end := strings.TrimSpace(parts[1])
+
+				// 简单的字符串比较对于 HH:MM 格式是有效的
+				if currentTimeStr >= start && currentTimeStr <= end {
+					return true, fmt.Sprintf("Current time %s is within blocked window %s of policy '%s'", currentTimeStr, window, policy.PolicyName), nil
+				}
+			}
+		}
+	}
+
+	return false, "", nil
+}
+
+func parseTags(tagsStr string) []string {
+	// 尝试解析 JSON
+	var tags []string
+	if err := json.Unmarshal([]byte(tagsStr), &tags); err == nil {
+		return tags
+	}
+	// 尝试逗号分隔
+	return strings.Split(tagsStr, ",")
 }
 
 // parseTargets 解析目标
@@ -141,17 +319,4 @@ func validateScope(targets []string, scope string) error {
 		}
 	}
 	return nil
-}
-
-// isWhitelisted 简单的白名单检查模拟
-func isWhitelisted(target string) bool {
-	// TODO: 连接真实的白名单数据库
-	// 示例：禁止扫描政府和教育网站，或者特定敏感IP
-	sensitiveKeywords := []string{".gov.cn", ".edu.cn", "127.0.0.1", "localhost"}
-	for _, kw := range sensitiveKeywords {
-		if strings.Contains(target, kw) {
-			return true
-		}
-	}
-	return false
 }

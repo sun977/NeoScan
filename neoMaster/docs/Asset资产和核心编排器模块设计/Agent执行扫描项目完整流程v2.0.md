@@ -18,7 +18,7 @@ sequenceDiagram
     participant User
     participant Master as Master (Brain)
     participant DB as Database
-    participant MQ as TaskQueue/RPC
+    participant MQ as TaskQueue
     participant Agent as Agent (Worker)
     
     %% 1. 提交项目

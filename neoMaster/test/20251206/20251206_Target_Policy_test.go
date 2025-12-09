@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"context"
@@ -152,6 +152,7 @@ func TestTargetPolicyResolution(t *testing.T) {
 	agentRepository := agentRepo.NewAgentRepository(db)
 
 	schedulerService := scheduler.NewSchedulerService(
+		db,
 		projectRepo,
 		workflowRepo,
 		stageRepo,

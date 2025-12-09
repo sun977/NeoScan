@@ -9,6 +9,7 @@ import (
 	"fmt"
 	agentModel "neomaster/internal/model/orchestrator"
 	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -116,28 +117,57 @@ func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (boo
 		return false, "", err
 	}
 
+	// 预处理目标：尝试提取 Host (IP 或 域名)
+	// 如果 target 是 URL，提取 Host；否则 target 本身就是 Host
+	targetHost := target
+	// 只有当看起来像 URL 时才尝试解析 Host
+	if strings.Contains(target, "://") {
+		if u, err := url.Parse(target); err == nil && u.Host != "" {
+			targetHost = u.Host
+		}
+	}
+	// 去掉端口号 (无论是从 URL 解析出来的，还是原始的 "IP:Port")
+	if h, _, err := net.SplitHostPort(targetHost); err == nil {
+		targetHost = h
+	}
+
 	for _, w := range whitelists {
 		match := false
 		switch w.TargetType {
-		case "ip":
+		case "ip", "ip_range", "cidr":
 			// 支持单个IP, CIDR, IP范围
 			// 使用统一的 CheckIPInRange 函数检查
-			isMatch, err := utils.CheckIPInRange(target, w.TargetValue)
+			// 注意：这里用 targetHost，因为 target 可能是 URL
+			isMatch, err := utils.CheckIPInRange(targetHost, w.TargetValue)
 			if err == nil && isMatch {
 				match = true
 			}
-		case "domain":
+		case "domain", "host", "domain_pattern":
 			// 域名匹配：精确匹配或后缀匹配
-			if target == w.TargetValue {
+			// 使用 targetHost
+			if targetHost == w.TargetValue {
 				match = true
-			} else if strings.HasPrefix(w.TargetValue, ".") && strings.HasSuffix(target, w.TargetValue) {
+			} else if strings.HasPrefix(w.TargetValue, ".") && strings.HasSuffix(targetHost, w.TargetValue) {
+				match = true
+			} else if strings.HasPrefix(w.TargetValue, "*.") && strings.HasSuffix(targetHost, w.TargetValue[1:]) {
+				// 支持 *.example.com 格式
+				match = true
+			}
+		case "url":
+			// URL 匹配：前缀匹配
+			// 使用原始 target
+			if strings.HasPrefix(target, w.TargetValue) {
 				match = true
 			}
 		case "keyword":
 			// 关键字包含
+			// 使用原始 target
 			if strings.Contains(target, w.TargetValue) {
 				match = true
 			}
+		default:
+			// 忽略不支持的类型
+			continue
 		}
 
 		if match {

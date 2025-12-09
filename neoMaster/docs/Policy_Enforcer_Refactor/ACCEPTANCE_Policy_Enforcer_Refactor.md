@@ -31,7 +31,8 @@
 - [x] **实现 `checkWhitelist`**
   - 使用统一的 `utils.CheckIPInRange` 函数
   - 支持 IP (单IP, CIDR, Range)
-  - 支持 Domain (精确, 后缀)
+  - 支持 Domain (精确, 后缀, 通配符 `*.example.com`)
+  - 支持 URL (前缀匹配, Host提取匹配)
   - 支持 Keyword
   - 代码位置: `internal/service/orchestrator/policy/enforcer.go`
 
@@ -46,10 +47,15 @@
   - 使用 SQLite/MySQL 内存模式或测试库 (实际使用了 neoscan_dev)
   - 代码位置: `test/policy_refactor/policy_enforcer_test.go`
 - [x] **编写测试用例**
-  - `TestPolicyEnforcer_Whitelist`: 覆盖所有白名单类型
+  - `TestPolicyEnforcer_Whitelist`: 覆盖所有白名单类型 (包括 URL, CIDR, Pattern)
   - `TestPolicyEnforcer_SkipLogic`: 覆盖环境标签跳过逻辑
 - [x] **执行测试**
   - 结果: PASS (Unit & Integration)
+
+### 文档更新
+- [x] **AssetWhitelist实体模型定义**
+  - 更新 target_type 说明，明确支持和暂不支持的类型
+  - 代码位置: `docs/Asset资产和核心编排器模块设计/AssetWhitelist实体模型定义.md`
 
 ## 质量评估
 - **代码规范**: 符合项目 Go 规范，使用 `utils` 包统一管理 IP 逻辑，消除了重复代码。

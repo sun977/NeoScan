@@ -32,6 +32,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"gorm.io/gorm"
 )
 
 // TargetProvider 目标提供者服务接口
@@ -105,7 +107,7 @@ func NewTargetProvider() TargetProvider {
 	svc.RegisterProvider("file", &FileProvider{})                    // 注册文件提供者
 
 	// 注册待实现的提供者 (占位符)
-	svc.RegisterProvider("database", &StubProvider{name: "database"})
+	svc.RegisterProvider("database", NewDatabaseProvider(nil)) // 传入nil，在Provide时使用系统DB
 	svc.RegisterProvider("api", &StubProvider{name: "api"})
 	svc.RegisterProvider("previous_stage", &StubProvider{name: "previous_stage"})
 
@@ -453,6 +455,181 @@ func (f *FileProvider) parseJSON(r io.Reader, jsonPath string) ([]string, error)
 func (f *FileProvider) HealthCheck(ctx context.Context) error {
 	// 检查是否有文件读取权限，或者不做特殊检查
 	return nil
+}
+
+// DatabaseProvider 数据库来源提供者
+type DatabaseProvider struct {
+	db *gorm.DB // 全局数据库连接
+}
+
+// NewDatabaseProvider 创建 DatabaseProvider 实例
+// 如果传入 db 为 nil，需要在 Provide 时通过其他方式获取，或者在外部初始化时传入全局 DB
+// 由于 TargetProvider 是单例，建议在 NewTargetProvider 时传入 db，或者提供 SetDB 方法
+func NewDatabaseProvider(db *gorm.DB) *DatabaseProvider {
+	return &DatabaseProvider{db: db}
+}
+
+// DBQueryConfig 数据库查询配置 (对应 filter_rules)
+type DBQueryConfig struct {
+	Where []DBFilterRule `json:"where"`
+	Limit int            `json:"limit"`
+}
+
+// DBFilterRule 单条过滤规则
+type DBFilterRule struct {
+	Field string      `json:"field"`
+	Op    string      `json:"op"`
+	Value interface{} `json:"value"`
+}
+
+// DBParserConfig 数据库解析配置 (对应 parser_config)
+type DBParserConfig struct {
+	ValueColumn string   `json:"value_column"` // 核心：哪一列是 Target.Value (必填)
+	MetaColumns []string `json:"meta_columns"` // 可选：哪些列放入 Target.Meta
+}
+
+func (d *DatabaseProvider) Name() string { return "database" }
+
+func (d *DatabaseProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+	// 暂时仅支持 MySQL 数据库
+	// TODO: 支持更多数据库类型
+	// 注意：目前设计为复用系统全局 DB，如果连接外部 DB 需在 AuthConfig 中配置连接信息并在此处建立临时连接
+
+	// 1. 获取数据库连接
+	// 如果配置了 AuthConfig，说明是外部数据库，需要建立连接
+	// 如果没有配置 AuthConfig，默认查询系统内部数据库 (复用 d.db)
+	var db *gorm.DB
+	if len(config.AuthConfig) > 0 {
+		// TODO: 实现连接外部数据库逻辑
+		return nil, fmt.Errorf("external database connection not supported yet")
+	} else {
+		if d.db == nil {
+			// 尝试从 context 中获取 db，或者报错
+			// 由于目前架构限制，TargetProvider 是单例，且初始化时可能拿不到 DB
+			// 建议后续重构依赖注入
+			return nil, fmt.Errorf("system database connection is not initialized in DatabaseProvider")
+		}
+		db = d.db
+	}
+
+	// 2. 解析配置
+	if config.QueryMode != "table" && config.QueryMode != "view" {
+		return nil, fmt.Errorf("unsupported query_mode: %s (only table/view supported currently)", config.QueryMode)
+	}
+	if config.SourceValue == "" {
+		return nil, fmt.Errorf("source_value (table/view name) is required")
+	}
+	// 简单校验表名防止注入 (只允许字母数字下划线)
+	if !isValidTableName(config.SourceValue) {
+		return nil, fmt.Errorf("invalid table name: %s", config.SourceValue)
+	}
+
+	var queryConfig DBQueryConfig
+	if len(config.FilterRules) > 0 {
+		if err := json.Unmarshal(config.FilterRules, &queryConfig); err != nil {
+			return nil, fmt.Errorf("invalid filter_rules: %w", err)
+		}
+	}
+
+	var parserConfig DBParserConfig
+	if len(config.ParserConfig) > 0 {
+		if err := json.Unmarshal(config.ParserConfig, &parserConfig); err != nil {
+			return nil, fmt.Errorf("invalid parser_config: %w", err)
+		}
+	}
+	if parserConfig.ValueColumn == "" {
+		return nil, fmt.Errorf("value_column is required in parser_config")
+	}
+
+	// 3. 构建查询
+	tx := db.Table(config.SourceValue)
+
+	// 应用 Where 条件
+	for _, rule := range queryConfig.Where {
+		if !isValidFieldName(rule.Field) {
+			return nil, fmt.Errorf("invalid field name: %s", rule.Field)
+		}
+		if !isValidOp(rule.Op) {
+			return nil, fmt.Errorf("invalid operator: %s", rule.Op)
+		}
+		// 安全构建 Where 子句，GORM 会处理 Value 的参数化
+		tx = tx.Where(fmt.Sprintf("%s %s ?", rule.Field, rule.Op), rule.Value)
+	}
+
+	if queryConfig.Limit > 0 {
+		tx = tx.Limit(queryConfig.Limit)
+	}
+
+	// 4. 执行查询
+	selectCols := append([]string{parserConfig.ValueColumn}, parserConfig.MetaColumns...)
+	tx = tx.Select(selectCols)
+
+	var results []map[string]interface{}
+	if err := tx.Scan(&results).Error; err != nil {
+		return nil, fmt.Errorf("database query failed: %w", err)
+	}
+
+	// 5. 结果映射
+	targets := make([]Target, 0, len(results))
+	for _, row := range results {
+		val, ok := row[parserConfig.ValueColumn]
+		if !ok || val == nil {
+			continue
+		}
+		valStr := fmt.Sprintf("%v", val)
+		if valStr = strings.TrimSpace(valStr); valStr == "" {
+			continue
+		}
+
+		meta := make(map[string]string)
+		for _, metaCol := range parserConfig.MetaColumns {
+			if v, exists := row[metaCol]; exists && v != nil {
+				meta[metaCol] = fmt.Sprintf("%v", v)
+			}
+		}
+
+		targets = append(targets, Target{
+			Type:   config.TargetType,
+			Value:  valStr,
+			Source: "database:" + config.SourceValue,
+			Meta:   meta,
+		})
+	}
+
+	return targets, nil
+}
+
+func (d *DatabaseProvider) HealthCheck(ctx context.Context) error {
+	if d.db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+	sqlDB, err := d.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.PingContext(ctx)
+}
+
+// 辅助校验函数
+func isValidTableName(name string) bool {
+	for _, r := range name {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+func isValidFieldName(name string) bool {
+	return isValidTableName(name) // 规则相同
+}
+
+func isValidOp(op string) bool {
+	validOps := map[string]bool{
+		"=": true, ">": true, "<": true, ">=": true, "<=": true,
+		"!=": true, "LIKE": true, "IN": true,
+	}
+	return validOps[strings.ToUpper(op)]
 }
 
 // StubProvider 桩实现

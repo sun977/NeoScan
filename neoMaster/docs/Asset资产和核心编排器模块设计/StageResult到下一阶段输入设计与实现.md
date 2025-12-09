@@ -110,7 +110,7 @@
 }
 ```
 
-## 执行流程（InputResolver）
+## 执行流程（InputResolver） 【（TargetProvider Logic）】
 
 - 加载：根据 `ScanStage.stage_id` 与 `target_policy` 查询上一阶段的 `StageResult`。
 - 过滤：应用 `record_selector.where` 与 `target_type`。

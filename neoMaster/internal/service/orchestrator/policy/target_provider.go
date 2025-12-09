@@ -99,8 +99,8 @@ func NewTargetProvider(db *gorm.DB) TargetProvider {
 	svc.RegisterProvider("file", &FileProvider{})                    // 注册文件提供者
 	svc.RegisterProvider("database", NewDatabaseProvider(db))        // 注册数据库提供者
 	// 注册待实现的提供者
-	svc.RegisterProvider("api", &StubProvider{name: "api"})
-	svc.RegisterProvider("previous_stage", &StubProvider{name: "previous_stage"})
+	svc.RegisterProvider("api", &ApiProvider{})
+	svc.RegisterProvider("previous_stage", &PreviousStageProvider{})
 
 	return svc
 }

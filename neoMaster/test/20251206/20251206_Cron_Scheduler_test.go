@@ -127,7 +127,8 @@ func TestCronScheduler(t *testing.T) {
 		ScheduleType: "cron",      // 调度类型 cron
 		CronExpr:     "* * * * *", // 每分钟
 		Enabled:      true,
-		ExtendedData: `{"targets": ["192.168.1.1"]}`,
+		TargetScope:  "192.168.1.1", // 设置 TargetScope
+		ExtendedData: "{}",          // ExtendedData 为空 JSON
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
 		Tags:         "[]",
@@ -194,7 +195,7 @@ func TestCronScheduler(t *testing.T) {
 	// 6. 等待调度
 	fmt.Println("Waiting for cron trigger...")
 	// 应该在第一次检查时就触发
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// 7. 验证 Project 状态变为 running
 	var updatedProject orcModel.Project

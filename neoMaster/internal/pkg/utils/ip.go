@@ -473,11 +473,6 @@ func IsIPRange(s string) bool {
 	return strings.Contains(s, "-") || strings.Contains(s, "/")
 }
 
-// IsIPRanger 是 IsIPRange 的别名，用于兼容性
-func IsIPRanger(s string) bool {
-	return IsIPRange(s)
-}
-
 // IPCompare 比较两个 IPv4 地址
 // 返回 -1 if ip1 < ip2, 0 if equal, 1 if ip1 > ip2
 func IPCompare(ip1, ip2 net.IP) int {

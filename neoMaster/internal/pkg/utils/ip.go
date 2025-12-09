@@ -1,15 +1,15 @@
 // IP工具包
 // 提供IP地址的标准化、校验和转换功能
-// 后续需要补充的装换：
-// - CIDR2ip：CIDR 转换为 IP 列表
-// - Range2ip：192.168.0.1-192.168.0.100 转换为 IP 列表
-// - IP2int/Int2ip：IP 和 整数 之间的相互转换
 
 package utils
 
 import (
 	"fmt"
 	"net"
+	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -99,8 +99,7 @@ func IsIPInWhitelist(clientIP string, whitelist []string) bool {
 			}
 		} else {
 			// 单IP格式：192.168.1.100
-			allowedIPParsed := net.ParseIP(allowedIP)
-			if allowedIPParsed != nil && clientIPParsed.Equal(allowedIPParsed) {
+			if isIPEqual(clientIPParsed, allowedIP) {
 				return true
 			}
 		}
@@ -110,18 +109,310 @@ func IsIPInWhitelist(clientIP string, whitelist []string) bool {
 }
 
 // isIPInCIDR 检查IP是否在CIDR范围内
-// 参数:
-//   - ip: 要检查的IP地址（已解析）
-//   - cidr: CIDR格式的网络范围，如 "192.168.1.0/24"
-//
-// 返回: 如果IP在CIDR范围内返回true，否则返回false
-func isIPInCIDR(ip net.IP, cidr string) bool {
-	_, network, err := net.ParseCIDR(cidr)
+func isIPInCIDR(clientIP net.IP, cidr string) bool {
+	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return false // 无效的CIDR格式
+		return false // CIDR格式无效
+	}
+	return ipNet.Contains(clientIP)
+}
+
+// isIPEqual 检查两个IP是否相等
+func isIPEqual(clientIP net.IP, targetIPStr string) bool {
+	targetIP := net.ParseIP(targetIPStr)
+	if targetIP == nil {
+		return false
+	}
+	return clientIP.Equal(targetIP)
+}
+
+// CIDR2IPs 将 CIDR 转换为 IP 列表
+// 示例: "192.168.0.0/30" -> ["192.168.0.0", "192.168.0.1", "192.168.0.2", "192.168.0.3"]
+// 注意: 仅支持 IPv4, 且不建议用于过大的网段
+func CIDR2IPs(cidr string) ([]string, error) {
+	ip, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid CIDR format: %w", err)
 	}
 
-	return network.Contains(ip)
+	// 仅支持 IPv4
+	ip = ip.To4()
+	if ip == nil {
+		return nil, fmt.Errorf("only IPv4 is supported for CIDR expansion")
+	}
+
+	var ips []string
+	for currentIP := ip.Mask(ipNet.Mask); ipNet.Contains(currentIP); inc(currentIP) {
+		ips = append(ips, currentIP.String())
+	}
+
+	// 移除网络地址和广播地址? 通常扫描需要保留
+	// 这里保留所有地址
+	return ips, nil
+}
+
+// inc 增加 IP 地址
+func inc(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
+
+// Range2IPs 将 IP 范围字符串转换为 IP 列表
+// 示例: "192.168.0.1-192.168.0.3" -> ["192.168.0.1", "192.168.0.2", "192.168.0.3"]
+func Range2IPs(rangeStr string) ([]string, error) {
+	parts := strings.Split(rangeStr, "-")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid IP range format: %s", rangeStr)
+	}
+
+	startIPStr := strings.TrimSpace(parts[0])
+	endIPStr := strings.TrimSpace(parts[1])
+
+	startIP := net.ParseIP(startIPStr).To4()
+	if startIP == nil {
+		return nil, fmt.Errorf("invalid start IP: %s", startIPStr)
+	}
+
+	endIP := net.ParseIP(endIPStr).To4()
+	if endIP == nil {
+		return nil, fmt.Errorf("invalid end IP: %s", endIPStr)
+	}
+
+	// 转换为整数进行比较和迭代
+	startInt := IP2Int(startIP)
+	endInt := IP2Int(endIP)
+
+	if startInt > endInt {
+		return nil, fmt.Errorf("start IP must be less than or equal to end IP")
+	}
+
+	// 限制生成的 IP 数量，防止内存溢出 (例如限制为 65536)
+	count := endInt - startInt + 1
+	if count > 65536 {
+		return nil, fmt.Errorf("IP range too large: %d addresses (max 65536)", count)
+	}
+
+	var ips []string
+	for i := startInt; i <= endInt; i++ {
+		ips = append(ips, Int2IP(i).String())
+	}
+
+	return ips, nil
+}
+
+// IP2Int 将 IPv4 地址转换为 uint32 整数
+func IP2Int(ip net.IP) uint32 {
+	ip = ip.To4()
+	if ip == nil {
+		return 0
+	}
+	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
+}
+
+// Int2IP 将 uint32 整数转换为 IPv4 地址
+func Int2IP(nn uint32) net.IP {
+	ip := make(net.IP, 4)
+	ip[0] = byte(nn >> 24)
+	ip[1] = byte(nn >> 16)
+	ip[2] = byte(nn >> 8)
+	ip[3] = byte(nn)
+	return ip
+}
+
+// MergeIPs 合并 IP 列表并去重排序
+func MergeIPs(ips []string) []string {
+	uniqueIPs := make(map[string]struct{})
+	for _, ip := range ips {
+		if ip = strings.TrimSpace(ip); ip != "" {
+			uniqueIPs[ip] = struct{}{}
+		}
+	}
+
+	result := make([]string, 0, len(uniqueIPs))
+	for ip := range uniqueIPs {
+		result = append(result, ip)
+	}
+
+	// 排序
+	sort.Slice(result, func(i, j int) bool {
+		ip1 := net.ParseIP(result[i])
+		ip2 := net.ParseIP(result[j])
+		if ip1 == nil || ip2 == nil {
+			return result[i] < result[j]
+		}
+		return IP2Int(ip1) < IP2Int(ip2)
+	})
+
+	return result
+}
+
+// ==========================================
+// 验证与解析函数 (Validation & Parsing)
+// ==========================================
+
+// ParseIPPairs 解析 IP 范围字符串为 IP 列表
+// 支持格式:
+// - 完整范围: 192.168.0.1-192.168.2.255
+// - 简写范围: 192.168.0.1-255 (等同于 192.168.0.1-192.168.0.255)
+// - 混合简写: 192.168.0.1-2.255 (等同于 192.168.0.1-192.168.2.255)
+func ParseIPPairs(ipRange string) ([]string, error) {
+	parts := strings.Split(ipRange, "-")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid IP range format: %s", ipRange)
+	}
+
+	startIPStr := strings.TrimSpace(parts[0])
+	endIPStr := strings.TrimSpace(parts[1])
+
+	// 解析起始 IP
+	startIP := net.ParseIP(startIPStr).To4()
+	if startIP == nil {
+		return nil, fmt.Errorf("invalid start IP: %s", startIPStr)
+	}
+
+	// 解析结束 IP (处理简写逻辑)
+	var endIP net.IP
+	if strings.Contains(endIPStr, ".") {
+		// 可能是完整 IP 或部分段 (e.g. 2.255)
+		dots := strings.Count(endIPStr, ".")
+		if dots == 3 {
+			// 完整 IP: 192.168.2.255
+			endIP = net.ParseIP(endIPStr).To4()
+		} else {
+			// 部分段: 2.255 -> 补全前缀
+			// startIP: 192.168.0.1
+			// endIPStr: 2.255
+			// result: 192.168.2.255
+			startIPParts := strings.Split(startIPStr, ".")
+			endIPParts := strings.Split(endIPStr, ".")
+
+			// 需要补全的前缀段数 = 4 - 结束IP的段数
+			prefixLen := 4 - len(endIPParts)
+			if prefixLen < 0 {
+				return nil, fmt.Errorf("invalid end IP format: %s", endIPStr)
+			}
+
+			fullEndIPStr := strings.Join(startIPParts[:prefixLen], ".") + "." + endIPStr
+			endIP = net.ParseIP(fullEndIPStr).To4()
+		}
+	} else {
+		// 纯数字简写: 255 -> 192.168.0.255
+		// 只有最后一段不同
+		startIPParts := strings.Split(startIPStr, ".")
+		fullEndIPStr := strings.Join(startIPParts[:3], ".") + "." + endIPStr
+		endIP = net.ParseIP(fullEndIPStr).To4()
+	}
+
+	if endIP == nil {
+		return nil, fmt.Errorf("invalid end IP: %s", endIPStr)
+	}
+
+	// 转换为整数进行比较和迭代
+	startInt := IP2Int(startIP)
+	endInt := IP2Int(endIP)
+
+	if startInt > endInt {
+		return nil, fmt.Errorf("start IP must be less than or equal to end IP")
+	}
+
+	// 限制生成的 IP 数量，防止内存溢出
+	count := endInt - startInt + 1
+	if count > 65536 {
+		return nil, fmt.Errorf("IP range too large: %d addresses (max 65536)", count)
+	}
+
+	var ips []string
+	for i := startInt; i <= endInt; i++ {
+		ips = append(ips, Int2IP(i).String())
+	}
+
+	return ips, nil
+}
+
+// IsURL 检查字符串是否为 URL
+// 格式: protocol://netloc/path
+// 支持带端口: protocol://netloc:port/path
+func IsURL(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
+// IsIPPort 检查字符串是否为 IP:Port 格式
+// 示例: 192.168.0.1:8080
+func IsIPPort(str string) bool {
+	host, port, err := net.SplitHostPort(str)
+	if err != nil {
+		return false
+	}
+	return IsIP(host) && IsPort(port)
+}
+
+// IsDomainPort 检查字符串是否为 Domain:Port 格式
+// 示例: example.com:8080
+func IsDomainPort(str string) bool {
+	host, port, err := net.SplitHostPort(str)
+	if err != nil {
+		return false
+	}
+	return IsDomain(host) && IsPort(port)
+}
+
+// IsNetlocPort 检查字符串是否为 [Domain or IP]:Port 格式
+// 示例: 192.168.0.1:8080 或 example.com:8080
+func IsNetlocPort(str string) bool {
+	return IsIPPort(str) || IsDomainPort(str)
+}
+
+// IsCIDR 检查字符串是否为有效的 CIDR 格式 (IPv4)
+// 示例: 192.168.0.0/24
+func IsCIDR(cidr string) bool {
+	_, _, err := net.ParseCIDR(cidr)
+	return err == nil
+}
+
+// IsIP 检查字符串是否为有效的 IP 地址 (IPv4 或 IPv6)
+func IsIP(ip string) bool {
+	return net.ParseIP(ip) != nil
+}
+
+// IsIPv4 检查字符串是否为有效的 IPv4 地址
+func IsIPv4(ip string) bool {
+	parsed := net.ParseIP(ip)
+	return parsed != nil && parsed.To4() != nil
+}
+
+// IsIPv6 检查字符串是否为有效的 IPv6 地址
+func IsIPv6(ip string) bool {
+	parsed := net.ParseIP(ip)
+	return parsed != nil && parsed.To4() == nil
+}
+
+// IsPort 检查字符串是否为有效的端口号 (0-65535)
+func IsPort(port string) bool {
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return false
+	}
+	return p >= 0 && p <= 65535
+}
+
+// 域名正则
+var domainRegex = regexp.MustCompile(`^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
+
+// IsDomain 检查字符串是否为有效的域名
+// 注意: 这是一个简化的检查，不覆盖所有 RFC 规则
+func IsDomain(domain string) bool {
+	if len(domain) > 255 {
+		return false
+	}
+	if IsIP(domain) {
+		return false
+	}
+	return domainRegex.MatchString(domain) || domain == "localhost"
 }
 
 // ValidateIPWhitelistConfig 验证IP白名单配置格式

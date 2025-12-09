@@ -39,7 +39,7 @@ AssetWhitelist实体用于定义统一的资产白名单机制，适用于所有
 #### 2. target_type（目标类型）
 定义白名单条目的目标类型：
 - `ip`: IP地址 (如: 192.168.1.100) **(已支持)**
-- `ip_range`: IP范围 (如: 192.168.1.0/24) **(已支持)**
+- `ip_range`: IP范围 (如: 192.168.1.0-192.168.1.255) **(已支持)**
 - `domain`: 域名 (如: example.com) **(已支持)**
 - `domain_pattern`: 域名模式 (如: *.example.com) **(已支持)**
 - `url`: URL地址 (如: https://example.com) **(已支持)**

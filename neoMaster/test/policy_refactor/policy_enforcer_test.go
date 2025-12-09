@@ -75,8 +75,11 @@ func TestPolicyEnforcer_Whitelist(t *testing.T) {
 	rules := []asset.AssetWhitelist{
 		{WhitelistName: "Block Localhost", TargetType: "ip", TargetValue: "127.0.0.1", Enabled: true, Tags: "[]", Scope: "{}"},
 		{WhitelistName: "Block Range", TargetType: "ip", TargetValue: "192.168.1.1-192.168.1.5", Enabled: true, Tags: "[]", Scope: "{}"},
+		{WhitelistName: "Block CIDR", TargetType: "cidr", TargetValue: "10.0.0.0/8", Enabled: true, Tags: "[]", Scope: "{}"},
 		{WhitelistName: "Block Domain Suffix", TargetType: "domain", TargetValue: ".gov.cn", Enabled: true, Tags: "[]", Scope: "{}"},
+		{WhitelistName: "Block Domain Pattern", TargetType: "domain_pattern", TargetValue: "*.bad.com", Enabled: true, Tags: "[]", Scope: "{}"},
 		{WhitelistName: "Block Specific Domain", TargetType: "domain", TargetValue: "forbidden.com", Enabled: true, Tags: "[]", Scope: "{}"},
+		{WhitelistName: "Block URL Prefix", TargetType: "url", TargetValue: "http://malicious.com/api", Enabled: true, Tags: "[]", Scope: "{}"},
 		{WhitelistName: "Block Keyword", TargetType: "keyword", TargetValue: "sensitive", Enabled: true, Tags: "[]", Scope: "{}"},
 	}
 	for _, r := range rules {
@@ -89,7 +92,7 @@ func TestPolicyEnforcer_Whitelist(t *testing.T) {
 	// TargetScope 必须包含我们要测试的目标，否则会先被 Scope 校验拦截
 	project := &orchestrator.Project{
 		Name:         "Test Project Whitelist",
-		TargetScope:  "127.0.0.1,192.168.1.1,192.168.1.3,192.168.1.6,google.com,test.gov.cn,forbidden.com,mysensitive.com,safe.com",
+		TargetScope:  "127.0.0.1,192.168.1.1,192.168.1.3,192.168.1.6,google.com,test.gov.cn,forbidden.com,mysensitive.com,safe.com,10.1.1.1,api.bad.com,http://malicious.com/api/v1,http://malicious.com/other,http://127.0.0.1/admin",
 		Status:       "running",
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
@@ -109,11 +112,16 @@ func TestPolicyEnforcer_Whitelist(t *testing.T) {
 		{"Blocked Range Start", "192.168.1.1", true},
 		{"Blocked Range Mid", "192.168.1.3", true},
 		{"Allowed Range Out", "192.168.1.6", false},
+		{"Blocked CIDR", "10.1.1.1", true},
 		{"Blocked Domain Suffix", "test.gov.cn", true},
 		{"Blocked Specific Domain", "forbidden.com", true},
+		{"Blocked Domain Pattern", "api.bad.com", true},
 		{"Allowed Domain", "google.com", false},
 		{"Blocked Keyword", "mysensitive.com", true},
 		{"Allowed Safe", "safe.com", false},
+		{"Blocked URL Prefix", "http://malicious.com/api/v1", true},
+		{"Allowed URL Other Path", "http://malicious.com/other", false},
+		{"Blocked URL Host (matches IP whitelist)", "http://127.0.0.1/admin", true},
 	}
 
 	for _, tt := range tests {

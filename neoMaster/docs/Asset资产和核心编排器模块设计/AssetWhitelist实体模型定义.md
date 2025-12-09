@@ -38,17 +38,17 @@ AssetWhitelist实体用于定义统一的资产白名单机制，适用于所有
 
 #### 2. target_type（目标类型）
 定义白名单条目的目标类型：
-- `ip`: IP地址 (如: 192.168.1.100)
-- `ip_range`: IP范围 (如: 192.168.1.0/24)
-- `domain`: 域名 (如: example.com)
-- `domain_pattern`: 域名模式 (如: *.example.com)
-- `url`: URL地址 (如: https://example.com)
-- `cidr`: CIDR表示法 (如: 10.0.0.0/8)
-- `mac`: MAC地址 (如: 00:11:22:33:44:55)
-- `host`: 主机名 (如: server01)
-- `asn`: 自治系统号 (如: AS12345)
-- `country`: 国家代码 (如: CN, US)
-- `custom`: 自定义类型
+- `ip`: IP地址 (如: 192.168.1.100) **(已支持)**
+- `ip_range`: IP范围 (如: 192.168.1.0/24) **(已支持)**
+- `domain`: 域名 (如: example.com) **(已支持)**
+- `domain_pattern`: 域名模式 (如: *.example.com) **(已支持)**
+- `url`: URL地址 (如: https://example.com) **(已支持)**
+- `cidr`: CIDR表示法 (如: 10.0.0.0/8) **(已支持)**
+- `host`: 主机名 (如: server01) **(已支持)**
+- `mac`: MAC地址 (如: 00:11:22:33:44:55) **(暂不支持)**
+- `asn`: 自治系统号 (如: AS12345) **(暂不支持)**
+- `country`: 国家代码 (如: CN, US) **(暂不支持)**
+- `custom`: 自定义类型 **(暂不支持)**
 
 #### 3. target_value（目标值）
 具体的白名单目标值，支持多种格式：

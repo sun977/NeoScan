@@ -38,12 +38,9 @@ import (
 
 // TargetProvider 目标提供者服务接口
 type TargetProvider interface {
-	// ResolveTargets 解析策略并返回目标列表
-	ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error)
-	// RegisterProvider 注册新的目标源提供者
-	RegisterProvider(name string, provider SourceProvider)
-	// CheckHealth 检查所有已注册 Provider 的健康状态
-	CheckHealth(ctx context.Context) map[string]error
+	ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) // ResolveTargets 解析策略并返回目标列表
+	RegisterProvider(name string, provider SourceProvider)                                         // RegisterProvider 注册新的目标源提供者
+	CheckHealth(ctx context.Context) map[string]error                                              // CheckHealth 检查所有已注册 Provider 的健康状态
 }
 
 // SourceProvider 单个目标源提供者接口

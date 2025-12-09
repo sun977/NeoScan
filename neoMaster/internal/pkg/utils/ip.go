@@ -467,3 +467,27 @@ func GetIPWhitelistSummary(whitelist []string) string {
 
 	return fmt.Sprintf("%d single IPs, %d CIDR ranges", singleIPs, cidrRanges)
 }
+
+// IsIPRange 检查字符串是否为 IP 范围 (CIDR 或 start-end)
+func IsIPRange(s string) bool {
+	return strings.Contains(s, "-") || strings.Contains(s, "/")
+}
+
+// IsIPRanger 是 IsIPRange 的别名，用于兼容性
+func IsIPRanger(s string) bool {
+	return IsIPRange(s)
+}
+
+// IPCompare 比较两个 IPv4 地址
+// 返回 -1 if ip1 < ip2, 0 if equal, 1 if ip1 > ip2
+func IPCompare(ip1, ip2 net.IP) int {
+	int1 := IP2Int(ip1)
+	int2 := IP2Int(ip2)
+	if int1 < int2 {
+		return -1
+	}
+	if int1 > int2 {
+		return 1
+	}
+	return 0
+}

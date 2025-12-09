@@ -181,6 +181,7 @@ func TestCronScheduler(t *testing.T) {
 	agentRepository := agentRepo.NewAgentRepository(db)
 
 	schedulerService := scheduler.NewSchedulerService(
+		db,
 		projectRepo,
 		workflowRepo,
 		stageRepo,
@@ -199,7 +200,7 @@ func TestCronScheduler(t *testing.T) {
 	var updatedProject orcModel.Project
 	err = db.First(&updatedProject, project.ID).Error
 	assert.NoError(t, err)
-	
+
 	fmt.Printf("Project Status: %s, LastExecTime: %v\n", updatedProject.Status, updatedProject.LastExecTime)
 	assert.Equal(t, "running", updatedProject.Status, "Project status should be running")
 	assert.True(t, updatedProject.LastExecTime.After(lastExecTime), "LastExecTime should be updated")

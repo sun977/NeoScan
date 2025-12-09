@@ -12,7 +12,7 @@ import (
 )
 
 func TestTargetProvider_ResolveTargets(t *testing.T) {
-	provider := policy.NewTargetProvider()
+	provider := policy.NewTargetProvider(nil)
 	ctx := context.Background()
 	seedTargets := []string{"192.168.1.1", "192.168.1.2"}
 

@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"neomaster/internal/service/orchestrator/policy"
@@ -118,20 +119,82 @@ func TestTargetProvider_ResolveTargets(t *testing.T) {
 		assert.Contains(t, vals, "10.0.0.4")
 	})
 
-	t.Run("Stub File Source", func(t *testing.T) {
+	t.Run("File Source (Line)", func(t *testing.T) {
+		// Create temp file
+		f, err := os.CreateTemp("", "targets_line_*.txt")
+		assert.NoError(t, err)
+		defer os.Remove(f.Name())
+		f.WriteString("1.1.1.1\n2.2.2.2\n")
+		f.Close()
+
 		config := policy.TargetPolicyConfig{
 			TargetSources: []policy.TargetSourceConfig{
 				{
-					SourceType:  "file",
-					SourceValue: "/tmp/targets.txt",
+					SourceType:   "file",
+					TargetType:   "ip",
+					SourceValue:  f.Name(),
+					ParserConfig: json.RawMessage(`{"format":"line"}`),
 				},
 			},
 		}
 		jsonBytes, _ := json.Marshal(config)
-
 		targets, err := provider.ResolveTargets(ctx, string(jsonBytes), seedTargets)
 		assert.NoError(t, err)
-		assert.Empty(t, targets) // Stub returns nil/empty
+		vals := getValues(targets)
+		assert.Contains(t, vals, "1.1.1.1")
+		assert.Contains(t, vals, "2.2.2.2")
+	})
+
+	t.Run("File Source (CSV)", func(t *testing.T) {
+		// Create temp file
+		f, err := os.CreateTemp("", "targets_csv_*.csv")
+		assert.NoError(t, err)
+		defer os.Remove(f.Name())
+		f.WriteString("id,ip,desc\n1,3.3.3.3,test1\n2,4.4.4.4,test2\n")
+		f.Close()
+
+		config := policy.TargetPolicyConfig{
+			TargetSources: []policy.TargetSourceConfig{
+				{
+					SourceType:   "file",
+					TargetType:   "ip",
+					SourceValue:  f.Name(),
+					ParserConfig: json.RawMessage(`{"format":"csv", "csv_column":"ip"}`),
+				},
+			},
+		}
+		jsonBytes, _ := json.Marshal(config)
+		targets, err := provider.ResolveTargets(ctx, string(jsonBytes), seedTargets)
+		assert.NoError(t, err)
+		vals := getValues(targets)
+		assert.Contains(t, vals, "3.3.3.3")
+		assert.Contains(t, vals, "4.4.4.4")
+	})
+
+	t.Run("File Source (JSON Array)", func(t *testing.T) {
+		// Create temp file
+		f, err := os.CreateTemp("", "targets_json_*.json")
+		assert.NoError(t, err)
+		defer os.Remove(f.Name())
+		f.WriteString(`[{"host":"5.5.5.5"},{"host":"6.6.6.6"}]`)
+		f.Close()
+
+		config := policy.TargetPolicyConfig{
+			TargetSources: []policy.TargetSourceConfig{
+				{
+					SourceType:   "file",
+					TargetType:   "ip",
+					SourceValue:  f.Name(),
+					ParserConfig: json.RawMessage(`{"format":"json_array", "json_path":"host"}`),
+				},
+			},
+		}
+		jsonBytes, _ := json.Marshal(config)
+		targets, err := provider.ResolveTargets(ctx, string(jsonBytes), seedTargets)
+		assert.NoError(t, err)
+		vals := getValues(targets)
+		assert.Contains(t, vals, "5.5.5.5")
+		assert.Contains(t, vals, "6.6.6.6")
 	})
 
 	t.Run("Health Check", func(t *testing.T) {

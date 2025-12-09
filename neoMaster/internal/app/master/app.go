@@ -151,6 +151,7 @@ func NewApp() (*App, error) {
 
 	// 初始化调度引擎
 	// 通过 Router 获取 OrchestratorModule 中初始化的 SchedulerService
+	// 避免重复初始化和多实例问题
 	schedulerService := router.GetSchedulerService()
 
 	return &App{

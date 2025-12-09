@@ -3,7 +3,7 @@
 // 功能：
 // 1. 查询数据库表/视图/自定义SQL，返回目标列表
 // 2. 支持 WHERE 子句过滤、分页、排序
-// 3. 解析结果，将指定列作为 Target.Value，其他列作为 Target.Meta
+// 3. 解析结果，将 指定列 作为 Target.Value，其他列作为 Target.Meta【强制要求必须指定列】
 // 4. 支持自定义 SQL 语句查询
 
 package policy

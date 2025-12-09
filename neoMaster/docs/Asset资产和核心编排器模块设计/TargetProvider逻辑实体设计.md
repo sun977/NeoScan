@@ -115,24 +115,36 @@ TargetProvider 解析后输出的标准目标对象：
 
 ### 4. PreviousStageProvider (上阶段结果)
 
-最常用的策略，依赖上一个扫描阶段的 `StageResult`。
+最常用的策略，依赖上一个扫描阶段的 `StageResult`。由于 `StageResult` 的 `attributes` 字段通常包含嵌套数组（如端口列表、漏洞列表），本 Provider 支持**展开 (Unwind)** 和 **投影 (Projection)** 操作，以处理一对多的目标生成场景。
 
 - **source_value**: 上一阶段的 `stage_name` 或相对引用 (`prev`, `stage_1`)。
 - **filter_rules**:
   ```json
   {
-    "result_type": ["port_scan", "service_scan"], // 仅提取特定类型的输出
-    "attributes_filter": {
-      "state": "open", // 仅提取端口开放的目标
-      "service": "http" // 仅提取 HTTP 服务
+    "result_type": ["port_scan", "service_scan"], // 第一层过滤：仅提取特定类型的输出
+    "stage_status": "finished" // 可选：仅提取已完成阶段的结果
+  }
+  ```
+- **unwind** (数组展开配置 - 解决"一对多"问题):
+  ```json
+  {
+    "path": "attributes.ports", // 指定要展开的数组路径 (JSONPath)
+    "filter": {
+      "item.state": "open", // 仅保留数组中 state=open 的元素
+      "item.service": ["http", "https"] // 可选：仅保留特定服务的元素
     }
   }
   ```
-- **mapping**:
+- **generate** (目标生成模板):
   ```json
   {
-    "input_field": "target_value", // 提取 StageResult.target_value
-    "meta_fields": ["port", "proto"] // 提取 attributes 中的字段作为 Meta
+    "value_template": "{{target_value}}:{{item.port}}", // 组合生成新目标值 (如 192.168.1.1:80)
+    "type": "ip_port", // 新目标的类型
+    "meta_map": {
+      "protocol": "{{item.service}}", // 从展开项提取元数据
+      "origin_ip": "{{target_value}}", // 从根对象提取元数据
+      "banner": "{{item.version}}"
+    }
   }
   ```
 

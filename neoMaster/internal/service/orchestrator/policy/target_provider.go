@@ -97,7 +97,7 @@ type targetProviderService struct {
 }
 
 // NewTargetProvider 创建目标提供者实例
-func NewTargetProvider() TargetProvider {
+func NewTargetProvider(db *gorm.DB) TargetProvider {
 	svc := &targetProviderService{
 		providers: make(map[string]SourceProvider),
 	}
@@ -105,9 +105,8 @@ func NewTargetProvider() TargetProvider {
 	svc.RegisterProvider("manual", &ManualProvider{})                // 手动输入来源提供(前端用户手动输入目标)
 	svc.RegisterProvider("project_target", &ProjectTargetProvider{}) // 项目种子目标提供(直接用项目目标覆盖当前目标)
 	svc.RegisterProvider("file", &FileProvider{})                    // 注册文件提供者
-
-	// 注册待实现的提供者 (占位符)
-	svc.RegisterProvider("database", NewDatabaseProvider(nil)) // 传入nil，在Provide时使用系统DB
+	// 注册待实现的提供者
+	svc.RegisterProvider("database", NewDatabaseProvider(db)) // 注册数据库提供者
 	svc.RegisterProvider("api", &StubProvider{name: "api"})
 	svc.RegisterProvider("previous_stage", &StubProvider{name: "previous_stage"})
 
@@ -462,11 +461,11 @@ type DatabaseProvider struct {
 	db *gorm.DB // 全局数据库连接
 }
 
-// NewDatabaseProvider 创建 DatabaseProvider 实例
-// 如果传入 db 为 nil，需要在 Provide 时通过其他方式获取，或者在外部初始化时传入全局 DB
-// 由于 TargetProvider 是单例，建议在 NewTargetProvider 时传入 db，或者提供 SetDB 方法
+// NewDatabaseProvider 创建数据库提供者
 func NewDatabaseProvider(db *gorm.DB) *DatabaseProvider {
-	return &DatabaseProvider{db: db}
+	return &DatabaseProvider{
+		db: db,
+	}
 }
 
 // DBQueryConfig 数据库查询配置 (对应 filter_rules)
@@ -504,9 +503,6 @@ func (d *DatabaseProvider) Provide(ctx context.Context, config TargetSourceConfi
 		return nil, fmt.Errorf("external database connection not supported yet")
 	} else {
 		if d.db == nil {
-			// 尝试从 context 中获取 db，或者报错
-			// 由于目前架构限制，TargetProvider 是单例，且初始化时可能拿不到 DB
-			// 建议后续重构依赖注入
 			return nil, fmt.Errorf("system database connection is not initialized in DatabaseProvider")
 		}
 		db = d.db

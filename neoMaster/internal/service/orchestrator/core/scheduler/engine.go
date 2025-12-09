@@ -33,6 +33,7 @@ import (
 	"neomaster/internal/service/orchestrator/policy" // 策略执行器模块
 
 	"github.com/robfig/cron/v3" // 定时任务库
+	"gorm.io/gorm"
 )
 
 // SchedulerService 调度引擎服务接口
@@ -58,6 +59,7 @@ type schedulerService struct {
 // NewSchedulerService 创建调度引擎服务
 // 初始化调度引擎服务，设置必要的依赖和参数
 func NewSchedulerService(
+	db *gorm.DB,
 	projectRepo *orcRepo.ProjectRepository,
 	workflowRepo *orcRepo.WorkflowRepository,
 	stageRepo *orcRepo.ScanStageRepository,
@@ -75,7 +77,7 @@ func NewSchedulerService(
 		taskRepo:       taskRepo,
 		agentRepo:      agentRepo,
 		taskGenerator:  NewTaskGenerator(),
-		targetProvider: policy.NewTargetProvider(),
+		targetProvider: policy.NewTargetProvider(db),
 		policyEnforcer: policy.NewPolicyEnforcer(projectRepo),
 		stopChan:       make(chan struct{}),
 		interval:       interval,

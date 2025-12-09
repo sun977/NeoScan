@@ -509,22 +509,8 @@ func (d *DatabaseProvider) Provide(ctx context.Context, config TargetSourceConfi
 	}
 
 	// 2. 解析配置
-	if config.QueryMode != "table" && config.QueryMode != "view" {
-		return nil, fmt.Errorf("unsupported query_mode: %s (only table/view supported currently)", config.QueryMode)
-	}
-	if config.SourceValue == "" {
-		return nil, fmt.Errorf("source_value (table/view name) is required")
-	}
-	// 简单校验表名防止注入 (只允许字母数字下划线)
-	if !isValidTableName(config.SourceValue) {
-		return nil, fmt.Errorf("invalid table name: %s", config.SourceValue)
-	}
-
-	var queryConfig DBQueryConfig
-	if len(config.FilterRules) > 0 {
-		if err := json.Unmarshal(config.FilterRules, &queryConfig); err != nil {
-			return nil, fmt.Errorf("invalid filter_rules: %w", err)
-		}
+	if config.QueryMode != "table" && config.QueryMode != "view" && config.QueryMode != "sql" {
+		return nil, fmt.Errorf("unsupported query_mode: %s (only table/view/sql supported currently)", config.QueryMode)
 	}
 
 	var parserConfig DBParserConfig
@@ -533,33 +519,72 @@ func (d *DatabaseProvider) Provide(ctx context.Context, config TargetSourceConfi
 			return nil, fmt.Errorf("invalid parser_config: %w", err)
 		}
 	}
+	// 不论哪种模式，value_column 都是必须的，用于映射结果
 	if parserConfig.ValueColumn == "" {
 		return nil, fmt.Errorf("value_column is required in parser_config")
 	}
 
-	// 3. 构建查询
-	tx := db.Table(config.SourceValue)
+	var tx *gorm.DB
 
-	// 应用 Where 条件
-	for _, rule := range queryConfig.Where {
-		if !isValidFieldName(rule.Field) {
-			return nil, fmt.Errorf("invalid field name: %s", rule.Field)
+	// 分支处理：SQL模式 vs Table/View模式
+	if config.QueryMode == "sql" {
+		// --- SQL 模式 ---
+		if config.CustomSQL == "" {
+			return nil, fmt.Errorf("custom_sql is required when query_mode is sql")
 		}
-		if !isValidOp(rule.Op) {
-			return nil, fmt.Errorf("invalid operator: %s", rule.Op)
-		}
-		// 安全构建 Where 子句，GORM 会处理 Value 的参数化
-		tx = tx.Where(fmt.Sprintf("%s %s ?", rule.Field, rule.Op), rule.Value)
-	}
 
-	if queryConfig.Limit > 0 {
-		tx = tx.Limit(queryConfig.Limit)
+		// 安全检查：仅允许 SELECT 语句
+		// 简单的字符串前缀检查，忽略大小写和空格
+		trimmedSQL := strings.TrimSpace(config.CustomSQL)
+		if len(trimmedSQL) < 6 || !strings.EqualFold(trimmedSQL[:6], "SELECT") {
+			return nil, fmt.Errorf("security violation: only SELECT statements are allowed in custom_sql")
+		}
+
+		// 使用 Raw SQL
+		tx = db.Raw(config.CustomSQL)
+
+	} else {
+		// --- Table/View 模式 ---
+		if config.SourceValue == "" {
+			return nil, fmt.Errorf("source_value (table/view name) is required")
+		}
+		// 简单校验表名防止注入 (只允许字母数字下划线)
+		if !isValidTableName(config.SourceValue) {
+			return nil, fmt.Errorf("invalid table name: %s", config.SourceValue)
+		}
+
+		var queryConfig DBQueryConfig
+		if len(config.FilterRules) > 0 {
+			if err := json.Unmarshal(config.FilterRules, &queryConfig); err != nil {
+				return nil, fmt.Errorf("invalid filter_rules: %w", err)
+			}
+		}
+
+		// 构建查询
+		tx = db.Table(config.SourceValue)
+
+		// 应用 Where 条件
+		for _, rule := range queryConfig.Where {
+			if !isValidFieldName(rule.Field) {
+				return nil, fmt.Errorf("invalid field name: %s", rule.Field)
+			}
+			if !isValidOp(rule.Op) {
+				return nil, fmt.Errorf("invalid operator: %s", rule.Op)
+			}
+			// 安全构建 Where 子句，GORM 会处理 Value 的参数化
+			tx = tx.Where(fmt.Sprintf("%s %s ?", rule.Field, rule.Op), rule.Value)
+		}
+
+		if queryConfig.Limit > 0 {
+			tx = tx.Limit(queryConfig.Limit)
+		}
+
+		// 指定 Select 列
+		selectCols := append([]string{parserConfig.ValueColumn}, parserConfig.MetaColumns...)
+		tx = tx.Select(selectCols)
 	}
 
 	// 4. 执行查询
-	selectCols := append([]string{parserConfig.ValueColumn}, parserConfig.MetaColumns...)
-	tx = tx.Select(selectCols)
-
 	var results []map[string]interface{}
 	if err := tx.Scan(&results).Error; err != nil {
 		return nil, fmt.Errorf("database query failed: %w", err)

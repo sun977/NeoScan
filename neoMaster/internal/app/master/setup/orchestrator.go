@@ -46,6 +46,7 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 	resourceAllocator := allocator.NewResourceAllocator()
 	dispatcher := task_dispatcher.NewTaskDispatcher(taskRepo, policyEnforcer, resourceAllocator)
 	schedulerService := scheduler.NewSchedulerService(
+		db,
 		projectRepo,
 		workflowRepo,
 		scanStageRepo,

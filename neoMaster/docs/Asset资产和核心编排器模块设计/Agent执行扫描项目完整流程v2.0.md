@@ -66,6 +66,47 @@ sequenceDiagram
     Master->>User: 5. 通知/展示最终结果
 ```
 
+### 逻辑流程图 (Logic Flowchart)
+
+为了更直观地展示 **"阶段调度循环"** 的逻辑判定与数据流向，补充如下流程图：
+
+```mermaid
+graph TD
+    %% 节点样式定义
+    classDef master fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,rx:5,ry:5;
+    classDef agent fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,rx:5,ry:5;
+    classDef data fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,rx:5,ry:5;
+    classDef startend fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,rx:10,ry:10;
+
+    Start((用户提交项目)):::startend --> Init[1. 初始化项目 & Workflow<br/>Status: Pending]:::master
+    Init --> LoopCheck{2. 调度循环:<br/>检查当前待执行阶段?}:::master
+
+    subgraph Master_Core [Master核心调度层]
+        LoopCheck -->|存在 Ready 阶段| PrepInput[2.1 准备输入数据<br/>从上一阶段输出提取]:::master
+        PrepInput --> MakeTask[2.2 生成 ScanStage 原子任务]:::master
+        MakeTask --> Dispatch[2.3 下发任务到队列]:::master
+    end
+
+    subgraph Agent_Execution [Agent无状态执行层]
+        Dispatch -.->|MQ/HTTP| PickTask[3.1 Agent 领取任务]:::agent
+        PickTask --> Exec[3.2 执行扫描工具<br/>Nmap/Masscan/Nuclei]:::agent
+        Exec --> Report[3.3 上报 StageResult]:::agent
+    end
+
+    subgraph Result_Process [结果处理层]
+        Report -.->|HTTP| Clean[4.1 结果清洗与验证]:::master
+        Clean --> Persist[(4.2 结果持久化)]:::data
+        Persist --> HasNext{4.3 是否存在<br/>下一阶段?}:::master
+        
+        HasNext -->|Yes| NextState[更新状态:<br/>Current Stage -> Done<br/>Next Stage -> Ready]:::master
+        NextState --> LoopCheck
+        
+        HasNext -->|No| Complete[标记项目为 Completed]:::master
+    end
+
+    Complete --> Notify((5. 通知用户)):::startend
+```
+
 ## 3. 详细执行步骤
 
 ### 3.1 项目初始化 (Project Initialization)

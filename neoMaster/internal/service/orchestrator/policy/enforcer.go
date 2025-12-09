@@ -69,17 +69,17 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	}
 
 	// 校验所有目标是否在 Scope 内
-	if err := validateScope(targets, project.TargetScope); err != nil {
-		return err
+	if err1 := validateScope(targets, project.TargetScope); err1 != nil {
+		return err1
 	}
 
 	// 2. WhitelistChecker: 白名单检查 (强制阻断)
 	// 检查目标是否命中 AssetWhitelist
 	for _, target := range targets {
-		isBlocked, ruleName, err := p.checkWhitelist(ctx, target)
-		if err != nil {
-			logger.LogError(err, "whitelist check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
-			return fmt.Errorf("policy check error: %v", err)
+		isBlocked, ruleName, err2 := p.checkWhitelist(ctx, target)
+		if err2 != nil {
+			logger.LogError(err2, "whitelist check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
+			return fmt.Errorf("policy check error: %v", err2)
 		}
 		if isBlocked {
 			logger.LogInfo("Task blocked by whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
@@ -124,52 +124,54 @@ func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (boo
 			if utils.IsIPRange(w.TargetValue) {
 				// 这是一个 IP 范围 (e.g. 192.168.1.1-192.168.1.5)
 				// 或者是 CIDR
-				if utils.IsIPRanger(w.TargetValue) { // 复用 IsIPRanger 逻辑 (它内部调用 IsIPRange)
-					// 这里的 utils.IsIPRanger 只是判断格式，我们需要判断 target 是否在范围内
-					// 抱歉，utils.IsIPRanger 只是返回 bool 表示字符串是否是 Range 格式
-					// 我们需要实际的检查逻辑。
-					// 让我们用 utils.ParseIPPairs 来解析范围，然后看 target 是否在其中。
-					// 但 ParseIPPairs 返回所有 IP，性能太差。
-					// 应该使用 net 库解析 CIDR 或者手动解析 Range。
+				// 这里的 IsIPRange 只是判断格式，我们需要判断 target 是否在范围内
+				// 我们需要实际的检查逻辑。
+				// 让我们用 utils.ParseIPPairs 来解析范围，然后看 target 是否在其中。
+				// 但 ParseIPPairs 返回所有 IP，性能太差。
+				// 应该使用 net 库解析 CIDR 或者手动解析 Range。
 
-					// 简单起见，如果 utils 支持 CheckIPInRange 最好。
-					// 目前 utils 似乎没有直接的 CheckIPInRange。
-					// 既然是实时查库，我们在这里做一下解析。
+				// 简单起见，如果 utils 支持 CheckIPInRange 最好。
+				// 目前 utils 似乎没有直接的 CheckIPInRange。
+				// 既然是实时查库，我们在这里做一下解析。
 
-					// 1. CIDR
-					if strings.Contains(w.TargetValue, "/") {
-						_, ipNet, err := net.ParseCIDR(w.TargetValue)
-						if err == nil {
-							if ip := net.ParseIP(target); ip != nil && ipNet.Contains(ip) {
-								match = true
-							}
-						}
-					} else if strings.Contains(w.TargetValue, "-") {
-						// 2. Range (1.1.1.1-1.1.1.5)
-						// 简单的字符串比较在这里行不通，需要转换成数字。
-						// 暂时为了性能和简单，先假设 target 必须是 IP。
-						targetIP := net.ParseIP(target)
-						if targetIP != nil {
-							// 解析 Range
-							parts := strings.Split(w.TargetValue, "-")
-							if len(parts) == 2 {
-								startIP := net.ParseIP(strings.TrimSpace(parts[0]))
-								endIP := net.ParseIP(strings.TrimSpace(parts[1]))
-								if startIP != nil && endIP != nil {
-									if utils.IPCompare(targetIP, startIP) >= 0 && utils.IPCompare(targetIP, endIP) <= 0 {
-										match = true
-									}
-								}
-							}
-						}
-					} else {
-						// 3. Single IP
-						if target == w.TargetValue {
+				// 1. CIDR
+				if strings.Contains(w.TargetValue, "/") {
+					_, ipNet, err := net.ParseCIDR(w.TargetValue)
+					if err == nil {
+						if ip := net.ParseIP(target); ip != nil && ipNet.Contains(ip) {
 							match = true
 						}
 					}
+				} else if strings.Contains(w.TargetValue, "-") {
+					// 2. Range (1.1.1.1-1.1.1.5)
+					// 简单的字符串比较在这里行不通，需要转换成数字。
+					// 暂时为了性能和简单，先假设 target 必须是 IP。
+					targetIP := net.ParseIP(target)
+					if targetIP != nil {
+						// 解析 Range
+						parts := strings.Split(w.TargetValue, "-")
+						if len(parts) == 2 {
+							startIP := net.ParseIP(strings.TrimSpace(parts[0]))
+							endIP := net.ParseIP(strings.TrimSpace(parts[1]))
+							if startIP != nil && endIP != nil {
+								if utils.IPCompare(targetIP, startIP) >= 0 && utils.IPCompare(targetIP, endIP) <= 0 {
+									match = true
+								}
+							}
+						}
+					}
+				} else {
+					// 3. Single IP (Although IsIPRange check should mostly prevent this path if strict,
+					// but let's keep it safe or handle it in else block.
+					// Wait, IsIPRange only returns true if "-" or "/" exists.
+					// So this "Single IP" block inside here is unreachable if IsIPRange definition is strict about "-" or "/".
+					// Let's double check IsIPRange definition: strings.Contains(s, "-") || strings.Contains(s, "/")
+					// So Single IP "1.1.1.1" will return false.
+					// So this block inside IsIPRange is purely for Ranges/CIDRs.
+					// The Single IP case is handled in the else block of the outer if.
 				}
 			} else {
+
 				// 普通 IP 字符串
 				if target == w.TargetValue {
 					match = true

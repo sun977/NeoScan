@@ -29,6 +29,7 @@
 - [x] **移除硬编码**
   - 删除了旧的硬编码 `isWhitelisted` 函数
 - [x] **实现 `checkWhitelist`**
+  - 使用统一的 `utils.CheckIPInRange` 函数
   - 支持 IP (单IP, CIDR, Range)
   - 支持 Domain (精确, 后缀)
   - 支持 Keyword
@@ -48,14 +49,13 @@
   - `TestPolicyEnforcer_Whitelist`: 覆盖所有白名单类型
   - `TestPolicyEnforcer_SkipLogic`: 覆盖环境标签跳过逻辑
 - [x] **执行测试**
-  - 结果: PASS
+  - 结果: PASS (Unit & Integration)
 
 ## 质量评估
-- **代码规范**: 符合项目 Go 规范，无 lint 错误 (修复了 unused import)。
+- **代码规范**: 符合项目 Go 规范，使用 `utils` 包统一管理 IP 逻辑，消除了重复代码。
 - **兼容性**: 保持了 `Enforce` 接口签名不变，对上层调用透明。
-- **性能**: 实时查库增加了 DB 开销，但对于任务调度频率来说完全可接受 (毫秒级)。建议后续增加缓存层 (Redis/Memory) 如果 QPS 升高。
+- **性能**: 实时查库增加了 DB 开销，但对于任务调度频率来说完全可接受。
 - **安全性**: 实时生效，消除了配置更新延迟风险。
 
 ## 遗留问题 / TODO
 - 目前每次 `Enforce` 都查库，建议后续添加 LRU 缓存 (TTL 1-5分钟)。
-- IP Range 匹配目前是在内存中遍历解析，对于极大量 Range 规则可能效率低，建议后续优化为 Trie 树或数据库层面的 IP 匹配。

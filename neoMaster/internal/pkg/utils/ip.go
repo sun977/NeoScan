@@ -486,3 +486,47 @@ func IPCompare(ip1, ip2 net.IP) int {
 	}
 	return 0
 }
+
+// CheckIPInRange 检查目标 IP 是否在指定的 IP 范围内
+// 支持格式:
+// - 单 IP: "192.168.1.1"
+// - CIDR: "192.168.1.0/24"
+// - 范围: "192.168.1.1-192.168.1.5"
+func CheckIPInRange(targetIPStr, rangeStr string) (bool, error) {
+	targetIP := net.ParseIP(targetIPStr)
+	if targetIP == nil {
+		return false, fmt.Errorf("invalid target IP: %s", targetIPStr)
+	}
+
+	rangeStr = strings.TrimSpace(rangeStr)
+
+	// 1. CIDR
+	if strings.Contains(rangeStr, "/") {
+		_, ipNet, err := net.ParseCIDR(rangeStr)
+		if err != nil {
+			return false, err
+		}
+		return ipNet.Contains(targetIP), nil
+	}
+
+	// 2. Range
+	if strings.Contains(rangeStr, "-") {
+		parts := strings.Split(rangeStr, "-")
+		if len(parts) != 2 {
+			return false, fmt.Errorf("invalid range format: %s", rangeStr)
+		}
+		startIP := net.ParseIP(strings.TrimSpace(parts[0]))
+		endIP := net.ParseIP(strings.TrimSpace(parts[1]))
+		if startIP == nil || endIP == nil {
+			return false, fmt.Errorf("invalid IP in range: %s", rangeStr)
+		}
+		return IPCompare(targetIP, startIP) >= 0 && IPCompare(targetIP, endIP) <= 0, nil
+	}
+
+	// 3. Single IP
+	checkIP := net.ParseIP(rangeStr)
+	if checkIP == nil {
+		return false, fmt.Errorf("invalid IP format: %s", rangeStr)
+	}
+	return targetIP.Equal(checkIP), nil
+}

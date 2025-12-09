@@ -121,61 +121,10 @@ func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (boo
 		switch w.TargetType {
 		case "ip":
 			// 支持单个IP, CIDR, IP范围
-			if utils.IsIPRange(w.TargetValue) {
-				// 这是一个 IP 范围 (e.g. 192.168.1.1-192.168.1.5)
-				// 或者是 CIDR
-				// 这里的 IsIPRange 只是判断格式，我们需要判断 target 是否在范围内
-				// 我们需要实际的检查逻辑。
-				// 让我们用 utils.ParseIPPairs 来解析范围，然后看 target 是否在其中。
-				// 但 ParseIPPairs 返回所有 IP，性能太差。
-				// 应该使用 net 库解析 CIDR 或者手动解析 Range。
-
-				// 简单起见，如果 utils 支持 CheckIPInRange 最好。
-				// 目前 utils 似乎没有直接的 CheckIPInRange。
-				// 既然是实时查库，我们在这里做一下解析。
-
-				// 1. CIDR
-				if strings.Contains(w.TargetValue, "/") {
-					_, ipNet, err := net.ParseCIDR(w.TargetValue)
-					if err == nil {
-						if ip := net.ParseIP(target); ip != nil && ipNet.Contains(ip) {
-							match = true
-						}
-					}
-				} else if strings.Contains(w.TargetValue, "-") {
-					// 2. Range (1.1.1.1-1.1.1.5)
-					// 简单的字符串比较在这里行不通，需要转换成数字。
-					// 暂时为了性能和简单，先假设 target 必须是 IP。
-					targetIP := net.ParseIP(target)
-					if targetIP != nil {
-						// 解析 Range
-						parts := strings.Split(w.TargetValue, "-")
-						if len(parts) == 2 {
-							startIP := net.ParseIP(strings.TrimSpace(parts[0]))
-							endIP := net.ParseIP(strings.TrimSpace(parts[1]))
-							if startIP != nil && endIP != nil {
-								if utils.IPCompare(targetIP, startIP) >= 0 && utils.IPCompare(targetIP, endIP) <= 0 {
-									match = true
-								}
-							}
-						}
-					}
-				} else {
-					// 3. 单个 IP (虽然 IsIPRange 检查应该会阻止进入此路径，
-					// 但为了安全起见还是保留，或者在 else 块中处理。
-					// 等等，IsIPRange 仅在包含 "-" 或 "/" 时才返回 true。
-					// 因此，如果 IsIPRange 严格依赖 "-" 或 "/"，这里的"单个 IP"逻辑是不可达的。
-					// 再确认一下 IsIPRange 定义: strings.Contains(s, "-") || strings.Contains(s, "/")
-					// 所以单个 IP "1.1.1.1" 会返回 false。
-					// 因此，IsIPRange 内部这个块纯粹是处理 Range/CIDR 的。
-					// 单个 IP 的情况是在外层 if 的 else 分支处理的。
-				}
-			} else {
-
-				// 普通 IP 字符串
-				if target == w.TargetValue {
-					match = true
-				}
+			// 使用统一的 CheckIPInRange 函数检查
+			isMatch, err := utils.CheckIPInRange(target, w.TargetValue)
+			if err == nil && isMatch {
+				match = true
 			}
 		case "domain":
 			// 域名匹配：精确匹配或后缀匹配

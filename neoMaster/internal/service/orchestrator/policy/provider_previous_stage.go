@@ -190,6 +190,7 @@ func (p *PreviousStageProvider) processResult(result orcModel.StageResult, unwin
 			}
 		}
 
+		// 【这里需要结合stageResult的返回数据结构进行解析】
 		// 4. 渲染模板 支持 {{target_value}} 和 {{item.field}}
 		targetValue := generate.ValueTemplate
 		// 替换 {{target_value}}

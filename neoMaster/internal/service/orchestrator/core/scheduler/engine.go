@@ -308,6 +308,12 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 	}
 
 	// 2. 使用 TargetProvider 解析最终目标 (应用 TargetPolicy)
+	// [Context Injection]
+	// 在解析目标前，将当前 Stage 的上下文信息注入 ctx
+	// 这对于 PreviousStageProvider 来说是必须的，它需要知道当前处于哪个 Workflow 和 Stage 以查找上一阶段的结果
+	ctx = context.WithValue(ctx, policy.CtxKeyWorkflowID, nextStage.WorkflowID)
+	ctx = context.WithValue(ctx, policy.CtxKeyStageOrder, nextStage.StageOrder)
+
 	//  1. 解析种子目标 (Seed Targets)
 	//  2. 应用 TargetPolicy 进行转换/过滤
 	resolvedTargetObjs, err := s.targetProvider.ResolveTargets(ctx, nextStage.TargetPolicy, seedTargets)

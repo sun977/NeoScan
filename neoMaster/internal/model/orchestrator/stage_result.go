@@ -12,6 +12,7 @@ import (
 type StageResult struct {
 	basemodel.BaseModel
 
+	ProjectID        uint64    `json:"project_id" gorm:"index;not null;comment:所属项目ID"` // 所属项目ID 为了性能和管理选择让 项目ID 冗余, 方便查询
 	WorkflowID       uint64    `json:"workflow_id" gorm:"index;not null;comment:所属工作流ID"`
 	StageID          uint64    `json:"stage_id" gorm:"index;not null;comment:阶段ID"`
 	AgentID          uint64    `json:"agent_id" gorm:"index;comment:执行扫描的AgentID"`

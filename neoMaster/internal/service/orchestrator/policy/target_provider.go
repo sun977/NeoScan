@@ -30,6 +30,17 @@ import (
 	"gorm.io/gorm"
 )
 
+// 定义 Context Key 类型以避免冲突
+// 这些 Key 用于在 Context 中传递 Workflow 和 Stage 信息，供 Provider 使用
+type ContextKey string
+
+const (
+	// CtxKeyWorkflowID WorkflowID 上下文键
+	CtxKeyWorkflowID ContextKey = "workflow_id"
+	// CtxKeyStageOrder StageOrder 上下文键 (当前 Stage 的 Order)
+	CtxKeyStageOrder ContextKey = "current_stage_order"
+)
+
 // TargetProvider 目标提供者服务接口
 type TargetProvider interface {
 	ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) // ResolveTargets 解析策略并返回目标列表

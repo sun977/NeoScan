@@ -25,12 +25,13 @@ import (
 type PolicyEnforcer interface {
 	// Enforce 检查任务是否符合策略 (Whitelist, Scope, SkipLogic)
 	// 如果返回 error，则任务不应下发
-	Enforce(ctx context.Context, task *agentModel.AgentTask) error
+	Enforce(ctx context.Context, task *agentModel.AgentTask) error // 检查任务是否符合策略 (Whitelist, Scope, SkipLogic)
 }
 
+// 策略执行器实现结构体
 type policyEnforcer struct {
-	projectRepo *orcrepo.ProjectRepository
-	policyRepo  *assetrepo.AssetPolicyRepository
+	projectRepo *orcrepo.ProjectRepository       // 项目仓库
+	policyRepo  *assetrepo.AssetPolicyRepository // 资产策略仓库
 }
 
 // NewPolicyEnforcer 创建策略执行器
@@ -41,7 +42,14 @@ func NewPolicyEnforcer(projectRepo *orcrepo.ProjectRepository, policyRepo *asset
 	}
 }
 
-// Enforce 执行策略检查
+// Enforce 执行策略检查 --- 核心实现逻辑
+// 职责: 校验任务是否符合项目策略 (Scope, Whitelist, SkipLogic)
+// 参数:
+//   - ctx: 上下文，用于日志记录与取消操作
+//   - task: 待校验的任务
+//
+// 返回值:
+//   - error: 如果任务不符合策略，返回具体错误信息
 func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask) error {
 	// 1. ScopeValidator: 范围校验
 	// 确保扫描目标严格限制在 Project 定义的 TargetScope 内
@@ -51,6 +59,7 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 
 	// 获取项目 Scope 配置
 	// 注意: 这是一个数据库查询，为了性能，可以使用缓存
+	// 获取项目信息,判断项目是否存在
 	project, err := p.projectRepo.GetProjectByID(ctx, task.ProjectID)
 	if err != nil {
 		logger.LogError(err, "failed to get project for policy check", 0, "", "service.orchestrator.policy.Enforce", "REPO", map[string]interface{}{
@@ -178,6 +187,8 @@ func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (boo
 	return false, "", nil
 }
 
+// SkipConditionRules 跳过条件规则
+// 定义在 AssetSkipPolicy 中的条件，用于动态判断是否跳过任务
 type SkipConditionRules struct {
 	BlockTimeWindows []string `json:"block_time_windows"` // e.g. ["00:00-06:00", "22:00-23:59"]
 	BlockEnvTags     []string `json:"block_env_tags"`     // e.g. ["production", "sensitive"]

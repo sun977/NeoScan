@@ -106,13 +106,13 @@ func NewTargetProvider(db *gorm.DB) TargetProvider {
 		providers: make(map[string]SourceProvider),
 	}
 	// 注册内置提供者
-	svc.RegisterProvider("manual", &ManualProvider{})                // 手动输入来源提供(前端用户手动输入目标)
-	svc.RegisterProvider("project_target", &ProjectTargetProvider{}) // 项目种子目标提供(直接用项目目标覆盖当前目标)
-	svc.RegisterProvider("file", &FileProvider{})                    // 注册文件提供者
-	svc.RegisterProvider("database", NewDatabaseProvider(db))        // 注册数据库提供者
+	svc.RegisterProvider("manual", &ManualProvider{})                    // 手动输入来源提供(前端用户手动输入目标)
+	svc.RegisterProvider("project_target", &ProjectTargetProvider{})     // 项目种子目标提供(直接用项目目标覆盖当前目标)
+	svc.RegisterProvider("file", &FileProvider{})                        // 注册文件提供者
+	svc.RegisterProvider("database", NewDatabaseProvider(db))            // 注册数据库提供者
+	svc.RegisterProvider("previous_stage", NewPreviousStageProvider(db)) // 注册上一阶段结果提供者
 	// 注册待实现的提供者
 	svc.RegisterProvider("api", &ApiProvider{})
-	svc.RegisterProvider("previous_stage", &PreviousStageProvider{})
 
 	return svc
 }

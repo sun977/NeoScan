@@ -1,4 +1,4 @@
-// 目标提供者
+// 目标提供者 --- 负责目标数据的生成和清洗(包含目标过滤)
 // 处理多元异构数据，将其转换为统一的 Target 格式作为扫描目标
 // 工作流程如下：
 // 1.初始化：创建TargetProvider实例并注册各种SourceProvider（包括实际实现和桩实现）
@@ -18,6 +18,9 @@
 // 注意：provider仅负责搬运数据
 // - 所有提供者都遵循愚蠢哲学，即所有输入都会原样封装给 Target 对象
 // - 提供者不负责校验输入的有效性，也不负责解析输入的格式
+// targetProvider 和 policyProvider 模块都具有白名单和跳过策略的功能，但是区别如下：
+// - targetProvider 模块的白名单和跳过策略来源有多重，可以是file,API,DB,用户指定或者是上一个阶段的输出,更灵活
+// - policyProvider 模块的白名单和跳过策略来源只有一种，即DB,而且他是强制全局阻断的，更像合规最后一道检测
 
 package policy
 
@@ -25,6 +28,7 @@ import (
 	"context"
 	"encoding/json"
 	"neomaster/internal/pkg/logger"
+	"strings"
 	"sync"
 
 	"gorm.io/gorm"
@@ -78,7 +82,18 @@ type Target struct {
 // TargetPolicyConfig 目标策略配置结构
 // 对应 ScanStage.target_policy
 type TargetPolicyConfig struct {
-	TargetSources []TargetSourceConfig `json:"target_sources"`
+	TargetSources    []TargetSourceConfig `json:"target_sources"`
+	WhitelistEnabled bool                 `json:"whitelist_enabled"` // 是否启用白名单
+	WhitelistSources []TargetSourceConfig `json:"whitelist_sources"` // 白名单来源
+	SkipEnabled      bool                 `json:"skip_enabled"`      // 是否启用跳过
+	SkipConditions   []SkipCondition      `json:"skip_conditions"`   // 跳过条件
+}
+
+// SkipCondition 跳过条件
+type SkipCondition struct {
+	ConditionField string `json:"condition_field"` // 匹配字段: type, value, source 或 meta key
+	Operator       string `json:"operator"`        // 操作符: equals, contains, starts_with, ends_with
+	Value          string `json:"value"`           // 匹配值
 }
 
 // TargetSourceConfig 目标源配置详细结构
@@ -140,7 +155,9 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 // 1. 如果策略为空，默认使用种子目标
 // 2. 不为空解析 json 策略
 // 3. 并发/顺序获取所有目标
-// 4. 去重 (基于 Value)
+// 4. 白名单过滤 (如果启用)
+// 5. 跳过条件过滤 (如果启用)
+// 6. 去重 (基于 Value)
 // 策略样例：
 //
 //	{
@@ -170,7 +187,7 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) {
 	// 1. 如果策略为空，默认使用种子目标
 	if policyJSON == "" || policyJSON == "{}" {
-		return p.fallbackToSeed(seedTargets), nil // 种子目标转换成 Target 对象,调用 fallbackToSeed 方法返回
+		return p.fallbackToSeed(seedTargets), nil
 	}
 
 	// 策略不为空则解析 json 策略
@@ -188,36 +205,45 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 		return p.fallbackToSeed(seedTargets), nil
 	}
 
-	// 3. 并发/顺序获取所有目标
-	allTargets := make([]Target, 0)
-	// 遍历所有目标源配置,查找对应的目标源提供者
-	for _, sourceConfig := range config.TargetSources {
-		p.mu.RLock()
-		provider, exists := p.providers[sourceConfig.SourceType] // 查找对应的目标源提供者
-		p.mu.RUnlock()
+	// 3. 获取初始目标列表
+	allTargets := p.fetchTargetsFromSources(ctx, config.TargetSources, seedTargets)
 
-		// 目标源提供者不存在, 记录警告日志, 跳过该源
-		if !exists {
-			logger.LogWarn("Unknown source type", "", 0, "", "ResolveTargets", "", map[string]interface{}{
-				"type": sourceConfig.SourceType,
-			})
-			continue // 跳过未知的源类型
+	// 4. 白名单过滤 (如果启用)
+	if config.WhitelistEnabled && len(config.WhitelistSources) > 0 {
+		whitelistTargets := p.fetchTargetsFromSources(ctx, config.WhitelistSources, seedTargets)
+		whitelistMap := make(map[string]struct{})
+		for _, t := range whitelistTargets {
+			whitelistMap[t.Value] = struct{}{}
 		}
 
-		// 目标源提供者存在 --- 调用目标源提供者的Provide方法获取目标
-		targets, err := provider.Provide(ctx, sourceConfig, seedTargets)
-		if err != nil {
-			logger.LogError(err, "Provider failed to get targets", 0, "", "ResolveTargets", "", map[string]interface{}{
-				"type": sourceConfig.SourceType,
-			})
-			continue // 跳过获取目标失败的源
+		filtered := make([]Target, 0)
+		for _, t := range allTargets {
+			if _, ok := whitelistMap[t.Value]; ok {
+				filtered = append(filtered, t)
+			}
 		}
-
-		// 目标源提供者成功获取目标 --- 合并到 allTargets 中
-		allTargets = append(allTargets, targets...)
+		allTargets = filtered
 	}
 
-	// 4. 去重 (基于 Value)
+	// 5. 跳过条件过滤 (如果启用)
+	if config.SkipEnabled && len(config.SkipConditions) > 0 {
+		filtered := make([]Target, 0)
+		for _, t := range allTargets {
+			shouldSkip := false
+			for _, cond := range config.SkipConditions {
+				if p.matchSkipCondition(t, cond) {
+					shouldSkip = true
+					break
+				}
+			}
+			if !shouldSkip {
+				filtered = append(filtered, t)
+			}
+		}
+		allTargets = filtered
+	}
+
+	// 6. 去重 (基于 Value)
 	targetSet := make(map[string]struct{})
 	result := make([]Target, 0, len(allTargets))
 	for _, t := range allTargets {
@@ -228,6 +254,68 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 	}
 
 	return result, nil
+}
+
+// fetchTargetsFromSources 从指定源列表获取目标
+func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sources []TargetSourceConfig, seedTargets []string) []Target {
+	allTargets := make([]Target, 0)
+	for _, sourceConfig := range sources {
+		p.mu.RLock()
+		provider, exists := p.providers[sourceConfig.SourceType]
+		p.mu.RUnlock()
+
+		if !exists {
+			logger.LogWarn("Unknown source type", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
+				"type": sourceConfig.SourceType,
+			})
+			continue
+		}
+
+		targets, err := provider.Provide(ctx, sourceConfig, seedTargets)
+		if err != nil {
+			logger.LogError(err, "Provider failed to get targets", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
+				"type": sourceConfig.SourceType,
+			})
+			continue
+		}
+		allTargets = append(allTargets, targets...)
+	}
+	return allTargets
+}
+
+// matchSkipCondition 检查目标是否匹配跳过条件
+func (p *targetProviderService) matchSkipCondition(t Target, cond SkipCondition) bool {
+	var checkValue string
+	switch cond.ConditionField {
+	case "type":
+		checkValue = t.Type
+	case "value":
+		checkValue = t.Value
+	case "source":
+		checkValue = t.Source
+	default:
+		// Check Meta
+		if val, ok := t.Meta[cond.ConditionField]; ok {
+			checkValue = val
+		} else {
+			return false // 字段不存在，不匹配
+		}
+	}
+
+	switch cond.Operator {
+	case "equals":
+		return checkValue == cond.Value
+	case "contains":
+		return strings.Contains(checkValue, cond.Value)
+	case "starts_with":
+		return strings.HasPrefix(checkValue, cond.Value)
+	case "ends_with":
+		return strings.HasSuffix(checkValue, cond.Value)
+	case "not_equals":
+		return checkValue != cond.Value
+	default:
+		return false
+	}
 }
 
 // fallbackToSeed 辅助方法：将种子目标转换为 Target 对象

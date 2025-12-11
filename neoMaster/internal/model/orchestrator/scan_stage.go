@@ -7,6 +7,7 @@ import (
 // ScanStage 扫描阶段定义表
 // 定义工作流中的具体执行步骤，包含工具配置和策略
 // StageType 阶段类型有枚举定义
+// ScanStage(定义) -- AgentTask(执行)[下发给Agent节点] -- ScanResult(结果)[Agent节点返回]
 type ScanStage struct {
 	basemodel.BaseModel
 

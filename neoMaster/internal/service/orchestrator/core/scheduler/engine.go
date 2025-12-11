@@ -405,7 +405,8 @@ func (s *schedulerService) findNextStage(ctx context.Context, project *orcModel.
 	}
 
 	// 如果有上一个任务，找到上一个 Stage，返回它的下一个 Stage
-	return s.getNextStage(stages, lastTask.StageID), nil
+	next := s.getNextStage(stages, lastTask.StageID)
+	return next, nil
 }
 
 // getFirstStage 获取第一个 Stage

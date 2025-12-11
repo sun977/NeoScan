@@ -319,8 +319,30 @@ func validateScope(targets []string, scope string) error {
 			}
 			// 3. CIDR 匹配 (IP)
 			if _, ipNet, err := net.ParseCIDR(s); err == nil {
-				if ip := net.ParseIP(target); ip != nil {
+				// 尝试分离 Host 和 Port (处理 ip:port 情况)
+				targetIPStr := target
+				if h, _, err := net.SplitHostPort(target); err == nil {
+					targetIPStr = h
+				}
+
+				if ip := net.ParseIP(targetIPStr); ip != nil {
 					if ipNet.Contains(ip) {
+						inScope = true
+						break
+					}
+				}
+			} else {
+				// 4. 单个 IP 匹配 (支持 ip:port)
+				// 如果 scope 是单个 IP (例如 192.168.1.1)，ParseCIDR 会失败
+				// 我们需要处理这种情况
+				scopeIP := net.ParseIP(s)
+				if scopeIP != nil {
+					targetIPStr := target
+					if h, _, err := net.SplitHostPort(target); err == nil {
+						targetIPStr = h
+					}
+					targetIP := net.ParseIP(targetIPStr)
+					if targetIP != nil && targetIP.Equal(scopeIP) {
 						inScope = true
 						break
 					}

@@ -329,7 +329,7 @@ func TestMultiStageWorkflow(t *testing.T) {
 
 		// Check if there is a FAILED task
 		var failedTask orcModel.AgentTask
-		if err := db.Where("project_id = ? AND stage_id = ? AND status = 'failed'", project.ID, stage2.ID).First(&failedTask).Error; err == nil {
+		if err1 := db.Where("project_id = ? AND stage_id = ? AND status = 'failed'", project.ID, stage2.ID).First(&failedTask).Error; err1 == nil {
 			t.Fatalf("Found FAILED task: %s, Error: %s", failedTask.TaskID, failedTask.ErrorMsg)
 		}
 	}

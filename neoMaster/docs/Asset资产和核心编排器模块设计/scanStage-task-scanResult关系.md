@@ -31,14 +31,14 @@
 
 ```mermaid
 graph TD
-    Stage["ScanStage\n(定义: 怎么扫?)"]
-    -->|"1. 实例化 (调度器)"| Task["AgentTask\n(执行: 谁来扫? 扫什么?)"]
+    Stage["ScanStage(定义: 怎么扫?)"]
+    -->|"1. 实例化 (调度器)"| Task["AgentTask(执行: 谁来扫? 扫什么?)"]
 
     Input["上一轮 Result / 初始 Target"] -->|"2. 作为输入"| Task
 
     Task -->|"3. Agent 执行"| Agent["Agent 节点"]
 
-    Agent -->|"4. 产出"| Result["StageResult\n(结果: 发现了什么?)"]
+    Agent -->|"4. 产出"| Result["StageResult(结果: 发现了什么?)"]
 
     Result -->|"5. 数据清洗 & 转换"| NextInput["下一轮 Input"]
 

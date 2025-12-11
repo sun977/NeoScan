@@ -189,10 +189,10 @@ Database (记忆)
 ```mermaid
 graph TD
     A[扫描项目] --> B[工作流]
-    B --> C[阶段1: IP探活\n(ip_alive_scan)]
-    B --> D[阶段2: 端口扫描\n(fast_port_scan)]
-    B --> E[阶段3: 服务识别\n(service_scan)]
-    B --> F[阶段4: 漏洞扫描\n(vuln_scan)]
+    B --> C[阶段1: IP探活<br/>(ip_alive_scan)]
+    B --> D[阶段2: 端口扫描<br/>(fast_port_scan)]
+    B --> E[阶段3: 服务识别<br/>(service_scan)]
+    B --> F[阶段4: 漏洞扫描<br/>(vuln_scan)]
     
     style C fill:#FFE4C4
     style D fill:#FFE4C4

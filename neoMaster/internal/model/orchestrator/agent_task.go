@@ -8,6 +8,10 @@ import (
 
 // AgentTask Agent任务实体
 // 记录 Master 分发给 Agent 的具体执行任务
+// ScanStage(定义) -- AgentTask(执行)[下发给Agent节点] -- ScanResult(结果)[Agent节点返回]
+// AgentTask.OutputResult 只返回任务执行结果摘要 (JSON 格式)，详细结果存储在 StageResult 中
+// AgentTask 是轻量的控制流
+// StageResult 是重量的数据流，存储具体结果数据
 type AgentTask struct {
 	basemodel.BaseModel
 

@@ -35,6 +35,8 @@ import (
 type ContextKey string
 
 const (
+	// CtxKeyProjectID ProjectID 上下文键
+	CtxKeyProjectID ContextKey = "project_id"
 	// CtxKeyWorkflowID WorkflowID 上下文键
 	CtxKeyWorkflowID ContextKey = "workflow_id"
 	// CtxKeyStageOrder StageOrder 上下文键 (当前 Stage 的 Order)

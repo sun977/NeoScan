@@ -8,6 +8,9 @@ import (
 
 // PreviousStageProvider 上一阶段结果提供者 (占位符)
 // 用于将上一个扫描阶段的输出作为当前阶段的输入
+// StageResult 是上一个扫描阶段的输出结果
+// 它包含了上一个阶段发现的资产、漏洞、配置等信息
+// 这些信息可以作为当前阶段的输入，用于进一步的扫描或分析
 type PreviousStageProvider struct{}
 
 func (p *PreviousStageProvider) Name() string { return "previous_stage" }

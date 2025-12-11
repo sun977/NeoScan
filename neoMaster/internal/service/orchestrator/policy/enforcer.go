@@ -195,6 +195,28 @@ type SkipConditionRules struct {
 }
 
 // checkSkipPolicy 检查是否应该跳过任务
+// 后续需要实现基于规则的动态跳过逻辑
+//
+//	{
+//	  "conditions": [
+//	    {
+//	      "field": "device_type",
+//	      "operator": "equals",
+//	      "value": "honeypot"
+//	    },
+//	    {
+//	      "field": "os",
+//	      "operator": "contains",
+//	      "value": "honeypot"
+//	    },
+//	    {
+//	      "field": "port_count",
+//	      "operator": "greater_than",
+//	      "value": 1000
+//	    }
+//	  ],
+//	  "logic_operator": "and"  // and/or
+//	}
 func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentModel.Project) (bool, string, error) {
 	policies, err := p.policyRepo.GetEnabledSkipPolicies(ctx)
 	if err != nil {

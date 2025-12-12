@@ -1,0 +1,14 @@
+{
+  "and": [
+    {
+      "field": "hostname",
+      "operator": "starts_with",
+      "value": "db-"
+    },
+    {
+      "field": "stats.memory_usage",
+      "operator": "greater_than",
+      "value": 90
+    }
+  ]
+}

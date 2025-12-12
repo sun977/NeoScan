@@ -1,0 +1,33 @@
+{
+  "and": [
+    {
+      "field": "tags",
+      "operator": "contains",
+      "value": "production"
+    },
+    {
+      "field": "ip",
+      "operator": "cidr",
+      "value": "192.168.10.0/24"
+    },
+    {
+      "field": "os_info.name",
+      "operator": "equals",
+      "value": "Ubuntu"
+    },
+    {
+      "or": [
+        {
+          "field": "stats.active_connections",
+          "operator": "greater_than",
+          "value": 1000
+        },
+        {
+          "field": "vulnerabilities.critical",
+          "operator": "greater_than",
+          "value": 0
+        }
+      ]
+    }
+  ]
+}

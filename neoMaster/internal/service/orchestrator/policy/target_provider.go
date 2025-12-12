@@ -295,13 +295,14 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sources []TargetSourceConfig, seedTargets []string) []Target {
 	allTargets := make([]Target, 0)
 	for _, sourceConfig := range sources {
-		logger.LogInfo("[TargetProvider] Processing source", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{"type": sourceConfig.SourceType})
+		fmt.Printf("[TargetProvider] Processing source type: %s\n", sourceConfig.SourceType)
 		p.mu.RLock()
 		provider, exists := p.providers[sourceConfig.SourceType]
 		p.mu.RUnlock()
 
 		if !exists {
-			logger.LogWarn("Unknown source type", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
+			fmt.Printf("[TargetProvider] Provider not found: %s\n", sourceConfig.SourceType)
+			logger.LogWarn("Unknown target source type", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
 				"type": sourceConfig.SourceType,
 			})
 			continue
@@ -309,11 +310,13 @@ func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sou
 
 		targets, err := provider.Provide(ctx, sourceConfig, seedTargets)
 		if err != nil {
-			logger.LogError(err, "Provider failed to get targets", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
+			fmt.Printf("[TargetProvider] Provider error: %v\n", err)
+			logger.LogError(err, "", 0, "", "fetchTargetsFromSources", "PROVIDER_ERROR", map[string]interface{}{
 				"type": sourceConfig.SourceType,
 			})
 			continue
 		}
+		fmt.Printf("[TargetProvider] Provider returned %d targets\n", len(targets))
 		allTargets = append(allTargets, targets...)
 	}
 	return allTargets

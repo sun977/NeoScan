@@ -28,7 +28,7 @@ import (
 	"context"
 	"encoding/json"
 	"neomaster/internal/pkg/logger"
-	"strings"
+	"neomaster/internal/pkg/matcher"
 	"sync"
 
 	"gorm.io/gorm"
@@ -84,16 +84,10 @@ type Target struct {
 type TargetPolicyConfig struct {
 	TargetSources    []TargetSourceConfig `json:"target_sources"`
 	WhitelistEnabled bool                 `json:"whitelist_enabled"` // 是否启用白名单
-	WhitelistSources []TargetSourceConfig `json:"whitelist_sources"` // 白名单来源
+	WhitelistSources []TargetSourceConfig `json:"whitelist_sources"` // 白名单来源 (值匹配)
+	WhitelistRule    matcher.MatchRule    `json:"whitelist_rule"`    // 白名单规则 (逻辑匹配)
 	SkipEnabled      bool                 `json:"skip_enabled"`      // 是否启用跳过
-	SkipConditions   []SkipCondition      `json:"skip_conditions"`   // 跳过条件
-}
-
-// SkipCondition 跳过条件
-type SkipCondition struct {
-	ConditionField string `json:"condition_field"` // 匹配字段: type, value, source 或 meta key
-	Operator       string `json:"operator"`        // 操作符: equals, contains, starts_with, ends_with
-	Value          string `json:"value"`           // 匹配值
+	SkipRule         matcher.MatchRule    `json:"skip_rule"`         // 跳过规则 (逻辑匹配)
 }
 
 // TargetSourceConfig 目标源配置详细结构
@@ -163,26 +157,30 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 //	{
 //	  "target_sources": [
 //	    {
-//	      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
-//	      "source_value": "/path/to/targets.txt",  // 根据类型的具体值
-//	      "target_type": "ip_range"        // 目标类型：ip/ip_range/domain/url
+//	      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage
+//	      "source_value": "/path/to/targets.txt",
+//	      "target_type": "ip_range"
 //	    }
 //	  ],
 //	  "whitelist_enabled": true,           // 是否启用白名单
-//	  "whitelist_sources": [               // 白名单来源
+//	  "whitelist_sources": [               // 1. 基于来源的白名单 (值匹配)
 //	    {
 //	      "source_type": "file",
 //	      "source_value": "/path/to/whitelist.txt"
 //	    }
 //	  ],
+//	  "whitelist_rule": {                  // 2. 基于规则的白名单 (逻辑匹配)
+//	      "field": "value",
+//	      "operator": "cidr",
+//	      "value": "10.0.0.0/8"
+//	  },
 //	  "skip_enabled": true,                // 是否启用跳过条件
-//	  "skip_conditions": [                 // 跳过条件,列表中可添加多个条件
-//	    {
-//	      "condition_field": "device_type",
-//	      "operator": "equals",
-//	      "value": "honeypot"
-//	    }
-//	  ]
+//	  "skip_rule": {                       // 跳过规则 (逻辑匹配，支持 AND/OR/NOT 嵌套)
+//	      "or": [
+//	          { "field": "device_type", "operator": "equals", "value": "honeypot" },
+//	          { "field": "type", "operator": "equals", "value": "url" }
+//	      ]
+//	  }
 //	}
 func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) {
 	// 1. 如果策略为空，默认使用种子目标
@@ -209,34 +207,66 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 	allTargets := p.fetchTargetsFromSources(ctx, config.TargetSources, seedTargets)
 
 	// 4. 白名单过滤 (如果启用)
-	if config.WhitelistEnabled && len(config.WhitelistSources) > 0 {
-		whitelistTargets := p.fetchTargetsFromSources(ctx, config.WhitelistSources, seedTargets)
-		whitelistMap := make(map[string]struct{})
-		for _, t := range whitelistTargets {
-			whitelistMap[t.Value] = struct{}{}
+	if config.WhitelistEnabled {
+		// 4.1 基于来源的白名单 (值匹配)
+		if len(config.WhitelistSources) > 0 {
+			whitelistTargets := p.fetchTargetsFromSources(ctx, config.WhitelistSources, seedTargets)
+			whitelistMap := make(map[string]struct{})
+			for _, t := range whitelistTargets {
+				whitelistMap[t.Value] = struct{}{} // 构建一个白名单列表
+			}
+
+			filtered := make([]Target, 0)
+			for _, t := range allTargets { // 基于值的白名单过滤
+				if _, ok := whitelistMap[t.Value]; ok { // 如果目标值在白名单中
+					filtered = append(filtered, t) // 加入过滤后的列表
+				}
+			}
+			allTargets = filtered
 		}
 
-		filtered := make([]Target, 0)
-		for _, t := range allTargets {
-			if _, ok := whitelistMap[t.Value]; ok {
-				filtered = append(filtered, t)
+		// 4.2 基于规则的白名单 (逻辑匹配)
+		// 如果定义了规则，只保留匹配规则的目标
+		if !matcher.IsEmptyRule(config.WhitelistRule) { // 如果规则不为空
+			filtered := make([]Target, 0)
+			for _, t := range allTargets {
+				// 转换为 Map 以便 matcher 匹配 (支持 type, value 等小写字段)
+				targetMap := p.targetToMap(t)
+				matched, err := matcher.Match(targetMap, config.WhitelistRule) // 评估目标是否符合白名单规则
+				if err != nil {
+					logger.LogWarn("Failed to match whitelist rule", "", 0, "", "ResolveTargets", "", map[string]interface{}{
+						"error":  err.Error(),
+						"target": t.Value,
+					})
+					// 策略：出错时默认为不匹配（安全起见）
+					continue
+				}
+				if matched {
+					filtered = append(filtered, t)
+				}
 			}
+			allTargets = filtered
 		}
-		allTargets = filtered
 	}
 
 	// 5. 跳过条件过滤 (如果启用)
-	if config.SkipEnabled && len(config.SkipConditions) > 0 {
+	if config.SkipEnabled && !matcher.IsEmptyRule(config.SkipRule) {
 		filtered := make([]Target, 0)
 		for _, t := range allTargets {
-			shouldSkip := false
-			for _, cond := range config.SkipConditions {
-				if p.matchSkipCondition(t, cond) {
-					shouldSkip = true
-					break
-				}
+			targetMap := p.targetToMap(t)
+			matched, err := matcher.Match(targetMap, config.SkipRule)
+			if err != nil {
+				logger.LogWarn("Failed to match skip rule", "", 0, "", "ResolveTargets", "", map[string]interface{}{
+					"error":  err.Error(),
+					"target": t.Value,
+				})
+				// 策略：出错时不跳过（保留目标）
+				filtered = append(filtered, t)
+				continue
 			}
-			if !shouldSkip {
+
+			// 如果匹配规则，则跳过 (不加入 filtered)
+			if !matched {
 				filtered = append(filtered, t)
 			}
 		}
@@ -283,39 +313,22 @@ func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sou
 	return allTargets
 }
 
-// matchSkipCondition 检查目标是否匹配跳过条件
-func (p *targetProviderService) matchSkipCondition(t Target, cond SkipCondition) bool {
-	var checkValue string
-	switch cond.ConditionField {
-	case "type":
-		checkValue = t.Type
-	case "value":
-		checkValue = t.Value
-	case "source":
-		checkValue = t.Source
-	default:
-		// Check Meta
-		if val, ok := t.Meta[cond.ConditionField]; ok {
-			checkValue = val
-		} else {
-			return false // 字段不存在，不匹配
+// targetToMap 将 Target 转换为 Map 以供 matcher 使用
+func (p *targetProviderService) targetToMap(t Target) map[string]interface{} {
+	m := map[string]interface{}{
+		"type":   t.Type,
+		"value":  t.Value,
+		"source": t.Source,
+		"meta":   t.Meta,
+	}
+	// 将 meta 字段提升到顶层，方便规则直接访问 (如 device_type 而不是 meta.device_type)
+	// 如果有冲突，优先使用 meta 中的值 (或者反过来，这里选择优先保留 type/value/source)
+	for k, v := range t.Meta {
+		if _, exists := m[k]; !exists {
+			m[k] = v
 		}
 	}
-
-	switch cond.Operator {
-	case "equals":
-		return checkValue == cond.Value
-	case "contains":
-		return strings.Contains(checkValue, cond.Value)
-	case "starts_with":
-		return strings.HasPrefix(checkValue, cond.Value)
-	case "ends_with":
-		return strings.HasSuffix(checkValue, cond.Value)
-	case "not_equals":
-		return checkValue != cond.Value
-	default:
-		return false
-	}
+	return m
 }
 
 // fallbackToSeed 辅助方法：将种子目标转换为 Target 对象

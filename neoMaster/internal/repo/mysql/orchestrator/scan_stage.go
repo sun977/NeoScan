@@ -41,12 +41,12 @@ func (r *ScanStageRepository) CreateStage(ctx context.Context, stage *orcmodel.S
 	return nil
 }
 
-// GetStagesByWorkflowID 获取工作流的所有阶段 (按顺序)
+// GetStagesByWorkflowID 获取工作流的所有阶段
 func (r *ScanStageRepository) GetStagesByWorkflowID(ctx context.Context, workflowID uint64) ([]*orcmodel.ScanStage, error) {
 	var stages []*orcmodel.ScanStage
 	err := r.db.WithContext(ctx).
 		Where("workflow_id = ? AND enabled = ?", workflowID, true).
-		Order("stage_order ASC").
+		Order("id ASC").
 		Find(&stages).Error
 
 	if err != nil {
@@ -105,11 +105,11 @@ func (r *ScanStageRepository) DeleteStage(ctx context.Context, id uint64) error 
 	return nil
 }
 
-// ListStagesByWorkflowID 获取指定工作流的所有阶段 (按执行顺序排序)
+// ListStagesByWorkflowID 获取指定工作流的所有阶段
 func (r *ScanStageRepository) ListStagesByWorkflowID(ctx context.Context, workflowID uint64) ([]*orcmodel.ScanStage, error) {
 	var stages []*orcmodel.ScanStage
-	// 按 stage_order 升序排列
-	err := r.db.WithContext(ctx).Where("workflow_id = ?", workflowID).Order("stage_order asc").Find(&stages).Error
+	// 按 ID 升序排列
+	err := r.db.WithContext(ctx).Where("workflow_id = ?", workflowID).Order("id asc").Find(&stages).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "list_stages_by_workflow_id", "REPO", map[string]interface{}{
 			"operation":   "list_stages_by_workflow_id",

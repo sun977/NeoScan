@@ -41,6 +41,7 @@ import (
 type SchedulerService interface {
 	Start(ctx context.Context)
 	Stop()
+	ProcessProject(ctx context.Context, project *orcModel.Project)
 }
 
 type schedulerService struct {
@@ -147,7 +148,7 @@ func (s *schedulerService) schedule(ctx context.Context) {
 	}
 
 	for _, project := range projects {
-		s.processProject(ctx, project)
+		s.ProcessProject(ctx, project)
 	}
 }
 
@@ -223,19 +224,8 @@ func (s *schedulerService) checkScheduledProjects(ctx context.Context) {
 	}
 }
 
-// processProject 处理单个项目的调度
-// 1.检查是否有正在运行的任务，如果有则等待
-// 2.获取最新的任务以确定上一阶段的结果
-// 3.如果上一任务失败，则暂停整个项目
-// 4.查找下一阶段，如果没有下一阶段则标记项目为完成
-// 5.从项目TargetScope中提取种子目标：
-// - 首先尝试解析为JSON数组
-// - 如果不是JSON，则按常见分隔符（逗号、分号、换行等）分割
-// 6.使用TargetProvider解析最终目标（应用TargetPolicy）
-// 7.使用策略执行器对任务进行策略检查
-// 8.使用任务生成器基于下一阶段和目标生成新任务
-// 9.将新任务保存到数据库
-func (s *schedulerService) processProject(ctx context.Context, project *orcModel.Project) {
+// ProcessProject 处理单个项目的调度逻辑 (Public for testing and manual trigger)
+func (s *schedulerService) ProcessProject(ctx context.Context, project *orcModel.Project) {
 	loggerFields := map[string]interface{}{
 		"project_id":   project.ID,
 		"project_name": project.Name,
@@ -267,15 +257,18 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 		return
 	}
 
-	// Case C: 初始启动 或 上一个任务完成 -> 寻找下一个 Stage
-	nextStage, err := s.findNextStage(ctx, project, lastTask)
+	// Case C: 初始启动 或 上一个任务完成 -> 寻找下一批需要执行的 Stages (DAG)
+	nextStages, err := s.findNextStages(ctx, project)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "INTERNAL", loggerFields)
 		return
 	}
 
 	// Case D: 没有下一个 Stage 了 -> 项目完成
-	if nextStage == nil {
+	// 注意：DAG 模式下，如果所有分支都走完了，nextStages 为空
+	if len(nextStages) == 0 {
+		// 双重检查：确认是否真的所有 Stage 都完成了？
+		// 暂时简化：如果没有可执行的 Stage，且没有正在运行的任务（前面已检查），则认为项目完成
 		logger.LogInfo("Project finished", "", 0, "", "service.scheduler.processProject", "", loggerFields)
 		project.Status = "finished"
 		project.LastExecTime = nil // Optional: update finish time if needed
@@ -283,7 +276,21 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 		return
 	}
 
-	// Case E: 生成新任务
+	// Case E: 生成新任务 (对每个可执行的 Stage)
+	for _, nextStage := range nextStages {
+		s.generateTasksForStage(ctx, project, nextStage)
+	}
+}
+
+// generateTasksForStage 为单个 Stage 生成任务
+func (s *schedulerService) generateTasksForStage(ctx context.Context, project *orcModel.Project, nextStage *orcModel.ScanStage) {
+	loggerFields := map[string]interface{}{
+		"project_id":   project.ID,
+		"project_name": project.Name,
+		"stage_id":     nextStage.ID,
+		"stage_name":   nextStage.StageName,
+	}
+
 	// 1. 获取种子目标 (Seed Targets) 从 Project.TargetScope 配置
 	var seedTargets []string
 	if project.TargetScope != "" {
@@ -293,8 +300,6 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 			seedTargets = targets
 		} else {
 			// 如果不是 JSON，尝试按逗号、换行符分隔
-			// 支持常见的分隔符：逗号、分号、换行、空格
-			// 这种方式兼容 CIDR/Domain 列表的简单文本格式
 			f := func(c rune) bool {
 				return c == ',' || c == ';' || c == '\n' || c == '\r' || c == ' '
 			}
@@ -309,11 +314,10 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 
 	// 2. 使用 TargetProvider 解析最终目标 (应用 TargetPolicy)
 	// [Context Injection]
-	// 在解析目标前，将当前 Stage 的上下文信息注入 ctx
-	// 这对于 PreviousStageProvider 来说是必须的，它需要知道当前处于哪个 Workflow 和 Stage 以查找上一阶段的结果
 	ctx = context.WithValue(ctx, policy.CtxKeyProjectID, uint64(project.ID))    // 项目ID 注入上下文
 	ctx = context.WithValue(ctx, policy.CtxKeyWorkflowID, nextStage.WorkflowID) // WorkflowID 注入上下文
-	ctx = context.WithValue(ctx, policy.CtxKeyStageOrder, nextStage.StageOrder) // StageOrder 注入上下文
+	ctx = context.WithValue(ctx, policy.CtxKeyStageID, nextStage.ID)            // StageID 注入上下文
+	// ctx = context.WithValue(ctx, policy.CtxKeyStageOrder, nextStage.StageOrder) // Deprecated: DAG模式下不再使用 Order
 
 	//  1. 解析种子目标 (Seed Targets)
 	//  2. 应用 TargetPolicy 进行转换/过滤
@@ -344,18 +348,13 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 	// 保存任务到数据库
 	for _, task := range newTasks {
 		// 3. 策略检查 (Policy Enforcer)
-		// 在任务落库前进行最后一道"安检"
 		if err := s.policyEnforcer.Enforce(ctx, task); err != nil {
 			logger.LogWarn("Task blocked by policy", "", 0, "", "service.scheduler.processProject", "", map[string]interface{}{
 				"task_id": task.TaskID,
 				"error":   err.Error(),
 			})
-			// 标记任务为失败或拒绝，并保存以便审计？
-			// 这里我们选择直接丢弃不合规的任务，或者将其状态设为 'blocked' 存库
-			// 为了审计，最好存库并标记为 failed/blocked
 			task.Status = "failed"
 			task.ErrorMsg = "Policy violation: " + err.Error()
-			// 继续执行存库，以便用户知道任务被拦截了
 		}
 
 		if err := s.taskRepo.CreateTask(ctx, task); err != nil {
@@ -371,86 +370,74 @@ func (s *schedulerService) processProject(ctx context.Context, project *orcModel
 	}
 }
 
-// findNextStage 查找下一个需要执行的 Stage
-//  1. 获取项目关联的所有 Workflow (暂时假设一个 Project 只关联一个 Workflow)
-//  2. 检查是否有上一个任务
-//     Case A: 没有上一个任务 -> 返回第一个 Stage
-//     Case B: 有上一个任务 -> 找到上一个 Stage，返回它的下一个 Stage
-func (s *schedulerService) findNextStage(ctx context.Context, project *orcModel.Project, lastTask *orcModel.AgentTask) (*orcModel.ScanStage, error) {
-	// 获取项目关联的所有 Workflow
+// findNextStages 查找下一批需要执行的 Stages (DAG核心逻辑)
+// 逻辑：
+// 1. 获取 Workflow 下所有 Stages
+// 2. 获取该 Project 已完成(或已开始)的所有 Stage IDs
+// 3. 遍历所有 Stages:
+//   - 如果 Stage 已经执行过，跳过
+//   - 检查 Stage 的 Predecessors (依赖)
+//   - 如果所有 Predecessors 都已在 "已完成列表" 中，则该 Stage Ready
+func (s *schedulerService) findNextStages(ctx context.Context, project *orcModel.Project) ([]*orcModel.ScanStage, error) {
+	// 1. 获取 Workflow
 	workflows, err := s.workflowRepo.GetWorkflowsByProjectID(ctx, uint64(project.ID))
-	if err != nil {
+	if err != nil || len(workflows) == 0 {
 		return nil, err
 	}
-	if len(workflows) == 0 {
-		return nil, nil
-	}
+	workflow := workflows[0] // 假设单 Workflow
 
-	// 暂时假设一个 Project 只关联一个 Workflow (简化逻辑)
-	// 实际逻辑可能需要处理多个 Workflow 的顺序
-	workflow := workflows[0]
-
-	// 获取 Workflow 下所有 Stages
+	// 2. 获取所有 Stages
 	stages, err := s.stageRepo.GetStagesByWorkflowID(ctx, uint64(workflow.ID))
+	if err != nil || len(stages) == 0 {
+		return nil, err
+	}
+
+	// 3. 获取已执行的任务，推导已完成的 Stages
+	// 注意：这里需要从 TaskRepo 获取所有任务，以判断哪些 Stage 已经跑过了
+	// 这是一个相对昂贵的操作，生产环境应优化为专门的 ProjectStageStatus 表
+	tasks, err := s.taskRepo.GetTasksByProjectID(ctx, uint64(project.ID))
 	if err != nil {
 		return nil, err
 	}
-	if len(stages) == 0 {
-		return nil, nil
+
+	// 构建已完成/已开始的 Stage Set
+	executedStageIDs := make(map[uint64]bool)
+	for _, task := range tasks {
+		executedStageIDs[task.StageID] = true
 	}
 
-	// 如果没有上一个任务，说明是刚开始，返回第一个 Stage
-	if lastTask == nil {
-		return s.getFirstStage(stages), nil
-	}
+	var nextStages []*orcModel.ScanStage
 
-	// 如果有上一个任务，找到上一个 Stage，返回它的下一个 Stage
-	next := s.getNextStage(stages, lastTask.StageID)
-	return next, nil
-}
-
-// getFirstStage 获取第一个 Stage
-//  1. 遍历所有 Stage，找到 order 最小的 Stage
-func (s *schedulerService) getFirstStage(stages []*orcModel.ScanStage) *orcModel.ScanStage {
-	// 寻找 order 最小的 stage
-	if len(stages) == 0 {
-		return nil
-	}
-	first := stages[0]
+	// 4. DAG 判定
 	for _, stage := range stages {
-		if stage.StageOrder < first.StageOrder {
-			first = stage
+		// 如果该 Stage 已经执行过(或正在执行)，跳过
+		if executedStageIDs[uint64(stage.ID)] {
+			continue
 		}
-	}
-	return first
-}
 
-// getNextStage 获取下一个 Stage
-//  1. 找到当前 stage 的 order
-//  2. 遍历所有 Stage，找到 order 比 currentOrder 大且最小的 Stage
-func (s *schedulerService) getNextStage(stages []*orcModel.ScanStage, currentStageID uint64) *orcModel.ScanStage {
-	// 1. 找到当前 stage 的 order
-	var currentOrder int
-	found := false
-	for _, stage := range stages {
-		if uint64(stage.ID) == currentStageID {
-			currentOrder = stage.StageOrder
-			found = true
-			break
-		}
-	}
-	if !found {
-		return nil // 异常：当前任务的 StageID 不存在于 Workflow 中
-	}
+		// 解析依赖
+		predecessors := stage.Predecessors
 
-	// 2. 找到 order 比 currentOrder 大且最小的 stage
-	var nextStage *orcModel.ScanStage
-	for _, stage := range stages {
-		if stage.StageOrder > currentOrder {
-			if nextStage == nil || stage.StageOrder < nextStage.StageOrder {
-				nextStage = stage
+		// 检查依赖是否满足
+		dependenciesResolved := true
+		if len(predecessors) > 0 {
+			for _, predID := range predecessors {
+				if !executedStageIDs[predID] {
+					dependenciesResolved = false
+					break
+				}
 			}
+		} else {
+			// 没有依赖 = 入口节点 (Initial Stage)
+			// dependenciesResolved = true
+		}
+
+		if dependenciesResolved {
+			nextStages = append(nextStages, stage)
 		}
 	}
-	return nextStage
+
+	return nextStages, nil
 }
+
+// Deprecated: 原 getFirstStage 和 getNextStage 已废弃，被 findNextStages 取代

@@ -60,10 +60,10 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 	// 1. 获取上下文信息
 	projectID, ok1 := ctx.Value(CtxKeyProjectID).(uint64)
 	workflowID, ok2 := ctx.Value(CtxKeyWorkflowID).(uint64)
-	currentStageOrder, ok3 := ctx.Value(CtxKeyStageOrder).(int)
+	currentStageID, ok3 := ctx.Value(CtxKeyStageID).(uint64)
 
 	if !ok1 || !ok2 || !ok3 {
-		return nil, fmt.Errorf("missing context: project_id, workflow_id or current_stage_order")
+		return nil, fmt.Errorf("missing context: project_id, workflow_id or current_stage_id")
 	}
 
 	// 2. 解析配置
@@ -92,8 +92,8 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 		generateConfig = wrapper.Generate
 	}
 
-	// 3. 确定目标 Stage
-	targetStageID, err := p.resolveTargetStage(ctx, workflowID, currentStageOrder, filterConfig.StageName)
+	// 3. 确定目标 Stage IDs
+	sourceStageIDs, err := p.resolveSourceStageIDs(ctx, workflowID, currentStageID, filterConfig.StageName)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 	if len(filterConfig.StageStatus) > 0 {
 		var agentIDs []string
 		err := p.db.WithContext(ctx).Model(&orcModel.AgentTask{}).
-			Where("workflow_id = ? AND stage_id = ? AND status IN ?", workflowID, targetStageID, filterConfig.StageStatus).
+			Where("workflow_id = ? AND stage_id IN ? AND status IN ?", workflowID, sourceStageIDs, filterConfig.StageStatus).
 			Pluck("agent_id", &agentIDs).Error
 		if err != nil {
 			return nil, fmt.Errorf("failed to query agent tasks status: %w", err)
@@ -118,7 +118,7 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 	// 4. 查询结果
 	var results []orcModel.StageResult
 	query := p.db.WithContext(ctx).
-		Where("project_id = ? AND workflow_id = ? AND stage_id = ?", projectID, workflowID, targetStageID)
+		Where("project_id = ? AND workflow_id = ? AND stage_id IN ?", projectID, workflowID, sourceStageIDs)
 
 	if len(validAgentIDs) > 0 {
 		query = query.Where("agent_id IN ?", validAgentIDs)
@@ -142,35 +142,33 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 	return targets, nil
 }
 
-// resolveTargetStage 解析目标 StageID
-func (p *PreviousStageProvider) resolveTargetStage(ctx context.Context, workflowID uint64, currentOrder int, stageName string) (uint64, error) {
-	var stage orcModel.ScanStage
-
+// resolveSourceStageIDs 解析目标 StageIDs (DAG 支持)
+func (p *PreviousStageProvider) resolveSourceStageIDs(ctx context.Context, workflowID uint64, currentStageID uint64, stageName string) ([]uint64, error) {
 	// 如果指定了 stage_name，直接按名称查找
 	if stageName != "" && stageName != "prev" {
+		var stage orcModel.ScanStage
 		err := p.db.WithContext(ctx).
 			Where("workflow_id = ? AND stage_name = ?", workflowID, stageName).
 			First(&stage).Error
 		if err != nil {
-			return 0, fmt.Errorf("stage not found: %s", stageName)
+			return nil, fmt.Errorf("stage not found: %s", stageName)
 		}
-		return uint64(stage.ID), nil
+		return []uint64{uint64(stage.ID)}, nil
 	}
 
-	// 否则查找上一个 Stage (order < currentOrder 的最大值)
-	err := p.db.WithContext(ctx).
-		Where("workflow_id = ? AND stage_order < ?", workflowID, currentOrder).
-		Order("stage_order DESC").
-		First(&stage).Error
-
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return 0, fmt.Errorf("no previous stage found")
-		}
-		return 0, err
+	// 否则查找前置 Stage (Predecessors)
+	var currentStage orcModel.ScanStage
+	if err := p.db.WithContext(ctx).First(&currentStage, currentStageID).Error; err != nil {
+		return nil, fmt.Errorf("failed to load current stage: %w", err)
 	}
 
-	return uint64(stage.ID), nil
+	predecessors := currentStage.Predecessors
+
+	if len(predecessors) == 0 {
+		return nil, fmt.Errorf("no previous stage found (no predecessors)")
+	}
+
+	return predecessors, nil
 }
 
 // processResult 处理单条结果 --- 核心实现逻辑

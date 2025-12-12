@@ -43,7 +43,9 @@ const (
 	CtxKeyProjectID ContextKey = "project_id"
 	// CtxKeyWorkflowID WorkflowID 上下文键
 	CtxKeyWorkflowID ContextKey = "workflow_id"
-	// CtxKeyStageOrder StageOrder 上下文键 (当前 Stage 的 Order)
+	// CtxKeyStageID StageID 上下文键 (当前 Stage 的 ID)
+	CtxKeyStageID ContextKey = "current_stage_id"
+	// CtxKeyStageOrder StageOrder 上下文键 (Deprecated: Use CtxKeyStageID instead)
 	CtxKeyStageOrder ContextKey = "current_stage_order"
 )
 

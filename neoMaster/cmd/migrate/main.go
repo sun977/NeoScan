@@ -233,10 +233,17 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&agent.AgentMetrics{},
 		&agent.AgentGroup{},
 		&agent.AgentGroupMember{},
-		&orchestrator.AgentTask{},
 		&agent.ScanType{},
 
-		// Orchestrator模块 - 只使用实际存在的模型
+		// Orchestrator模块 (New)
+		&orchestrator.Project{},
+		&orchestrator.Workflow{},
+		&orchestrator.ProjectWorkflow{},
+		&orchestrator.ScanStage{},
+		&orchestrator.AgentTask{},
+		&orchestrator.StageResult{},
+
+		// Orchestrator模块 (Old/Deprecated)
 		&orchestrator_drop.ProjectConfig{},
 		&orchestrator_drop.WorkflowConfig{},
 		&orchestrator_drop.ScanTool{},

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/matcher"
 	"neomaster/internal/pkg/utils"
 	assetrepo "neomaster/internal/repo/mysql/asset"
 	orcrepo "neomaster/internal/repo/mysql/orchestrator"
@@ -190,33 +191,14 @@ func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (boo
 // SkipConditionRules 跳过条件规则
 // 定义在 AssetSkipPolicy 中的条件，用于动态判断是否跳过任务
 type SkipConditionRules struct {
-	BlockTimeWindows []string `json:"block_time_windows"` // e.g. ["00:00-06:00", "22:00-23:59"]
-	BlockEnvTags     []string `json:"block_env_tags"`     // e.g. ["production", "sensitive"]
+	BlockTimeWindows []string          `json:"block_time_windows"` // e.g. ["00:00-06:00", "22:00-23:59"]
+	BlockEnvTags     []string          `json:"block_env_tags"`     // e.g. ["production", "sensitive"]
+	MatchRule        matcher.MatchRule `json:"match_rule"`         // 复杂匹配规则 (New)
 }
 
 // checkSkipPolicy 检查是否应该跳过任务
-// 后续需要实现基于规则的动态跳过逻辑
-//
-//	{
-//	  "conditions": [
-//	    {
-//	      "field": "device_type",
-//	      "operator": "equals",
-//	      "value": "honeypot"
-//	    },
-//	    {
-//	      "field": "os",
-//	      "operator": "contains",
-//	      "value": "honeypot"
-//	    },
-//	    {
-//	      "field": "port_count",
-//	      "operator": "greater_than",
-//	      "value": 1000
-//	    }
-//	  ],
-//	  "logic_operator": "and"  // and/or
-//	}
+// 1. 支持传统的时间窗口和环境标签检查
+// 2. 支持基于 Matcher 的复杂规则检查
 func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentModel.Project) (bool, string, error) {
 	policies, err := p.policyRepo.GetEnabledSkipPolicies(ctx)
 	if err != nil {
@@ -225,6 +207,18 @@ func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentMode
 
 	now := time.Now()
 	currentTimeStr := now.Format("15:04") // HH:MM
+	projectTags := parseTags(project.Tags)
+
+	// 构建用于 Matcher 的上下文数据
+	// 包含项目信息、时间和环境标签
+	matchContext := map[string]interface{}{
+		"project_id":   project.ID,
+		"project_name": project.Name,
+		"tags":         projectTags, // []string
+		"time":         currentTimeStr,
+		"weekday":      now.Weekday().String(),
+		"hour":         now.Hour(),
+	}
 
 	for _, policy := range policies {
 		var rules SkipConditionRules
@@ -236,9 +230,8 @@ func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentMode
 			continue // 忽略解析失败的规则
 		}
 
-		// 1. 检查环境标签
+		// 1. 检查环境标签 (Legacy)
 		if len(rules.BlockEnvTags) > 0 {
-			projectTags := parseTags(project.Tags) // 假设 Project.Tags 是 JSON 字符串或逗号分隔
 			for _, blockTag := range rules.BlockEnvTags {
 				for _, projTag := range projectTags {
 					if strings.EqualFold(blockTag, projTag) {
@@ -248,7 +241,7 @@ func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentMode
 			}
 		}
 
-		// 2. 检查时间窗
+		// 2. 检查时间窗 (Legacy)
 		if len(rules.BlockTimeWindows) > 0 {
 			for _, window := range rules.BlockTimeWindows {
 				parts := strings.Split(window, "-")
@@ -262,6 +255,23 @@ func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentMode
 				if currentTimeStr >= start && currentTimeStr <= end {
 					return true, fmt.Sprintf("Current time %s is within blocked window %s of policy '%s'", currentTimeStr, window, policy.PolicyName), nil
 				}
+			}
+		}
+
+		// 3. 检查复杂规则 (Matcher)
+		if !matcher.IsEmptyRule(rules.MatchRule) {
+			matched, err := matcher.Match(matchContext, rules.MatchRule)
+			if err != nil {
+				// 规则执行错误，安全起见，默认不跳过，但记录日志
+				// 或者根据策略配置决定是否 fail-open 或 fail-closed
+				logger.LogWarn("Failed to execute skip match rule", "", 0, "", "checkSkipPolicy", "", map[string]interface{}{
+					"policy": policy.PolicyName,
+					"error":  err.Error(),
+				})
+				continue
+			}
+			if matched {
+				return true, fmt.Sprintf("Matched skip rule in policy '%s'", policy.PolicyName), nil
 			}
 		}
 	}

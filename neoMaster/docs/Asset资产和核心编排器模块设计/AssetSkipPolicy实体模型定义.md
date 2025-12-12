@@ -41,28 +41,8 @@ AssetSkipPolicy实体用于定义统一的资产跳过策略机制，适用于�
 定义触发跳过策略的条件规则：
 
 ```json
-// {
-//   "conditions": [
-//     {
-//       "field": "device_type",
-//       "operator": "equals",
-//       "value": "honeypot"
-//     },
-//     {
-//       "field": "os",
-//       "operator": "contains",
-//       "value": "honeypot"
-//     },
-//     {
-//       "field": "port_count",
-//       "operator": "greater_than",
-//       "value": 1000
-//     }
-//   ],
-//   "logic_operator": "and"  // and/or
-// }
 // and 和 or 逻辑运算符
-// 操作符 17 个
+// 操作符 18 个
 {
   "and": [{
     "field": "device_type",
@@ -119,6 +99,7 @@ AssetSkipPolicy实体用于定义统一的资产跳过策略机制，适用于�
 - `regex`: 正则表达式匹配
 - `like`: 模糊匹配（支持通配符%和_）
 - `exists`: 存在
+- `list_contains`: 列表包含
 
 #### 3. action_config（动作配置）
 定义满足条件时执行的动作：

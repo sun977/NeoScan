@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	orcModel "neomaster/internal/model/orchestrator"
+	"neomaster/internal/pkg/matcher" // 引入 matcher 匹配器引擎，用于复杂过滤规则
 
 	"github.com/tidwall/gjson" // JSON 解析库
 	"gorm.io/gorm"
@@ -14,14 +15,15 @@ import (
 
 // PreviousStageConfig 扩展配置结构
 type PreviousStageConfig struct {
-	ResultType []string `json:"result_type"` // 过滤 ResultType
-	StageName  string   `json:"stage_name"`  // 指定 StageName，为空则默认 "prev"
+	ResultType  []string `json:"result_type"`  // 过滤 ResultType
+	StageName   string   `json:"stage_name"`   // 指定 StageName，为空则默认 "prev"
+	StageStatus []string `json:"stage_status"` // 指定 StageStatus (依赖 AgentTask 状态)  用于识别 AgentTask 状态,避免读取到正在运行任务产生的不完整数据
 }
 
 // UnwindConfig 展开配置结构
 type UnwindConfig struct {
-	Path   string                 `json:"path"`   // e.g., "attributes.ports"
-	Filter map[string]interface{} `json:"filter"` // e.g., {"state": "open"}
+	Path   string            `json:"path"`   // e.g., "attributes.ports"
+	Filter matcher.MatchRule `json:"filter"` // 复杂过滤规则
 }
 
 // GenerateConfig 生成配置结构
@@ -96,10 +98,31 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 		return nil, err
 	}
 
+	// 3.5 如果指定了 StageStatus，需要先查询 AgentTask 获取合法的 AgentID
+	var validAgentIDs []string
+	if len(filterConfig.StageStatus) > 0 {
+		var agentIDs []string
+		err := p.db.WithContext(ctx).Model(&orcModel.AgentTask{}).
+			Where("workflow_id = ? AND stage_id = ? AND status IN ?", workflowID, targetStageID, filterConfig.StageStatus).
+			Pluck("agent_id", &agentIDs).Error
+		if err != nil {
+			return nil, fmt.Errorf("failed to query agent tasks status: %w", err)
+		}
+		if len(agentIDs) == 0 {
+			// 没有符合状态的任务，直接返回空
+			return []Target{}, nil
+		}
+		validAgentIDs = agentIDs
+	}
+
 	// 4. 查询结果
 	var results []orcModel.StageResult
 	query := p.db.WithContext(ctx).
 		Where("project_id = ? AND workflow_id = ? AND stage_id = ?", projectID, workflowID, targetStageID)
+
+	if len(validAgentIDs) > 0 {
+		query = query.Where("agent_id IN ?", validAgentIDs)
+	}
 
 	if len(filterConfig.ResultType) > 0 {
 		query = query.Where("result_type IN ?", filterConfig.ResultType)
@@ -183,11 +206,15 @@ func (p *PreviousStageProvider) processResult(result orcModel.StageResult, unwin
 	var targets []Target
 	// 2. 遍历数组
 	gjsonResult.ForEach(func(key, value gjson.Result) bool {
-		// 3. 过滤逻辑 (简单实现：只支持相等比较)  【后续添加复杂的过滤运算逻辑】
-		for k, v := range unwind.Filter {
-			if value.Get(k).String() != fmt.Sprintf("%v", v) {
-				return true // continue
-			}
+		// 3. 过滤逻辑 (复杂实现：使用 Matcher)
+		val := value.Value()
+		matched, err := matcher.Match(val, unwind.Filter)
+		if err != nil {
+			// 如果规则执行出错，视为不匹配
+			return true // continue
+		}
+		if !matched {
+			return true // continue
 		}
 
 		// 【这里需要结合stageResult的返回数据结构进行解析】

@@ -24,8 +24,8 @@ func TestPolicyEnforcer_SkipRule_Matcher(t *testing.T) {
 	}
 
 	// 2. Migrate Tables
-	if err := db.AutoMigrate(&agentModel.Project{}, &assetModel.AssetSkipPolicy{}, &assetModel.AssetWhitelist{}); err != nil {
-		t.Fatalf("failed to migrate: %v", err)
+	if err1 := db.AutoMigrate(&agentModel.Project{}, &assetModel.AssetSkipPolicy{}, &assetModel.AssetWhitelist{}); err1 != nil {
+		t.Fatalf("failed to migrate: %v", err1)
 	}
 
 	// 3. Prepare Data
@@ -38,8 +38,8 @@ func TestPolicyEnforcer_SkipRule_Matcher(t *testing.T) {
 	}
 	// Manually set ID for test consistency
 	project.ID = 123
-	if err := db.Create(project).Error; err != nil {
-		t.Fatalf("failed to create project: %v", err)
+	if err2 := db.Create(project).Error; err2 != nil {
+		t.Fatalf("failed to create project: %v", err2)
 	}
 
 	// Create Skip Policy with Matcher Rule
@@ -67,8 +67,8 @@ func TestPolicyEnforcer_SkipRule_Matcher(t *testing.T) {
 		ConditionRules: string(ruleJSON),
 		Enabled:        true,
 	}
-	if err := db.Create(skipPolicy).Error; err != nil {
-		t.Fatalf("failed to create skip policy: %v", err)
+	if err3 := db.Create(skipPolicy).Error; err3 != nil {
+		t.Fatalf("failed to create skip policy: %v", err3)
 	}
 
 	// 4. Initialize Repos and Enforcer

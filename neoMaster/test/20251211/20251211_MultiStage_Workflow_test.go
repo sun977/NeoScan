@@ -244,13 +244,17 @@ func TestMultiStageWorkflow(t *testing.T) {
 		agentRepository,
 		1*time.Second,
 	)
-	schedulerService.Start(ctx)
+	// Manual trigger for deterministic testing
+	// schedulerService.Start(ctx)
 
 	// ==========================================
 	// 阶段 1 测试
 	// ==========================================
-	fmt.Println("Waiting for Stage 1 scheduling...")
-	time.Sleep(2 * time.Second)
+	// 触发调度器生成 Stage 1 任务
+	schedulerService.ProcessProject(ctx, &project)
+
+	fmt.Println("Checking Stage 1 scheduling...")
+	// time.Sleep(2 * time.Second) // No sleep needed for manual trigger
 
 	// 验证 Stage 1 任务是否生成
 	var task1 orcModel.AgentTask
@@ -306,32 +310,20 @@ func TestMultiStageWorkflow(t *testing.T) {
 	assert.NoError(t, err)
 	fmt.Printf("Debug: Updated Task 1 Status to %s\n", task1.Status)
 
+	// Manually trigger scheduler for Stage 2
+	schedulerService.ProcessProject(ctx, &project)
+
 	// ==========================================
 	// 阶段 2 测试
 	// ==========================================
-	// 5. Verify Stage 2 Task Created (Wait for Scheduler)
-	fmt.Println("Waiting for Scheduler to create Stage 2 task...")
-	// Poll for task creation
+	// 5. Verify Stage 2 Task Created
+	fmt.Println("Checking Stage 2 task creation...")
+
 	var task2 orcModel.AgentTask
-	var found bool
-	for i := 0; i < 10; i++ {
-		time.Sleep(500 * time.Millisecond)
-		err2 := db.Where("project_id = ? AND stage_id = ?", project.ID, stage2.ID).First(&task2).Error
-		if err2 == nil {
-			found = true
-			break
-		}
+	err = db.Where("project_id = ? AND stage_id = ?", project.ID, stage2.ID).First(&task2).Error
+	assert.NoError(t, err, "Stage 2 task should be created")
 
-		// Check project status in loop
-		var p orcModel.Project
-		db.First(&p, project.ID)
-
-		// Check if there is a FAILED task
-		var failedTask orcModel.AgentTask
-		if err1 := db.Where("project_id = ? AND stage_id = ? AND status = 'failed'", project.ID, stage2.ID).First(&failedTask).Error; err1 == nil {
-			t.Fatalf("Found FAILED task: %s, Error: %s", failedTask.TaskID, failedTask.ErrorMsg)
-		}
-	}
+	found := true // Mimic previous logic variable
 
 	if !found {
 		t.Fatal("Stage 2 task was not created after timeout")

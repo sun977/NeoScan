@@ -26,6 +26,7 @@ type MatchRule struct {
     Field    string      `json:"field,omitempty"`    // 待匹配字段名 (支持点号访问嵌套字段，如 "meta.os")
     Operator string      `json:"operator,omitempty"` // 操作符
     Value    interface{} `json:"value,omitempty"`    // 目标值
+    IgnoreCase bool      `json:"ignore_case,omitempty"` // 是否忽略大小写
 }
 ```
 
@@ -195,3 +196,19 @@ graph TD
 2.  **Stateless**: 引擎本身不存储任何状态，完全由输入决定输出。
 3.  **Recursion**: 支持任意深度的嵌套逻辑。
 4.  **Performance**: 针对高频操作符进行优化。
+
+## 7. 大小写敏感性 (Case Sensitivity)
+
+默认情况下，字符串比较是**大小写敏感**的。
+可以通过设置 `ignore_case: true` 来启用忽略大小写匹配。
+
+**支持的操作符行为变化：**
+
+| 操作符 | 默认行为 | `ignore_case: true` |
+| :--- | :--- | :--- |
+| `equals`, `not_equals` | `==` | `strings.EqualFold` |
+| `contains`, `starts_with` 等 | 大小写敏感 | 转换为小写后比较 |
+| `in`, `list_contains` | 精确匹配 | 列表中元素逐个忽略大小写比较 |
+| `regex` | 原样正则 | 自动添加 `(?i)` 前缀 |
+| `greater_than` (字符串比较) | ASCII 比较 | 转换为小写后比较 (例如 "B" > "a") |
+

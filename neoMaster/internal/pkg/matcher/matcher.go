@@ -186,7 +186,24 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 		}
 		return !found, nil
 
-	// 数值比较
+	case "list_contains":
+		// actual 应该是 slice/array
+		actualVal := reflect.ValueOf(actual)
+		if actualVal.Kind() != reflect.Slice && actualVal.Kind() != reflect.Array {
+			return false, nil // 字段值不是列表，不匹配
+		}
+		// expected 是我们要查找的值
+		expectedStr := fmt.Sprintf("%v", expected)
+		found := false
+		for i := 0; i < actualVal.Len(); i++ {
+			if fmt.Sprintf("%v", actualVal.Index(i).Interface()) == expectedStr {
+				found = true
+				break
+			}
+		}
+		return found, nil
+
+	// 数值比较 (支持字符串字典序降级)
 	case "greater_than", "less_than", "greater_than_or_equal", "less_than_or_equal":
 		return compareNumbers(actual, operator, expected)
 
@@ -215,26 +232,42 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 }
 
 // compareNumbers 数值比较辅助函数
+// 如果两者都是数字，进行数值比较
+// 如果转换数字失败，尝试进行字符串字典序比较 (Lexicographical Comparison)
 func compareNumbers(actual interface{}, op string, expected interface{}) (bool, error) {
-	v1, err := toFloat64(actual)
-	if err != nil {
-		return false, nil // 转换失败视为不匹配 (Fail Safe)
+	v1, err1 := toFloat64(actual)
+	v2, err2 := toFloat64(expected)
+
+	// 1. 优先尝试数值比较
+	if err1 == nil && err2 == nil {
+		switch op {
+		case "greater_than":
+			return v1 > v2, nil
+		case "less_than":
+			return v1 < v2, nil
+		case "greater_than_or_equal":
+			return v1 >= v2, nil
+		case "less_than_or_equal":
+			return v1 <= v2, nil
+		}
+		return false, nil
 	}
-	v2, err := toFloat64(expected)
-	if err != nil {
-		return false, fmt.Errorf("expected value is not a number: %v", expected)
-	}
+
+	// 2. 降级为字符串比较
+	s1 := fmt.Sprintf("%v", actual)
+	s2 := fmt.Sprintf("%v", expected)
 
 	switch op {
 	case "greater_than":
-		return v1 > v2, nil
+		return s1 > s2, nil
 	case "less_than":
-		return v1 < v2, nil
+		return s1 < s2, nil
 	case "greater_than_or_equal":
-		return v1 >= v2, nil
+		return s1 >= s2, nil
 	case "less_than_or_equal":
-		return v1 <= v2, nil
+		return s1 <= s2, nil
 	}
+
 	return false, nil
 }
 

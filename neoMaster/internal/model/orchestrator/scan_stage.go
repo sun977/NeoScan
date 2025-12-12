@@ -11,10 +11,16 @@ import (
 type ScanStage struct {
 	basemodel.BaseModel
 
-	WorkflowID          uint64 `json:"workflow_id" gorm:"index;not null;comment:所属工作流ID"`
-	StageOrder          int    `json:"stage_order" gorm:"default:0;comment:阶段顺序"` // 阶段在工作流中的执行顺序,同时决定任务的生成
-	StageName           string `json:"stage_name" gorm:"size:100;comment:阶段名称"`
-	StageType           string `json:"stage_type" gorm:"size:50;comment:阶段类型枚举(ipAlive/serviceScan/PocScan等)"`
+	WorkflowID uint64 `json:"workflow_id" gorm:"index;not null;comment:所属工作流ID"`
+	StageName  string `json:"stage_name" gorm:"size:100;comment:阶段名称"`
+	StageType  string `json:"stage_type" gorm:"size:50;comment:阶段类型枚举(ipAlive/serviceScan/PocScan等)"`
+
+	// DAG 核心字段
+	Predecessors []uint64 `json:"predecessors" gorm:"serializer:json;type:json;comment:前置依赖阶段ID列表(JSON数组),为空表示起始节点"`
+
+	// UI/低代码 专用字段
+	UIConfig map[string]interface{} `json:"ui_config" gorm:"serializer:json;type:json;comment:前端UI布局配置(JSON),包含x,y坐标等"`
+
 	ToolName            string `json:"tool_name" gorm:"size:100;comment:使用的扫描工具名称"`
 	ToolParams          string `json:"tool_params" gorm:"type:text;comment:扫描工具参数"`
 	TargetPolicy        string `json:"target_policy" gorm:"type:json;comment:目标策略配置(JSON)"`        // 包含目标获取方式,白名单策略和跳过策略

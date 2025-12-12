@@ -19,6 +19,7 @@ type TaskRepository interface {
 	UpdateTaskResult(ctx context.Context, taskID string, result string, errorMsg string, status string) error
 	GetLatestTaskByProjectID(ctx context.Context, projectID uint64) (*agentModel.AgentTask, error)
 	GetTasksByAgentID(ctx context.Context, agentID string) ([]*agentModel.AgentTask, error)
+	GetTasksByProjectID(ctx context.Context, projectID uint64) ([]*agentModel.AgentTask, error)
 	ClaimTask(ctx context.Context, taskID string, agentID string) error
 	HasRunningTasks(ctx context.Context, projectID uint64) (bool, error)
 }
@@ -98,40 +99,59 @@ func (r *taskRepository) GetLatestTaskByProjectID(ctx context.Context, projectID
 	return &task, nil
 }
 
-// GetTasksByAgentID 获取指定Agent的已分配任务
+// GetTasksByAgentID 获取指定 Agent 的所有任务
 func (r *taskRepository) GetTasksByAgentID(ctx context.Context, agentID string) ([]*agentModel.AgentTask, error) {
 	var tasks []*agentModel.AgentTask
 	err := r.db.WithContext(ctx).
-		Where("agent_id = ? AND status IN ?", agentID, []string{"assigned", "running"}).
-		Order("priority desc, created_at asc").
+		Where("agent_id = ?", agentID).
 		Find(&tasks).Error
-	return tasks, err
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }
 
-// // ClaimTask 认领任务
+// GetTasksByProjectID 获取指定项目的所有任务
+func (r *taskRepository) GetTasksByProjectID(ctx context.Context, projectID uint64) ([]*agentModel.AgentTask, error) {
+	var tasks []*agentModel.AgentTask
+	err := r.db.WithContext(ctx).
+		Where("project_id = ?", projectID).
+		Find(&tasks).Error
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+// ClaimTask 认领任务
 func (r *taskRepository) ClaimTask(ctx context.Context, taskID string, agentID string) error {
-	now := time.Now()
+	updates := map[string]interface{}{
+		"status":     "running",
+		"agent_id":   agentID,
+		"started_at": time.Now(),
+	}
+	// 乐观锁或状态检查: 只有 pending 状态的任务才能被认领
 	result := r.db.WithContext(ctx).Model(&agentModel.AgentTask{}).
 		Where("task_id = ? AND status = ?", taskID, "pending").
-		Updates(map[string]interface{}{
-			"agent_id":    agentID,
-			"status":      "assigned",
-			"assigned_at": &now,
-		})
+		Updates(updates)
+
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("task %s not available for claim", taskID)
+		return fmt.Errorf("task %s not found or not in pending status", taskID)
 	}
 	return nil
 }
 
-// HasRunningTasks 检查项目是否有正在运行的任务
+// HasRunningTasks 检查是否有正在运行的任务
 func (r *taskRepository) HasRunningTasks(ctx context.Context, projectID uint64) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&agentModel.AgentTask{}).
-		Where("project_id = ? AND status IN ?", projectID, []string{"pending", "assigned", "running"}).
+		Where("project_id = ? AND status = ?", projectID, "running").
 		Count(&count).Error
-	return count > 0, err
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

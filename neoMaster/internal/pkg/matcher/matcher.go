@@ -23,6 +23,11 @@ type MatchRule struct {
 	Value    interface{} `json:"value,omitempty"`
 }
 
+// IsEmptyRule 检查规则是否为空
+func IsEmptyRule(rule MatchRule) bool {
+	return len(rule.And) == 0 && len(rule.Or) == 0 && rule.Field == "" && rule.Operator == ""
+}
+
 // Match 评估数据是否符合规则
 func Match(data interface{}, rule MatchRule) (bool, error) {
 	// 1. 处理逻辑节点 (Branch)

@@ -18,9 +18,10 @@ type MatchRule struct {
 	Or  []MatchRule `json:"or,omitempty"`
 
 	// --- 条件节点 (Leaf) ---
-	Field    string      `json:"field,omitempty"`
-	Operator string      `json:"operator,omitempty"`
-	Value    interface{} `json:"value,omitempty"`
+	Field      string      `json:"field,omitempty"`
+	Operator   string      `json:"operator,omitempty"`
+	Value      interface{} `json:"value,omitempty"`
+	IgnoreCase bool        `json:"ignore_case,omitempty"` // 是否忽略大小写 (为True则统一转换为小写进行比较)
 }
 
 // IsEmptyRule 检查规则是否为空
@@ -86,7 +87,7 @@ func Match(data interface{}, rule MatchRule) (bool, error) {
 	}
 
 	// 执行具体匹配逻辑
-	return evaluateCondition(fieldValue, rule.Operator, rule.Value)
+	return evaluateCondition(fieldValue, rule.Operator, rule.Value, rule.IgnoreCase)
 }
 
 // ParseJSON 解析 JSON 规则字符串
@@ -137,27 +138,68 @@ func getFieldValue(data interface{}, fieldPath string) (interface{}, bool) {
 }
 
 // evaluateCondition 评估单个条件
-func evaluateCondition(actual interface{}, operator string, expected interface{}) (bool, error) {
+func evaluateCondition(actual interface{}, operator string, expected interface{}, ignoreCase bool) (bool, error) {
+	// 辅助函数：获取字符串表示
+	getStr := func(v interface{}) string {
+		return fmt.Sprintf("%v", v)
+	}
+
 	switch operator {
 	case "equals":
-		return fmt.Sprintf("%v", actual) == fmt.Sprintf("%v", expected), nil
+		s1, s2 := getStr(actual), getStr(expected)
+		if ignoreCase {
+			return strings.EqualFold(s1, s2), nil
+		}
+		return s1 == s2, nil
+
 	case "not_equals":
-		return fmt.Sprintf("%v", actual) != fmt.Sprintf("%v", expected), nil
+		s1, s2 := getStr(actual), getStr(expected)
+		if ignoreCase {
+			return !strings.EqualFold(s1, s2), nil
+		}
+		return s1 != s2, nil
+
 	case "contains":
-		return strings.Contains(fmt.Sprintf("%v", actual), fmt.Sprintf("%v", expected)), nil
+		s1, s2 := getStr(actual), getStr(expected)
+		if ignoreCase {
+			return strings.Contains(strings.ToLower(s1), strings.ToLower(s2)), nil
+		}
+		return strings.Contains(s1, s2), nil
+
 	case "not_contains":
-		return !strings.Contains(fmt.Sprintf("%v", actual), fmt.Sprintf("%v", expected)), nil
+		s1, s2 := getStr(actual), getStr(expected)
+		if ignoreCase {
+			return !strings.Contains(strings.ToLower(s1), strings.ToLower(s2)), nil
+		}
+		return !strings.Contains(s1, s2), nil
+
 	case "starts_with":
-		return strings.HasPrefix(fmt.Sprintf("%v", actual), fmt.Sprintf("%v", expected)), nil
+		s1, s2 := getStr(actual), getStr(expected)
+		if ignoreCase {
+			return strings.HasPrefix(strings.ToLower(s1), strings.ToLower(s2)), nil
+		}
+		return strings.HasPrefix(s1, s2), nil
+
 	case "ends_with":
-		return strings.HasSuffix(fmt.Sprintf("%v", actual), fmt.Sprintf("%v", expected)), nil
+		s1, s2 := getStr(actual), getStr(expected)
+		if ignoreCase {
+			return strings.HasSuffix(strings.ToLower(s1), strings.ToLower(s2)), nil
+		}
+		return strings.HasSuffix(s1, s2), nil
+
 	case "regex":
 		pattern, ok := expected.(string)
 		if !ok {
 			return false, fmt.Errorf("regex pattern must be string")
 		}
-		match, err := regexp.MatchString(pattern, fmt.Sprintf("%v", actual))
+		if ignoreCase {
+			if !strings.HasPrefix(pattern, "(?i)") {
+				pattern = "(?i)" + pattern
+			}
+		}
+		match, err := regexp.MatchString(pattern, getStr(actual))
 		return match, err
+
 	case "like":
 		// 简单的 SQL like 实现: % -> .*, _ -> .
 		pattern, ok := expected.(string)
@@ -165,8 +207,12 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 			return false, fmt.Errorf("like pattern must be string")
 		}
 		regexPattern := "^" + strings.ReplaceAll(strings.ReplaceAll(regexp.QuoteMeta(pattern), "%", ".*"), "_", ".") + "$"
-		match, err := regexp.MatchString(regexPattern, fmt.Sprintf("%v", actual))
+		if ignoreCase {
+			regexPattern = "(?i)" + regexPattern
+		}
+		match, err := regexp.MatchString(regexPattern, getStr(actual))
 		return match, err
+
 	case "in", "not_in":
 		// expected 应该是一个 slice
 		expectedVal := reflect.ValueOf(expected)
@@ -174,9 +220,17 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 			return false, fmt.Errorf("in/not_in expected value must be a list")
 		}
 		found := false
-		actualStr := fmt.Sprintf("%v", actual)
+		actualStr := getStr(actual)
+		if ignoreCase {
+			actualStr = strings.ToLower(actualStr)
+		}
+
 		for i := 0; i < expectedVal.Len(); i++ {
-			if fmt.Sprintf("%v", expectedVal.Index(i).Interface()) == actualStr {
+			itemStr := fmt.Sprintf("%v", expectedVal.Index(i).Interface())
+			if ignoreCase {
+				itemStr = strings.ToLower(itemStr)
+			}
+			if itemStr == actualStr {
 				found = true
 				break
 			}
@@ -193,10 +247,18 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 			return false, nil // 字段值不是列表，不匹配
 		}
 		// expected 是我们要查找的值
-		expectedStr := fmt.Sprintf("%v", expected)
+		expectedStr := getStr(expected)
+		if ignoreCase {
+			expectedStr = strings.ToLower(expectedStr)
+		}
+
 		found := false
 		for i := 0; i < actualVal.Len(); i++ {
-			if fmt.Sprintf("%v", actualVal.Index(i).Interface()) == expectedStr {
+			itemStr := fmt.Sprintf("%v", actualVal.Index(i).Interface())
+			if ignoreCase {
+				itemStr = strings.ToLower(itemStr)
+			}
+			if itemStr == expectedStr {
 				found = true
 				break
 			}
@@ -205,7 +267,7 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 
 	// 数值比较 (支持字符串字典序降级)
 	case "greater_than", "less_than", "greater_than_or_equal", "less_than_or_equal":
-		return compareNumbers(actual, operator, expected)
+		return compareNumbers(actual, operator, expected, ignoreCase)
 
 	case "cidr":
 		ipStr, ok := actual.(string)
@@ -234,7 +296,7 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 // compareNumbers 数值比较辅助函数
 // 如果两者都是数字，进行数值比较
 // 如果转换数字失败，尝试进行字符串字典序比较 (Lexicographical Comparison)
-func compareNumbers(actual interface{}, op string, expected interface{}) (bool, error) {
+func compareNumbers(actual interface{}, op string, expected interface{}, ignoreCase bool) (bool, error) {
 	v1, err1 := toFloat64(actual)
 	v2, err2 := toFloat64(expected)
 
@@ -256,6 +318,11 @@ func compareNumbers(actual interface{}, op string, expected interface{}) (bool, 
 	// 2. 降级为字符串比较
 	s1 := fmt.Sprintf("%v", actual)
 	s2 := fmt.Sprintf("%v", expected)
+
+	if ignoreCase {
+		s1 = strings.ToLower(s1)
+		s2 = strings.ToLower(s2)
+	}
 
 	switch op {
 	case "greater_than":

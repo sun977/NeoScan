@@ -103,9 +103,10 @@ CREATE TABLE `scan_stages` (
   `updated_at` datetime(3) DEFAULT NULL,
   `deleted_at` datetime(3) DEFAULT NULL,
   `workflow_id` bigint unsigned NOT NULL COMMENT '所属工作流ID',
-  `stage_order` int DEFAULT '0' COMMENT '阶段顺序',
   `stage_name` varchar(100) DEFAULT NULL COMMENT '阶段名称',
   `stage_type` varchar(50) DEFAULT NULL COMMENT '阶段类型枚举',
+  `predecessors` json DEFAULT NULL COMMENT '前置依赖阶段ID列表(JSON数组),为空表示起始节点',
+  `ui_config` json DEFAULT NULL COMMENT '前端UI布局配置(JSON),包含x,y坐标等',
   `tool_name` varchar(100) DEFAULT NULL COMMENT '使用的扫描工具名称',
   `tool_params` text COMMENT '扫描工具参数',
   `target_policy` json DEFAULT NULL COMMENT '目标策略配置(JSON)',
@@ -118,6 +119,12 @@ CREATE TABLE `scan_stages` (
   KEY `idx_scan_stages_workflow_id` (`workflow_id`),
   KEY `idx_scan_stages_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='扫描阶段定义表';
+
+-- 1. Add predecessors column to scan_stages for DAG dependency management
+-- Stores JSON array of previous stage IDs (e.g., "[1, 2]")
+
+-- 2. Add ui_config column to scan_stages for Frontend Drag-and-Drop
+-- Stores JSON object with UI metadata (e.g., {"x": 100, "y": 200})
 
 -- ----------------------------
 -- Table structure for stage_results

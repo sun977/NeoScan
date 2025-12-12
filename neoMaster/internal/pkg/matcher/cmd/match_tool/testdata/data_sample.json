@@ -1,0 +1,25 @@
+{
+  "hostname": "server-prod-001",
+  "ip": "192.168.10.55",
+  "os_info": {
+    "name": "Ubuntu",
+    "version": "22.04 LTS",
+    "kernel": "5.15.0-91-generic"
+  },
+  "services": ["ssh", "nginx", "docker"],
+  "open_ports": [22, 80, 443, 8080],
+  "tags": ["production", "web", "high-priority"],
+  "stats": {
+    "uptime_hours": 720,
+    "cpu_usage": 45.5,
+    "memory_usage": 82.1,
+    "active_connections": 1200
+  },
+  "vulnerabilities": {
+    "critical": 0,
+    "high": 2,
+    "medium": 5
+  },
+  "is_maintained": true,
+  "owner": "devops-team"
+}

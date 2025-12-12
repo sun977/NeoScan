@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	orcModel "neomaster/internal/model/orchestrator"
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/matcher" // 引入 matcher 匹配器引擎，用于复杂过滤规则
 
 	"github.com/tidwall/gjson" // JSON 解析库
@@ -52,6 +53,8 @@ func NewPreviousStageProvider(db *gorm.DB) *PreviousStageProvider {
 func (p *PreviousStageProvider) Name() string { return "previous_stage" }
 
 func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+	logger.LogInfo("[PreviousStageProvider] Provide called", "", 0, "", "Provide", "", nil)
+
 	// 事项：
 	// 1. 获取当前 Workflow 上下文
 	// 2. 查找上一阶段的执行结果
@@ -120,6 +123,13 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 	query := p.db.WithContext(ctx).
 		Where("project_id = ? AND workflow_id = ? AND stage_id IN ?", projectID, workflowID, sourceStageIDs)
 
+	// DEBUG LOG
+	logger.LogInfo("[PreviousStageProvider] Querying results", "", 0, "", "Provide", "", map[string]interface{}{
+		"project_id":       projectID,
+		"workflow_id":      workflowID,
+		"source_stage_ids": sourceStageIDs,
+	})
+
 	if len(validAgentIDs) > 0 {
 		query = query.Where("agent_id IN ?", validAgentIDs)
 	}
@@ -131,11 +141,16 @@ func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSource
 	if err := query.Find(&results).Error; err != nil {
 		return nil, fmt.Errorf("failed to query stage results: %w", err)
 	}
+	logger.LogInfo(fmt.Sprintf("[PreviousStageProvider] Found %d results", len(results)), "", 0, "", "Provide", "", nil)
 
 	// 5. 处理结果并生成 Target
 	var targets []Target
 	for _, result := range results {
+		logger.LogInfo(fmt.Sprintf("[PreviousStageProvider] Processing result: ID=%d", result.ID), "", 0, "", "Provide", "", map[string]interface{}{
+			"attributes": result.Attributes,
+		})
 		newTargets := p.processResult(result, unwindConfig, generateConfig)
+		logger.LogInfo(fmt.Sprintf("[PreviousStageProvider] Generated %d targets from result %d", len(newTargets), result.ID), "", 0, "", "Provide", "", nil)
 		targets = append(targets, newTargets...)
 	}
 

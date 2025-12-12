@@ -156,7 +156,6 @@ func TestWorkflowScheduler(t *testing.T) {
 	stage := orcModel.ScanStage{
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "Test Stage 1",
-		StageOrder:          1,
 		ToolName:            "nmap",
 		TargetPolicy:        "{}",
 		ExecutionPolicy:     "{}",

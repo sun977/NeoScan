@@ -164,7 +164,6 @@ func TestMultiStageWorkflow(t *testing.T) {
 	stage1 := orcModel.ScanStage{
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "PortScan",
-		StageOrder:          1,
 		ToolName:            "nmap",
 		TargetPolicy:        "{}", // 默认使用 Project 种子
 		ExecutionPolicy:     "{}",
@@ -210,7 +209,7 @@ func TestMultiStageWorkflow(t *testing.T) {
 	stage2 := orcModel.ScanStage{
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "ServiceScan",
-		StageOrder:          2,
+		Predecessors:        []uint64{uint64(stage1.ID)},
 		ToolName:            "nuclei",
 		TargetPolicy:        string(targetPolicyJSON),
 		ExecutionPolicy:     "{}",
@@ -339,6 +338,13 @@ func TestMultiStageWorkflow(t *testing.T) {
 	}
 
 	assert.Equal(t, "nuclei", task2.ToolName)
+	if task2.Status == "failed" {
+		t.Errorf("Stage 2 task failed with error: %s", task2.ErrorMsg)
+		// Print Target Policy for debugging
+		var stage2DB orcModel.ScanStage
+		db.First(&stage2DB, stage2.ID)
+		fmt.Printf("Debug: Stage 2 Target Policy: %s\n", stage2DB.TargetPolicy)
+	}
 	assert.Equal(t, "pending", task2.Status)
 
 	// 验证任务目标是否正确生成

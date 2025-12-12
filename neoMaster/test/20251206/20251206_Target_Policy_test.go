@@ -108,7 +108,6 @@ func TestTargetPolicyResolution(t *testing.T) {
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "Manual Target Stage",
 		StageType:           "port_scan",
-		StageOrder:          1,
 		TargetPolicy:        string(policyJSON),
 		Enabled:             true,
 		OutputConfig:        "{}",

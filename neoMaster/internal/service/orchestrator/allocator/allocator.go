@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"neomaster/internal/model/orchestrator"
-	"strings"
 
 	"sync"
 	"time"
 
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/matcher"
 )
 
 // ResourceAllocator 资源调度器接口
@@ -96,20 +96,34 @@ func hasCapability(agent *agentModel.Agent, toolName string) bool {
 		return true
 	}
 
-	// 简单的字符串包含检查 (如果 Capabilities 以后存的是 Name)
-	for _, cap := range agent.Capabilities {
-		if strings.EqualFold(cap, toolName) {
-			return true
-		}
+	// 使用 Matcher 引擎进行检查
+	agentData := map[string]interface{}{
+		"capabilities": agent.Capabilities,
 	}
 
-	// Fallback: 暂时允许所有任务，除非明确不匹配
-	return true
+	// 规则: capabilities 包含 toolName (忽略大小写)
+	rule := matcher.MatchRule{
+		Field:      "capabilities",
+		Operator:   "list_contains",
+		Value:      toolName,
+		IgnoreCase: true,
+	}
+
+	matched, err := matcher.Match(agentData, rule)
+	if err != nil {
+		logger.LogWarn("Matcher error in hasCapability", "", 0, "", "allocator.hasCapability", "", map[string]interface{}{
+			"error":     err.Error(),
+			"agent_id":  agent.AgentID,
+			"tool_name": toolName,
+		})
+		return false
+	}
+	return matched
 }
 
 // matchTags 检查 Agent 是否满足任务的标签要求
 func matchTags(agent *agentModel.Agent, requiredTagsJSON string) bool {
-	if requiredTagsJSON == "" {
+	if requiredTagsJSON == "" || requiredTagsJSON == "[]" {
 		return true // 任务无标签要求
 	}
 
@@ -124,19 +138,35 @@ func matchTags(agent *agentModel.Agent, requiredTagsJSON string) bool {
 		return true
 	}
 
-	// Agent 必须包含所有 Required Tags
-	// 将 Agent Tags 转为 Map 加速查找
-	agentTagMap := make(map[string]bool)
-	for _, tag := range agent.Tags {
-		agentTagMap[tag] = true
+	// 使用 Matcher 引擎进行检查
+	agentData := map[string]interface{}{
+		"tags": agent.Tags,
 	}
 
-	for _, req := range requiredTags {
-		if !agentTagMap[req] {
-			// 缺失必须的标签
-			return false
-		}
+	// 构造规则: 必须包含所有 Required Tags (AND)
+	var subRules []matcher.MatchRule
+	for _, reqTag := range requiredTags {
+		subRules = append(subRules, matcher.MatchRule{
+			Field:    "tags",
+			Operator: "list_contains",
+			Value:    reqTag,
+			// IgnoreCase: false, // 默认保持大小写敏感，与旧行为一致
+		})
 	}
 
-	return true
+	rule := matcher.MatchRule{
+		And: subRules,
+	}
+
+	matched, err := matcher.Match(agentData, rule)
+	if err != nil {
+		logger.LogWarn("Matcher error in matchTags", "", 0, "", "allocator.matchTags", "", map[string]interface{}{
+			"error":    err.Error(),
+			"agent_id": agent.AgentID,
+			"tags":     requiredTagsJSON,
+		})
+		return false
+	}
+
+	return matched
 }

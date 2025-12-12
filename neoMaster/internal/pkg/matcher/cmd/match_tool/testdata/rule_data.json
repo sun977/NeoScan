@@ -1,0 +1,6107 @@
+[
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录"
+      },
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录"
+      },
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录"
+      },
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录"
+      },
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "not_equals",
+        "value": "127.0.0.1"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2005a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2007d"
+      },
+      {
+        "field": "flexString8",
+        "operator": "ilike_in",
+        "value": "php\nhttpd\njava\napache\nmysql\ncmd\npowershell"
+      },
+      {
+        "field": "flexString8",
+        "operator": "ilike_not_in",
+        "value": "crond\n.sh\n.py\nnmeo.exe"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020003"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "authorized_keys"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "smac"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "dockerd"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "pam_unix.so"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "x--with-pam"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "configure"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "expr"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "ln"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "sshd"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "su"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "runuser"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "chsh"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "chfn"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "config-util"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "xinetd"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "inetd"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "dockerd"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "rpm"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "chmod"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "yum"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "ishd"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "equals",
+        "value": "-i"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "vimrc"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "dockerd"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "rpm"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "chmod"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "yum"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "bashrc"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "dockerd"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "chmod"
+      },
+      {
+        "field": "flexString8",
+        "operator": "not_contains",
+        "value": "jekins"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "equals",
+        "value": "/lib/libsh.so/sshd /sbin/ttyload"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录审计"
+      },
+      {
+        "field": "deviceCustomNumber3",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录审计"
+      },
+      {
+        "field": "deviceCustomNumber3",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录"
+      },
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "not_equals",
+        "value": ""
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "not_equals",
+        "value": "127.0.0.1"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2007e"
+      },
+      {
+        "or": [
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "php"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "httpd"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "java"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "apache"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20079"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomNumber3",
+        "operator": "equals",
+        "value": "3"
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "not_equals",
+        "value": ""
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "isDomainUser",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2006e"
+      },
+      {
+        "field": "flexString8",
+        "operator": "not_contains",
+        "value": "supervisord"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2000f"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000009"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0000000a"
+      },
+      {
+        "field": "deviceFacility",
+        "operator": "exists",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "in",
+        "value": "00f20067\n00f20068"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "and": [
+          {
+            "field": "externalId",
+            "operator": "equals",
+            "value": "00f20069"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-d"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-s"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-p"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "not_contains",
+        "value": "nologin"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/passwd"
+      },
+      {
+        "and": [
+          {
+            "field": "flexString8",
+            "operator": "not_contains",
+            "value": "instand_ngsoc.py"
+          },
+          {
+            "field": "flexString8",
+            "operator": "not_contains",
+            "value": "AnsibandZ_command.py"
+          },
+          {
+            "field": "flexString8",
+            "operator": "not_contains",
+            "value": "ansible_module_command.py"
+          },
+          {
+            "field": "flexString8",
+            "operator": "not_contains",
+            "value": "ambari-agent"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2005d"
+      },
+      {
+        "and": [
+          {
+            "field": "deviceAddress",
+            "operator": "not_equals",
+            "value": "172.24.6.21"
+          },
+          {
+            "field": "destinationAddress",
+            "operator": "not_contains",
+            "value": "172.24.6."
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "deviceAddress",
+            "operator": "not_equals",
+            "value": "172.24.6.11"
+          },
+          {
+            "field": "destinationAddress",
+            "operator": "not_equals",
+            "value": "172.24.6.35"
+          },
+          {
+            "field": "destinationPort",
+            "operator": "not_equals",
+            "value": "25"
+          }
+        ]
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "not_equals",
+        "value": "10.41.72.31"
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "not_equals",
+        "value": "10.47.152.77"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "or": [
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "php"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "httpd"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "java"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "apache"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "flexString8",
+            "operator": "not_contains",
+            "value": ".sh"
+          },
+          {
+            "field": "flexString8",
+            "operator": "not_contains",
+            "value": "supervisord"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "ceye.io"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "dnslog.cn"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "burpcollaborator.net"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020001"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020002"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020004"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020005"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020006"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0002000b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020011"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "containerd-shim"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "docker"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "-H"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "-v"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "docker.sock"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "unix:"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "containerd-shim"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "docker"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "containerd-shim/moby"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "shim.sock"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "unix:"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "containerd-shim"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/proc/net/unix"
+      },
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "runc"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "grep"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "password"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "passwd"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "dpkg"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": ".py"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": ".sh"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000031"
+      },
+      {
+        "field": "flexString8",
+        "operator": "not_contains",
+        "value": "cephadm"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomNumber1",
+        "operator": "equals",
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomNumber1",
+        "operator": "equals",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录"
+      },
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "oldFileSize",
+        "operator": "equals",
+        "value": 1
+      },
+      {
+        "and": [
+          {
+            "field": "destinationHostfield",
+            "operator": "ilike_not_in",
+            "value": "scan\nspider\nateam"
+          },
+          {
+            "field": "sourceProcessfield",
+            "operator": "ilike_not_in",
+            "value": "/home/engine\nchromer"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationHostfield",
+            "operator": "ilike_not_in",
+            "value": "jiance\nmobilesecurity\noru\nsandbox"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationHostfield",
+            "operator": "not_contains",
+            "value": "whiteapp"
+          },
+          {
+            "field": "oldFileId",
+            "operator": "not_equals",
+            "value": "796b5545d72708adbfdeeb2fb1fce6e7"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "oldFileId",
+            "operator": "not_equals",
+            "value": "9c00b79bc8ec12e5ebd25f508c49fcfd"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationAddress",
+            "operator": "not_contains",
+            "value": "10.252.168."
+          },
+          {
+            "field": "oldFileId",
+            "operator": "not_equals",
+            "value": "b93185d9c303e2323c87a6a72e9e3c66"
+          }
+        ]
+      },
+      {
+        "field": "destinationHostfield",
+        "operator": "not_contains",
+        "value": "zzt.360es.cn"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00100006"
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "ilike_not_in",
+        "value": "10.44.32.195\n10.249.104.234\n10.249.96.36\n"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "not_equals",
+        "value": "192.168.254.44"
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "not_equals",
+        "value": "sourceAddress"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "not_equals",
+        "value": "127.0.0.1"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20005"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20004"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "iequals",
+        "value": "00f20007"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "\u003c\u0026\n\u003e\u0026\n\u003c\u003e"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "/dev/tcp\n/dev/udp"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "-(?:i|\\$\\{[a-zA-Z]+\\}i)"
+          },
+          {
+            "and": [
+              {
+                "field": "destinationProcessCommandLine",
+                "operator": "contains",
+                "value": "exec"
+              },
+              {
+                "field": "destinationProcessCommandLine",
+                "operator": "contains",
+                "value": "\u003c\u0026"
+              },
+              {
+                "field": "destinationProcessCommandLine",
+                "operator": "contains",
+                "value": "\u003e\u0026"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "in",
+        "value": "00f20006\n00f60002"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      },
+      {
+        "and": [
+          {
+            "field": "flexString8",
+            "operator": "not_contains",
+            "value": "lockf"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0000000e"
+      },
+      {
+        "or": [
+          {
+            "field": "filePath",
+            "operator": "contains",
+            "value": "php"
+          },
+          {
+            "field": "filePath",
+            "operator": "contains",
+            "value": "httpd"
+          },
+          {
+            "field": "filePath",
+            "operator": "contains",
+            "value": "java"
+          },
+          {
+            "field": "filePath",
+            "operator": "contains",
+            "value": "apache"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2005e"
+      },
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "not_contains",
+            "value": "WmiPrvSE.exe"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "not_contains",
+            "value": "lsass.exe"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00100005"
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "not_equals",
+        "value": "deviceAddress"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录"
+      },
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "ssh"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "equals",
+        "value": "10.44.168.78"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomNumber2",
+        "operator": "equals",
+        "value": "3"
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "not_equals",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "101.133.165.125"
+      },
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "157.185.172.53"
+      },
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "47.108.224.151"
+      },
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "47.119.128.102"
+      },
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "59.115.84.155"
+      },
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "172.81.211.245"
+      },
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "101.133.165.125"
+      },
+      {
+        "field": "deviceCustomString5",
+        "operator": "contains",
+        "value": "8.133.191.234 "
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20016"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20009"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2000c"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20008"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2000a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2000d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2000b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2007d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2007e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0000000e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20047"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20046"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2002c"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceExternalId",
+        "operator": "equals",
+        "value": "00f2002d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "D"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "ssh"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "not_contains",
+            "value": "kamala  "
+          },
+          {
+            "field": "sourceProcessfield",
+            "operator": "ilike_not_in",
+            "value": "jenkins\nbootstrap.py\nscp"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*ssh.*@.*-p.*"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*(\\d){2,5}:.*:(\\d){2,5}.*"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-D"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-L"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-R"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-N"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "portmap"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "regular_match",
+        "value": ".*(\\d+\\.){3}\\d+.*"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "frpc"
+          },
+          {
+            "field": "filefield",
+            "operator": "contains",
+            "value": "-c"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "frps"
+          },
+          {
+            "field": "filefield",
+            "operator": "contains",
+            "value": "-c"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "rtcp.py"
+          },
+          {
+            "field": "filefield",
+            "operator": "contains",
+            "value": "l:"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "endwith",
+        "value": "rtcp.py"
+      },
+      {
+        "field": "filefield",
+        "operator": "contains",
+        "value": "c:"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "HaozipSvc.exe"
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "equals",
+            "value": "C:\\Windows\\System32\\lsass.exe"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "filePath",
+            "operator": "contains",
+            "value": "NT AUTHORITY\\SYSTEM"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2007f"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "ilike_in",
+            "value": "bash\nsh"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "ilike_in",
+            "value": "openssl"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "quiet"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "ilike_in",
+            "value": "openssl"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "mkfifo\nbash\nsocat\nexec\nopensslpipe"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "endwith",
+        "value": "mkfifo"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20001"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "in",
+        "value": "00f20003\n00f20002\n00f20001"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2000e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20010"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20011"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20012"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20013"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20014"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20015"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": " 00f20017"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20018"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20019"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2001a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2001b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2001c"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2001d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2001e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2001f"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20020"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20021"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20022"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20023"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20024"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20025"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20026"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20027"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20028"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20029"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2002a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2002b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2002e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2002f"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20030"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20031"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20032"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20033"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20034"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20035"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20036"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20037"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20038"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20039"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2003a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2003b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2003c"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2003d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2003e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2003f"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20040"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20041"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20042"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20043"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20044"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20045"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20048"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20049"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2004a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2004b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2004c"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2004d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2004e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2004f"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20050"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20051"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20052"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20053"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20054"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20056"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20057"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20058"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20059"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2005b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20060"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20061"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20062"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20063"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20064"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20065"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20066"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2006f"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20071"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20073"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20074"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20075"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20076"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "iin",
+        "value": "00f20077\n00f20078"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20078"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2007a"
+      },
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200b9"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceFacilityfield",
+        "operator": "equals",
+        "value": "ssh"
+      },
+      {
+        "field": "deviceCustomString3",
+        "operator": "equals",
+        "value": "登录成功"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "isIntranetIpv4",
+        "value": ""
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "exists",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "/usr/local/bin/tcpserver"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "ilike_not_in",
+        "value": "chromer\nchromedriver\nchrome\nsandbox\ndoris-agent\nfirefox.exe"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "ilike_not_in",
+        "value": "/opt/projects/websec/worker\n/usr/bin/ceph-osd\n/usr/local/exporter/blackbox_exporter\n/bin/consul\ncrawler\nproxy_ip\n/home/work/nws/bin/checker\n/usr/sbin/squid\nC:\\program files (x86)\\google\\update\\googleupdate.exe\n/home/zhangyunrui/temp_code/leaklibops/cbs_log_analyser/cbs_log_analyser.py\n/home/zhangyunrui/temp_code/otherlibops/cdn_log_analyser/cdn_log_analyser.py\n/opt/tip/bin/url_image.py\n/opt/linux-x64-client_vmp\n/usr/libexec/qemu-kvm\n/usr/libexec/sssd/ldap_child\n/bin/prometheus\n/usr/libexec/sssd/sssd_be"
+      },
+      {
+        "field": "flexString8",
+        "operator": "not_contains",
+        "value": "supervisord"
+      },
+      {
+        "and": [
+          {
+            "field": "deviceZoneURI",
+            "operator": "not_contains",
+            "value": "10.95.58.0_10.95.58.255"
+          },
+          {
+            "field": "sourceProcessfield",
+            "operator": "ilike_not_in",
+            "value": "nmap\nscan_start.py\nnode.py\nnc"
+          }
+        ]
+      },
+      {
+        "field": "deviceZoneURI",
+        "operator": "ilike_not_in",
+        "value": "洛阳\n郑州\n10.95.2.15交换机"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "isIpv4",
+        "value": ""
+      },
+      {
+        "field": "sourceProcessHashMd5",
+        "operator": "ilike_not_in",
+        "value": "cabaa343892bf1f2aa87f28676b7dfa3"
+      },
+      {
+        "and": [
+          {
+            "field": "deviceAddress",
+            "operator": "not_equals",
+            "value": "10.95.107.189"
+          },
+          {
+            "field": "sourceProcessfield",
+            "operator": "not_equals",
+            "value": "C:\\windows\\syswow64\\vmnat.exe"
+          }
+        ]
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "ilike_not_in",
+        "value": "qianxin.com\nmicrosoft.com\nglobalsign.com\nshs3.b.qianxin-inc.cn\nctldl.windowsupdate.com\nminio01v.ops.zzt.360es.cn\nsrv-ad09.esg.360es.cn\ndownload.windowsupdate.com\nsymcd.com\ndigicert.com\nocsp.digicert.com\nlxs3.b.qianxin-inc.cn\nsymcb.com\nqianxin-inc.cn\nmail.qianxin.com\ndag.esg.360es.cn\ncorp.comisys.net\nconf2.f.360.cn\nadobe.com"
+      },
+      {
+        "field": "sourceProcessHashMd5",
+        "operator": "ilike_not_in",
+        "value": "e3a2ad05e24105b35e986cf9cb38ec47\n36f670d89040709013f6a460176767ec\nc78655bc80301d76ed4fef1c1ea40a7d\ne4ca434f251681590d0538bc21c32d2f\n8a0a29438052faed8a2532da50455756"
+      },
+      {
+        "and": [
+          {
+            "field": "deviceAddress",
+            "operator": "not_equals",
+            "value": " 10.47.140.119"
+          },
+          {
+            "field": "destinationAddress",
+            "operator": "not_contains",
+            "value": "172.17.0"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationZoneURI",
+            "operator": "not_contains",
+            "value": "内网骨干-BGP"
+          },
+          {
+            "field": "deviceAddress",
+            "operator": "not_equals",
+            "value": "10.75.132.5"
+          }
+        ]
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "not_in",
+        "value": "10.95.54.180\n10.249.171.194\n10.45.3.11 "
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "git-remote-https"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "not_regular_match",
+        "value": "^(10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})|(172\\.((1[6-9])|(2\\d)|(3[01]))\\.\\d{1,3}\\.\\d{1,3})|(192\\.168\\.\\d{1,3}\\.\\d{1,3})$"
+      },
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "外连监控"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "git"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "push"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "rdp"
+      },
+      {
+        "field": "deviceCustomNumber3",
+        "operator": "equals",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "icontains",
+        "value": "java"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "icontains",
+            "value": "bash"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "icontains",
+            "value": "cmd.exe"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "docker-containerd-shim"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "ilike_in",
+        "value": "/bin/bash"
+      },
+      {
+        "field": "deviceAction",
+        "operator": "equals",
+        "value": "创建进程"
+      },
+      {
+        "field": "message",
+        "operator": "contains",
+        "value": "启动参数：/usr/bin/docker-runc"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "filefield",
+        "operator": "contains",
+        "value": "/tmp/cgrp/cdk"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "/exploit"
+      },
+      {
+        "field": "deviceAction",
+        "operator": "contains",
+        "value": "创建进程"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/dash"
+      },
+      {
+        "field": "filefield",
+        "operator": "contains",
+        "value": "-c echo $$"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationAddress",
+        "operator": "in",
+        "value": "118.192.48.48\n18.136.104.20\n47.244.138.18\n52.16.21.24\n120.27.212.63\n192.175.48.6\n104.248.51.21\n167.99.86.185\n79.143.186.150\n45.130.229.168\n143.198.55.18\n195.19.192.28\n185.191.32.198\n194.87.102.77\n193.164.150.99\n54.214.14.19\n206.189.150.65\n206.189.156.69\n103.102.200.38\n103.107.219.38"
+      },
+      {
+        "field": "destinationPort",
+        "operator": "equals",
+        "value": "389"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "icontains",
+        "value": "md5sum"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "kinsing"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F20089"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F20090"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F20091"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F20092"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F20094"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F2009C"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F200B2"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F200CD"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00F20085"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60001"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "pkexec"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60001"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "su"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60001"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "sudo"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0000000d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "strace"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "sshd"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "inot_regular_match",
+        "value": ".*ping.*qianxin-inc.cn.*"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/bin/runc"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "inot_regular_match",
+        "value": ".*ping.*qianxin.com.*"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/bin/docker-runc"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "inot_regular_match",
+        "value": ".*\\.sh"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "inot_contains",
+        "value": "launch_container.sh"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/sbin/arp"
+      },
+      {
+        "or": [
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "java"
+          },
+          {
+            "field": "deviceFacility",
+            "operator": "contains",
+            "value": "java"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "ping"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "bash"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "base64"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "curl"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "dnslog.cn\nceye.io\ndnslog.link\n0x557.wang\ngtlog.io\neyes.sh"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "passwd"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/sbin/arping"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "not_regular_match",
+        "value": ".*ping.*360es.cn.*"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/bin/runc"
+      },
+      {
+        "and": [
+          {
+            "field": "sourceUserfield",
+            "operator": "not_equals",
+            "value": "omm"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "not_contains",
+            "value": "scriptLauncher.sh"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_contains",
+        "value": "sandbox"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "in",
+        "value": "00f60002\n00f20006"
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "not_contains",
+        "value": "java"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      },
+      {
+        "or": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "in",
+            "value": "ncat\nsocat\nopenssl"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*\\/bin\\/bash.*-i.*"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*\\/bin\\/sh.*-i.*"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*/bin/sh\\\"\\,\\\"-i.*"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*/bin/bash\\\"\\,\\\"-i.*"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "contains",
+            "value": "bash -i"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "contains",
+            "value": "sh -i"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00210005"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/usr/bin/cat"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "/etc/shadow"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "mimipenguin.sh"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "mimipenguin.py"
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "equals",
+            "value": "/usr/bin/dd"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "/usr/bin/dd\\sif=/proc/.*mem\\sof=/tmp/sshd.*oflag=append.*skip=.*"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "isIntranetIpv4",
+        "value": ""
+      },
+      {
+        "or": [
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "iregular_match",
+            "value": "(?:ba|/|^)sh(\\s*-i)?$"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "in",
+            "value": "cat\nawk\ntail\nsed"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "tcp\nudp"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "bin"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "sh"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "-i"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "regular_match",
+        "value": "(.*sh|.*bash)\\s+-i\\s\u003e\u0026\\s+/dev/(tcp|udp)/((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}/[0-9]+\\s+0\u003e\u0026\\s*1.*"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "set"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "history"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "regular_match",
+        "value": ".*\\s+set\\s+\\+o\\s+history.*"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "not_contains",
+        "value": "/usr/bin/ls --color=never"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "dd"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "ddsc.sh"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "ddexec.sh"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "/usr/bin/dd\\s+bs=1\\sseek=[0-9]{4,}"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/usr/bin/chattr"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "/usr/bin/chattr\\s+\\+i\\s+\\w+\\S+.*"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "/usr/bin/chattr\\s+\\-i\\s+\\w+\\S+.*"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "/usr/bin/lsattr\\s+\\w+\\S+.*"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/etc/ld.so.preload"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*echo.*\u003e\\s+/etc/ld.so.preload"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "/usr/bin/vi"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000003"
+      },
+      {
+        "field": "message",
+        "operator": "contains",
+        "value": "ld.so.preload"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2009e"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/usr/bin/cat"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": ".ssh/authorized_keys"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/usr/bin/cat"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/etc/passwd"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/usr/bin/cat"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/etc/sudoers"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomString16",
+        "operator": "equals",
+        "value": "发现访问畸形文件"
+      },
+      {
+        "field": "deviceCustomString14",
+        "operator": "contains",
+        "value": "应用防护"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceAction",
+        "operator": "equals",
+        "value": "防溢出"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceAction",
+        "operator": "equals",
+        "value": "虚拟补丁"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceAction",
+        "operator": "equals",
+        "value": "HTTP请求防护"
+      },
+      {
+        "field": "deviceCustomString12",
+        "operator": "equals",
+        "value": "请求类型控制"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceAction",
+        "operator": "equals",
+        "value": "防扫描器"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "bin/cp"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "sshd"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "bin/mv"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "sshd"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "endwith",
+            "value": "sshd"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "+x"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "bin/chmod"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "in",
+            "value": "/usr/bin/systemctl\n/usr/sbin/service"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "restart"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "sshd"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00210001"
+      },
+      {
+        "field": "deviceCustomNumber16",
+        "operator": "equals",
+        "value": "2"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "sh"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*sh\\s+-i\\s+\u003e\u0026\\s+/dev/tcp/((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(\\.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}/[0-9]+\\s+0\u003e\u00261.*"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*bash\\s+-i\\s+\u003e\u0026\\s+/dev/tcp/((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(\\.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}/[0-9]+\\s+0\u003e\u00261.*"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": ".*bash\\s+-i\\s+\u003e\u0026\\s+/dev/udp/((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(\\.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}/[0-9]+\\s+0\u003e\u00261.*"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "not_regular_match",
+            "value": ".*sh\\s+-i\\s+\u003e\u0026\\s+/dev/udp/((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(\\.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}/[0-9]+\\s+0\u003e\u00261.*"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00210001"
+      },
+      {
+        "field": "deviceCustomNumber16",
+        "operator": "equals",
+        "value": "6"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "pty.spawn('/bin/bash')"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "ilike_in",
+        "value": "\\cmd.exe\n\\powershell.exe"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "iendwith",
+        "value": "\\net.exe"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "/domain\n group\nlocalgroup"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "icontains",
+        "value": "\\wsmprovhost.exe"
+      },
+      {
+        "field": "deviceAction",
+        "operator": "equals",
+        "value": "创建进程"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomString16",
+        "operator": "icontains",
+        "value": "通过windows远程管理(winrm)服务执行命令"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "病毒查杀"
+      },
+      {
+        "field": "deviceHostfield",
+        "operator": "not_contains",
+        "value": "sandbox"
+      },
+      {
+        "field": "deviceHostfield",
+        "operator": "not_contains",
+        "value": "reddriponline"
+      },
+      {
+        "field": "message",
+        "operator": "not_contains",
+        "value": "/da1/sandbox/sandbox_vp"
+      },
+      {
+        "field": "message",
+        "operator": "not_contains",
+        "value": "/data/jenkins/"
+      },
+      {
+        "field": "deviceHostfield",
+        "operator": "not_contains",
+        "value": " sandk8s"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceExternalId",
+        "operator": "equals",
+        "value": "00f20089"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200f3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00030000"
+      },
+      {
+        "field": "field",
+        "operator": "contains",
+        "value": "内存"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "001d0003"
+      },
+      {
+        "field": "flexString5",
+        "operator": "icontains",
+        "value": "nps"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "001d0003"
+      },
+      {
+        "field": "deviceCustomString19",
+        "operator": "contains",
+        "value": "netx"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000004"
+      },
+      {
+        "field": "filefield",
+        "operator": "contains",
+        "value": "/etc/pam.d"
+      },
+      {
+        "field": "filefield",
+        "operator": "in",
+        "value": "/etc/pam.d/su\n/etc/pam.d/su-l\n/etc/pam.d/sudo\n/etc/pam.d/sudo-i\n/etc/pam.d/sshd"
+      },
+      {
+        "field": "flexString8",
+        "operator": "not_contains",
+        "value": "ipa-client-instand"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "/usr/sbin/crond"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "no crontab for"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "iin",
+        "value": "00fc0002\n00fc0001"
+      },
+      {
+        "field": "deviceHostfield",
+        "operator": "not_equals",
+        "value": " w-bitcoin01v.engine.txgg.qianxin-inc.cn"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      },
+      {
+        "field": "destinationPort",
+        "operator": "equals",
+        "value": "389"
+      },
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "外连监控"
+      },
+      {
+        "field": "deviceHostfield",
+        "operator": "not_contains",
+        "value": "engineipv6"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "jsvc"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "/bin/"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceVersion",
+        "operator": "istartwith",
+        "value": "win"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "iendwith",
+            "value": "\\powershell.exe"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "iendwith",
+            "value": "\\cmd.exe"
+          }
+        ]
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "iendwith",
+        "value": "\\w3wp.exe"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceVersion",
+        "operator": "istartwith",
+        "value": "win"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "iendwith",
+            "value": "\\powershell.exe"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "iendwith",
+            "value": "\\cmd.exe"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_not_in",
+        "value": "git log\njava \ncacls\njavac \ngcc \nnodejs \nnode \nruby \npython \nperl \n-h \n-help \n-v \n-version"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "iendwith",
+        "value": "\\php-cgi.exe"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield ",
+        "operator": "contains",
+        "value": "bin/chroot"
+      },
+      {
+        "field": "flexString8 ",
+        "operator": "contains",
+        "value": "dockerd"
+      },
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "docker-runc"
+      },
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "docker-containerd"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "ilike_in",
+        "value": "\\java.exe\n\\javaw.exe\n\\JavaService.exe\n\\JBossService.exe"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "\u0026whoami\n\u0026ipconfig\ncertutil\npowershell\nschtasks\nmshta\nregsvr32\nrundll32\nbitsadmin\nnet \nnet1 \nnetsh "
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "iendwith",
+            "value": "\\cmd.exe"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "bin/sed"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "sed -n s/.*\\perdir=\\([^,]*\\).*/\\1/p /etc/mtab"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "-l .dockerenv"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "bin/ls"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "docker-containerd-shim"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "cat /proc/1/status\ncat /proc/self/status\ncat /proc/self/mounts\ncat /proc/1/mountinfo\ncat /etc/mtab\ncat /proc/net/unix"
+          },
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "docker-containerd-shim"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "insmod"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "endwith",
+            "value": ".ko"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "equals",
+            "value": "/usr/bin/kmod"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "endwith",
+            "value": ".ko"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "modprobe"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "depmod -a"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "/etc/ld.so.preload"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "sed\nvim\necho"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20101"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "/etc/ld.so.preload"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "sed\nvim\necho\nvi"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": ".ssh/authorized_keys"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "/bin/echo"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "/bin/sed"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "icontains",
+        "value": "\\w3wp.exe"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "MSExchangePowerShellAppPool"
+      },
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "进程创建监控"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationDnsDomain",
+        "operator": "equals",
+        "value": "ssh.tmate.io"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceAddress",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "destinationPort",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "destinationPort",
+        "operator": "not_in",
+        "value": "80\n443\n8443\n8080\n2222\n22\n53389"
+      },
+      {
+        "field": "destinationAddress ",
+        "operator": "not_exists",
+        "value": ""
+      },
+      {
+        "field": "sourceFacilityfield ",
+        "operator": "not_exists",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "tailscaled.sock"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "systemctl start tailscaled"
+      },
+      {
+        "and": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "/usr/sbin/xtables-multi"
+          },
+          {
+            "field": "sourceProcessfield",
+            "operator": "contains",
+            "value": "tailscale"
+          }
+        ]
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "contains",
+        "value": "bin/tailscaled"
+      },
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "contains",
+            "value": "/usr/libexec/nm-dispatcher"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "tailscale0"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "/etc/crontab\nbin/init\ncurl"
+      },
+      {
+        "or": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "contains",
+            "value": "bin/node"
+          },
+          {
+            "field": "flexString7",
+            "operator": "contains",
+            "value": "/bin/node"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalid",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/node"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomString3",
+        "operator": "equals",
+        "value": "登录成功"
+      },
+      {
+        "field": "sourceAddress",
+        "operator": "exists",
+        "value": ""
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "isDomainUser",
+        "value": ""
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "exists",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "001d0005"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_contains",
+        "value": "lanxin"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_contains",
+        "value": "qianxin"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_contains",
+        "value": "cluster.local"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_equals",
+        "value": "localhost"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_contains",
+        "value": "360es.cn"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200f0"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200f1"
+      },
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200f2"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessHashMd5",
+        "operator": "equals",
+        "value": "e3f9f8ff0571e53c32e03a669a132f52"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "contains",
+        "value": "nat123"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "001d0005"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_contains",
+        "value": "lanxin"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_contains",
+        "value": "qianxin"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_equals",
+        "value": "localhost"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "not_contains",
+        "value": "360es.cn"
+      },
+      {
+        "field": "destinationDnsDomain",
+        "operator": "ilike_in",
+        "value": "dnslog.cn\nceye.io\noast.fun\n"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "ilike_in",
+            "value": "bin/whoami\nbin/ping\nbin/ifconfig\ncurl"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": ";echo\n;pwd"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60001"
+      },
+      {
+        "field": "deviceFacility",
+        "operator": "contains",
+        "value": "/usr/bin/pkexec"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "deviceGroupfield",
+        "operator": "equals",
+        "value": "Windows"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "not_contains",
+        "value": "taskkill"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200ab"
+      },
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200ac"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalid",
+        "operator": "equals",
+        "value": "00210001"
+      },
+      {
+        "field": "deviceGroupfield",
+        "operator": "equals",
+        "value": "Windows"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "equals",
+        "value": "/usr/bin/bash -i"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/bash"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60001"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "fusermount"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "iendwith",
+        "value": "/sz"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "iendwith",
+        "value": "swaks"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "from\nattach"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "endwith",
+        "value": "git"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "remote add"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "github"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200d6"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "001b0001"
+      },
+      {
+        "field": "deviceAddress",
+        "operator": "in",
+        "value": "10.95.23.15\n10.95.26.12\n10.95.15.2\n10.95.15.5"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200cf"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "destinationDnsDomain",
+        "operator": "in",
+        "value": "lnmp.site\ndownload.lnmp.life"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "in",
+        "value": "123.56.51.37\n47.243.127.139"
+      },
+      {
+        "field": "fileHashMd5",
+        "operator": "in",
+        "value": "40bdcf7fd65a035fe17ee860c3d2bd6e\n9cb3c03bbdb49f17e6a0913c7c6896b2\n98d3136d5c60c33c1a829349e2040221\nc55a7752011a6c0ddc6eedb65e01af89\n391547bd2be60733ff1136b277648ef4\n61ad56eec18a2997f526c19b4f93958c\n76f524d8a6900f4dd55c10ddaffea52d\nd5f083ae4ff06376b7529a977fa77408"
+      },
+      {
+        "field": "sourceProcessHashMd5",
+        "operator": "in",
+        "value": "40bdcf7fd65a035fe17ee860c3d2bd6e\n9cb3c03bbdb49f17e6a0913c7c6896b2\n98d3136d5c60c33c1a829349e2040221\nc55a7752011a6c0ddc6eedb65e01af89\n391547bd2be60733ff1136b277648ef4\n61ad56eec18a2997f526c19b4f93958c\n76f524d8a6900f4dd55c10ddaffea52d\nd5f083ae4ff06376b7529a977fa77408"
+      },
+      {
+        "field": "sourceParentProcessHashMd5",
+        "operator": "in",
+        "value": "40bdcf7fd65a035fe17ee860c3d2bd6e\n9cb3c03bbdb49f17e6a0913c7c6896b2\n98d3136d5c60c33c1a829349e2040221\nc55a7752011a6c0ddc6eedb65e01af89\n391547bd2be60733ff1136b277648ef4\n61ad56eec18a2997f526c19b4f93958c\n76f524d8a6900f4dd55c10ddaffea52d\nd5f083ae4ff06376b7529a977fa77408"
+      },
+      {
+        "field": "oldFileHashMd5",
+        "operator": "in",
+        "value": "40bdcf7fd65a035fe17ee860c3d2bd6e\n9cb3c03bbdb49f17e6a0913c7c6896b2\n98d3136d5c60c33c1a829349e2040221\nc55a7752011a6c0ddc6eedb65e01af89\n391547bd2be60733ff1136b277648ef4\n61ad56eec18a2997f526c19b4f93958c\n76f524d8a6900f4dd55c10ddaffea52d\nd5f083ae4ff06376b7529a977fa77408"
+      },
+      {
+        "field": "destinationProcessHashMd5",
+        "operator": "in",
+        "value": "40bdcf7fd65a035fe17ee860c3d2bd6e\n9cb3c03bbdb49f17e6a0913c7c6896b2\n98d3136d5c60c33c1a829349e2040221\nc55a7752011a6c0ddc6eedb65e01af89\n391547bd2be60733ff1136b277648ef4\n61ad56eec18a2997f526c19b4f93958c\n76f524d8a6900f4dd55c10ddaffea52d\nd5f083ae4ff06376b7529a977fa77408"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200f3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "endwith",
+        "value": ";echo [S];pwd;echo [E]"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "sourceUserfield",
+        "operator": "equals",
+        "value": "www"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2008c"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "001d0003"
+      },
+      {
+        "field": "fileDescription",
+        "operator": "equals",
+        "value": "abpttsjsp"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200f7"
+      },
+      {
+        "field": "deviceFacility",
+        "operator": "contains",
+        "value": "curl"
+      },
+      {
+        "field": "deviceFacility",
+        "operator": "contains",
+        "value": "-proxy"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalid",
+        "operator": "equals",
+        "value": "00000026"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "contains",
+            "value": "/opt/collie/"
+          },
+          {
+            "field": "sourceUserfield",
+            "operator": "equals",
+            "value": "collie"
+          },
+          {
+            "field": "destinationDnsDomain",
+            "operator": "contains",
+            "value": "collie"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "contains",
+            "value": "curl"
+          },
+          {
+            "field": "destinationDnsDomain",
+            "operator": "contains",
+            "value": "collie-agent"
+          },
+          {
+            "field": "destinationDnsDomain",
+            "operator": "contains",
+            "value": "chaitin"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "equals",
+            "value": "/tmp/lighter-instander"
+          },
+          {
+            "field": "destinationDnsDomain",
+            "operator": "equals",
+            "value": "collie-agent.chaitin.com"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000034"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/curl"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "/usr/bin/curl -kfsSL http://collie-agent.chaitin.com:1443/api/v1/lighter/instander"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "and": [
+          {
+            "field": "sourceUserfield",
+            "operator": "equals",
+            "value": "/tmp/lighter-instander"
+          },
+          {
+            "field": "destinationUserfield",
+            "operator": "equals",
+            "value": "/usr/bin/systemctl"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "systemctl start collie"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "sourceUserfield",
+            "operator": "equals",
+            "value": "/opt/collie/collie"
+          },
+          {
+            "field": "destinationUserfield",
+            "operator": "contains",
+            "value": "systemctl"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "start collie.timer\ndaemon-reload"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0000001b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20045"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0000001c"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2002a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2010d"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2006a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "inot_regular_match",
+        "value": ".*ping.*qianxin-inc.cn.*"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/bin/runc"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "inot_regular_match",
+        "value": ".*ping.*qianxin.com.*"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/bin/docker-runc"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "inot_regular_match",
+        "value": ".*\\.sh"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "inot_contains",
+        "value": "launch_container.sh"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/sbin/arp"
+      },
+      {
+        "or": [
+          {
+            "field": "flexString8",
+            "operator": "contains",
+            "value": "java"
+          },
+          {
+            "field": "deviceFacility",
+            "operator": "contains",
+            "value": "java"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "deviceFacility",
+            "operator": "icontains",
+            "value": "metasploit.Payload"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/sbin/arping"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "not_regular_match",
+        "value": ".*ping.*360es.cn.*"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_equals",
+        "value": "/usr/bin/runc"
+      },
+      {
+        "and": [
+          {
+            "field": "sourceUserfield",
+            "operator": "not_equals",
+            "value": "omm"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "not_contains",
+            "value": "scriptLauncher.sh"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "not_contains",
+        "value": "sandbox"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "or": [
+          {
+            "field": "externalId",
+            "operator": "ilike_in",
+            "value": "00030000\n00020004\n0029000b\n00f2005a\n00f200cf\n00f200da\n00f200f3\n00f200f4\n00f200f5\n00f20121\n00f60003"
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "ilike_not_in",
+            "value": "git\nunzip\ntar\ncp\nrsync\n/usr/bin/node"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "and": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "kill"
+          },
+          {
+            "field": "sourceProcessfield",
+            "operator": "ilike_not_in",
+            "value": "git\nunzip\ntar\ncp\nrsync\n/usr/bin/node"
+          },
+          {
+            "or": [
+              {
+                "field": "destinationProcessCommandLine",
+                "operator": "contains",
+                "value": "rsyslog.service"
+              },
+              {
+                "field": "destinationProcessCommandLine",
+                "operator": "contains",
+                "value": "wsssr.service"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "and": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "ilike_not_in",
+            "value": "git\nunzip\ntar\ncp\nrsync\n/usr/bin/node"
+          },
+          {
+            "field": "filefield",
+            "operator": "icontains",
+            "value": "kill"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "rawEvent",
+        "operator": "contains",
+        "value": "daemon_guard.sh"
+      },
+      {
+        "or": [
+          {
+            "and": [
+              {
+                "field": "destinationProcessfield",
+                "operator": "equals",
+                "value": "/usr/local/wsssr_defence_agent/daemon_guard.sh"
+              },
+              {
+                "field": "sourceProcessfield",
+                "operator": "ilike_not_in",
+                "value": "cron\nbash\nsh"
+              }
+            ]
+          },
+          {
+            "and": [
+              {
+                "field": "destinationProcessfield",
+                "operator": "ilike_in",
+                "value": "vim\nvi\ncat\necho\nmore"
+              },
+              {
+                "field": "destinationProcessCommandLine",
+                "operator": "icontains",
+                "value": "/usr/local/wsssr_defence_agent/daemon_guard.sh"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "ssh"
+      },
+      {
+        "field": "deviceCustomString3",
+        "operator": "equals",
+        "value": "登录成功"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200b4"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200b3"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00020014"
+      },
+      {
+        "field": "destinationServicefield",
+        "operator": "iequals",
+        "value": "PostgreSQL"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "ilike_in",
+            "value": "bin/whoami\nbin/ping\nbin/ifconfig\ncurl"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "deviceCustomString1",
+        "operator": "equals",
+        "value": "create_proc"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "grep"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "read\\(6, \".+\\\\0\\\\0\\\\0\\\\.+\""
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationUserfield",
+        "operator": "equals",
+        "value": "es-ops"
+      },
+      {
+        "field": "deviceSourceZoneURI",
+        "operator": "not_contains",
+        "value": "公有云"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "系统登录审计"
+      },
+      {
+        "field": "deviceSourceZoneURI",
+        "operator": "not_contains",
+        "value": "公有云"
+      },
+      {
+        "field": "sourceZoneURI",
+        "operator": "contains",
+        "value": "办公"
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "not_in",
+        "value": "root\nadmin\ngit\nicg_pro\nsec\nclouddba\nqax\ntest\nmysftp\nadministrator\ncloud\nldap-csrdc\nserver1\njowtodev\naticz\nes-ops\nqaxcicd\nldap-csrdc"
+      },
+      {
+        "field": "destinationUserfield",
+        "operator": "ilike_not_in",
+        "value": "MAC-\n-PC\n-NC\nDESKTOP-\n$"
+      },
+      {
+        "field": "sourceZoneURI",
+        "operator": "inot_contains",
+        "value": "server"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "destinationAddress",
+        "operator": "isInternetIpv4",
+        "value": ""
+      },
+      {
+        "or": [
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "regular_match",
+            "value": "(?:ba|/|^)sh(\\s*-i)?$"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "in",
+            "value": "cat\nawk\ntail\nsed"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "ilike_not_in",
+        "value": "-z\n-vz"
+      },
+      {
+        "or": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "iin",
+            "value": "ncat\ncat\nnc\nbusybox"
+          },
+          {
+            "field": "sourceProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "ncat\ncat\nbusybox"
+          }
+        ]
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "regular_match",
+        "value": "\\b((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\b"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "iin",
+        "value": "socat\nrcat"
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "sh\nbash"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "icontains",
+        "value": "mknod"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "icontains",
+        "value": "telnet"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "mkfifo"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "not_endwith",
+        "value": "fifo"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "startwith",
+            "value": "mkfifo"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "/mkfifo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000002"
+      },
+      {
+        "field": "filefield",
+        "operator": "iendwith",
+        "value": ".service"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "not_contains",
+        "value": "-z"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "ncat"
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "contains",
+        "value": "-e"
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "contains",
+        "value": "l"
+      },
+      {
+        "field": "sourceProcessCommandLine",
+        "operator": "contains",
+        "value": "sh"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "vim"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "pyfile"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "regular_match",
+        "value": "vim\\s+(-?E\\s*.*\\s*-?c.*|(-?c.*\\s*-?E.*))"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "touch"
+      },
+      {
+        "field": "flexString8",
+        "operator": "ilike_not_in",
+        "value": "dracut\nxargs"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "ilike_in",
+            "value": "--reference\n--date\n--time\n--no-dereference"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "touch\\s+\\S*(?:\\s+\\S*)*-[acdfhmrt]*[amrdth]+[acdfhmrt]*\\s+"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_contains",
+        "value": "java"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "startwith",
+            "value": "date"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "/date"
+          }
+        ]
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "--set"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "regular_match",
+            "value": "date\\s+\\S*(?:\\s+\\S*)*-[dfIRrtsu]*[s]+[dfIRrtsu]*\\s+"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "ilike_in",
+        "value": "00f200a9\n00f2000a"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "icontains",
+        "value": "php"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "fsockopen"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "icontains",
+        "value": "$sock"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "ilike_in",
+        "value": "exec\n/bin/sh\n/bin/bash"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "icontains",
+            "value": "perl"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "icontains",
+            "value": "bash"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "icontains",
+            "value": "sh"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "ilike_in",
+        "value": "exec\nopen\n/bin/sh -i"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "icontains",
+        "value": "\u003e\u0026S"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2000c"
+      },
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f2008e"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200b6"
+      },
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200b7"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/grep"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/bash"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "wsssr_defence_daemon"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "equals",
+        "value": "/usr/bin/grep"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "wsssr_defence_service"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "grep"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "startwith",
+            "value": "grep"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "/grep"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "ssh"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_not_in",
+        "value": "-E\nvim\nsshd_config\n-q\n"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "strace"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "startwith",
+            "value": "strace"
+          },
+          {
+            "field": "destinationProcessCommandLine",
+            "operator": "contains",
+            "value": "/strace"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "-p"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "f"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "F"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "socat"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "exec"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "tcp"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "pty\nstderr\nsetsid\nsigint\nsane"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "endwith",
+        "value": "telnet"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "telnet"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "endwith",
+        "value": "mktemp"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "mktemp"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "endwith",
+        "value": "-u"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "外连监控"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "filefield",
+        "operator": "equals",
+        "value": "/etc/passwd"
+      },
+      {
+        "field": "deviceCustomString8",
+        "operator": "equals",
+        "value": "write"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "进程创建监控"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "contains",
+        "value": "/etc/rc.local"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "iregular_match",
+        "value": "\u003e\\s*/etc/rc\\.local"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000008"
+      },
+      {
+        "field": "filefield",
+        "operator": "equals",
+        "value": "/etc/rc.local"
+      },
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "操作系统加固:禁止添加系统启动项"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60002"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "startwith",
+        "value": "tclsh"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00000002"
+      },
+      {
+        "field": "filefield",
+        "operator": "contains",
+        "value": "site-packages"
+      },
+      {
+        "field": "flexString6",
+        "operator": "equals",
+        "value": "更改系统可执行文件"
+      },
+      {
+        "field": "filefield",
+        "operator": "endwith",
+        "value": ".pth"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "ilike_in",
+        "value": "vim\nnano\nsed\nawk\necho"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "/var/spool/cron\ncrontab"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "001d0003"
+      },
+      {
+        "field": "filefield",
+        "operator": "not_endwith",
+        "value": "curl"
+      },
+      {
+        "field": "filefield",
+        "operator": "not_endwith",
+        "value": "bash"
+      },
+      {
+        "field": "filefield",
+        "operator": "not_endwith",
+        "value": "portmap"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f60001"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "not_equals",
+        "value": "sudo"
+      },
+      {
+        "or": [
+          {
+            "and": [
+              {
+                "field": "sourceProcessWorkDirectory",
+                "operator": "startwith",
+                "value": "/tmp/blockdev"
+              },
+              {
+                "field": "sourceProcessWorkDirectory",
+                "operator": "endwith",
+                "value": "bash"
+              }
+            ]
+          },
+          {
+            "and": [
+              {
+                "field": "filePath",
+                "operator": "startwith",
+                "value": "/tmp/blockdev"
+              },
+              {
+                "field": "filePath",
+                "operator": "endwith",
+                "value": "bash"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "sourceProcessHashMd5",
+        "operator": "equals",
+        "value": "90ccf19e0a78cb545be694a2e7d5a687"
+      },
+      {
+        "field": "filefield",
+        "operator": "contains",
+        "value": "GCONV_PATH="
+      },
+      {
+        "field": "fileHashMd5",
+        "operator": "equals",
+        "value": "90ccf19e0a78cb545be694a2e7d5a687"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "equals",
+        "value": "/usr/bin/ps axuwff"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "equals",
+        "value": "/usr/bin/netstat -aenptu"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "shred -fuzz"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f20074"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "iendwith",
+        "value": "chmod"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "u+s"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "0000002b"
+      }
+    ]
+  },
+  {
+    "or": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "/usr/bin/ls -alhtr"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "icontains",
+        "value": "/usr/bin/ls -lahtr"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "externalId",
+        "operator": "equals",
+        "value": "00f200d7"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "\u003esshd("
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "ssh"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "/ssh"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "/bash"
+          }
+        ]
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": "git-upload-pack"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "contains",
+        "value": ".git"
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "endwith",
+        "value": "/git"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "\u003e."
+      },
+      {
+        "or": [
+          {
+            "field": "sourceProcessfield",
+            "operator": "contains",
+            "value": "/."
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "contains",
+            "value": "/."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "field",
+        "operator": "equals",
+        "value": "进程创建监控"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "regular_match",
+        "value": ".*/proc/\\d{1,8}/maps.*"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessfield",
+        "operator": "endwith",
+        "value": "/pkexec"
+      },
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "\u003esshd("
+      },
+      {
+        "field": "sourceUserfield",
+        "operator": "not_equals",
+        "value": "root"
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "flexString8",
+        "operator": "ilike_not_in",
+        "value": "\u003esudo(\npython\njava\nphp-fpm\n\u003edockerd(\ncontainerd-shim\n\u003epasctl("
+      },
+      {
+        "field": "sourceProcessfield",
+        "operator": "inot_in",
+        "value": "/usr/sbin/sshd\n/usr/bin/make\n/usr/bin/ssh\n/apisecmedia/system/apisec/bin/proxy-management\n/usr/bin/bash"
+      },
+      {
+        "field": "flexString8",
+        "operator": "contains",
+        "value": "\u003esshd("
+      },
+      {
+        "field": "sourceUserfield",
+        "operator": "equals",
+        "value": "root"
+      },
+      {
+        "or": [
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "/bash"
+          },
+          {
+            "field": "destinationProcessfield",
+            "operator": "endwith",
+            "value": "/sh"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "and": [
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_not_in",
+        "value": "chown\nchmod"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "ilike_in",
+        "value": "sudo\n-R"
+      },
+      {
+        "field": "destinationProcessfield",
+        "operator": "endwith",
+        "value": "/sudo"
+      },
+      {
+        "field": "destinationProcessCommandLine",
+        "operator": "regular_match",
+        "value": "sudo[\\s\\r\\n]*-R"
+      },
+      {
+        "field": "sourceUserfield",
+        "operator": "not_equals",
+        "value": "root"
+      }
+    ]
+  }
+]

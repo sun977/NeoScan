@@ -272,7 +272,7 @@ func TestMultiStageWorkflow(t *testing.T) {
 		ProjectID:     uint64(project.ID),
 		WorkflowID:    uint64(workflow.ID),
 		StageID:       uint64(stage1.ID),
-		AgentID:       0,
+		AgentID:       "0",
 		TargetType:    "ip",
 		TargetValue:   "192.168.1.1",
 		ResultType:    "port_scan",

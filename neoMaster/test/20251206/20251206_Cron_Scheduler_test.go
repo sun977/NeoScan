@@ -160,7 +160,6 @@ func TestCronScheduler(t *testing.T) {
 	stage := orcModel.ScanStage{
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "Cron Stage",
-		StageOrder:          1,
 		ToolName:            "ping",
 		TargetPolicy:        "{}",
 		ExecutionPolicy:     "{}",

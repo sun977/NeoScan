@@ -27,9 +27,11 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"sync"
+
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/matcher"
-	"sync"
 
 	"gorm.io/gorm"
 )
@@ -186,22 +188,22 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 //	  }
 //	}
 func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) {
+	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"policy": policyJSON})
+
 	// 1. 如果策略为空，默认使用种子目标
 	if policyJSON == "" || policyJSON == "{}" {
 		return p.fallbackToSeed(seedTargets), nil
 	}
 
-	// 策略不为空则解析 json 策略
+	// 2. 解析策略配置
 	var config TargetPolicyConfig
 	if err := json.Unmarshal([]byte(policyJSON), &config); err != nil {
-		logger.LogWarn("Failed to parse target policy, using seed targets", "", 0, "", "ResolveTargets", "", map[string]interface{}{
-			"error":  err.Error(),
-			"policy": policyJSON,
-		})
-		return p.fallbackToSeed(seedTargets), nil
+		logger.LogError(err, "", 0, "", "ResolveTargets", "", nil)
+		return nil, fmt.Errorf("invalid policy json: %w", err)
 	}
+	logger.LogInfo("[TargetProvider] Sources count", "", 0, "", "ResolveTargets", "", map[string]interface{}{"count": len(config.TargetSources)})
 
-	// 2. 如果没有配置源，也使用种子目标
+	// 3. 如果没有配置源，默认使用种子目标
 	if len(config.TargetSources) == 0 {
 		return p.fallbackToSeed(seedTargets), nil
 	}
@@ -293,6 +295,7 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sources []TargetSourceConfig, seedTargets []string) []Target {
 	allTargets := make([]Target, 0)
 	for _, sourceConfig := range sources {
+		logger.LogInfo("[TargetProvider] Processing source", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{"type": sourceConfig.SourceType})
 		p.mu.RLock()
 		provider, exists := p.providers[sourceConfig.SourceType]
 		p.mu.RUnlock()

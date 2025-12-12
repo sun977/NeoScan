@@ -38,13 +38,11 @@ func TestPreviousStageProvider_StageStatus(t *testing.T) {
 
 	projectID := uint64(1)
 	workflowID := uint64(100)
-	currentOrder := 10
 
 	// 1. Setup Data
 	// Stage 1: Running
 	stage1 := orchestrator.ScanStage{
 		WorkflowID: workflowID,
-		StageOrder: 1,
 		StageName:  "stage_running",
 	}
 	db.Create(&stage1)
@@ -72,7 +70,6 @@ func TestPreviousStageProvider_StageStatus(t *testing.T) {
 	// Stage 2: Completed
 	stage2 := orchestrator.ScanStage{
 		WorkflowID: workflowID,
-		StageOrder: 2,
 		StageName:  "stage_completed",
 	}
 	db.Create(&stage2)
@@ -97,11 +94,18 @@ func TestPreviousStageProvider_StageStatus(t *testing.T) {
 	}
 	db.Create(&result2)
 
-	// 2. Test Case 1: Filter "completed"
+	// Stage 3: Current Stage (depends on Stage 1 and Stage 2)
+	stage3 := orchestrator.ScanStage{
+		WorkflowID:   workflowID,
+		StageName:    "stage_current",
+		Predecessors: []uint64{uint64(stage1.ID), uint64(stage2.ID)},
+	}
+	db.Create(&stage3)
+
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, policy.CtxKeyProjectID, projectID)
 	ctx = context.WithValue(ctx, policy.CtxKeyWorkflowID, workflowID)
-	ctx = context.WithValue(ctx, policy.CtxKeyStageOrder, currentOrder)
+	ctx = context.WithValue(ctx, policy.CtxKeyStageID, uint64(stage3.ID))
 
 	filterRules1 := `{"stage_name": "stage_completed", "stage_status": ["completed"]}`
 	config1 := policy.TargetSourceConfig{
@@ -149,11 +153,9 @@ func TestPreviousStageProvider_ComplexFilter(t *testing.T) {
 
 	projectID := uint64(1)
 	workflowID := uint64(100)
-	currentOrder := 10
 
 	stage1 := orchestrator.ScanStage{
 		WorkflowID: workflowID,
-		StageOrder: 1,
 		StageName:  "stage_data",
 	}
 	db.Create(&stage1)
@@ -176,10 +178,18 @@ func TestPreviousStageProvider_ComplexFilter(t *testing.T) {
 	}
 	db.Create(&result1)
 
+	// Stage 2: Current Stage (depends on Stage 1)
+	stage2 := orchestrator.ScanStage{
+		WorkflowID:   workflowID,
+		StageName:    "stage_current",
+		Predecessors: []uint64{uint64(stage1.ID)},
+	}
+	db.Create(&stage2)
+
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, policy.CtxKeyProjectID, projectID)
 	ctx = context.WithValue(ctx, policy.CtxKeyWorkflowID, workflowID)
-	ctx = context.WithValue(ctx, policy.CtxKeyStageOrder, currentOrder)
+	ctx = context.WithValue(ctx, policy.CtxKeyStageID, uint64(stage2.ID))
 
 	// Filter: state == open AND (port > 100 OR service == http)
 	// port 80: state=open(T), port>100(F) OR service=http(T) -> T

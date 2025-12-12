@@ -25,6 +25,15 @@ func (s *ScanStageService) CreateStage(ctx context.Context, stage *orcmodel.Scan
 		return errors.New("stage data cannot be nil")
 	}
 
+	// 验证 Predecessors 不包含自身 (仅 Update 有效，但作为防御性编程放在这里)
+	if stage.ID > 0 {
+		for _, pid := range stage.Predecessors {
+			if pid == stage.ID {
+				return errors.New("stage cannot depend on itself")
+			}
+		}
+	}
+
 	err := s.repo.CreateStage(ctx, stage)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "create_stage", "SERVICE", map[string]interface{}{
@@ -57,6 +66,14 @@ func (s *ScanStageService) UpdateStage(ctx context.Context, stage *orcmodel.Scan
 	if stage == nil {
 		return errors.New("stage data cannot be nil")
 	}
+
+	// 验证 Predecessors 不包含自身
+	for _, pid := range stage.Predecessors {
+		if pid == stage.ID {
+			return errors.New("stage cannot depend on itself")
+		}
+	}
+
 	existing, err := s.repo.GetStageByID(ctx, stage.ID)
 	if err != nil {
 		return err

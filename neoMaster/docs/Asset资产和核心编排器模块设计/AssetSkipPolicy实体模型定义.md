@@ -41,27 +41,65 @@ AssetSkipPolicy实体用于定义统一的资产跳过策略机制，适用于�
 定义触发跳过策略的条件规则：
 
 ```json
+// {
+//   "conditions": [
+//     {
+//       "field": "device_type",
+//       "operator": "equals",
+//       "value": "honeypot"
+//     },
+//     {
+//       "field": "os",
+//       "operator": "contains",
+//       "value": "honeypot"
+//     },
+//     {
+//       "field": "port_count",
+//       "operator": "greater_than",
+//       "value": 1000
+//     }
+//   ],
+//   "logic_operator": "and"  // and/or
+// }
+// and 和 or 逻辑运算符
+// 操作符 17 个
 {
-  "conditions": [
-    {
-      "field": "device_type",
-      "operator": "equals",
-      "value": "honeypot"
-    },
-    {
-      "field": "os",
-      "operator": "contains",
-      "value": "honeypot"
-    },
-    {
+  "and": [{
+    "field": "device_type",
+    "operator": "equals",
+    "value": "honeypot"
+  }, {
+    "field": "os",
+    "operator": "contains",
+    "value": "linux"
+  }, {
+    "or": [{
       "field": "port_count",
       "operator": "greater_than",
-      "value": 1000
-    }
-  ],
-  "logic_operator": "and"  // and/or
+      "value": "1000"
+    }, {
+      "field": "port_open",
+      "operator": "contains",
+      "value": "80"
+    }, {
+      "field": "service",
+      "operator": "contains",
+      "value": "sshd"
+    }, {
+      "field": "test_field1",
+      "operator": "contains",
+      "value": "portmap"
+    }, {
+      "field": "test_field2",
+      "operator": "regex",
+      "value": ".*(\\d+\\.){3}\\d+.*"
+    }]
+  }]
 }
 ```
+支持逻辑运算符：[支持嵌套]
+- `and`: 且 列表中所有条件都满足
+- `or`: 或 列表中任意条件满足
 
 支持的操作符：
 - `equals`: 等于
@@ -79,6 +117,8 @@ AssetSkipPolicy实体用于定义统一的资产跳过策略机制，适用于�
 - `is_null`: 为空
 - `is_not_null`: 不为空
 - `regex`: 正则表达式匹配
+- `like`: 模糊匹配（支持通配符%和_）
+- `exists`: 存在
 
 #### 3. action_config（动作配置）
 定义满足条件时执行的动作：

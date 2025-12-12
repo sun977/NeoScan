@@ -172,12 +172,13 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 //	  "whitelist_rule": {                  // 2. 基于规则的白名单 (逻辑匹配)
 //	      "field": "value",
 //	      "operator": "cidr",
-//	      "value": "10.0.0.0/8"
+//	      "value": "10.0.0.0/8",
+//	      "ignore_case": true // 可选：忽略大小写
 //	  },
 //	  "skip_enabled": true,                // 是否启用跳过条件
 //	  "skip_rule": {                       // 跳过规则 (逻辑匹配，支持 AND/OR/NOT 嵌套)
 //	      "or": [
-//	          { "field": "device_type", "operator": "equals", "value": "honeypot" },
+//	          { "field": "device_type", "operator": "equals", "value": "honeypot", "ignore_case": true }, // 可选：忽略大小写
 //	          { "field": "type", "operator": "equals", "value": "url" }
 //	      ]
 //	  }

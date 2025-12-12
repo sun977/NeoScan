@@ -230,19 +230,30 @@ func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentMode
 			continue // 忽略解析失败的规则
 		}
 
-		// 1. 检查环境标签 (Legacy)
+		// 构建聚合规则 (Root Rule)
+		// 逻辑: LegacyTags OR LegacyTime OR NewMatchRule
+		// 只要命中其中任何一个，就视为跳过
+		var rootRule matcher.MatchRule
+		rootRule.Or = make([]matcher.MatchRule, 0)
+
+		// 1. 转换 Legacy Environment Tags -> MatchRule
 		if len(rules.BlockEnvTags) > 0 {
+			// 逻辑: 只要项目包含任意一个 BlockEnvTag，即命中
+			// tags list_contains tag1 OR tags list_contains tag2 ...
 			for _, blockTag := range rules.BlockEnvTags {
-				for _, projTag := range projectTags {
-					if strings.EqualFold(blockTag, projTag) {
-						return true, fmt.Sprintf("Environment tag '%s' is blocked by policy '%s'", blockTag, policy.PolicyName), nil
-					}
-				}
+				rootRule.Or = append(rootRule.Or, matcher.MatchRule{
+					Field:      "tags",
+					Operator:   "list_contains",
+					Value:      blockTag,
+					IgnoreCase: true, // 忽略大小写
+				})
 			}
 		}
 
-		// 2. 检查时间窗 (Legacy)
+		// 2. 转换 Legacy Time Windows -> MatchRule
 		if len(rules.BlockTimeWindows) > 0 {
+			// 逻辑: 当前时间在任意一个时间窗内
+			// (time >= start AND time <= end) OR ...
 			for _, window := range rules.BlockTimeWindows {
 				parts := strings.Split(window, "-")
 				if len(parts) != 2 {
@@ -251,28 +262,38 @@ func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentMode
 				start := strings.TrimSpace(parts[0])
 				end := strings.TrimSpace(parts[1])
 
-				// 简单的字符串比较对于 HH:MM 格式是有效的
-				if currentTimeStr >= start && currentTimeStr <= end {
-					return true, fmt.Sprintf("Current time %s is within blocked window %s of policy '%s'", currentTimeStr, window, policy.PolicyName), nil
+				timeWindowRule := matcher.MatchRule{
+					And: []matcher.MatchRule{
+						{Field: "time", Operator: "greater_than_or_equal", Value: start},
+						{Field: "time", Operator: "less_than_or_equal", Value: end},
+					},
 				}
+				rootRule.Or = append(rootRule.Or, timeWindowRule)
 			}
 		}
 
-		// 3. 检查复杂规则 (Matcher)
+		// 3. 合并新的 MatchRule
 		if !matcher.IsEmptyRule(rules.MatchRule) {
-			matched, err := matcher.Match(matchContext, rules.MatchRule)
-			if err != nil {
-				// 规则执行错误，安全起见，默认不跳过，但记录日志
-				// 或者根据策略配置决定是否 fail-open 或 fail-closed
-				logger.LogWarn("Failed to execute skip match rule", "", 0, "", "checkSkipPolicy", "", map[string]interface{}{
-					"policy": policy.PolicyName,
-					"error":  err.Error(),
-				})
-				continue
-			}
-			if matched {
-				return true, fmt.Sprintf("Matched skip rule in policy '%s'", policy.PolicyName), nil
-			}
+			rootRule.Or = append(rootRule.Or, rules.MatchRule)
+		}
+
+		// 如果没有任何规则，跳过
+		if len(rootRule.Or) == 0 {
+			continue
+		}
+
+		// 执行匹配
+		matched, err := matcher.Match(matchContext, rootRule)
+		if err != nil {
+			logger.LogWarn("Failed to execute skip match rule", "", 0, "", "checkSkipPolicy", "", map[string]interface{}{
+				"policy": policy.PolicyName,
+				"error":  err.Error(),
+			})
+			continue
+		}
+
+		if matched {
+			return true, fmt.Sprintf("Matched skip policy: %s", policy.PolicyName), nil
 		}
 	}
 

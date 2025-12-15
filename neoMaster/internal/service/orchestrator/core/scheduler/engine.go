@@ -23,6 +23,7 @@ package scheduler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -134,6 +135,9 @@ func (s *schedulerService) schedule(ctx context.Context) {
 	// 0. 检查定时任务触发
 	s.checkScheduledProjects(ctx)
 
+	// 0.5 检查任务超时
+	s.checkTaskTimeouts(ctx)
+
 	// 1. 获取运行中的项目
 	projects, err := s.projectRepo.GetRunningProjects(ctx)
 	if err != nil {
@@ -218,6 +222,56 @@ func (s *schedulerService) checkScheduledProjects(ctx context.Context) {
 			if err := s.projectRepo.UpdateProject(ctx, project); err != nil {
 				logger.LogError(err, "", 0, "", "service.scheduler.checkScheduledProjects", "REPO", map[string]interface{}{
 					"project_id": project.ID,
+				})
+			}
+		}
+	}
+}
+
+// checkTaskTimeouts 检查运行中任务是否超时
+// 1. 获取所有状态为 running 的任务
+// 2. 检查 StartedAt 与当前时间的差值是否超过 Timeout
+// 3. 如果超时，将任务标记为 failed，并记录错误信息
+func (s *schedulerService) checkTaskTimeouts(ctx context.Context) {
+	tasks, err := s.taskRepo.GetRunningTasks(ctx)
+	if err != nil {
+		logger.LogError(err, "", 0, "", "service.scheduler.checkTaskTimeouts", "REPO", map[string]interface{}{
+			"msg": "failed to get running tasks",
+		})
+		return
+	}
+
+	for _, task := range tasks {
+		// 如果没有开始时间，可能是刚分配但未开始，或者数据异常
+		// 这里暂不处理，等待 Agent 更新状态
+		if task.StartedAt == nil {
+			continue
+		}
+
+		// 使用任务自带的 Timeout 设置，如果没有则默认 7200 秒
+		timeout := task.Timeout
+		if timeout <= 0 {
+			timeout = 7200
+		}
+
+		// 检查是否超时
+		if time.Since(*task.StartedAt) > time.Duration(timeout)*time.Second {
+			errMsg := fmt.Sprintf("Task execution timed out after %d seconds (Agent unresponsive)", timeout)
+
+			// 标记任务失败
+			// 这里直接标记为 failed，由后续流程决定是否重试（如果实现了重试机制）
+			// 目前暂无自动重试机制，直接失败
+			if err := s.taskRepo.UpdateTaskResult(ctx, task.TaskID, "", errMsg, "failed"); err != nil {
+				logger.LogError(err, "", 0, "", "service.scheduler.checkTaskTimeouts", "REPO", map[string]interface{}{
+					"task_id": task.TaskID,
+					"msg":     "failed to update timed out task",
+				})
+			} else {
+				logger.LogWarn("Task timed out and marked as failed", "", 0, "", "service.scheduler.checkTaskTimeouts", "", map[string]interface{}{
+					"task_id":  task.TaskID,
+					"agent_id": task.AgentID,
+					"duration": time.Since(*task.StartedAt).String(),
+					"timeout":  timeout,
 				})
 			}
 		}

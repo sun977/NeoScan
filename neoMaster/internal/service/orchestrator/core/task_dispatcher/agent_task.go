@@ -1,3 +1,5 @@
+// 任务分配服务
+// 任务状态：pending(待处理)、running(运行中)、completed(已完成)、failed(失败)、cancelled(取消)
 package task_dispatcher
 
 import (
@@ -173,7 +175,26 @@ func (s *agentTaskService) UpdateTaskStatus(ctx context.Context, taskID string, 
 	}
 
 	// 3. 更新状态和结果
-	if status == "completed" || status == "failed" {
+	if status == "completed" {
+		return s.taskRepo.UpdateTaskResult(ctx, taskID, result, errorMsg, status)
+	}
+
+	if status == "failed" {
+		// 检查重试逻辑
+		// 如果未超过最大重试次数，重试任务
+		if task.RetryCount < task.MaxRetries {
+			retryCount := task.RetryCount + 1
+			retryMsg := fmt.Sprintf("Retry %d/%d: %s", retryCount, task.MaxRetries, errorMsg)
+
+			logger.LogWarn("Task failed, retrying...", "", 0, "", "service.agent.task.UpdateTaskStatus", "", map[string]interface{}{
+				"task_id":     taskID,
+				"retry_count": retryCount,
+				"reason":      errorMsg,
+			})
+
+			return s.taskRepo.RetryTask(ctx, taskID, retryCount, retryMsg)
+		}
+		// 超过重试次数，标记为失败
 		return s.taskRepo.UpdateTaskResult(ctx, taskID, result, errorMsg, status)
 	}
 

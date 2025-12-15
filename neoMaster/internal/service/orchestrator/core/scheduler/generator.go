@@ -65,6 +65,7 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 	// 其他参数后续添加
 	chunkSize := 50
 	timeout := 3600
+	maxRetries := 3
 	if stage.PerformanceSettings != "" {
 		var perf map[string]interface{}
 		if err := json.Unmarshal([]byte(stage.PerformanceSettings), &perf); err == nil {
@@ -73,6 +74,9 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			}
 			if to, ok := perf["timeout"].(float64); ok && to > 0 {
 				timeout = int(to)
+			}
+			if mr, ok := perf["retry_count"].(float64); ok && mr >= 0 {
+				maxRetries = int(mr)
 			}
 		}
 	}
@@ -138,6 +142,8 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			RequiredTags: "[]",                // Default empty JSON array 执行所需标签(JSON)
 			OutputResult: "{}",                // Default empty JSON object 输出结果摘要(JSON)
 			Timeout:      timeout,             // 任务超时时间（秒）--- stage.PerformanceSettings["timeout"]
+			MaxRetries:   maxRetries,          // 最大重试次数
+			RetryCount:   0,                   // 初始重试次数
 		}
 		tasks = append(tasks, task)
 	}

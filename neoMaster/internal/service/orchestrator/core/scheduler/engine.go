@@ -257,24 +257,46 @@ func (s *schedulerService) checkTaskTimeouts(ctx context.Context) {
 		// 检查是否超时
 		if time.Since(*task.StartedAt) > time.Duration(timeout)*time.Second {
 			errMsg := fmt.Sprintf("Task execution timed out after %d seconds (Agent unresponsive)", timeout)
-
-			// 标记任务失败
-			// 这里直接标记为 failed，由后续流程决定是否重试（如果实现了重试机制）
-			// 目前暂无自动重试机制，直接失败
-			if err := s.taskRepo.UpdateTaskResult(ctx, task.TaskID, "", errMsg, "failed"); err != nil {
-				logger.LogError(err, "", 0, "", "service.scheduler.checkTaskTimeouts", "REPO", map[string]interface{}{
-					"task_id": task.TaskID,
-					"msg":     "failed to update timed out task",
-				})
-			} else {
-				logger.LogWarn("Task timed out and marked as failed", "", 0, "", "service.scheduler.checkTaskTimeouts", "", map[string]interface{}{
-					"task_id":  task.TaskID,
-					"agent_id": task.AgentID,
-					"duration": time.Since(*task.StartedAt).String(),
-					"timeout":  timeout,
-				})
-			}
+			s.handleTaskFailure(ctx, task, errMsg)
 		}
+	}
+}
+
+// handleTaskFailure 处理任务失败 (包含重试机制)
+func (s *schedulerService) handleTaskFailure(ctx context.Context, task *orcModel.AgentTask, errorMsg string) {
+	// 检查重试次数
+	if task.RetryCount < task.MaxRetries {
+		retryCount := task.RetryCount + 1
+		retryMsg := fmt.Sprintf("Retry %d/%d: %s", retryCount, task.MaxRetries, errorMsg)
+
+		logger.LogWarn("Task failed, retrying...", "", 0, "", "service.scheduler.handleTaskFailure", "", map[string]interface{}{
+			"task_id":     task.TaskID,
+			"retry_count": retryCount,
+			"max_retries": task.MaxRetries,
+			"reason":      errorMsg,
+		})
+
+		if err := s.taskRepo.RetryTask(ctx, task.TaskID, retryCount, retryMsg); err != nil {
+			logger.LogError(err, "", 0, "", "service.scheduler.handleTaskFailure", "REPO", map[string]interface{}{
+				"task_id": task.TaskID,
+				"msg":     "failed to retry task",
+			})
+		}
+		return
+	}
+
+	// 超过重试次数，标记为失败
+	logger.LogWarn("Task failed permanently", "", 0, "", "service.scheduler.handleTaskFailure", "", map[string]interface{}{
+		"task_id": task.TaskID,
+		"reason":  errorMsg,
+		"retries": task.RetryCount,
+	})
+
+	if err := s.taskRepo.UpdateTaskResult(ctx, task.TaskID, "", errorMsg, "failed"); err != nil {
+		logger.LogError(err, "", 0, "", "service.scheduler.handleTaskFailure", "REPO", map[string]interface{}{
+			"task_id": task.TaskID,
+			"msg":     "failed to update failed task",
+		})
 	}
 }
 

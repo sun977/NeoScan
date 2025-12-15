@@ -23,6 +23,7 @@ type TaskRepository interface {
 	ClaimTask(ctx context.Context, taskID string, agentID string) error
 	HasRunningTasks(ctx context.Context, projectID uint64) (bool, error)
 	GetRunningTasks(ctx context.Context) ([]*agentModel.AgentTask, error) // 获取所有正在运行的任务(用于超时监控)
+	RetryTask(ctx context.Context, taskID string, retryCount int, errorMsg string) error
 }
 
 type taskRepository struct {
@@ -110,6 +111,22 @@ func (r *taskRepository) GetTasksByAgentID(ctx context.Context, agentID string) 
 		return nil, err
 	}
 	return tasks, nil
+}
+
+// RetryTask 重试任务
+// 重置状态为 pending(待处理)，清空 agent_id 和时间，增加 retry_count
+func (r *taskRepository) RetryTask(ctx context.Context, taskID string, retryCount int, errorMsg string) error {
+	updates := map[string]interface{}{
+		"status":      "pending",
+		"retry_count": retryCount,
+		"error_msg":   errorMsg,
+		"agent_id":    "",  // 释放任务，允许其他 Agent 领取
+		"started_at":  nil, // 重置开始时间
+		"assigned_at": nil, // 重置分配时间
+	}
+	return r.db.WithContext(ctx).Model(&agentModel.AgentTask{}).
+		Where("task_id = ?", taskID).
+		Updates(updates).Error
 }
 
 // GetTasksByProjectID 获取指定项目的所有任务

@@ -1,3 +1,6 @@
+// ResourceAllocator 资源分配器接口
+// 职责: 管理 Agent 资源池，实现最优分配。
+// 对应文档: 1.3 Resource Allocator (资源调度器)
 package allocator
 
 import (

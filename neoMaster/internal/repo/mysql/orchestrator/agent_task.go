@@ -22,6 +22,7 @@ type TaskRepository interface {
 	GetTasksByProjectID(ctx context.Context, projectID uint64) ([]*agentModel.AgentTask, error)
 	ClaimTask(ctx context.Context, taskID string, agentID string) error
 	HasRunningTasks(ctx context.Context, projectID uint64) (bool, error)
+	GetRunningTasks(ctx context.Context) ([]*agentModel.AgentTask, error) // 获取所有正在运行的任务(用于超时监控)
 }
 
 type taskRepository struct {
@@ -154,4 +155,16 @@ func (r *taskRepository) HasRunningTasks(ctx context.Context, projectID uint64) 
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// GetRunningTasks 获取所有正在运行的任务 (用于超时监控)
+func (r *taskRepository) GetRunningTasks(ctx context.Context) ([]*agentModel.AgentTask, error) {
+	var tasks []*agentModel.AgentTask
+	err := r.db.WithContext(ctx).
+		Where("status = ?", "running").
+		Find(&tasks).Error
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }

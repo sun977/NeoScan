@@ -312,11 +312,28 @@ func parseTags(tagsStr string) []string {
 
 // parseTargets 解析目标
 func parseTargets(input string) ([]string, error) {
-	var targets []string
-	if err := json.Unmarshal([]byte(input), &targets); err != nil {
-		return nil, err
+	// 1. 尝试解析为字符串数组 (Legacy format: ["1.1.1.1", "2.2.2.2"])
+	var strTargets []string
+	if err := json.Unmarshal([]byte(input), &strTargets); err == nil {
+		return strTargets, nil
 	}
-	return targets, nil
+
+	// 2. 尝试解析为 Target 对象数组 (New format: [{"type":"ip", "value":"1.1.1.1", ...}])
+	var objTargets []Target
+	if err := json.Unmarshal([]byte(input), &objTargets); err == nil {
+		targets := make([]string, len(objTargets))
+		for i, t := range objTargets {
+			targets[i] = t.Value
+		}
+		return targets, nil
+	} else {
+		logger.LogWarn("Failed to parse targets as objects", "", 0, "", "parseTargets", "", map[string]interface{}{
+			"input": input,
+			"error": err.Error(),
+		})
+	}
+
+	return nil, fmt.Errorf("failed to parse targets")
 }
 
 // validateScope 校验目标是否在范围内

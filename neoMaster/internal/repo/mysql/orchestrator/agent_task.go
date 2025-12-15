@@ -162,11 +162,11 @@ func (r *taskRepository) ClaimTask(ctx context.Context, taskID string, agentID s
 	return nil
 }
 
-// HasRunningTasks 检查是否有正在运行的任务
+// HasRunningTasks 检查是否有正在运行的任务 (包括 pending, assigned, running)
 func (r *taskRepository) HasRunningTasks(ctx context.Context, projectID uint64) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&agentModel.AgentTask{}).
-		Where("project_id = ? AND status = ?", projectID, "running").
+		Where("project_id = ? AND status IN ?", projectID, []string{"pending", "assigned", "running"}).
 		Count(&count).Error
 	if err != nil {
 		return false, err

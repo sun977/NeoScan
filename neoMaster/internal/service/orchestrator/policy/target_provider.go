@@ -28,6 +28,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"strings"
 	"sync"
 
 	"neomaster/internal/pkg/logger"
@@ -344,11 +346,22 @@ func (p *targetProviderService) targetToMap(t Target) map[string]interface{} {
 func (p *targetProviderService) fallbackToSeed(seedTargets []string) []Target {
 	targets := make([]Target, 0, len(seedTargets))
 	for _, t := range seedTargets {
+		targetType := "unknown"
+		if net.ParseIP(t) != nil {
+			targetType = "ip"
+		} else if _, _, err := net.ParseCIDR(t); err == nil {
+			targetType = "ip_range"
+		} else if strings.Contains(t, "://") {
+			targetType = "url"
+		} else if strings.Contains(t, ".") && !strings.Contains(t, " ") { // Simple domain check
+			targetType = "domain"
+		}
+
 		targets = append(targets, Target{
-			Type:   "unknown",
+			Type:   targetType,
 			Value:  t,
 			Source: "seed",
-			Meta:   nil,
+			Meta:   make(map[string]string),
 		})
 	}
 	return targets

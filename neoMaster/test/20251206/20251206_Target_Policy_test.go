@@ -152,6 +152,7 @@ func TestTargetPolicyResolution(t *testing.T) {
 
 	schedulerService := scheduler.NewSchedulerService(
 		db,
+		&config.Config{},
 		projectRepo,
 		workflowRepo,
 		stageRepo,

@@ -231,14 +231,12 @@ func (s *schedulerService) ProcessProject(ctx context.Context, project *orcModel
 		"project_name": project.Name,
 	}
 
-	// 1. 检查是否有正在运行的任务 (Barrier: 只有当所有任务都完成/失败后，才进行下一步)
+	// 1. 检查是否有正在运行的任务
+	// 注意: 不再作为 Barrier 阻断调度，仅用于判断项目是否最终完成
 	hasRunning, err := s.taskRepo.HasRunningTasks(ctx, uint64(project.ID))
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "REPO", loggerFields)
 		return
-	}
-	if hasRunning {
-		return // 等待当前任务全部完成
 	}
 
 	// 2. 获取该项目最新的任务状态 (用于判断上一阶段结果)
@@ -264,11 +262,15 @@ func (s *schedulerService) ProcessProject(ctx context.Context, project *orcModel
 		return
 	}
 
-	// Case D: 没有下一个 Stage 了 -> 项目完成
+	// Case D: 没有下一个 Stage 了 -> 检查项目是否完成
 	// 注意：DAG 模式下，如果所有分支都走完了，nextStages 为空
 	if len(nextStages) == 0 {
-		// 双重检查：确认是否真的所有 Stage 都完成了？
-		// 暂时简化：如果没有可执行的 Stage，且没有正在运行的任务（前面已检查），则认为项目完成
+		// 如果还有任务在运行，说明项目还没完，只是暂时没有新的 Stage 可调度
+		if hasRunning {
+			return
+		}
+
+		// 确实没有可执行的 Stage，且没有正在运行的任务，则认为项目完成
 		logger.LogInfo("Project finished", "", 0, "", "service.scheduler.processProject", "", loggerFields)
 		project.Status = "finished"
 		project.LastExecTime = nil // Optional: update finish time if needed
@@ -392,7 +394,7 @@ func (s *schedulerService) findNextStages(ctx context.Context, project *orcModel
 		return nil, err
 	}
 
-	// 3. 获取已执行的任务，推导已完成的 Stages
+	// 3. 获取已执行的任务，构建 Stage 状态表
 	// 注意：这里需要从 TaskRepo 获取所有任务，以判断哪些 Stage 已经跑过了
 	// 这是一个相对昂贵的操作，生产环境应优化为专门的 ProjectStageStatus 表
 	tasks, err := s.taskRepo.GetTasksByProjectID(ctx, uint64(project.ID))
@@ -400,18 +402,24 @@ func (s *schedulerService) findNextStages(ctx context.Context, project *orcModel
 		return nil, err
 	}
 
-	// 构建已完成/已开始的 Stage Set
-	executedStageIDs := make(map[uint64]bool)
+	// 构建 Stage 状态表 (StageID -> Status)
+	// 如果一个 Stage 有多个任务(重试等)，取最新的状态
+	// 假设 tasks 按时间顺序返回，或者我们需要遍历找到最新的
+	// 简单起见，我们假设 GetTasksByProjectID 返回所有任务，我们只关心最新的
+	stageStatus := make(map[uint64]string)
 	for _, task := range tasks {
-		executedStageIDs[task.StageID] = true
+		// 简单的覆盖策略：后遍历到的覆盖前面的 (假设 DB 返回顺序大致符合时间)
+		// 更严谨的做法是比较 TaskID 或 CreateTime
+		stageStatus[task.StageID] = task.Status
 	}
 
 	var nextStages []*orcModel.ScanStage
 
 	// 4. DAG 判定
 	for _, stage := range stages {
-		// 如果该 Stage 已经执行过(或正在执行)，跳过
-		if executedStageIDs[uint64(stage.ID)] {
+		// 如果该 Stage 已经有状态 (pending/running/finished/failed)，说明已经调度过
+		// 我们只调度那些还没开始的 Stage
+		if _, exists := stageStatus[uint64(stage.ID)]; exists {
 			continue
 		}
 
@@ -422,7 +430,8 @@ func (s *schedulerService) findNextStages(ctx context.Context, project *orcModel
 		dependenciesResolved := true
 		if len(predecessors) > 0 {
 			for _, predID := range predecessors {
-				if !executedStageIDs[predID] {
+				// 关键变更: 必须是 "finished" 才算满足，而不是仅仅 "存在"
+				if status, exists := stageStatus[predID]; !exists || status != "finished" {
 					dependenciesResolved = false
 					break
 				}

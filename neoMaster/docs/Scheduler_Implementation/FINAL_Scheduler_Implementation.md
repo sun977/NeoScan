@@ -32,6 +32,13 @@
   - 实现了 Provider 工厂模式和健康检查机制。
 - **PolicyEnforcer**: 集成了策略执行器，负责任务下发前的合规检查（白名单、范围校验）。
 
+### 2.6 容错与重试机制 (New)
+- **超时回收**: 调度器定期检查超时任务 (`checkTaskTimeouts`)，自动重置长时间未响应的任务。
+- **失败重试**: 
+  - 支持配置最大重试次数 (`MaxRetries`)。
+  - 支持从 `config.yaml` 读取全局默认配置，或从 Stage `PerformanceSettings` 覆盖。
+  - Agent 上报失败或任务超时后，自动递增重试计数并重置为 pending 状态，直到达到最大重试次数。
+
 ## 3. 验证结果
 ### 3.1 自动化测试
 - **TestWorkflowScheduler** (`test/20251206/20251206_Workflow_Scheduler_test.go`):

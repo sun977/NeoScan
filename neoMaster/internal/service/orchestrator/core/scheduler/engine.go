@@ -329,19 +329,15 @@ func (s *schedulerService) generateTasksForStage(ctx context.Context, project *o
 		return
 	}
 
-	// 转换 []Target 为 []string，供 GenerateTasks 使用
-	resolvedTargets := make([]string, 0, len(resolvedTargetObjs))
-	for _, t := range resolvedTargetObjs {
-		resolvedTargets = append(resolvedTargets, t.Value)
-	}
-
 	// Fallback if no targets found (Safety net)
-	if len(resolvedTargets) == 0 {
+	if len(resolvedTargetObjs) == 0 {
 		logger.LogWarn("No targets resolved, using fallback", "", 0, "", "service.scheduler.processProject", "", loggerFields)
-		resolvedTargets = []string{"127.0.0.1"}
+		resolvedTargetObjs = []policy.Target{{Value: "127.0.0.1", Type: "ip", Source: "fallback"}}
 	}
 
-	newTasks, err := s.taskGenerator.GenerateTasks(nextStage, uint64(project.ID), resolvedTargets)
+	// 传递完整的 []policy.Target 对象给 Generator
+	// 注意：这里不再进行降级转换 (Stringification)
+	newTasks, err := s.taskGenerator.GenerateTasks(nextStage, uint64(project.ID), resolvedTargetObjs)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "INTERNAL", loggerFields)
 		return

@@ -19,11 +19,13 @@ import (
 
 	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/utils"
+	"neomaster/internal/service/orchestrator/policy"
 )
 
 // TaskGenerator 任务生成器接口
 type TaskGenerator interface {
-	GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []string) ([]*orcModel.AgentTask, error)
+	// GenerateTasks 修改: 接收 []policy.Target 而不是 []string
+	GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []policy.Target) ([]*orcModel.AgentTask, error)
 }
 
 type taskGenerator struct{}
@@ -39,12 +41,12 @@ func NewTaskGenerator() TaskGenerator {
 // 参数:
 //   - stage: 扫描阶段配置，包含任务生成规则
 //   - projectID: 项目ID，用于关联任务
-//   - targets: 扫描目标列表，每个元素为一个目标（IP、域名等）
+//   - targets: 扫描目标列表 (完整对象，包含 Meta)
 //
 // 返回值:
 //   - []*orcModel.AgentTask: 生成的任务列表
 //   - error: 若生成任务过程中发生错误，则返回错误信息
-func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []string) ([]*orcModel.AgentTask, error) {
+func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []policy.Target) ([]*orcModel.AgentTask, error) {
 	// 如果没有目标，则返回 nil
 	if len(targets) == 0 {
 		return nil, nil
@@ -108,6 +110,8 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 		chunk := targets[i:end]
 
 		// 序列化目标列表为 JSON 字符串
+		// 注意：现在序列化的是 []policy.Target 结构体，包含 Meta 信息
+		// Agent 端需要对应更新解析逻辑，能够处理这种富结构
 		targetsJSON, err := json.Marshal(chunk)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal targets: %v", err)
@@ -130,7 +134,7 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			TaskType:     "tool",              // Explicitly set default
 			ToolName:     stage.ToolName,      // 工具名称
 			ToolParams:   stage.ToolParams,    // 工具参数
-			InputTarget:  string(targetsJSON), // 当前批次的目标列表（JSON 字符串）
+			InputTarget:  string(targetsJSON), // 当前批次的目标列表（JSON 字符串，包含 Meta）
 			RequiredTags: "[]",                // Default empty JSON array 执行所需标签(JSON)
 			OutputResult: "{}",                // Default empty JSON object 输出结果摘要(JSON)
 			Timeout:      timeout,             // 任务超时时间（秒）--- stage.PerformanceSettings["timeout"]

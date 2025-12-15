@@ -248,7 +248,7 @@ func (s *schedulerService) checkTaskTimeouts(ctx context.Context) {
 			continue
 		}
 
-		// 使用任务自带的 Timeout 设置，如果没有则默认 7200 秒
+		// 使用任务自带的 Timeout 设置，如果没有则默认 7200 秒【后续添加到系统配置中】
 		timeout := task.Timeout
 		if timeout <= 0 {
 			timeout = 7200

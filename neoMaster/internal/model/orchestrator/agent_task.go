@@ -39,6 +39,10 @@ type AgentTask struct {
 	StartedAt  *time.Time `json:"started_at" gorm:"comment:开始执行时间"`
 	FinishedAt *time.Time `json:"finished_at" gorm:"comment:完成时间"`
 	Timeout    int        `json:"timeout" gorm:"default:3600;comment:超时时间(秒)"`
+
+	// 重试机制
+	RetryCount int `json:"retry_count" gorm:"default:0;comment:已重试次数"`
+	MaxRetries int `json:"max_retries" gorm:"default:3;comment:最大重试次数"`
 }
 
 // TableName 定义表名

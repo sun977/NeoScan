@@ -222,7 +222,21 @@ type AppConfig struct {
 	Debug       bool           `yaml:"debug" mapstructure:"debug"`             // 是否调试模式
 	Timezone    string         `yaml:"timezone" mapstructure:"timezone"`       // 时区
 	Language    string         `yaml:"language" mapstructure:"language"`       // 语言
+	Master      MasterConfig   `yaml:"master" mapstructure:"master"`           // Master配置
 	Features    FeaturesConfig `yaml:"features" mapstructure:"features"`       // 功能开关配置
+}
+
+// MasterConfig Master节点配置
+type MasterConfig struct {
+	Task TaskConfig `yaml:"task" mapstructure:"task"` // 任务配置
+}
+
+// TaskConfig 任务配置
+type TaskConfig struct {
+	ChunkSize     int `yaml:"chunk_size" mapstructure:"chunk_size"`         // 每个任务分块大小
+	Timeout       int `yaml:"timeout" mapstructure:"timeout"`               // 任务超时时间(秒)
+	MaxRetries    int `yaml:"max_retries" mapstructure:"max_retries"`       // 任务最大重试次数
+	RetryInterval int `yaml:"retry_interval" mapstructure:"retry_interval"` // 任务重试间隔(秒)
 }
 
 // FeaturesConfig 功能开关配置

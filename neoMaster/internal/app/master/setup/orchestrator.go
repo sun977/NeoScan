@@ -9,6 +9,7 @@ package setup
 import (
 	"time"
 
+	"neomaster/internal/config"
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	assetRepo "neomaster/internal/repo/mysql/asset"
@@ -25,7 +26,7 @@ import (
 )
 
 // BuildOrchestratorModule 构建扫描编排器模块
-func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
+func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config) *OrchestratorModule {
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.orchestrator",
 		"operation": "build_module",
@@ -50,6 +51,7 @@ func BuildOrchestratorModule(db *gorm.DB) *OrchestratorModule {
 	dispatcher := task_dispatcher.NewTaskDispatcher(taskRepo, policyEnforcer, resourceAllocator)
 	schedulerService := scheduler.NewSchedulerService(
 		db,
+		cfg,
 		projectRepo,
 		workflowRepo,
 		scanStageRepo,

@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"neomaster/internal/config"
 	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/orchestrator/policy"
@@ -28,10 +29,12 @@ type TaskGenerator interface {
 	GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []policy.Target) ([]*orcModel.AgentTask, error)
 }
 
-type taskGenerator struct{}
+type taskGenerator struct {
+	cfg *config.Config
+}
 
-func NewTaskGenerator() TaskGenerator {
-	return &taskGenerator{}
+func NewTaskGenerator(cfg *config.Config) TaskGenerator {
+	return &taskGenerator{cfg: cfg}
 }
 
 // GenerateTasks 根据 Stage 和目标生成任务
@@ -63,9 +66,25 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 	//   "retry_count": 3         // 重试次数
 	// }
 	// 其他参数后续添加
-	chunkSize := 50
-	timeout := 3600
-	maxRetries := 3
+
+	// 使用全局配置作为默认值
+	chunkSize := g.cfg.App.Master.Task.ChunkSize
+	if chunkSize <= 0 {
+		chunkSize = 50 // 硬编码兜底
+	}
+
+	timeout := g.cfg.App.Master.Task.Timeout
+	if timeout <= 0 {
+		timeout = 3600 // 硬编码兜底
+	}
+
+	maxRetries := g.cfg.App.Master.Task.MaxRetries
+	// 注意：maxRetries 为 0 可能表示不重试，也可能表示未配置。
+	// 但由于我们有配置文件默认值 3，且 int 零值为 0。
+	// 这里我们假设配置文件一定会被正确加载。如果真的配了 0，那就是不重试。
+	// 为了安全起见，如果配置文件里也没配（比如旧配置），我们可以给个默认值。
+	// 但这里我们信任 Config 对象的值（通常由 viper 设置默认值或 yaml 读取）。
+
 	if stage.PerformanceSettings != "" {
 		var perf map[string]interface{}
 		if err := json.Unmarshal([]byte(stage.PerformanceSettings), &perf); err == nil {

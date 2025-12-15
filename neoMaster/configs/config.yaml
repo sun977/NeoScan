@@ -11,11 +11,13 @@ app:
   language: "zh-CN"
 
   # master 配置
-  # 任务配置
-  ## 任务分块大小：chunk_size 每个任务分块大小，批量处理任务数
-  ## 任务超时时间
-  ## 任务最大重试次数
-  ## 任务重试间隔
+  master:
+    # 任务默认配置
+    task:
+      chunk_size: 50        # 每个任务分块大小，批量处理任务数
+      timeout: 3600         # 任务超时时间(秒)
+      max_retries: 3        # 任务最大重试次数
+      retry_interval: 10    # 任务重试间隔(秒)
 
   # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:

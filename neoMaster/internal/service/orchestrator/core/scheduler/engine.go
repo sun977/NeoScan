@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"neomaster/internal/config"
 	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
@@ -63,6 +64,7 @@ type schedulerService struct {
 // 初始化调度引擎服务，设置必要的依赖和参数
 func NewSchedulerService(
 	db *gorm.DB,
+	cfg *config.Config,
 	projectRepo *orcRepo.ProjectRepository,
 	workflowRepo *orcRepo.WorkflowRepository,
 	stageRepo *orcRepo.ScanStageRepository,
@@ -83,7 +85,7 @@ func NewSchedulerService(
 		stageRepo:      stageRepo,
 		taskRepo:       taskRepo,
 		agentRepo:      agentRepo,
-		taskGenerator:  NewTaskGenerator(),
+		taskGenerator:  NewTaskGenerator(cfg),
 		targetProvider: policy.NewTargetProvider(db),
 		policyEnforcer: policy.NewPolicyEnforcer(projectRepo, policyRepo),
 		stopChan:       make(chan struct{}),

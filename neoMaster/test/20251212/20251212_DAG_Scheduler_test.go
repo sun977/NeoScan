@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"neomaster/internal/config"
 	orcModel "neomaster/internal/model/orchestrator"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
@@ -50,6 +51,7 @@ func SetupDAGEnv(t *testing.T) (*gorm.DB, scheduler.SchedulerService) {
 	// 4. 初始化 Scheduler
 	svc := scheduler.NewSchedulerService(
 		db,
+		&config.Config{},
 		projectRepo,
 		workflowRepo,
 		stageRepo,

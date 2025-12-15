@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"neomaster/internal/config"
 	agentModel "neomaster/internal/model/orchestrator"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
@@ -45,8 +46,20 @@ func TestDAGParallelExecution(t *testing.T) {
 	agentRepoInstance := agentRepo.NewAgentRepository(db)
 
 	// Services
+	cfg := &config.Config{
+		App: config.AppConfig{
+			Master: config.MasterConfig{
+				Task: config.TaskConfig{
+					ChunkSize:  50,
+					Timeout:    3600,
+					MaxRetries: 3,
+				},
+			},
+		},
+	}
 	schedulerService := scheduler.NewSchedulerService(
 		db,
+		cfg,
 		projectRepo,
 		workflowRepo,
 		stageRepo,

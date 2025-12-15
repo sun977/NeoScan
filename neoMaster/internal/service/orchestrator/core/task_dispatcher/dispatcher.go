@@ -1,3 +1,5 @@
+// TaskDispatcher 任务分发器接口
+// 负责将任务分配给合适的 Agent (Push/Pull 模式)
 package task_dispatcher
 
 import (
@@ -22,8 +24,8 @@ type TaskDispatcher interface {
 }
 
 type taskDispatcher struct {
-	taskRepo agentRepo.TaskRepository
-	policy   policy.PolicyEnforcer       // 策略执行器注入
+	taskRepo  agentRepo.TaskRepository
+	policy    policy.PolicyEnforcer       // 策略执行器注入
 	allocator allocator.ResourceAllocator // 资源分配器注入
 }
 

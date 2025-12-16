@@ -18,6 +18,10 @@ func (m *MockTagRepository) CreateTag(tag *tag_system.SysTag) error { return nil
 func (m *MockTagRepository) GetTagByID(id uint64) (*tag_system.SysTag, error) {
 	return &tag_system.SysTag{BaseModel: basemodel.BaseModel{ID: id}}, nil
 }
+func (m *MockTagRepository) GetTagByName(name string) (*tag_system.SysTag, error) { return nil, nil }
+func (m *MockTagRepository) GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error) {
+	return nil, nil
+}
 func (m *MockTagRepository) GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) { return nil, nil }
 func (m *MockTagRepository) UpdateTag(tag *tag_system.SysTag) error                 { return nil }
 func (m *MockTagRepository) DeleteTag(id uint64) error                              { return nil }

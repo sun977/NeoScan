@@ -13,13 +13,24 @@ import (
 	authHandler "neomaster/internal/handler/auth"
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
+	tagHandler "neomaster/internal/handler/tag_system"
 	agentService "neomaster/internal/service/agent"
 	assetService "neomaster/internal/service/asset"
 	authService "neomaster/internal/service/auth"
 	orchestratorService "neomaster/internal/service/orchestrator"
 	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/local_agent"
+	tagService "neomaster/internal/service/tag_system"
 )
+
+// TagModule 是标签系统模块的聚合输出
+type TagModule struct {
+	// Handlers
+	TagHandler *tagHandler.TagHandler
+
+	// Services
+	TagService tagService.TagService
+}
 
 // AuthModule 是认证模块的聚合输出
 // 设计目的：

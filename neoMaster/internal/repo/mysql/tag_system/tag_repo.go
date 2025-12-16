@@ -16,11 +16,12 @@ type TagRepository interface {
 	GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error)
 	UpdateTag(tag *tag_system.SysTag) error
 	DeleteTag(id uint64) error
-	ListTags(parentID uint64) ([]tag_system.SysTag, error) // 获取子标签
+	ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) // 获取标签列表
 
 	// 标签规则管理
 	CreateRule(rule *tag_system.SysMatchRule) error
 	GetRulesByEntityType(entityType string) ([]tag_system.SysMatchRule, error)
+	ListRules(req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error) // 获取规则列表
 	GetRuleByID(id uint64) (*tag_system.SysMatchRule, error)
 	UpdateRule(rule *tag_system.SysMatchRule) error
 	DeleteRule(id uint64) error
@@ -71,10 +72,32 @@ func (r *tagRepository) DeleteTag(id uint64) error {
 	return r.db.Delete(&tag_system.SysTag{}, id).Error
 }
 
-func (r *tagRepository) ListTags(parentID uint64) ([]tag_system.SysTag, error) {
+func (r *tagRepository) ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) {
 	var tags []tag_system.SysTag
-	err := r.db.Where("parent_id = ?", parentID).Find(&tags).Error
-	return tags, err
+	var total int64
+	db := r.db.Model(&tag_system.SysTag{})
+
+	if req.ParentID != nil {
+		db = db.Where("parent_id = ?", *req.ParentID)
+	}
+	if req.Category != "" {
+		db = db.Where("category = ?", req.Category)
+	}
+	if req.Keyword != "" {
+		db = db.Where("name LIKE ? OR description LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
+	}
+
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if req.Page > 0 && req.PageSize > 0 {
+		offset := (req.Page - 1) * req.PageSize
+		db = db.Offset(offset).Limit(req.PageSize)
+	}
+
+	err := db.Find(&tags).Error
+	return tags, total, err
 }
 
 // --- 规则管理 ---
@@ -90,6 +113,40 @@ func (r *tagRepository) GetRulesByEntityType(entityType string) ([]tag_system.Sy
 		Order("priority desc").
 		Find(&rules).Error
 	return rules, err
+}
+
+func (r *tagRepository) ListRules(req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error) {
+	var rules []tag_system.SysMatchRule
+	var total int64
+	db := r.db.Model(&tag_system.SysMatchRule{})
+
+	if req.EntityType != "" {
+		db = db.Where("entity_type = ?", req.EntityType)
+	}
+	if req.TagID != 0 {
+		db = db.Where("tag_id = ?", req.TagID)
+	}
+	if req.Keyword != "" {
+		db = db.Where("name LIKE ?", "%"+req.Keyword+"%")
+	}
+	if req.IsEnabled != nil {
+		db = db.Where("is_enabled = ?", *req.IsEnabled)
+	}
+
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if req.Page > 0 && req.PageSize > 0 {
+		offset := (req.Page - 1) * req.PageSize
+		db = db.Offset(offset).Limit(req.PageSize)
+	}
+
+	// Order by priority desc by default
+	db = db.Order("priority desc")
+
+	err := db.Find(&rules).Error
+	return rules, total, err
 }
 
 func (r *tagRepository) GetRuleByID(id uint64) (*tag_system.SysMatchRule, error) {

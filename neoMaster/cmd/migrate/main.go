@@ -32,6 +32,7 @@ import (
 	"neomaster/internal/model/agent"
 	"neomaster/internal/model/orchestrator_drop"
 	"neomaster/internal/model/system"
+	"neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
 
@@ -182,6 +183,11 @@ func dropTables(db *gorm.DB, logManager *logger.LoggerManager) error {
 		&system.RolePermission{},
 		&agent.AgentGroupMember{},
 
+		// 标签系统
+		&tag_system.SysEntityTag{},
+		&tag_system.SysMatchRule{},
+		&tag_system.SysTag{},
+
 		// 主表后删除
 		&system.User{},
 		&system.Role{},
@@ -234,6 +240,11 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&agent.AgentGroup{},
 		&agent.AgentGroupMember{},
 		&agent.ScanType{},
+
+		// 标签系统
+		&tag_system.SysTag{},
+		&tag_system.SysMatchRule{},
+		&tag_system.SysEntityTag{},
 
 		// Orchestrator模块 (New)
 		&orchestrator.Project{},

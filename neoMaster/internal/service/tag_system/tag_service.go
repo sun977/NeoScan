@@ -33,13 +33,14 @@ type TagService interface {
 	GetTag(ctx context.Context, id uint64) (*tag_system.SysTag, error)
 	UpdateTag(ctx context.Context, tag *tag_system.SysTag) error
 	DeleteTag(ctx context.Context, id uint64) error
-	ListTags(ctx context.Context, parentID uint64) ([]tag_system.SysTag, error)
+	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
 
 	// --- Rules ---
 	CreateRule(ctx context.Context, rule *tag_system.SysMatchRule) error
 	UpdateRule(ctx context.Context, rule *tag_system.SysMatchRule) error
 	DeleteRule(ctx context.Context, id uint64) error
-	GetRules(ctx context.Context, entityType string) ([]tag_system.SysMatchRule, error)
+	GetRule(ctx context.Context, id uint64) (*tag_system.SysMatchRule, error)
+	ListRules(ctx context.Context, req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error)
 
 	// --- Auto Tagging ---
 	AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error
@@ -91,8 +92,8 @@ func (s *tagService) DeleteTag(ctx context.Context, id uint64) error {
 	return s.repo.DeleteTag(id)
 }
 
-func (s *tagService) ListTags(ctx context.Context, parentID uint64) ([]tag_system.SysTag, error) {
-	return s.repo.ListTags(parentID)
+func (s *tagService) ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) {
+	return s.repo.ListTags(req)
 }
 
 // --- Rules Implementation ---
@@ -116,8 +117,12 @@ func (s *tagService) DeleteRule(ctx context.Context, id uint64) error {
 	return s.repo.DeleteRule(id)
 }
 
-func (s *tagService) GetRules(ctx context.Context, entityType string) ([]tag_system.SysMatchRule, error) {
-	return s.repo.GetRulesByEntityType(entityType)
+func (s *tagService) GetRule(ctx context.Context, id uint64) (*tag_system.SysMatchRule, error) {
+	return s.repo.GetRuleByID(id)
+}
+
+func (s *tagService) ListRules(ctx context.Context, req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error) {
+	return s.repo.ListRules(req)
 }
 
 // --- Auto Tagging Implementation (Moved to auto_tag.go or here) ---

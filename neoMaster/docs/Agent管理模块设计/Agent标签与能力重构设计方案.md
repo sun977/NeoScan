@@ -1,9 +1,8 @@
 # Agent 标签与能力体系重构设计方案
 
-> **Author**: Linus (AI Assistant)  
+> **Author**: Sun977
 > **Date**: 2025-12-16  
 > **Status**: Draft / Proposal  
-> **Philosophy**: "Bad programmers worry about the code. Good programmers worry about data structures and their relationships."
 
 ## 1. 现状与问题 (The Bad Taste)
 
@@ -78,11 +77,20 @@ type ScanType struct {
 
 我们需要在系统初始化时预设标签树的**骨架**，但**叶子节点**（具体能力）应由代码动态维护。
 
+我们将原来的 `Capabilities` 概念拆分为更精准的两个维度：
+
+1.  **TaskSupport** (任务支持): 与 `ScanType` 一一对应，明确表示 Agent 支持执行的任务类型。
+2.  **Feature** (特性功能): 表示 Agent 具备的非任务类核心能力（如 Shell 执行、文件操作、Root 权限等）。
+
 **预设骨架 (SQL/Init)**:
 ```text
 ROOT (ID: 1)
-└── System (Category: 'system')
-    └── Capability (Category: 'system', Path: '/1/2/')
+├── System (Category: 'system')
+│   ├── TaskSupport (Category: 'system', Path: '/1/2/')  <-- 对应 ScanType (e.g. PortScan, WebScan)
+│   └── Feature (Category: 'system', Path: '/1/3/')      <-- 对应通用能力 (e.g. ShellExec, FileUpload)
+└── AgentGroup (Category: 'agent_group')                 <-- 分组根节点
+    └── Default (Category: 'agent_group', Path: '/1/4/') <-- 默认分组 (新注册Agent默认归属)
+```
 ```
 
 ### 3.3 镜像同步机制 (The Mirroring Mechanism)
@@ -91,27 +99,38 @@ ROOT (ID: 1)
 
 **启动引导逻辑 (Bootstrap Logic)**:
 当 Master 启动时：
-1.  读取 `agent_scan_types` 表的所有记录。
-2.  检查 `/System/Capability/` 路径下是否存在同名标签。
-3.  **不存在则自动创建**，并将生成的 `TagID` 回写到 `agent_scan_types.tag_id`。
-4.  **锁定标签**：设置生成的标签 `IsSystem = true` (防止用户手动删除)。
+1.  **同步 TaskSupport**:
+    - 读取 `agent_scan_types` 表的所有记录。
+    - 检查 `/System/TaskSupport/` 路径下是否存在同名标签。
+    - **不存在则自动创建**，并将生成的 `TagID` 回写到 `agent_scan_types.tag_id`。
+2.  **同步 Feature (可选)**:
+    - 如果有预定义的 Feature 列表（如枚举值），同样在 `/System/Feature/` 下自动创建。
+3.  **锁定标签**:
+    - 设置生成的标签 `IsSystem = true` (防止用户手动删除)。
+4.  **初始化 AgentGroup**:
+    - 确保 `/AgentGroup/Default` 存在。
+    - 设置 `IsSystem = true`。
+
+**运行时同步 (Runtime Sync)**:
+- 当管理员在后台新增/删除 `ScanType` 时，必须触发钩子（Hook）同步更新 `SysTag` 表，确保数据实时一致，无需重启服务。
 
 ### 3.4 运行时数据流 (Runtime Flow)
 
 **场景：Agent 心跳上报能力**
 
 1.  **Agent 上报**: 
-    `Heartbeat { AgentID: "xyz", Capabilities: ["PortScan", "WebScan"] }` (这里上报的是能力名称或 ScanType ID)
+    `Heartbeat { AgentID: "xyz", SupportedTasks: ["PortScan"], Features: ["ShellExec"] }`
     
 2.  **Master 处理**:
-    - 查询 `agent_scan_types` 表，根据上报的能力找到对应的记录。
-    - 提取这些记录中的 `TagID` 字段。
-    - 得到 `TargetTagIDs = [101, 102]`。
+    - **TaskSupport**: 查询 `agent_scan_types` 表，找到 "PortScan" 对应的 `TagID`。
+    - **Feature**: 查询 `sys_tags` 表，找到路径为 `/System/Feature/ShellExec` 的 `TagID`。
+    - 合并所有 ID: `TargetTagIDs = [TagID_PortScan, TagID_ShellExec]`。
 
 3.  **调用标签服务**:
     ```go
     // 使用全量调和逻辑 (Full Reconciliation)
-    // 确保 Agent 失去某种能力时，对应的标签也会被移除
+    // 注意：Scope 必须严格限制为 "agent_report"
+    // 确保只更新由 Agent 上报的标签，绝不误删用户手动打的标签或自动规则生成的标签
     tagService.SyncEntityTags(ctx, "agent", agentID, TargetTagIDs, "agent_report")
     ```
 
@@ -127,6 +146,9 @@ ROOT (ID: 1)
     - 确保 `sys_tags` 中存在 `/System/Capability/` 骨架。
 3.  **Data Migration (Script)**:
     - 遍历 `agent_scan_types`，为每个类型创建对应的 `SysTag` 并回填 `tag_id`。
+    - **Group Migration**: 
+        - 遍历 `agent_groups`，为每个组创建 `SysTag` (Category='agent_group')，记录 `OldGroupID` -> `NewTagID` 的映射。
+        - 遍历 `agent_group_members`，利用映射关系，将成员关系插入 `sys_entity_tags`。
     - 遍历 `agent` 表：
         - 解析 `tags` JSON，插入 `sys_entity_tags` (Source='manual')。
         - 解析 `capabilities` JSON，映射到对应的 `TagID`，插入 `sys_entity_tags` (Source='agent_report')。
@@ -141,3 +163,75 @@ ROOT (ID: 1)
 - **统一的搜索接口**：`SELECT * FROM agents WHERE tag_id IN (...)` 即可筛选任意属性或能力的 Agent。
 - **干净的数据库**：没有非结构化的 JSON 字段，所有关系均由 FK 约束。
 - **自动化维护**：新增扫描能力只需在 `agent_scan_types` 插入一条记录，标签系统自动感知，无需人工干预。
+
+---
+
+## 6. 关于 Agent 分组 (The Grouping Dilemma)
+
+你提到了现有的 `AgentGroup` (分组) 功能。经过评估，我的结论是：**它应该被“枪毙”，并入标签体系。**
+
+### 6.1 为什么分组是多余的？
+在数学上，**分组 (Group)** 和 **标签 (Tag)** 是同构的：它们都定义了一个“集合”。
+- 现在的设计：你有两套平行的系统来管理集合。
+    1.  `agent_group_members` (Group A -> Agents)
+    2.  `sys_entity_tags` (Tag B -> Agents)
+- 这导致了**组合查询的复杂度爆炸**：
+    - "找出 A 组中拥有 B 标签的 Agent" -> 需要跨两套表做 Join。
+    - "找出 A 组和 C 组的交集" -> 需要写专门的分组逻辑。
+
+### 6.2 更好的方案：Group as a Tag (Concept Unification)
+**分组只是标签的一种“方言”。**
+
+- 当你说“这个 Agent 属于爬虫组”时，在底层数据上，这和“这个 Agent 属于 Linux 系统”**没有任何区别**。
+- 区别只在于**用户视角**：用户习惯把“组织架构”或“管理单元”称为“分组”。
+
+**如何实现？**
+我们只需要在标签系统中保留一个特殊的 **Category** 或 **根节点**，专门用来存放这些“具有分组语义”的标签。
+
+1.  **数据迁移**：
+    - 将所有 `AgentGroup` 记录迁移到 `SysTag` 表，设置 `Category = 'agent_group'`。
+    - 建议使用层级路径：`/AgentGroup/Default`, `/AgentGroup/Dev/Backend`。
+    - 将所有 `AgentGroupMember` 记录迁移到 `SysEntityTag` 表。
+
+2.  **获得的“免费”能力**：
+    - **层级分组**：原来的分组是扁平的，现在你可以轻松实现“部门/科室/小组”的树状管理。
+    - **动态分组**：利用标签系统的 `SysMatchRule`，你可以创建一个“自动分组”，例如“所有 Linux 机器自动加入 Linux 组”。这是原有的静态分组无法做到的。
+    - **统一视图**：前端资源树只需加载 `SysTag`，就能同时显示“分组”、“操作系统”、“扫描能力”等所有维度的分类。
+
+### 6.3 结论
+**Don't Multiply Entities Beyond Necessity.** (如无必要，勿增实体)
+既然标签系统已经足够强大（支持手动、自动、层级），单独维护一套“分组”系统纯属浪费代码和脑力。建议在重构时一并废除 `AgentGroup` 相关表结构。
+
+---
+
+## 7. 典型应用场景 (Use Cases)
+
+你问到的“根据功能自动分组”，正是这套系统的杀手锏。
+
+### 场景：自动划分“爬虫组”与“漏扫组”
+
+假设你部署了两类 Agent：
+1.  **A类**: 配置为只运行 Web 爬虫 (ScanType: `web_crawler`)。
+2.  **B类**: 配置为只运行漏洞扫描 (ScanType: `vuln_scan`)。
+
+#### 流程演示：
+
+1.  **Agent 上报 (自动)**
+    - Agent A 启动，心跳上报: `SupportedTasks: ["web_crawler"]`
+    - Agent B 启动，心跳上报: `SupportedTasks: ["vuln_scan"]`
+
+2.  **系统映射 (自动)**
+    - 系统检测到上报，自动给 Agent A 打上标签: `/System/TaskSupport/web_crawler`
+    - 系统检测到上报，自动给 Agent B 打上标签: `/System/TaskSupport/vuln_scan`
+    - *此时，你已经可以直接通过标签筛选这两类机器了。*
+
+3.  **高级自动分组 (规则驱动)**
+    如果你想更进一步，把它们自动归入业务组（例如 `/AgentGroup/SpiderSquad`），你可以配置一条 **SysMatchRule**：
+    
+    - **规则名称**: "Auto-Group Spiders"
+    - **匹配条件**: `Tag IN ('/System/TaskSupport/web_crawler')`
+    - **执行动作**: 添加标签 `/AgentGroup/SpiderSquad`
+    
+    **结果**: 任何新上线的爬虫 Agent，无需人工操作，会自动获得 `/AgentGroup/SpiderSquad` 标签，直接进入你的“爬虫小队”分组。
+
+这就是 **Data-Driven Infrastructure**（数据驱动的基础设施）。你不再是手动拖拽机器进组，而是定义规则，让系统自我组织。

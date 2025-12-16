@@ -333,6 +333,9 @@ func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, a
 		ToolName:     ToolNameSysTagPropagation,
 		ToolParams:   string(payloadBytes),
 		TaskCategory: TaskCategorySystem, // 关键字段
+		InputTarget:  "{}",               // JSON 字段必须有默认值
+		RequiredTags: "[]",               // JSON 字段必须有默认值
+		OutputResult: "{}",               // JSON 字段必须有默认值
 	}
 
 	if err := s.db.Create(&task).Error; err != nil {
@@ -348,11 +351,12 @@ func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType
 		return "", fmt.Errorf("currently only network propagation is supported")
 	}
 
-	// 1. 获取网络实体以获取 CIDR (AssetNetwork 有 network 和 cidr 字段)
+	// 1. 获取网络实体以获取 CIDR (AssetNetwork 有 network 和 cidr 字段) network 不唯一啊
 	var network assetModel.AssetNetwork
 	if err := s.db.WithContext(ctx).First(&network, entityID).Error; err != nil {
 		return "", fmt.Errorf("failed to find network: %v", err)
 	}
+	// SELECT * FROM `asset_networks` WHERE `asset_networks`.`id` = 5 ORDER BY `asset_networks`.`id` LIMIT 1
 
 	// 2. 获取标签以获取名称
 	var tags []tag_system.SysTag
@@ -403,6 +407,9 @@ func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType
 		ToolName:     ToolNameSysTagPropagation,
 		ToolParams:   string(payloadBytes),
 		TaskCategory: TaskCategorySystem,
+		InputTarget:  "{}", // JSON 字段必须有默认值
+		RequiredTags: "[]", // JSON 字段必须有默认值
+		OutputResult: "{}", // JSON 字段必须有默认值
 	}
 
 	if err := s.db.Create(&task).Error; err != nil {

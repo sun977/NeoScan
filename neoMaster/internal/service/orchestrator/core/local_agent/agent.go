@@ -1,6 +1,6 @@
-// SystemTaskWorker 系统任务执行器
+// LocalAgent 本地Agent (原 SystemWorker)
 // 负责执行 Master 内部产生的系统任务 (如: 标签传播、资产清洗等)
-package system_worker
+package local_agent
 
 import (
 	"context"
@@ -18,10 +18,11 @@ import (
 	orcrepo "neomaster/internal/repo/mysql/orchestrator"
 )
 
-// SystemTaskWorker 系统任务执行器
-// 负责执行 Master 内部产生的系统任务 (如: 标签传播、资产清洗等)
-// 对应文档: 1.1 Orchestrator - SystemTaskWorker
-type SystemTaskWorker struct {
+// LocalAgent 本地Agent
+// 运行在 Master 进程内的特殊 Worker，负责执行数据密集型或高权限的系统任务
+// 它直接连接数据库，不通过 HTTP 协议
+// 对应文档: 1.1 Orchestrator - LocalAgent
+type LocalAgent struct {
 	db        *gorm.DB
 	taskRepo  orcrepo.TaskRepository
 	isRunning bool
@@ -30,9 +31,9 @@ type SystemTaskWorker struct {
 	interval  time.Duration
 }
 
-// NewSystemTaskWorker 创建系统任务执行器实例
-func NewSystemTaskWorker(db *gorm.DB, taskRepo orcrepo.TaskRepository) *SystemTaskWorker {
-	return &SystemTaskWorker{
+// NewLocalAgent 创建本地Agent实例
+func NewLocalAgent(db *gorm.DB, taskRepo orcrepo.TaskRepository) *LocalAgent {
+	return &LocalAgent{
 		db:       db,
 		taskRepo: taskRepo,
 		stopChan: make(chan struct{}),
@@ -41,12 +42,12 @@ func NewSystemTaskWorker(db *gorm.DB, taskRepo orcrepo.TaskRepository) *SystemTa
 }
 
 // SetInterval 设置轮询间隔 (用于测试或配置调整)
-func (w *SystemTaskWorker) SetInterval(interval time.Duration) {
+func (w *LocalAgent) SetInterval(interval time.Duration) {
 	w.interval = interval
 }
 
 // Start 启动执行器
-func (w *SystemTaskWorker) Start() {
+func (w *LocalAgent) Start() {
 	if w.isRunning {
 		return
 	}
@@ -55,13 +56,13 @@ func (w *SystemTaskWorker) Start() {
 	go w.run()
 
 	logger.WithFields(map[string]interface{}{
-		"path":      "service.orchestrator.system_worker",
+		"path":      "service.orchestrator.local_agent",
 		"operation": "start",
-	}).Info("SystemTaskWorker started")
+	}).Info("LocalAgent started")
 }
 
 // Stop 停止执行器
-func (w *SystemTaskWorker) Stop() {
+func (w *LocalAgent) Stop() {
 	if !w.isRunning {
 		return
 	}
@@ -70,13 +71,13 @@ func (w *SystemTaskWorker) Stop() {
 	w.isRunning = false
 
 	logger.WithFields(map[string]interface{}{
-		"path":      "service.orchestrator.system_worker",
+		"path":      "service.orchestrator.local_agent",
 		"operation": "stop",
-	}).Info("SystemTaskWorker stopped")
+	}).Info("LocalAgent stopped")
 }
 
 // run 主循环
-func (w *SystemTaskWorker) run() {
+func (w *LocalAgent) run() {
 	defer w.wg.Done()
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -92,13 +93,13 @@ func (w *SystemTaskWorker) run() {
 }
 
 // processTasks 处理待执行的系统任务
-func (w *SystemTaskWorker) processTasks() {
+func (w *LocalAgent) processTasks() {
 	ctx := context.Background()
 
 	// 1. 获取待执行的系统任务
 	tasks, err := w.taskRepo.GetPendingTasks(ctx, "system", 10) // 每次处理10个
 	if err != nil {
-		logger.LogError(err, "failed to get pending system tasks", 0, "", "service.orchestrator.system_worker.processTasks", "REPO", nil)
+		logger.LogError(err, "failed to get pending system tasks", 0, "", "service.orchestrator.local_agent.processTasks", "REPO", nil)
 		return
 	}
 
@@ -110,7 +111,7 @@ func (w *SystemTaskWorker) processTasks() {
 	for _, task := range tasks {
 		// 2. 更新状态为 running
 		if err := w.taskRepo.UpdateTaskStatus(ctx, task.TaskID, "running"); err != nil {
-			logger.LogWarn("Failed to update task status to running", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
+			logger.LogWarn("Failed to update task status to running", "", 0, "", "local_agent.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
 			continue
 		}
 
@@ -139,13 +140,13 @@ func (w *SystemTaskWorker) processTasks() {
 			if task.RetryCount < task.MaxRetries {
 				retryCount := task.RetryCount + 1
 				retryMsg := fmt.Sprintf("System Task Retry %d/%d: %v", retryCount, task.MaxRetries, execErr)
-				logger.LogWarn("System task failed, retrying...", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{
+				logger.LogWarn("System task failed, retrying...", "", 0, "", "local_agent.processTasks", "", map[string]interface{}{
 					"task_id":     task.TaskID,
 					"retry_count": retryCount,
 					"reason":      execErr.Error(),
 				})
 				if err := w.taskRepo.RetryTask(ctx, task.TaskID, retryCount, retryMsg); err != nil {
-					logger.LogWarn("Failed to retry task", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
+					logger.LogWarn("Failed to retry task", "", 0, "", "local_agent.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
 				}
 				continue // Skip update result to avoid marking as failed
 			}
@@ -161,7 +162,7 @@ func (w *SystemTaskWorker) processTasks() {
 		}
 
 		if err := w.taskRepo.UpdateTaskResult(ctx, task.TaskID, resultJSON, errorMsg, status); err != nil {
-			logger.LogWarn("Failed to update task result", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
+			logger.LogWarn("Failed to update task result", "", 0, "", "local_agent.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
 		}
 	}
 }
@@ -175,7 +176,7 @@ type TagPropagationPayload struct {
 }
 
 // handleTagPropagation 处理标签传播任务
-func (w *SystemTaskWorker) handleTagPropagation(ctx context.Context, task *orchestrator.AgentTask) (map[string]interface{}, error) {
+func (w *LocalAgent) handleTagPropagation(ctx context.Context, task *orchestrator.AgentTask) (map[string]interface{}, error) {
 	var payload TagPropagationPayload
 	if err := json.Unmarshal([]byte(task.ToolParams), &payload); err != nil {
 		return nil, fmt.Errorf("invalid payload: %v", err)
@@ -212,7 +213,7 @@ func (w *SystemTaskWorker) handleTagPropagation(ctx context.Context, task *orche
 }
 
 // processAssetHost 处理主机资产标签
-func (w *SystemTaskWorker) processAssetHost(ctx context.Context, payload TagPropagationPayload) (int64, error) {
+func (w *LocalAgent) processAssetHost(ctx context.Context, payload TagPropagationPayload) (int64, error) {
 	var count int64
 	var batchSize = 100
 	var assets []assetModel.AssetHost
@@ -228,7 +229,7 @@ func (w *SystemTaskWorker) processAssetHost(ctx context.Context, payload TagProp
 			// 2. 执行匹配
 			matched, err := matcher.Match(assetData, payload.Rule)
 			if err != nil {
-				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processAssetHost", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				logger.LogWarn("Matcher error", "", 0, "", "local_agent.processAssetHost", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
 				continue
 			}
 
@@ -249,7 +250,7 @@ func (w *SystemTaskWorker) processAssetHost(ctx context.Context, payload TagProp
 }
 
 // processAssetWeb 处理Web资产标签
-func (w *SystemTaskWorker) processAssetWeb(ctx context.Context, payload TagPropagationPayload) (int64, error) {
+func (w *LocalAgent) processAssetWeb(ctx context.Context, payload TagPropagationPayload) (int64, error) {
 	var count int64
 	var batchSize = 100
 	var assets []assetModel.AssetWeb
@@ -263,7 +264,7 @@ func (w *SystemTaskWorker) processAssetWeb(ctx context.Context, payload TagPropa
 
 			matched, err := matcher.Match(assetData, payload.Rule)
 			if err != nil {
-				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processAssetWeb", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				logger.LogWarn("Matcher error", "", 0, "", "local_agent.processAssetWeb", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
 				continue
 			}
 
@@ -283,7 +284,7 @@ func (w *SystemTaskWorker) processAssetWeb(ctx context.Context, payload TagPropa
 }
 
 // processAssetNetwork 处理网段资产标签
-func (w *SystemTaskWorker) processAssetNetwork(ctx context.Context, payload TagPropagationPayload) (int64, error) {
+func (w *LocalAgent) processAssetNetwork(ctx context.Context, payload TagPropagationPayload) (int64, error) {
 	var count int64
 	var batchSize = 100
 	var assets []assetModel.AssetNetwork
@@ -297,7 +298,7 @@ func (w *SystemTaskWorker) processAssetNetwork(ctx context.Context, payload TagP
 
 			matched, err := matcher.Match(assetData, payload.Rule)
 			if err != nil {
-				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processAssetNetwork", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				logger.LogWarn("Matcher error", "", 0, "", "local_agent.processAssetNetwork", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
 				continue
 			}
 
@@ -323,7 +324,7 @@ type AssetCleanupPayload struct {
 }
 
 // handleAssetCleanup 处理资产清洗任务
-func (w *SystemTaskWorker) handleAssetCleanup(ctx context.Context, task *orchestrator.AgentTask) (map[string]interface{}, error) {
+func (w *LocalAgent) handleAssetCleanup(ctx context.Context, task *orchestrator.AgentTask) (map[string]interface{}, error) {
 	var payload AssetCleanupPayload
 	if err := json.Unmarshal([]byte(task.ToolParams), &payload); err != nil {
 		return nil, fmt.Errorf("invalid payload: %v", err)
@@ -354,7 +355,7 @@ func (w *SystemTaskWorker) handleAssetCleanup(ctx context.Context, task *orchest
 }
 
 // processCleanupHost 清洗主机资产
-func (w *SystemTaskWorker) processCleanupHost(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
+func (w *LocalAgent) processCleanupHost(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
 	var count int64
 	var batchSize = 100
 	var assets []assetModel.AssetHost
@@ -368,7 +369,7 @@ func (w *SystemTaskWorker) processCleanupHost(ctx context.Context, payload Asset
 
 			matched, err := matcher.Match(assetData, payload.Rule)
 			if err != nil {
-				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processCleanupHost", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				logger.LogWarn("Matcher error", "", 0, "", "local_agent.processCleanupHost", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
 				continue
 			}
 
@@ -385,7 +386,7 @@ func (w *SystemTaskWorker) processCleanupHost(ctx context.Context, payload Asset
 }
 
 // processCleanupWeb 清洗Web资产
-func (w *SystemTaskWorker) processCleanupWeb(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
+func (w *LocalAgent) processCleanupWeb(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
 	var count int64
 	var batchSize = 100
 	var assets []assetModel.AssetWeb
@@ -399,7 +400,7 @@ func (w *SystemTaskWorker) processCleanupWeb(ctx context.Context, payload AssetC
 
 			matched, err := matcher.Match(assetData, payload.Rule)
 			if err != nil {
-				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processCleanupWeb", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				logger.LogWarn("Matcher error", "", 0, "", "local_agent.processCleanupWeb", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
 				continue
 			}
 
@@ -416,7 +417,7 @@ func (w *SystemTaskWorker) processCleanupWeb(ctx context.Context, payload AssetC
 }
 
 // processCleanupNetwork 清洗网段资产
-func (w *SystemTaskWorker) processCleanupNetwork(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
+func (w *LocalAgent) processCleanupNetwork(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
 	var count int64
 	var batchSize = 100
 	var assets []assetModel.AssetNetwork
@@ -430,7 +431,7 @@ func (w *SystemTaskWorker) processCleanupNetwork(ctx context.Context, payload As
 
 			matched, err := matcher.Match(assetData, payload.Rule)
 			if err != nil {
-				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processCleanupNetwork", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				logger.LogWarn("Matcher error", "", 0, "", "local_agent.processCleanupNetwork", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
 				continue
 			}
 

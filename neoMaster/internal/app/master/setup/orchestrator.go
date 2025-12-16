@@ -13,8 +13,8 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	assetRepo "neomaster/internal/repo/mysql/asset"
+	"neomaster/internal/service/orchestrator/core/local_agent" // 本地Agent，用于master模块执行系统任务
 	"neomaster/internal/service/orchestrator/core/scheduler"
-	"neomaster/internal/service/orchestrator/core/system_worker" // 系统任务执行器，用于master模块执行系统任务
 	"neomaster/internal/service/orchestrator/core/task_dispatcher"
 
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
@@ -60,7 +60,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config) *OrchestratorModul
 		agentRepository,
 		10*time.Second, // 默认轮询间隔
 	)
-	systemWorker := system_worker.NewSystemTaskWorker(db, taskRepo)
+	localAgent := local_agent.NewLocalAgent(db, taskRepo)
 
 	// 3. Service 初始化
 	projectService := orchestratorService.NewProjectService(projectRepo)
@@ -99,6 +99,6 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config) *OrchestratorModul
 		// Core Components
 		TaskDispatcher:   dispatcher,
 		SchedulerService: schedulerService,
-		SystemWorker:     systemWorker,
+		LocalAgent:       localAgent,
 	}
 }

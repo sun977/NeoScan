@@ -9,8 +9,8 @@ package router
 
 import (
 	setup "neomaster/internal/app/master/setup"
+	"neomaster/internal/service/orchestrator/core/local_agent"
 	"neomaster/internal/service/orchestrator/core/scheduler"
-	"neomaster/internal/service/orchestrator/core/system_worker"
 
 	"neomaster/internal/app/master/middleware"
 	"neomaster/internal/config"
@@ -62,8 +62,8 @@ type Router struct {
 
 	// 调度服务
 	schedulerService scheduler.SchedulerService
-	// 系统任务执行器
-	systemWorker *system_worker.SystemTaskWorker
+	// 本地Agent (原系统任务执行器)
+	localAgent *local_agent.LocalAgent
 }
 
 // NewRouter 创建路由管理器实例
@@ -169,8 +169,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 
 		// 扫描任务调度服务
 		schedulerService: orchestratorModule.SchedulerService,
-		// 系统任务执行器
-		systemWorker: orchestratorModule.SystemWorker,
+		// 本地Agent
+		localAgent: orchestratorModule.LocalAgent,
 	}
 }
 
@@ -196,9 +196,9 @@ func (r *Router) GetSchedulerService() scheduler.SchedulerService {
 	return r.schedulerService
 }
 
-// GetSystemWorker 获取系统任务执行器实例
-func (r *Router) GetSystemWorker() *system_worker.SystemTaskWorker {
-	return r.systemWorker
+// GetLocalAgent 获取本地Agent实例
+func (r *Router) GetLocalAgent() *local_agent.LocalAgent {
+	return r.localAgent
 }
 
 // registerGlobalMiddleware 注册全局中间件（对齐 neoAgent 的风格）

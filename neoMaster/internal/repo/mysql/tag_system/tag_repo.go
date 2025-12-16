@@ -14,6 +14,7 @@ type TagRepository interface {
 	CreateTag(tag *tag_system.SysTag) error
 	GetTagByID(id uint64) (*tag_system.SysTag, error)
 	GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error)
+	GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error)
 	UpdateTag(tag *tag_system.SysTag) error
 	DeleteTag(id uint64) error
 	ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) // 获取标签列表
@@ -59,6 +60,12 @@ func (r *tagRepository) GetTagByID(id uint64) (*tag_system.SysTag, error) {
 func (r *tagRepository) GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) {
 	var tags []tag_system.SysTag
 	err := r.db.Where("id IN ?", ids).Find(&tags).Error
+	return tags, err
+}
+
+func (r *tagRepository) GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error) {
+	var tags []tag_system.SysTag
+	err := r.db.Where("parent_id = ?", parentID).Find(&tags).Error
 	return tags, err
 }
 

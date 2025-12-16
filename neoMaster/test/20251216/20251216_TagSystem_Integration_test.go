@@ -357,4 +357,186 @@ func TestTagSystemIntegration(t *testing.T) {
 			t.Errorf("Sensitive Tag not found on Host B")
 		}
 	}
+
+	// Step 6: 验证 SyncEntityTags (用于 Agent Report 场景)
+	// -------------------------------------------------------------------------------------
+	t.Log("\nStep 6: Verifying SyncEntityTags for Agent Report...")
+
+	// 准备测试数据: Host A 已经有 Manual 标签 (Tag 4: IDC CZTT) 和 Auto 标签 (Tag 1: web)
+	// 在测试环境中, TagID 是动态生成的, 所以我们需要先获取正确的 TagID
+	// czttTag, internalTag 已经赋给了 Host A (通过 AutoTag)
+	// 我们再手动加一个 Manual 标签
+	manualTag := &tag_system.SysTag{
+		Name:     "TestTag_Manual_Ops",
+		ParentID: rootTag.ID,
+	}
+	if err := svc.CreateTag(ctx, manualTag); err != nil {
+		t.Fatalf("Failed to create manual tag: %v", err)
+	}
+	if err := repo.AddEntityTag(&tag_system.SysEntityTag{
+		EntityType: "host",
+		EntityID:   hostID_A,
+		TagID:      manualTag.ID,
+		Source:     "manual",
+	}); err != nil {
+		t.Fatalf("Failed to add manual tag: %v", err)
+	}
+
+	// 创建两个用于 Agent 上报的标签
+	linuxTag := &tag_system.SysTag{Name: "OS_Linux", ParentID: rootTag.ID}
+	dbTag := &tag_system.SysTag{Name: "App_Database", ParentID: rootTag.ID}
+	if err := svc.CreateTag(ctx, linuxTag); err != nil {
+		t.Fatalf("Failed to create linux tag: %v", err)
+	}
+	if err := svc.CreateTag(ctx, dbTag); err != nil {
+		t.Fatalf("Failed to create db tag: %v", err)
+	}
+
+	// 模拟 Agent 上报
+	agentReportTags := []uint64{linuxTag.ID, dbTag.ID}
+	err = svc.SyncEntityTags(ctx, "host", hostID_A, agentReportTags, "agent_report", 0)
+	if err != nil {
+		t.Fatalf("SyncEntityTags failed: %v", err)
+	}
+
+	// 验证第一次同步
+	tagsStep6, err := repo.GetEntityTags("host", hostID_A)
+	if err != nil {
+		t.Fatalf("Failed to get entity tags: %v", err)
+	}
+	t.Logf("Step 6.1 (After First Sync): %+v", tagsStep6)
+
+	// 检查标签是否存在且属性正确
+	hasLinux := false
+	hasDB := false
+	hasManual := false
+	hasAutoCZTT := false
+	hasAutoInternal := false
+
+	for _, tag := range tagsStep6 {
+		if tag.TagID == linuxTag.ID && tag.Source == "agent_report" {
+			hasLinux = true
+		}
+		if tag.TagID == dbTag.ID && tag.Source == "agent_report" {
+			hasDB = true
+		}
+		if tag.TagID == manualTag.ID && tag.Source == "manual" {
+			hasManual = true
+		}
+		if tag.TagID == czttTag.ID && tag.Source == "auto" {
+			hasAutoCZTT = true
+		}
+		if tag.TagID == internalTag.ID && tag.Source == "auto" {
+			hasAutoInternal = true
+		}
+	}
+
+	if !hasLinux || !hasDB {
+		t.Errorf("SyncEntityTags failed to add agent tags")
+	}
+	if !hasManual {
+		t.Errorf("SyncEntityTags incorrectly removed manual tag")
+	}
+	if !hasAutoCZTT || !hasAutoInternal {
+		t.Errorf("SyncEntityTags incorrectly removed auto tags")
+	}
+
+	// 第二次同步: Agent 上报只包含 Linux，去掉了 Database
+	agentReportTags2 := []uint64{linuxTag.ID}
+	err = svc.SyncEntityTags(ctx, "host", hostID_A, agentReportTags2, "agent_report", 0)
+	if err != nil {
+		t.Fatalf("SyncEntityTags 2nd time failed: %v", err)
+	}
+
+	// 验证第二次同步
+	tagsStep6_2, err := repo.GetEntityTags("host", hostID_A)
+	if err != nil {
+		t.Fatalf("Failed to get entity tags: %v", err)
+	}
+	t.Logf("Step 6.2 (After Second Sync - Remove DB): %+v", tagsStep6_2)
+
+	hasDB_2 := false
+	for _, tag := range tagsStep6_2 {
+		if tag.TagID == dbTag.ID {
+			hasDB_2 = true
+		}
+	}
+
+	if hasDB_2 {
+		t.Errorf("SyncEntityTags failed to remove stale agent tag")
+	}
+
+	t.Log("Step 6: SyncEntityTags verification passed!")
+
+	// Step 7: 验证 BootstrapSystemTags
+	// -------------------------------------------------------------------------------------
+	t.Log("\nStep 7: Verifying BootstrapSystemTags...")
+
+	err = svc.BootstrapSystemTags(ctx)
+	if err != nil {
+		t.Fatalf("BootstrapSystemTags failed: %v", err)
+	}
+
+	// 验证 System 节点是否存在
+	sysTags, err := repo.GetTagsByParent(0)
+	if err != nil {
+		t.Fatalf("Failed to get root tags: %v", err)
+	}
+
+	var sysTag, agentGroupTag *tag_system.SysTag
+	for i := range sysTags {
+		if sysTags[i].Name == "System" {
+			sysTag = &sysTags[i]
+		}
+		if sysTags[i].Name == "AgentGroup" {
+			agentGroupTag = &sysTags[i]
+		}
+	}
+
+	if sysTag == nil {
+		t.Errorf("Bootstrap failed: System tag not found")
+	}
+	if agentGroupTag == nil {
+		t.Errorf("Bootstrap failed: AgentGroup tag not found")
+	}
+
+	// 验证子节点 (TaskSupport, Feature)
+	if sysTag != nil {
+		children, err := repo.GetTagsByParent(sysTag.ID)
+		if err != nil {
+			t.Fatalf("Failed to get System children: %v", err)
+		}
+		hasTaskSupport := false
+		hasFeature := false
+		for _, t := range children {
+			if t.Name == "TaskSupport" {
+				hasTaskSupport = true
+			}
+			if t.Name == "Feature" {
+				hasFeature = true
+			}
+		}
+		if !hasTaskSupport || !hasFeature {
+			t.Errorf("Bootstrap failed: System children missing. Got: %+v", children)
+		}
+	}
+
+	// 验证 AgentGroup 子节点 (Default)
+	if agentGroupTag != nil {
+		children, err := repo.GetTagsByParent(agentGroupTag.ID)
+		if err != nil {
+			t.Fatalf("Failed to get AgentGroup children: %v", err)
+		}
+		hasDefault := false
+		for _, t := range children {
+			if t.Name == "Default" {
+				hasDefault = true
+			}
+		}
+		if !hasDefault {
+			t.Errorf("Bootstrap failed: Default group missing. Got: %+v", children)
+		}
+	}
+
+	t.Log("Step 7: BootstrapSystemTags verification passed!")
 }

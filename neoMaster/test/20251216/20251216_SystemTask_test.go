@@ -11,8 +11,8 @@ import (
 	orcModel "neomaster/internal/model/orchestrator"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
-	"neomaster/internal/service/orchestrator/core/local_agent"
 	"neomaster/internal/service/orchestrator/core/scheduler"
+	"neomaster/internal/service/orchestrator/local_agent"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"

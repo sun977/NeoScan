@@ -13,9 +13,9 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	assetRepo "neomaster/internal/repo/mysql/asset"
-	"neomaster/internal/service/orchestrator/core/local_agent" // 本地Agent，用于master模块执行系统任务
 	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/core/task_dispatcher"
+	"neomaster/internal/service/orchestrator/local_agent" // 本地Agent，用于master模块执行系统任务
 
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"

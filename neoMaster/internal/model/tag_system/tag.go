@@ -11,7 +11,7 @@ type SysTag struct {
 	basemodel.BaseModel
 	Name        string `json:"name" gorm:"size:100;not null;index:idx_parent_name,unique"`
 	ParentID    uint64 `json:"parent_id" gorm:"default:0;index:idx_parent_name,unique"` // 0表示根节点
-	Path        string `json:"path" gorm:"size:1000;index"`                             // 物理路径 (Materialized Path) e.g. "/1/5/10/"
+	Path        string `json:"path" gorm:"size:700;index"`                              // 物理路径 (Materialized Path) e.g. "/1/5/10/"
 	Level       int    `json:"level" gorm:"default:0"`                                  // 层级深度
 	Color       string `json:"color" gorm:"size:7"`                                     // 标签颜色 (HEX)
 	Category    string `json:"category" gorm:"size:50;index"`                           // 业务分类 (asset, vul, user...) - 仅作UI分组，逻辑上通用

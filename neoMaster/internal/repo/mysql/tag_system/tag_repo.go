@@ -13,7 +13,8 @@ type TagRepository interface {
 	// 标签定义管理
 	CreateTag(tag *tag_system.SysTag) error
 	GetTagByID(id uint64) (*tag_system.SysTag, error)
-	GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error)
+	GetTagByName(name string) (*tag_system.SysTag, error)   // 获取标签
+	GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) // 批量获取标签
 	GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error)
 	UpdateTag(tag *tag_system.SysTag) error
 	DeleteTag(id uint64) error
@@ -57,12 +58,24 @@ func (r *tagRepository) GetTagByID(id uint64) (*tag_system.SysTag, error) {
 	return &tag, nil
 }
 
+// GetTagByName 获取标签
+func (r *tagRepository) GetTagByName(name string) (*tag_system.SysTag, error) {
+	var tag tag_system.SysTag
+	err := r.db.Where("name = ?", name).First(&tag).Error
+	if err != nil {
+		return nil, err
+	}
+	return &tag, nil
+}
+
+// GetTagsByIDs 批量获取标签
 func (r *tagRepository) GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) {
 	var tags []tag_system.SysTag
 	err := r.db.Where("id IN ?", ids).Find(&tags).Error
 	return tags, err
 }
 
+// GetTagsByParent 获取子标签
 func (r *tagRepository) GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error) {
 	var tags []tag_system.SysTag
 	err := r.db.Where("parent_id = ?", parentID).Find(&tags).Error

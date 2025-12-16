@@ -21,11 +21,16 @@ func (m *MockTagRepository) GetTagByID(id uint64) (*tag_system.SysTag, error) {
 func (m *MockTagRepository) GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) { return nil, nil }
 func (m *MockTagRepository) UpdateTag(tag *tag_system.SysTag) error                 { return nil }
 func (m *MockTagRepository) DeleteTag(id uint64) error                              { return nil }
-func (m *MockTagRepository) ListTags(parentID uint64) ([]tag_system.SysTag, error)  { return nil, nil }
+func (m *MockTagRepository) ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) {
+	return nil, 0, nil
+}
 
 func (m *MockTagRepository) CreateRule(rule *tag_system.SysMatchRule) error { return nil }
 func (m *MockTagRepository) GetRulesByEntityType(entityType string) ([]tag_system.SysMatchRule, error) {
 	return m.Rules, nil
+}
+func (m *MockTagRepository) ListRules(req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error) {
+	return m.Rules, int64(len(m.Rules)), nil
 }
 func (m *MockTagRepository) GetRuleByID(id uint64) (*tag_system.SysMatchRule, error) { return nil, nil }
 func (m *MockTagRepository) UpdateRule(rule *tag_system.SysMatchRule) error          { return nil }

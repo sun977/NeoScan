@@ -19,6 +19,7 @@ import (
 	authHandler "neomaster/internal/handler/auth"
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
+	tagHandler "neomaster/internal/handler/tag_system"
 
 	// 统一使用项目封装的日志模块，便于采集规范字段与统一输出
 	"neomaster/internal/pkg/logger"
@@ -59,6 +60,9 @@ type Router struct {
 	scanStageHandler        *orchestratorHandler.ScanStageHandler
 	scanToolTemplateHandler *orchestratorHandler.ScanToolTemplateHandler
 	agentTaskHandler        *orchestratorHandler.AgentTaskHandler
+
+	// 标签系统相关Handler
+	tagHandler *tagHandler.TagHandler
 
 	// 调度服务
 	schedulerService scheduler.SchedulerService
@@ -114,6 +118,9 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	// TaskDispatcher 现已完全由 Orchestrator 管理，AgentModule 不再需要注入
 	agentModule := setup.BuildAgentModule(db)
 
+	// 通过 setup.BuildTagSystemModule 初始化标签系统模块
+	tagModule := setup.BuildTagSystemModule(db)
+
 	// 从 OrchestratorModule 中获取聚合后的处理器
 	projectHandler := orchestratorModule.ProjectHandler
 	workflowHandler := orchestratorModule.WorkflowHandler
@@ -131,6 +138,9 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetVulnHandler := assetModule.AssetVulnHandler
 	assetUnifiedHandler := assetModule.AssetUnifiedHandler
 	assetScanHandler := assetModule.AssetScanHandler
+
+	// 从 TagModule 中获取处理器
+	tagHandler := tagModule.TagHandler
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode) // 设置为生产模式
@@ -166,6 +176,9 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		scanStageHandler:        scanStageHandler,
 		scanToolTemplateHandler: scanToolTemplateHandler,
 		agentTaskHandler:        agentTaskHandler,
+
+		// 标签系统Handler
+		tagHandler: tagHandler,
 
 		// 扫描任务调度服务
 		schedulerService: orchestratorModule.SchedulerService,
@@ -267,6 +280,8 @@ func (r *Router) registerRoutes() {
 	r.setupAgentRoutes(v1)
 	// 资产管理路由（需要 JWT 认证）
 	r.setupAssetRoutes(v1)
+	// 标签系统路由（需要 JWT 认证）
+	r.setupTagSystemRoutes(v1)
 	// 健康检查路由
 	r.setupHealthRoutes(api)
 

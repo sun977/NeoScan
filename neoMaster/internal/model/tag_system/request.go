@@ -49,3 +49,22 @@ type ManualTagRequest struct {
 	EntityID   string   `json:"entity_id" validate:"required"`
 	TagIDs     []uint64 `json:"tag_ids" validate:"required"`
 }
+
+// ListTagsRequest 获取标签列表请求
+type ListTagsRequest struct {
+	ParentID *uint64 `form:"parent_id"` // 父标签ID (可选)
+	Keyword  string  `form:"keyword"`   // 搜索关键字 (名称/描述)
+	Category string  `form:"category"`  // 业务分类 (可选) (asset, vul, user...)
+	Page     int     `form:"page"`      // 页码
+	PageSize int     `form:"page_size"` // 每页数量
+}
+
+// ListRulesRequest 获取规则列表请求
+type ListRulesRequest struct {
+	EntityType string `form:"entity_type"` // 实体类型
+	TagID      uint64 `form:"tag_id"`      // 标签ID
+	Keyword    string `form:"keyword"`     // 搜索关键字 (名称)
+	IsEnabled  *bool  `form:"is_enabled"`  // 是否启用
+	Page       int    `form:"page"`        // 页码
+	PageSize   int    `form:"page_size"`   // 每页数量
+}

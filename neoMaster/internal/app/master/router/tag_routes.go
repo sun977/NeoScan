@@ -9,6 +9,7 @@ func (r *Router) setupTagSystemRoutes(rg *gin.RouterGroup) {
 	// 使用 JWT 中间件保护
 	tags := rg.Group("/tags")
 	tags.Use(r.middlewareManager.GinJWTAuthMiddleware())
+	tags.Use(r.middlewareManager.GinUserActiveMiddleware())
 	{
 		// 标签 CRUD
 		tags.POST("", r.tagHandler.CreateTag)

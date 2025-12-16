@@ -218,7 +218,7 @@ paths:
                     type: string
                     example: Tag deleted successfully
 
-  /api/v1/tag-rules:
+  /api/v1/tags/rules:
     post:
       summary: 创建规则
       tags:
@@ -323,7 +323,7 @@ paths:
                         type: integer
                         example: 10
 
-  /api/v1/tag-rules/{id}:
+  /api/v1/tags/rules/{id}:
     put:
       summary: 更新规则
       tags:
@@ -358,6 +358,34 @@ paths:
                   message:
                     type: string
                     example: Rule updated successfully
+    delete:
+      summary: 删除规则
+      tags:
+        - 规则管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 规则ID
+      responses:
+        '200':
+          description: 成功删除
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Rule deleted successfully
 
 components:
   schemas:

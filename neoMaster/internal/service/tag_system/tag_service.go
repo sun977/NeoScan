@@ -349,13 +349,13 @@ func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType
 		return "", fmt.Errorf("currently only network propagation is supported")
 	}
 
-	// 1. Fetch Entity (Network) to get CIDR
+	// 1. 获取网络实体以获取 CIDR (AssetNetwork 有 network 和 cidr 字段)
 	var network assetModel.AssetNetwork
 	if err := s.db.WithContext(ctx).First(&network, entityID).Error; err != nil {
 		return "", fmt.Errorf("failed to find network: %v", err)
 	}
 
-	// 2. Fetch Tags to get Names
+	// 2. 获取标签以获取名称
 	var tags []tag_system.SysTag
 	if err := s.db.WithContext(ctx).Where("id IN ?", tagIDs).Find(&tags).Error; err != nil {
 		return "", fmt.Errorf("failed to find tags: %v", err)

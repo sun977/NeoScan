@@ -220,22 +220,20 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 		}
 
 		if matched {
+			// 匹配成功,记录标签ID和规则ID成列表
 			matchedTagIDs = append(matchedTagIDs, ruleRecord.TagID)
 			matchedRuleIDs = append(matchedRuleIDs, ruleRecord.ID)
 		}
 	}
 
-	// 3. 更新实体标签
-	// 策略：AutoTag 是增量还是覆盖？
-	// 通常 AutoTag 负责"确保命中规则的标签存在"。
-	// 如果之前命中了规则A打了标签X，现在不命中了，是否要移除标签X？
-	// 这是一个复杂问题 (State Management)。
-	// 简化版本 (MVP): 只增不减，或者由"清洗任务"负责移除。
-	// 但如果规则变了，标签不移除会产生脏数据。
-	// 改进版本:
-	// 找出该实体所有 Source='auto' 的标签 -> 比较 -> 多退少补。
+	// 3. 更新实体标签 (State Reconciliation)
+	// 策略：全量调和 (Full Reconciliation)。
+	// 找出该实体所有 Source='auto' 的标签，与当前命中的规则进行对比：
+	// - 新命中的 -> 添加
+	// - 不再命中的 -> 移除
+	// - 手动打的标签 (Source != 'auto') -> 保持不变
 
-	// Step 3.1: 获取现有 Auto 标签
+	// Step 3.1: 从数据库获取现有 Auto 标签
 	existingTags, err := s.repo.GetEntityTags(entityType, entityID)
 	if err != nil {
 		return err
@@ -243,6 +241,7 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 
 	existingAutoTagMap := make(map[uint64]uint64) // TagID -> RuleID
 	for _, t := range existingTags {
+		// 只处理 source='auto' 标签,其他来源的标签不处理,比如手动添加的标签
 		if t.Source == "auto" {
 			existingAutoTagMap[t.TagID] = t.RuleID
 		}
@@ -253,7 +252,7 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 	for i, tagID := range matchedTagIDs {
 		ruleID := matchedRuleIDs[i]
 
-		// 如果已存在且RuleID一致，跳过
+		// 如果已存在且RuleID一致，跳过 (已存在标签,且规则ID一致,则无需重复添加)
 		if currRuleID, exists := existingAutoTagMap[tagID]; exists {
 			if currRuleID == ruleID {
 				delete(existingAutoTagMap, tagID) // 标记为已处理
@@ -261,7 +260,7 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 			}
 		}
 
-		// 添加/更新
+		// 添加/更新 (不存在或RuleID不一致,更新或添加标签)
 		err := s.repo.AddEntityTag(&tag_system.SysEntityTag{
 			EntityType: entityType,
 			EntityID:   entityID,

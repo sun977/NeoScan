@@ -35,6 +35,7 @@ type TagService interface {
 	// --- 标签 CRUD ---
 	CreateTag(ctx context.Context, tag *tag_system.SysTag) error
 	GetTag(ctx context.Context, id uint64) (*tag_system.SysTag, error)
+	GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error) // 通过名称获取标签
 	UpdateTag(ctx context.Context, tag *tag_system.SysTag) error
 	DeleteTag(ctx context.Context, id uint64) error
 	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
@@ -100,6 +101,10 @@ func (s *tagService) CreateTag(ctx context.Context, tag *tag_system.SysTag) erro
 
 func (s *tagService) GetTag(ctx context.Context, id uint64) (*tag_system.SysTag, error) {
 	return s.repo.GetTagByID(id)
+}
+
+func (s *tagService) GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error) {
+	return s.repo.GetTagByName(name)
 }
 
 func (s *tagService) UpdateTag(ctx context.Context, tag *tag_system.SysTag) error {

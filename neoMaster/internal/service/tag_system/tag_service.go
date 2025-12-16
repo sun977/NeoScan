@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
+	"neomaster/internal/pkg/utils"
+
 	"gorm.io/gorm"
 
 	assetModel "neomaster/internal/model/asset"
@@ -31,14 +32,14 @@ type TagPropagationPayload struct {
 }
 
 type TagService interface {
-	// --- Basic CRUD ---
+	// --- 标签 CRUD ---
 	CreateTag(ctx context.Context, tag *tag_system.SysTag) error
 	GetTag(ctx context.Context, id uint64) (*tag_system.SysTag, error)
 	UpdateTag(ctx context.Context, tag *tag_system.SysTag) error
 	DeleteTag(ctx context.Context, id uint64) error
 	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
 
-	// --- Rules ---
+	// --- 规则 Rules CRUD ---
 	CreateRule(ctx context.Context, rule *tag_system.SysMatchRule) error
 	UpdateRule(ctx context.Context, rule *tag_system.SysMatchRule) error
 	DeleteRule(ctx context.Context, id uint64) error
@@ -46,11 +47,11 @@ type TagService interface {
 	ListRules(ctx context.Context, req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error)
 
 	// --- Auto Tagging ---
-	AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error
+	AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error // 添加标签
 
-	// --- Propagation ---
-	SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error)
-	SubmitEntityPropagationTask(ctx context.Context, entityType string, entityID uint64, tagIDs []uint64, action string) (string, error)
+	// --- 标签扩散 Propagation ---
+	SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error)                                             // 提交标签传播任务
+	SubmitEntityPropagationTask(ctx context.Context, entityType string, entityID uint64, tagIDs []uint64, action string) (string, error) // 提交标签扩散任务
 }
 
 type tagService struct {
@@ -320,7 +321,10 @@ func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, a
 
 	// 4. 创建系统任务 (直接写入 agent_tasks 表)
 	// 注意：这里需要与 orchestrator.AgentTask 结构保持一致
-	taskID := uuid.New().String()
+	taskID, _ := utils.GenerateUUID()
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to generate task ID: %v", err)
+	// }
 	task := orchestrator.AgentTask{
 		TaskID:       taskID,
 		TaskType:     "sys_tag_propagation", // 对应 ToolName ?
@@ -339,6 +343,7 @@ func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, a
 	return taskID, nil
 }
 
+// SubmitEntityPropagationTask 提交实体标签传播任务
 func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType string, entityID uint64, tagIDs []uint64, action string) (string, error) {
 	if entityType != "network" {
 		return "", fmt.Errorf("currently only network propagation is supported")
@@ -364,7 +369,7 @@ func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType
 		return "", fmt.Errorf("no valid tags found")
 	}
 
-	// 3. Construct Virtual Rule
+	// 3. 创建虚拟规则 --- 用来匹配 IP 是否在 CIDR
 	// Target: Host (Propagate from Network to Host)
 	// Rule: IP in CIDR
 	rule := matcher.MatchRule{
@@ -373,7 +378,7 @@ func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType
 		Value:    network.CIDR,
 	}
 
-	// 4. Construct Payload
+	// 4. 构造任务载荷
 	payload := TagPropagationPayload{
 		TargetType: "host", // Hardcoded for Network->Host propagation
 		Action:     action,
@@ -385,8 +390,11 @@ func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType
 
 	payloadBytes, _ := json.Marshal(payload)
 
-	// 5. Create Task
-	taskID := uuid.New().String()
+	// 5. 创建系统任务 (直接写入 agent_tasks 表)
+	taskID, _ := utils.GenerateUUID()
+	// if err2 != nil {
+	// 	return "", fmt.Errorf("failed to generate task ID: %v", err2)
+	// }
 	task := orchestrator.AgentTask{
 		TaskID:       taskID,
 		TaskType:     "sys_tag_propagation",

@@ -1,0 +1,489 @@
+openapi: 3.0.1
+info:
+  title: NeoScan Tag System API
+  description: |
+    NeoScan Tag System API 接口文档 v1.0
+    
+    ## 版本更新说明
+    
+    **版本**: v1.0
+    **更新日期**: 2025-12-16
+    **主要变更**:
+    - 初始版本：标签管理与规则管理接口
+    
+    ## 认证说明
+    
+    大部分API需要JWT Bearer Token认证，请在请求头中包含：
+    ```
+    Authorization: Bearer <access_token>
+    ```
+  version: 1.0.0
+tags:
+  - name: 标签管理
+    description: 标签的增删改查
+  - name: 规则管理
+    description: 自动打标规则管理
+paths:
+  /api/v1/tags:
+    post:
+      summary: 创建标签
+      tags:
+        - 标签管理
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '200':
+          description: 成功创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Tag created successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+    get:
+      summary: 获取标签列表
+      tags:
+        - 标签管理
+      parameters:
+        - name: parent_id
+          in: query
+          schema:
+            type: integer
+          description: 父标签ID
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: 搜索关键字 (名称/描述)
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: 业务分类
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: 每页数量
+      responses:
+        '200':
+          description: 成功获取列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Tags retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TagResponse'
+                      total:
+                        type: integer
+                        example: 100
+                      page:
+                        type: integer
+                        example: 1
+                      page_size:
+                        type: integer
+                        example: 10
+
+  /api/v1/tags/{id}:
+    get:
+      summary: 获取标签详情
+      tags:
+        - 标签管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 标签ID
+      responses:
+        '200':
+          description: 成功获取详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Tag retrieved successfully
+                  data:
+                    $ref: '#/components/schemas/TagResponse'
+    put:
+      summary: 更新标签
+      tags:
+        - 标签管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 标签ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTagRequest'
+      responses:
+        '200':
+          description: 成功更新
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Tag updated successfully
+    delete:
+      summary: 删除标签
+      tags:
+        - 标签管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 标签ID
+      responses:
+        '200':
+          description: 成功删除
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Tag deleted successfully
+
+  /api/v1/tag-rules:
+    post:
+      summary: 创建规则
+      tags:
+        - 规则管理
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleRequest'
+      responses:
+        '200':
+          description: 成功创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Rule created successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+    get:
+      summary: 获取规则列表
+      tags:
+        - 规则管理
+      parameters:
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+          description: 实体类型
+        - name: tag_id
+          in: query
+          schema:
+            type: integer
+          description: 标签ID
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: 搜索关键字 (名称)
+        - name: is_enabled
+          in: query
+          schema:
+            type: boolean
+          description: 是否启用
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: 每页数量
+      responses:
+        '200':
+          description: 成功获取列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Rules retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RuleResponse'
+                      total:
+                        type: integer
+                        example: 50
+                      page:
+                        type: integer
+                        example: 1
+                      page_size:
+                        type: integer
+                        example: 10
+
+  /api/v1/tag-rules/{id}:
+    put:
+      summary: 更新规则
+      tags:
+        - 规则管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 规则ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRuleRequest'
+      responses:
+        '200':
+          description: 成功更新
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Rule updated successfully
+
+components:
+  schemas:
+    CreateTagRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: 标签名称
+        parent_id:
+          type: integer
+          description: 父标签ID
+        color:
+          type: string
+          description: 标签颜色
+        category:
+          type: string
+          description: 业务分类
+        description:
+          type: string
+          description: 描述
+
+    UpdateTagRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 标签名称
+        color:
+          type: string
+          description: 标签颜色
+        description:
+          type: string
+          description: 描述
+
+    CreateRuleRequest:
+      type: object
+      required:
+        - tag_id
+        - name
+        - entity_type
+        - rule_json
+      properties:
+        tag_id:
+          type: integer
+          description: 关联标签ID
+        name:
+          type: string
+          description: 规则名称
+        entity_type:
+          type: string
+          description: 实体类型
+        priority:
+          type: integer
+          description: 优先级
+        rule_json:
+          type: object
+          description: 匹配规则 (JSON对象)
+        is_enabled:
+          type: boolean
+          description: 是否启用
+
+    UpdateRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 规则名称
+        priority:
+          type: integer
+          description: 优先级
+        rule_json:
+          type: object
+          description: 匹配规则
+        is_enabled:
+          type: boolean
+          description: 是否启用
+
+    TagResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        parent_id:
+          type: integer
+        path:
+          type: string
+        level:
+          type: integer
+        color:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RuleResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        tag_id:
+          type: integer
+        name:
+          type: string
+        entity_type:
+          type: string
+        priority:
+          type: integer
+        rule_json:
+          type: object
+        is_enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

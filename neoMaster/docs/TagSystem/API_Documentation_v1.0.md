@@ -206,7 +206,7 @@
 ## ⚙️ 规则管理接口
 
 ### 1. 创建规则
-- **URL**: `/api/v1/tag-rules`
+- **URL**: `/api/v1/tags/rules`
 - **方法**: `POST`
 - **描述**: 创建自动打标规则
 - **认证**: 需要
@@ -234,7 +234,7 @@
 ```
 
 ### 2. 获取规则列表
-- **URL**: `/api/v1/tag-rules`
+- **URL**: `/api/v1/tags/rules`
 - **方法**: `GET`
 - **描述**: 获取规则列表，支持筛选
 - **认证**: 需要
@@ -277,7 +277,7 @@
 ```
 
 ### 3. 更新规则
-- **URL**: `/api/v1/tag-rules/{id}`
+- **URL**: `/api/v1/tags/rules/{id}`
 - **方法**: `PUT`
 - **描述**: 更新规则信息
 - **认证**: 需要
@@ -301,6 +301,27 @@
   "code": 200,
   "status": "success",
   "message": "Rule updated successfully",
+  "data": null
+}
+```
+
+### 4. 删除规则
+- **URL**: `/api/v1/tags/rules/{id}`
+- **方法**: `DELETE`
+- **描述**: 删除自动打标规则
+- **认证**: 需要
+
+**请求参数 (Path)**:
+| 字段名 | 类型 | 必选 | 描述 |
+| :--- | :--- | :--- | :--- |
+| id | integer | 是 | 规则ID |
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "status": "success",
+  "message": "Rule deleted successfully",
   "data": null
 }
 ```

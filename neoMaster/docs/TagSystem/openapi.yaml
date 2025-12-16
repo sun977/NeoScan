@@ -387,6 +387,53 @@ paths:
                     type: string
                     example: Rule deleted successfully
 
+  /api/v1/tags/rules/{id}/apply:
+    post:
+      summary: 手动触发规则执行
+      description: 手动触发规则的应用或移除，生成后台任务
+      tags:
+        - 规则管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 规则ID
+        - name: action
+          in: query
+          schema:
+            type: string
+            enum: [add, remove]
+            default: add
+          description: 执行动作 (add: 应用规则, remove: 移除规则)
+      responses:
+        '200':
+          description: 任务提交成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Rule application task submitted successfully
+                  data:
+                    type: object
+                    properties:
+                      task_id:
+                        type: string
+                        example: "task_1234567890"
+                      action:
+                        type: string
+                        example: "add"
+
 components:
   schemas:
     CreateTagRequest:

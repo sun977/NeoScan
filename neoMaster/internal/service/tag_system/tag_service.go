@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	assetModel "neomaster/internal/model/asset"
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/matcher"
@@ -49,6 +50,7 @@ type TagService interface {
 
 	// --- Propagation ---
 	SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error)
+	SubmitEntityPropagationTask(ctx context.Context, entityType string, entityID uint64, tagIDs []uint64, action string) (string, error)
 }
 
 type tagService struct {
@@ -328,6 +330,72 @@ func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, a
 		ToolName:     ToolNameSysTagPropagation,
 		ToolParams:   string(payloadBytes),
 		TaskCategory: TaskCategorySystem, // 关键字段
+	}
+
+	if err := s.db.Create(&task).Error; err != nil {
+		return "", err
+	}
+
+	return taskID, nil
+}
+
+func (s *tagService) SubmitEntityPropagationTask(ctx context.Context, entityType string, entityID uint64, tagIDs []uint64, action string) (string, error) {
+	if entityType != "network" {
+		return "", fmt.Errorf("currently only network propagation is supported")
+	}
+
+	// 1. Fetch Entity (Network) to get CIDR
+	var network assetModel.AssetNetwork
+	if err := s.db.WithContext(ctx).First(&network, entityID).Error; err != nil {
+		return "", fmt.Errorf("failed to find network: %v", err)
+	}
+
+	// 2. Fetch Tags to get Names
+	var tags []tag_system.SysTag
+	if err := s.db.WithContext(ctx).Where("id IN ?", tagIDs).Find(&tags).Error; err != nil {
+		return "", fmt.Errorf("failed to find tags: %v", err)
+	}
+	var tagNames []string
+	for _, t := range tags {
+		tagNames = append(tagNames, t.Name)
+	}
+
+	if len(tagNames) == 0 {
+		return "", fmt.Errorf("no valid tags found")
+	}
+
+	// 3. Construct Virtual Rule
+	// Target: Host (Propagate from Network to Host)
+	// Rule: IP in CIDR
+	rule := matcher.MatchRule{
+		Field:    "ip",
+		Operator: "cidr",
+		Value:    network.CIDR,
+	}
+
+	// 4. Construct Payload
+	payload := TagPropagationPayload{
+		TargetType: "host", // Hardcoded for Network->Host propagation
+		Action:     action,
+		Rule:       rule,
+		RuleID:     0, // No Rule ID for manual propagation
+		Tags:       tagNames,
+		TagIDs:     tagIDs,
+	}
+
+	payloadBytes, _ := json.Marshal(payload)
+
+	// 5. Create Task
+	taskID := uuid.New().String()
+	task := orchestrator.AgentTask{
+		TaskID:       taskID,
+		TaskType:     "sys_tag_propagation",
+		AgentID:      "master",
+		Status:       "pending",
+		Priority:     10,
+		ToolName:     ToolNameSysTagPropagation,
+		ToolParams:   string(payloadBytes),
+		TaskCategory: TaskCategorySystem,
 	}
 
 	if err := s.db.Create(&task).Error; err != nil {

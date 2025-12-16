@@ -1,6 +1,5 @@
 # Tag System Design Philosophy & Implementation
 
-> "Bad programmers worry about the code. Good programmers worry about data structures and their relationships." -- Linus Torvalds
 
 本文档记录了标签系统针对三种核心业务场景的设计思考与实现方案。我们的核心准则是**实用主义**和**避免过度设计**。
 
@@ -78,4 +77,32 @@
 
 这保持了系统的简洁性 (Simplicity) 和正交性 (Orthogonality)。
 
-> "Complexity is the enemy. It makes it hard to test, hard to understand, and hard to fix."
+## AutoTag 函数流程
+有剩余不再命中的标签自动删除
+```mermaid
+flowchart TD
+    A["开始 AutoTag"] --> B{"获取该类型所有启用规则"}
+    B -- 无规则 --> C["直接返回"]
+    B -- 有规则 --> D["遍历规则并匹配"]
+    
+    D --> E{"属性匹配规则?"}
+    E -- 是 --> F["加入匹配列表 (Target List)"]
+    E -- 否 --> D
+    
+    D -- 遍历结束 --> G["获取实体当前已有 Auto 标签 (Current List)"]
+    
+    G --> H["计算差异 (Diff)"]
+    
+    H --> I{"遍历匹配列表 (Target List)"}
+    I -- "标签已存在且RuleID一致" --> J["保留 (Mark as Kept)"]
+    I -- "标签不存在或RuleID变了" --> K["执行添加 (AddEntityTag)"]
+    
+    I -- 遍历结束 --> L["检查 Current List 中剩余未保留的标签"]
+    
+    L --> M{"有剩余?"}
+    M -- "是 (不再命中)" --> N["执行移除 (RemoveEntityTag)"]
+    M -- 否 --> O["结束"]
+    
+    N --> O
+
+```

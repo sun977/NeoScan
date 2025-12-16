@@ -79,6 +79,7 @@ func TestTagSystemIntegration(t *testing.T) {
 	db.Where("name LIKE ?", "TestTag%").Delete(&tag_system.SysTag{})
 	db.Where("name LIKE ?", "TestRule%").Delete(&tag_system.SysMatchRule{})
 	db.Where("network LIKE ?", "192.168.Test%").Delete(&assetModel.AssetNetwork{})
+	db.Where("entity_id IN ?", []string{"host_test_A", "host_test_B"}).Delete(&tag_system.SysEntityTag{})
 
 	// 1.1 Root Tag
 	rootTag := &tag_system.SysTag{
@@ -202,14 +203,14 @@ func TestTagSystemIntegration(t *testing.T) {
 
 	// 3.3 验证任务是否生成
 	var task orchestrator.AgentTask
-	if err := db.Where("task_id = ?", taskID).First(&task).Error; err != nil {
-		t.Fatalf("Failed to find task: %v", err)
+	if err6 := db.Where("task_id = ?", taskID).First(&task).Error; err6 != nil {
+		t.Fatalf("Failed to find task: %v", err6)
 	}
 
 	// 验证 Payload
 	var payload tagService.TagPropagationPayload
-	if err := json.Unmarshal([]byte(task.ToolParams), &payload); err != nil {
-		t.Fatalf("Failed to unmarshal payload: %v", err)
+	if err7 := json.Unmarshal([]byte(task.ToolParams), &payload); err7 != nil {
+		t.Fatalf("Failed to unmarshal payload: %v", err7)
 	}
 
 	// 检查 Payload 内容
@@ -225,4 +226,135 @@ func TestTagSystemIntegration(t *testing.T) {
 	}
 
 	t.Log("Manual Propagation Task Verified Success")
+
+	t.Log("=== Step 4: Testing Multiple Rules Matching (Scenario 4) ===")
+	// 场景: 同一个主机命中多条规则 -> 应该打上所有标签
+
+	// 4.1 创建第二个标签
+	internalTag := &tag_system.SysTag{
+		Name:     "TestTag_Internal",
+		ParentID: rootTag.ID,
+	}
+	if err3 := svc.CreateTag(ctx, internalTag); err3 != nil {
+		t.Fatalf("Failed to create internal tag: %v", err3)
+	}
+
+	// 4.2 创建第二个规则: IP 属于 192.168.0.0/16
+	ruleJSON2 := `{"field": "ip", "operator": "cidr", "value": "192.168.0.0/16"}`
+	rule2 := &tag_system.SysMatchRule{
+		Name:       "TestRule_InternalIP",
+		TagID:      internalTag.ID,
+		EntityType: "host",
+		Priority:   5,
+		RuleJSON:   ruleJSON2,
+		IsEnabled:  true,
+	}
+	if err4 := svc.CreateRule(ctx, rule2); err4 != nil {
+		t.Fatalf("Failed to create second rule: %v", err4)
+	}
+
+	// 4.3 再次运行 AutoTag (针对 Host A)
+	// Host A: Port=8080 (Matches Rule 1), IP=192.168.1.10 (Matches Rule 2)
+	if err5 := svc.AutoTag(ctx, "host", hostID_A, attrs_A); err5 != nil {
+		t.Fatalf("AutoTag failed for Case A (Multi): %v", err5)
+	}
+
+	// 4.4 验证标签数量
+	tagsA_Multi, err := repo.GetEntityTags("host", hostID_A)
+	if err != nil {
+		t.Fatalf("Failed to get entity tags: %v", err)
+	}
+
+	// 应该有 2 个标签: CZTT (ID=czttTag.ID) 和 Internal (ID=internalTag.ID)
+	// 注意：GetEntityTags 返回所有标签，包括手动打的 (这里没有手动打给Host A的，只有Auto)
+	if len(tagsA_Multi) != 2 {
+		t.Errorf("Expected 2 tags for Host A, got %d. Tags: %v", len(tagsA_Multi), tagsA_Multi)
+	} else {
+		t.Log("Case A Multiple Rules Success: Got 2 tags")
+		// 验证具体标签ID
+		foundCZTT := false
+		foundInternal := false
+		for _, tag := range tagsA_Multi {
+			if tag.TagID == czttTag.ID {
+				foundCZTT = true
+			}
+			if tag.TagID == internalTag.ID {
+				foundInternal = true
+			}
+		}
+		if !foundCZTT || !foundInternal {
+			t.Errorf("Tags mismatch. Expected [CZTT, Internal], got %v", tagsA_Multi)
+		}
+	}
+
+	t.Log("=== Step 5: Testing Manual Tag Preservation (Scenario 5) ===")
+	// 场景: 用户手动打的标签，即使命中自动规则，也不应被覆盖为 auto，
+	// 且当规则不再命中时，手动标签不应被删除。
+
+	// 5.1 创建一个“敏感资产”标签
+	sensitiveTag := &tag_system.SysTag{
+		Name:     "TestTag_Sensitive",
+		ParentID: rootTag.ID,
+	}
+	if err8 := svc.CreateTag(ctx, sensitiveTag); err8 != nil {
+		t.Fatalf("Failed to create sensitive tag: %v", err8)
+	}
+
+	// 5.2 手动给 Host B 打上该标签
+	// Host B: IP=192.168.1.11, Port=22
+	if err9 := repo.AddEntityTag(&tag_system.SysEntityTag{
+		EntityType: "host",
+		EntityID:   hostID_B,
+		TagID:      sensitiveTag.ID,
+		Source:     "manual",
+	}); err9 != nil {
+		t.Fatalf("Failed to add manual tag: %v", err9)
+	}
+
+	// 5.3 创建规则: Port=22 -> Sensitive
+	ruleJSON3 := `{"field": "port", "operator": "eq", "value": 22}`
+	rule3 := &tag_system.SysMatchRule{
+		Name:       "TestRule_SSH",
+		TagID:      sensitiveTag.ID,
+		EntityType: "host",
+		Priority:   8,
+		RuleJSON:   ruleJSON3,
+		IsEnabled:  true,
+	}
+	if err10 := svc.CreateRule(ctx, rule3); err10 != nil {
+		t.Fatalf("Failed to create SSH rule: %v", err10)
+	}
+
+	// 5.4 运行 AutoTag (针对 Host B)
+	// Host B 命中 Rule 3
+	if err11 := svc.AutoTag(ctx, "host", hostID_B, attrs_B); err11 != nil {
+		t.Fatalf("AutoTag failed for Case B (Manual): %v", err11)
+	}
+
+	// 5.5 验证标签状态
+	tagsB_Final, err := repo.GetEntityTags("host", hostID_B)
+	if err != nil {
+		t.Fatalf("Failed to get tags for Host B: %v", err)
+	}
+
+	// 应该有 2 个标签: Sensitive (Manual) 和 Internal (Auto, from previous step)
+	if len(tagsB_Final) != 2 {
+		t.Errorf("Expected 2 tags for Host B, got %d. Tags: %v", len(tagsB_Final), tagsB_Final)
+	} else {
+		foundSensitive := false
+		for _, tag := range tagsB_Final {
+			if tag.TagID == sensitiveTag.ID {
+				foundSensitive = true
+				// 关键检查: Source 必须仍然是 'manual'
+				if tag.Source != "manual" {
+					t.Errorf("CRITICAL: Manual tag was overwritten by AutoTag! Source is %s", tag.Source)
+				} else {
+					t.Log("Success: Manual tag preserved despite matching rule")
+				}
+			}
+		}
+		if !foundSensitive {
+			t.Errorf("Sensitive Tag not found on Host B")
+		}
+	}
 }

@@ -52,6 +52,20 @@ type TagService interface {
 	// --- 标签扩散 Propagation ---
 	SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error)                                             // 提交标签传播任务
 	SubmitEntityPropagationTask(ctx context.Context, entityType string, entityID uint64, tagIDs []uint64, action string) (string, error) // 提交标签扩散任务
+
+	// --- 状态调和 (State Reconciliation) ---
+	// SyncEntityTags 全量同步实体的标签。
+	// 策略：
+	// 1. 找出该实体所有 Source = scope 的标签。
+	// 2. 与传入的 targetTagIDs 进行对比。
+	// 3. 新增 targetTagIDs 中有但数据库中没有的。
+	// 4. 删除数据库中有但 targetTagIDs 中没有的。
+	// 5. 忽略 Source != scope 的标签 (保持不变)。
+	SyncEntityTags(ctx context.Context, entityType string, entityID string, targetTagIDs []uint64, sourceScope string, ruleID uint64) error
+
+	// --- 系统初始化 Bootstrap ---
+	// BootstrapSystemTags 初始化系统预设标签骨架 (Root, System, AgentGroup 等)
+	BootstrapSystemTags(ctx context.Context) error
 }
 
 type tagService struct {
@@ -227,11 +241,29 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 	}
 
 	// 3. 更新实体标签 (State Reconciliation)
-	// 策略：全量调和 (Full Reconciliation)。
-	// 找出该实体所有 Source='auto' 的标签，与当前命中的规则进行对比：
-	// - 新命中的 -> 添加
-	// - 不再命中的 -> 移除
-	// - 手动打的标签 (Source != 'auto') -> 保持不变
+	// 使用通用的 SyncEntityTags 方法
+	// 注意：AutoTag 的 scope 是 "auto"，并且如果是单个规则触发，这里其实有点特殊。
+	// AutoTag 现在的逻辑是基于“所有规则”的一次性全量计算。
+	// 所以我们可以直接把 matchedTagIDs 传给 SyncEntityTags。
+	// 但是 SyncEntityTags 只能接受一个 ruleID，而 AutoTag 不同的标签可能来自不同的 ruleID。
+	// 这是一个设计冲突。
+	//
+	// 修正：AutoTag 场景比较特殊，它是一次计算出多个 Tag 对应 多个 Rule。
+	// 而 SyncEntityTags 假设的是 targetTagIDs 都属于同一个 source 和 rule (或者 rule=0)。
+	//
+	// 方案：
+	// 既然 AutoTag 逻辑已经很完善（支持多 Rule），我们保留 AutoTag 的独立逻辑，
+	// 或者是让 SyncEntityTags 支持 Map[TagID]RuleID？
+	// 考虑到复杂性，我们先实现一个基础版的 SyncEntityTags 用于 Agent Report，
+	// AutoTag 保持现状（因为它是最复杂的场景）。
+
+	// ... Wait, actually we can refactor SyncEntityTags to be more generic.
+	// But for now, to satisfy the immediate requirement (Agent Report),
+	// let's implement SyncEntityTags separately and keep AutoTag as is for now.
+	// We can refactor AutoTag later to use a more advanced version of SyncEntityTags.
+
+	// 保持 AutoTag 原有逻辑不变
+	// ... (原代码)
 
 	// Step 3.1: 从数据库获取现有 Auto 标签
 	existingTags, err := s.repo.GetEntityTags(entityType, entityID)
@@ -291,6 +323,153 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// SyncEntityTags 全量同步实体的标签 (用于 Agent Report 等场景)
+func (s *tagService) SyncEntityTags(ctx context.Context, entityType string, entityID string, targetTagIDs []uint64, sourceScope string, ruleID uint64) error {
+	// 1. 获取现有标签
+	existingTags, err := s.repo.GetEntityTags(entityType, entityID)
+	if err != nil {
+		return err
+	}
+
+	// 2. 建立索引
+	// existingInScope: 在当前 sourceScope 下已存在的 TagID
+	existingInScope := make(map[uint64]bool)
+	// existingOthers: 其他 Source 的 TagID (用于防止覆盖 Manual 标签)
+	existingOthers := make(map[uint64]string)
+
+	for _, t := range existingTags {
+		if t.Source == sourceScope {
+			existingInScope[t.TagID] = true
+		} else {
+			existingOthers[t.TagID] = t.Source
+		}
+	}
+
+	// 3. 计算差异
+	targetSet := make(map[uint64]bool)
+
+	// A. 处理新增 (Add)
+	for _, tagID := range targetTagIDs {
+		targetSet[tagID] = true
+
+		// 如果该标签已被其他 Source 占用 (e.g. Manual), 则跳过
+		// 优先权：Manual > Auto/AgentReport
+		if _, exists := existingOthers[tagID]; exists {
+			continue
+		}
+
+		// 如果已存在于当前 Scope，标记为保留，不做操作
+		if _, exists := existingInScope[tagID]; exists {
+			// Remove from existingInScope map to mark as "kept"
+			delete(existingInScope, tagID)
+			continue
+		}
+
+		// 执行添加
+		err := s.repo.AddEntityTag(&tag_system.SysEntityTag{
+			EntityType: entityType,
+			EntityID:   entityID,
+			TagID:      tagID,
+			Source:     sourceScope,
+			RuleID:     ruleID,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// B. 处理删除 (Remove)
+	// 此时 existingInScope 中剩下的就是 "数据库中有，但 Target 中没有" 的标签
+	for tagID := range existingInScope {
+		err := s.repo.RemoveEntityTag(entityType, entityID, tagID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// BootstrapSystemTags 初始化系统预设标签骨架
+// 结构:
+// ROOT (ID: 1)
+// ├── System (Category: 'system')
+// │   ├── TaskSupport (Category: 'system')
+// │   └── Feature (Category: 'system')
+// └── AgentGroup (Category: 'agent_group')
+//
+//	└── Default (Category: 'agent_group')
+func (s *tagService) BootstrapSystemTags(ctx context.Context) error {
+	// Helper to create tag if not exists
+	ensureTag := func(name string, parentID uint64, category string) (*tag_system.SysTag, error) {
+		// 1. Check if exists by name and parent
+		// Note: repo should ideally provide FindByNameAndParent.
+		// Since we don't have it, we might need to rely on CreateTag's idempotency or add a check.
+		// For now, let's assume CreateTag handles duplication gracefully or we check manually.
+		// But wait, CreateTag uses GORM which might return error on unique constraint.
+		// Let's list children of parent and find.
+		children, err := s.repo.GetTagsByParent(parentID)
+		if err != nil {
+			return nil, err
+		}
+		for _, child := range children {
+			if child.Name == name {
+				return &child, nil
+			}
+		}
+
+		// 2. Create if not found
+		newTag := &tag_system.SysTag{
+			Name:     name,
+			ParentID: parentID,
+			Category: category,
+		}
+		if err := s.CreateTag(ctx, newTag); err != nil {
+			return nil, err
+		}
+		return newTag, nil
+	}
+
+	// 1. Root Node (ID: 1 is usually reserved or we find/create a "ROOT" tag)
+	// In our system, ParentID=0 is root. But usually we want a visible Root tag?
+	// Based on design, we have top-level tags like "System", "AgentGroup".
+	// They have ParentID = 0.
+	// Wait, standard practice: ParentID=0 are top level.
+	// Let's ensure top level tags exist.
+
+	// 1. System
+	sysTag, err := ensureTag("System", 0, "system")
+	if err != nil {
+		return fmt.Errorf("failed to ensure System tag: %w", err)
+	}
+
+	// 1.1 TaskSupport
+	_, err = ensureTag("TaskSupport", sysTag.ID, "system")
+	if err != nil {
+		return fmt.Errorf("failed to ensure TaskSupport tag: %w", err)
+	}
+
+	// 1.2 Feature
+	_, err = ensureTag("Feature", sysTag.ID, "system")
+	if err != nil {
+		return fmt.Errorf("failed to ensure Feature tag: %w", err)
+	}
+
+	// 2. AgentGroup
+	groupTag, err := ensureTag("AgentGroup", 0, "agent_group")
+	if err != nil {
+		return fmt.Errorf("failed to ensure AgentGroup tag: %w", err)
+	}
+
+	// 2.1 Default Group
+	_, err = ensureTag("Default", groupTag.ID, "agent_group")
+	if err != nil {
+		return fmt.Errorf("failed to ensure Default group tag: %w", err)
 	}
 
 	return nil

@@ -10,6 +10,7 @@ import (
 
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/model/tag_system"
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/matcher"
 	repo "neomaster/internal/repo/mysql/tag_system"
 )
@@ -22,9 +23,11 @@ const (
 // TagPropagationPayload 定义标签传播任务的参数载荷
 type TagPropagationPayload struct {
 	TargetType string            `json:"target_type"` // host, web, network
-	Action     string            `json:"action"`      // add, remove, refresh
+	Action     string            `json:"action"`      // add, remove
 	Rule       matcher.MatchRule `json:"rule"`        // 匹配规则
-	TagIDs     []uint64          `json:"tag_ids"`     // 关联的标签ID列表
+	RuleID     uint64            `json:"rule_id"`     // 规则ID (用于关联表)
+	Tags       []string          `json:"tags"`        // 标签名称列表 (LocalAgent 使用)
+	TagIDs     []uint64          `json:"tag_ids"`     // 关联的标签ID列表 (备用)
 }
 
 type TagService interface {
@@ -46,7 +49,7 @@ type TagService interface {
 	AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error
 
 	// --- Propagation ---
-	SubmitPropagationTask(ctx context.Context, ruleID uint64) (string, error)
+	SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error)
 }
 
 type tagService struct {
@@ -103,17 +106,74 @@ func (s *tagService) CreateRule(ctx context.Context, rule *tag_system.SysMatchRu
 	if _, err := matcher.ParseJSON(rule.RuleJSON); err != nil {
 		return fmt.Errorf("invalid rule json: %v", err)
 	}
-	return s.repo.CreateRule(rule)
+	if err := s.repo.CreateRule(rule); err != nil {
+		return err
+	}
+
+	// 触发标签传播任务 (Backfill)
+	if rule.IsEnabled {
+		if taskID, err := s.SubmitPropagationTask(ctx, rule.ID, "add"); err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.tag_system.CreateRule", "POST", map[string]interface{}{
+				"rule_id": rule.ID,
+				"action":  "add",
+			})
+		} else {
+			logger.LogBusinessOperation("tag_propagation_submitted", 0, "", "", "", "success", "Tag propagation task submitted", map[string]interface{}{
+				"rule_id": rule.ID,
+				"task_id": taskID,
+				"action":  "add",
+			})
+		}
+	}
+
+	return nil
 }
 
 func (s *tagService) UpdateRule(ctx context.Context, rule *tag_system.SysMatchRule) error {
 	if _, err := matcher.ParseJSON(rule.RuleJSON); err != nil {
 		return fmt.Errorf("invalid rule json: %v", err)
 	}
-	return s.repo.UpdateRule(rule)
+	if err := s.repo.UpdateRule(rule); err != nil {
+		return err
+	}
+
+	// 触发标签传播任务 (Backfill)
+	if rule.IsEnabled {
+		if taskID, err := s.SubmitPropagationTask(ctx, rule.ID, "add"); err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.tag_system.UpdateRule", "PUT", map[string]interface{}{
+				"rule_id": rule.ID,
+				"action":  "add",
+			})
+		} else {
+			logger.LogBusinessOperation("tag_propagation_submitted", 0, "", "", "", "success", "Tag propagation task submitted", map[string]interface{}{
+				"rule_id": rule.ID,
+				"task_id": taskID,
+				"action":  "add",
+			})
+		}
+	}
+	return nil
 }
 
 func (s *tagService) DeleteRule(ctx context.Context, id uint64) error {
+	// 1. 获取规则详情 (为了触发移除任务)
+	// 忽略错误，因为如果规则不存在，删除操作也会失败或者无所谓
+	if rule, err := s.repo.GetRuleByID(id); err == nil {
+		// 触发移除任务
+		if taskID, err := s.SubmitPropagationTask(ctx, rule.ID, "remove"); err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.tag_system.DeleteRule", "DELETE", map[string]interface{}{
+				"rule_id": rule.ID,
+				"action":  "remove",
+			})
+		} else {
+			logger.LogBusinessOperation("tag_propagation_submitted", 0, "", "", "", "success", "Tag propagation task submitted", map[string]interface{}{
+				"rule_id": rule.ID,
+				"task_id": taskID,
+				"action":  "remove",
+			})
+		}
+	}
+
 	return s.repo.DeleteRule(id)
 }
 
@@ -227,7 +287,7 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 	return nil
 }
 
-func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64) (string, error) {
+func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error) {
 	// 1. 获取规则详情
 	ruleRecord, err := s.repo.GetRuleByID(ruleID)
 	if err != nil {
@@ -239,17 +299,25 @@ func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64) (
 		return "", fmt.Errorf("invalid rule json: %v", err)
 	}
 
-	// 2. 构造任务载荷
+	// 2. 获取标签详情以获取名称
+	tagRecord, err := s.repo.GetTagByID(ruleRecord.TagID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get tag info: %v", err)
+	}
+
+	// 3. 构造任务载荷
 	payload := TagPropagationPayload{
 		TargetType: ruleRecord.EntityType,
-		Action:     "refresh", // 刷新模式
+		Action:     action,
 		Rule:       matchRule,
+		RuleID:     ruleRecord.ID,
+		Tags:       []string{tagRecord.Name},
 		TagIDs:     []uint64{ruleRecord.TagID},
 	}
 
 	payloadBytes, _ := json.Marshal(payload)
 
-	// 3. 创建系统任务 (直接写入 agent_tasks 表)
+	// 4. 创建系统任务 (直接写入 agent_tasks 表)
 	// 注意：这里需要与 orchestrator.AgentTask 结构保持一致
 	taskID := uuid.New().String()
 	task := orchestrator.AgentTask{

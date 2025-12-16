@@ -6,13 +6,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	assetModel "neomaster/internal/model/asset"
 	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/matcher"
 	orcrepo "neomaster/internal/repo/mysql/orchestrator"
@@ -172,7 +175,9 @@ type TagPropagationPayload struct {
 	TargetType string            `json:"target_type"` // host, web, network
 	Action     string            `json:"action"`      // add, remove
 	Tags       []string          `json:"tags"`
+	TagIDs     []uint64          `json:"tag_ids"`
 	Rule       matcher.MatchRule `json:"rule"`
+	RuleID     uint64            `json:"rule_id"`
 }
 
 // handleTagPropagation 处理标签传播任务
@@ -239,6 +244,7 @@ func (w *LocalAgent) processAssetHost(ctx context.Context, payload TagPropagatio
 				if newTags != asset.Tags {
 					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
 						count++
+						w.syncEntityTags(ctx, "host", strconv.FormatUint(asset.ID, 10), payload)
 					}
 				}
 			}
@@ -273,6 +279,7 @@ func (w *LocalAgent) processAssetWeb(ctx context.Context, payload TagPropagation
 				if newTags != asset.Tags {
 					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
 						count++
+						w.syncEntityTags(ctx, "web", strconv.FormatUint(asset.ID, 10), payload)
 					}
 				}
 			}
@@ -307,6 +314,7 @@ func (w *LocalAgent) processAssetNetwork(ctx context.Context, payload TagPropaga
 				if newTags != asset.Tags {
 					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
 						count++
+						w.syncEntityTags(ctx, "network", strconv.FormatUint(asset.ID, 10), payload)
 					}
 				}
 			}
@@ -445,6 +453,34 @@ func (w *LocalAgent) processCleanupNetwork(ctx context.Context, payload AssetCle
 	}).Error
 
 	return count, err
+}
+
+// syncEntityTags 同步实体关联标签表
+func (w *LocalAgent) syncEntityTags(ctx context.Context, entityType string, entityID string, payload TagPropagationPayload) {
+	if len(payload.TagIDs) == 0 {
+		return
+	}
+
+	if payload.Action == "add" {
+		for _, tagID := range payload.TagIDs {
+			entityTag := tag_system.SysEntityTag{
+				EntityType: entityType,
+				EntityID:   entityID,
+				TagID:      tagID,
+				Source:     "auto",
+				RuleID:     payload.RuleID,
+			}
+			// 使用 Upsert 避免重复添加，并更新 Source 和 RuleID
+			w.db.WithContext(ctx).Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "entity_type"}, {Name: "entity_id"}, {Name: "tag_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"source", "rule_id"}),
+			}).Create(&entityTag)
+		}
+	} else if payload.Action == "remove" {
+		w.db.WithContext(ctx).Where("entity_type = ? AND entity_id = ? AND tag_id IN ?",
+			entityType, entityID, payload.TagIDs).
+			Delete(&tag_system.SysEntityTag{})
+	}
 }
 
 // structToMap 辅助函数：结构体转Map

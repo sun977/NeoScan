@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `sys_tags` (
   `updated_at` datetime(3) DEFAULT NULL COMMENT '更新时间',
   `name` varchar(100) NOT NULL COMMENT '标签名称',
   `parent_id` bigint(20) unsigned DEFAULT '0' COMMENT '父标签ID',
-  `path` varchar(1000) DEFAULT NULL COMMENT '物理路径',
+  `path` varchar(700) DEFAULT NULL COMMENT '物理路径',
   `level` int(11) DEFAULT '0' COMMENT '层级深度',
   `color` varchar(7) DEFAULT NULL COMMENT '标签颜色',
   `category` varchar(50) DEFAULT NULL COMMENT '业务分类',

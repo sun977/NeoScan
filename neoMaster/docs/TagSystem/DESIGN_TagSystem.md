@@ -3,6 +3,7 @@
 ## 架构概览
 
 本设计将标签系统构建为一个独立的服务模块 (`internal/service/tag_system`)，它不依赖具体的业务实体，而是通过接口与外部交互。
+**为了充分利用 NeoScan 强大的任务调度能力，规则回溯与全量刷新将作为标准的“任务”进行调度，由 Master 节点的内部 Worker 执行。**
 
 ### 模块交互图
 
@@ -10,18 +11,22 @@
 graph TD
     Client[前端/API Client] --> TagAPI[Tag Management API]
     AssetETL[Asset ETL Pipeline] --> TagEngine[Tag Engine]
-    ExternalSvc[External Services] --> TagEngine
     
     subgraph "Tag System (Independent Module)"
         TagAPI --> TagMgr[Tag Manager Service]
         TagEngine --> TaggerRegistry[Tagger Registry]
         
         TaggerRegistry --> MatcherTagger[Matcher-Based Tagger]
-        TaggerRegistry --> ExternalTagger[External Input Tagger]
         
         TagMgr --> DB[(MySQL)]
-        MatcherTagger --> MatcherLib[Internal Matcher Lib]
         MatcherTagger --> RuleDB[(Rule Engine DB)]
+    end
+    
+    subgraph "Task Scheduling System (Core)"
+        TagMgr -- 1. Submit Task --> TaskScheduler[Master Scheduler]
+        TaskScheduler -- 2. Dispatch --> InternalWorker[Master Internal Worker]
+        InternalWorker -- 3. Execute --> TagPropagator[Tag Propagation Logic]
+        TagPropagator -- 4. Batch Update --> SysEntityTags
     end
     
     TagMgr -- CRUD --> SysTags[sys_tags]
@@ -34,11 +39,7 @@ graph TD
 ```go
 // Tagger 接口定义：所有打标器必须实现此接口
 type Tagger interface {
-    // Name 返回打标器的唯一标识，如 "matcher_v1"
     Name() string
-    
-    // Tag 根据实体信息返回匹配的标签ID列表
-    // entity 是一个通用的 map 或 struct，包含用于判断的属性 (IP, Domain, OS, etc.)
     Tag(ctx context.Context, entity map[string]interface{}) ([]uint64, error)
 }
 
@@ -46,143 +47,104 @@ type Tagger interface {
 type TagService interface {
     // 基础管理
     CreateTag(...)
-    MoveTag(...)
     
     // 核心功能：自动打标 (实时)
     // 场景：新资产入库、资产属性变更
-    // entityType: "asset", "scan_result", etc.
-    // entityID: 唯一ID
-    // attributes: 用于规则匹配的属性集合
     AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error
     
-    // 规则扩散/回溯 (离线/批量)
-    // 场景：新建或修改规则后，应用到历史存量数据
-    // 场景举例：
-    // 1. 网段标签：给 "192.168.1.0/24" 打标 -> 扩散到所有该网段 IP。
-    // 2. 域名后缀：给 "*.corp.com" 打标 -> 扩散到所有内部域名资产。
-    // ruleID: 刚刚创建/修改的规则ID
-    PropagateRule(ctx context.Context, ruleID uint64) error
+    // 规则扩散/回溯 (基于任务调度)
+    // 提交一个 "TagPropagation" 类型的任务给调度器
+    // ruleID: 指定规则ID (若为0则全量刷新)
+    SubmitPropagationTask(ctx context.Context, ruleID uint64) (taskID string, error)
 
-    // 查询
     GetTagsByEntity(...)
 }
 ```
 
 ## 核心业务流程 (Core Workflows)
 
-### 1. 实时自动打标流程 (Real-time Auto-Tagging)
-当 ETL 管道处理新资产或更新资产时触发。
+### 1. 实时自动打标流程 (Real-time)
+(保持不变：ETL -> AutoTag -> DB)
 
-1.  **触发**: ETL 解析出资产信息 (Map<String, Any>)，调用 `TagService.AutoTag`。
-2.  **加载规则**: `MatcherTagger` 从 `sys_tag_auto_configs` 和 `sys_match_rules` 加载所有**启用**的规则 (通常有缓存)。
-3.  **内存匹配**: 遍历规则，调用 `matcher.Match(assetAttributes, rule)`。
-4.  **结果聚合**: 收集所有匹配规则对应的 `TagID`。
-5.  **持久化**: 将 `(EntityType, EntityID, TagID)` 写入 `sys_entity_tags` 表 (Insert Ignore 或 Upsert)。
-
-### 2. 规则扩散与回溯流程 (Rule Propagation & Backfill)
-当用户在后台创建了一条新规则（例如："所有 192.168.0.0/16 的 IP 打上 [办公网] 标签"），需要将此规则应用到系统中已存在的数万条资产上。
-
-**挑战**: 由于规则是复杂的 JSON 逻辑树（包含 OR, AND, CIDR, Regex 等），无法直接生成一条 SQL `UPDATE` 语句来执行。
-**解决方案**: **批量拉取 - 内存匹配 - 批量更新 (Batch Fetch & Evaluate)**
+### 2. 规则扩散与回溯流程 (Task-Based Propagation)
+**设计理念**: 利用 NeoScan 的核心调度能力，将“规则回溯”视为一种特殊的**系统任务**。
+**优势**: 
+*   **可视化**: 可以在任务列表中看到打标进度。
+*   **可控性**: 支持暂停、重试、超时控制。
+*   **灵活性**: 可以创建定时项目 (Cron Project)，每晚执行一次全量标签刷新。
 
 **执行步骤**:
-1.  **触发**: 用户创建/更新规则后，异步触发 `TagService.PropagateRule(ruleID)`。
-2.  **准备**:
-    *   读取 `ruleID` 对应的规则详情 (JSON Expression) 和目标 `TagID`。
-    *   确定规则适用的实体类型 (e.g., Asset)。
-3.  **批处理循环**:
-    *   **Fetch**: 分页从资产表 (`asset`) 拉取数据，每次 1000 条。
-    *   **Evaluate**: 在内存中对这 1000 条数据逐一运行 `matcher.Match(asset, rule)`。
-    *   **Filter**: 筛选出匹配成功的 Asset IDs。
-    *   **Bulk Write**: 生成批量插入 SQL，将 `(AssetID, TagID)` 写入 `sys_entity_tags`。
-4.  **完成**: 记录任务日志。
 
-**场景案例支持**:
-*   **场景 1 (网段标签)**:
-    *   规则: `{"field": "ip", "op": "cidr", "value": "192.168.1.0/24"}` -> Tag: `安全域/办公区`
-    *   执行: 遍历所有资产 IP，`matcher` 库会自动计算 CIDR 包含关系，匹配的资产会被打上标签。
-*   **场景 2 (域名后缀)**:
-    *   规则: `{"field": "domain", "op": "ends_with", "value": ".corp.com"}` -> Tag: `内部域名`
-    *   执行: 遍历所有域名资产，字符串后缀匹配，匹配的打标。
+1.  **任务生成 (Producer)**:
+    *   **场景 A (触发式)**: 用户修改规则 -> API 调用 `SubmitPropagationTask(ruleID)` -> 生成一个待执行任务。
+    *   **场景 B (定时式)**: 用户配置一个 "Tag Refresh Project" (Cron) -> 调度器定期生成 "Tag Propagation Task"。
+    
+2.  **任务调度 (Scheduler)**:
+    *   调度器识别到 `TaskType: "tag_propagation"`。
+    *   **关键策略**: 此类任务**不分发给 Agent**，而是分发给 **Master 内部的 Worker**。
+    *   *原因*: 这是一个数据密集型操作 (Data-Intensive)，需要大量读取数据库。在 Master (或靠近 DB 的节点) 执行效率最高，避免将海量资产数据传输给 Agent 的网络开销。
+
+3.  **任务执行 (Consumer - Master Internal Worker)**:
+    *   **Fetch**: 分页拉取资产数据 (Batch Size: 1000)。
+    *   **Match**: 在内存中执行 `MatcherTagger` 逻辑。
+    *   **Update**: 批量写入 `sys_entity_tags`。
+    *   **Report**: 更新任务进度 (0% -> 100%)。
 
 ## 详细设计
 
 ### 1. 数据库设计 (MySQL)
+(保持不变：sys_tags, sys_match_rules, sys_tag_auto_configs, sys_entity_tags)
 
-```sql
--- 标签定义表
-CREATE TABLE `sys_tags` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `parent_id` bigint unsigned NOT NULL DEFAULT '0',
-  `name` varchar(128) NOT NULL,
-  `full_path` varchar(768) NOT NULL, 
-  `level` int NOT NULL DEFAULT '1',
-  `color` varchar(32) DEFAULT '#2db7f5',
-  `description` varchar(255) DEFAULT '',
-  `created_at` datetime DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_parent` (`parent_id`),
-  KEY `idx_full_path` (`full_path`(255))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+### 2. 任务定义 (Task Definition)
 
--- 通用匹配规则表
--- 存储复杂的 JSON 逻辑树 (AND/OR/Field/Operator)
-CREATE TABLE `sys_match_rules` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(128) NOT NULL COMMENT '规则名称',
-  `description` varchar(255),
-  `entity_type` varchar(32) NOT NULL DEFAULT 'asset' COMMENT '适用的实体类型，用于回溯时查询数据源',
-  `expression` json NOT NULL COMMENT '通用的匹配表达式',
-  `priority` int NOT NULL DEFAULT '0',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通用匹配规则库';
+**问题分析**: 
+目前的 `AgentTask` 强绑定于 "Master -> Agent" 的分发模式。系统级任务（标签回溯、数据清洗）由 Master 本地执行，不需要 AgentID，也不应该进入 Agent 的调度队列。
 
--- 自动打标配置表
--- 将 "规则" 和 "标签" 关联起来
-CREATE TABLE `sys_tag_auto_configs` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `tag_id` bigint unsigned NOT NULL,
-  `match_rule_id` bigint unsigned NOT NULL COMMENT '引用的通用匹配规则ID',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_tag` (`tag_id`),
-  KEY `idx_rule` (`match_rule_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='自动打标配置';
+**决策 (Decision)**:
+为了清晰区分任务执行主体，避免字段含义混淆，决定在 `AgentTask` 表中**新增一个字段**，而不是通过 Magic String (如 "LOCAL_MASTER") 来区分。
 
--- 实体标签关联表
-CREATE TABLE `sys_entity_tags` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `entity_type` varchar(32) NOT NULL,
-  `entity_id` varchar(128) NOT NULL,
-  `tag_id` bigint unsigned NOT NULL,
-  `source` varchar(64) DEFAULT 'manual',
-  `created_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_entity_tag` (`entity_type`, `entity_id`, `tag_id`),
-  KEY `idx_query` (`entity_type`, `tag_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+**Schema 变更**:
+在 `agent_tasks` 表中增加：
+*   **Field**: `TaskCategory` (string)
+*   **Values**:
+    *   `"agent"` (Default): 下发给 Agent 执行的任务 (扫描、探测等)。
+    *   `"system"`: Master 内部执行的系统任务 (标签回溯、数据清洗)。
+
+**调度逻辑调整**:
+1.  **Agent Dispatcher**: 只拉取 `TaskCategory = 'agent'` 的任务。
+2.  **System Worker**: 只拉取 `TaskCategory = 'system'` 的任务。
+
+**代码映射**:
+```go
+const (
+    TaskCategoryAgent  = "agent"
+    TaskCategorySystem = "system"
+
+    // Task Types (System)
+    TaskTypeSysTagPropagation = "sys_tag_propagation"
+    TaskTypeSysDataCleaning   = "sys_data_cleaning"
+)
 ```
 
-### 2. 匹配器逻辑 (Reusing Existing Matcher)
+这样设计既复用了现有的 Task 表结构和基础设施（UI、API、状态机），又保持了逻辑上的清晰隔离。
 
-我们直接复用 `internal/pkg/matcher` 包。
+// 任务参数 Payload (存储在 ToolParams 或 InputTarget 中)
+type SysTagPropagationParams struct {
+    RuleID     uint64 `json:"rule_id,omitempty"` // 0 表示全量规则
+    EntityType string `json:"entity_type"`       // 默认为 "asset"
+    BatchSize  int    `json:"batch_size"`        // 默认 1000
+}
+```
 
-**核心逻辑**:
-`MatcherTagger` (位于 `internal/service/tag_system/tagger/matcher_tagger.go`) 将充当适配器：
-1.  从 DB 读取 `sys_match_rules.expression` (JSON)。
-2.  调用 `matcher.ParseJSON(jsonStr)` 解析为 `matcher.MatchRule` 对象。
-3.  调用 `matcher.Match(entity, rule)` 进行求值。
-
-### 3. API 接口规范 (RESTful)
+### 3. API 接口规范
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| POST | `/api/v1/rules` | 创建通用匹配规则 (存储到 sys_match_rules) |
-| POST | `/api/v1/tag-system/configs` | 创建自动打标配置 (关联 Tag 和 Rule) |
-| POST | `/api/v1/tag-system/auto-tag` | 触发一次自动打标 (实时) |
-| POST | `/api/v1/tag-system/propagate` | 触发规则回溯 (异步任务) |
+| POST | `/api/v1/rules` | 创建规则 |
+| POST | `/api/v1/tag-system/propagate` | 手动触发回溯 (创建任务) |
+| GET  | `/api/v1/tasks?type=sys_tag_propagation` | 查看打标任务进度 |
+
+## 迁移与实施
+1.  **Phase 1**: 数据库与 Matcher 库准备。
+2.  **Phase 2**: 实现 Master 内部的任务执行器 (`InternalTaskWorker`)。
+3.  **Phase 3**: 集成调度器，支持 `TagPropagation` 任务分发。

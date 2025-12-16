@@ -11,8 +11,8 @@ import (
 	orcModel "neomaster/internal/model/orchestrator"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
+	"neomaster/internal/service/orchestrator/core/local_agent"
 	"neomaster/internal/service/orchestrator/core/scheduler"
-	"neomaster/internal/service/orchestrator/core/system_worker"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -204,7 +204,7 @@ func TestSystemTaskExecution(t *testing.T) {
 	// Or better: Expose a method to run once, or pass config.
 	// For now, let's assume we can wait or modify `worker.go` to have SetInterval.
 
-	worker := system_worker.NewSystemTaskWorker(db, taskRepo)
+	worker := local_agent.NewLocalAgent(db, taskRepo)
 	// Hack: Use reflection to set interval if possible, or just add SetInterval method.
 	// Let's add SetInterval to worker.go first?
 	// Or simpler: Just rely on the fact that we can call internal methods in same package test?
@@ -261,7 +261,7 @@ func TestSystemTaskCleanup(t *testing.T) {
 	db.Create(task)
 
 	// 3. Start Worker
-	worker := system_worker.NewSystemTaskWorker(db, taskRepo)
+	worker := local_agent.NewLocalAgent(db, taskRepo)
 	worker.SetInterval(100 * time.Millisecond)
 	worker.Start()
 	defer worker.Stop()

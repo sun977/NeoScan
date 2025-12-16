@@ -1,10 +1,12 @@
-# System Task Worker (System Worker)
+# Local Agent (原 System Worker)
 
 ## 1. 概述 (Overview)
 
-`SystemTaskWorker` 是 NeoScan 编排器 (Orchestrator) 中的核心组件之一，充当 **本地消费者 (Local Consumer)** 的角色。
+`LocalAgent` 是 NeoScan 编排器 (Orchestrator) 中的核心组件之一，它是一个 **运行在 Master 进程内的特殊 Agent**。
 
-它的核心职责是执行那些 **不适合分发给 Agent** 的系统级任务。这些任务通常具有以下特征：
+与远程 Agent 不同，Local Agent 不通过网络拉取任务，而是直接连接数据库消费任务。它的存在是为了统一 "Agent" 的概念：**无论是谁在执行任务，它都是一个 Agent。**
+
+它的核心职责是执行那些 **不适合分发给远程 Agent** 的任务，通常具有以下特征：
 *   **数据密集型 (Data-Intensive)**: 需要大量读取和写入数据库 (如全量资产打标)。
 *   **无需网络探测**: 不涉及向外部目标发包。
 *   **高权限**: 需要直接操作核心数据库表。
@@ -14,16 +16,16 @@
 在 NeoScan 的 "生产者-消费者" 调度模型中：
 
 *   **Scheduler (生产者)**: 生成任务，并根据 `ToolName` 将任务标记为 `agent` 或 `system` 类。
-*   **Remote Agent (消费者 A)**: 消费 `agent` 类任务 (如 Nmap 扫描)。
-*   **System Worker (消费者 B)**: 消费 `system` 类任务 (如标签传播)。
+*   **Remote Agent (消费者 A)**: 消费 `agent` 类任务 (如 Nmap 扫描)，通过 HTTP/gRPC 通信。
+*   **Local Agent (消费者 B)**: 消费 `system` 类任务 (如标签传播)，通过 In-Process 直接调用。
 
 ```mermaid
 graph LR
     Scheduler[Scheduler] -- 生成任务 --> DB[(Task Table)]
     DB -- category='agent' --> RemoteAgent[Remote Agent]
-    DB -- category='system' --> SystemWorker[System Worker]
+    DB -- category='system' --> LocalAgent[Local Agent]
     
-    SystemWorker -- 直接操作 --> AssetDB[(Asset Tables)]
+    LocalAgent -- 直接操作 --> AssetDB[(Asset Tables)]
 ```
 
 ## 3. 支持的任务类型 (Supported Tasks)
@@ -50,7 +52,7 @@ graph LR
 
 ## 4. 工作流程 (Workflow)
 
-System Worker 作为一个后台 Goroutine 运行，遵循标准的 **Fetch-Execute-Update** 循环：
+Local Agent 作为一个后台 Goroutine 运行，遵循标准的 **Fetch-Execute-Update** 循环：
 
 1.  **轮询 (Poll)**: 每隔一定时间 (默认 5s) 检查数据库。
 2.  **获取任务 (Fetch)**: 调用 `taskRepo.GetPendingTasks` 获取 `category='system'` 且状态为 `pending` 的任务。
@@ -63,8 +65,8 @@ System Worker 作为一个后台 Goroutine 运行，遵循标准的 **Fetch-Exec
 
 ## 5. 代码结构
 
-*   **`worker.go`**: 包含所有核心逻辑。
-    *   `NewSystemTaskWorker`: 初始化。
+*   **`agent.go`**: 包含所有核心逻辑。
+    *   `NewLocalAgent`: 初始化。
     *   `run()`: 主循环。
     *   `processTasks()`: 任务获取与分发。
     *   `handleTagPropagation()` / `handleAssetCleanup()`: 具体业务逻辑。
@@ -75,7 +77,7 @@ System Worker 作为一个后台 Goroutine 运行，遵循标准的 **Fetch-Exec
 若需添加新的系统任务：
 1.  在 `DESIGN` 文档中定义新的 `ToolName` (如 `sys_report_gen`)。
 2.  定义 Payload 结构体。
-3.  在 `worker.go` 的 `switch task.ToolName` 中添加 case。
+3.  在 `agent.go` 的 `switch task.ToolName` 中添加 case。
 4.  实现具体的处理函数 `handleReportGen`。
 
 
@@ -95,10 +97,10 @@ graph TD
     end
 
     subgraph "Consumers (手脚)"
-        DB -->|6a. 拉取 system 任务| SystemWorker["System Worker (本地执行器)"]
-        DB -->|6b. 拉取 agent 任务| Agent["Agent (远程执行器)"]
+        DB -->|6a. 拉取 system 任务| LocalAgent["Local Agent (本地执行器)"]
+        DB -->|6b. 拉取 agent 任务| RemoteAgent["Remote Agent (远程执行器)"]
         
-        SystemWorker -->|7. 操作 DB| DB
-        Agent -->|7. HTTP 回传| Server["Server"] --> DB
+        LocalAgent -->|7. 操作 DB| DB
+        RemoteAgent -->|7. HTTP 回传| Server["Server"] --> DB
     end
 ```

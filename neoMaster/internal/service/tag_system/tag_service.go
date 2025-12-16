@@ -190,7 +190,6 @@ func (s *tagService) ListRules(ctx context.Context, req *tag_system.ListRulesReq
 // --- Auto Tagging Implementation (Moved to auto_tag.go or here) ---
 // 为了保持文件简洁，AutoTag 和 SubmitPropagationTask 可以放在单独文件，或者这里
 // 这里先放这里，如果太长再拆分
-
 func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error {
 	// 1. 获取该实体类型的所有启用规则
 	rules, err := s.repo.GetRulesByEntityType(entityType)
@@ -289,6 +288,7 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 	return nil
 }
 
+// SubmitPropagationTask 提交标签传播任务
 func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error) {
 	// 1. 获取规则详情
 	ruleRecord, err := s.repo.GetRuleByID(ruleID)

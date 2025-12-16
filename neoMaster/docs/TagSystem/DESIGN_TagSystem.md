@@ -115,6 +115,7 @@ type TagService interface {
 2.  **System Worker**: 只拉取 `TaskCategory = 'system'` 的任务。
 
 **代码映射**:
+
 ```go
 const (
     TaskCategoryAgent  = "agent"

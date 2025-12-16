@@ -240,7 +240,10 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 	}
 
 	existingAutoTagMap := make(map[uint64]uint64) // TagID -> RuleID
+	existingSourceMap := make(map[uint64]string)  // TagID -> Source
+
 	for _, t := range existingTags {
+		existingSourceMap[t.TagID] = t.Source
 		// 只处理 source='auto' 标签,其他来源的标签不处理,比如手动添加的标签
 		if t.Source == "auto" {
 			existingAutoTagMap[t.TagID] = t.RuleID
@@ -251,6 +254,12 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 	// 需要添加的
 	for i, tagID := range matchedTagIDs {
 		ruleID := matchedRuleIDs[i]
+
+		// 检查是否存在非 auto 来源的同名标签 (例如 manual)
+		// 如果存在，则跳过覆盖，保留原有的 manual 状态
+		if source, exists := existingSourceMap[tagID]; exists && source != "auto" {
+			continue
+		}
 
 		// 如果已存在且RuleID一致，跳过 (已存在标签,且规则ID一致,则无需重复添加)
 		if currRuleID, exists := existingAutoTagMap[tagID]; exists {

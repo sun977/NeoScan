@@ -24,5 +24,6 @@ func (r *Router) setupTagSystemRoutes(rg *gin.RouterGroup) {
 		rules.GET("", r.tagHandler.ListRules) // 支持 ?entity_type=xxx
 		rules.PUT("/:id", r.tagHandler.UpdateRule)
 		rules.DELETE("/:id", r.tagHandler.DeleteRule)
+		rules.POST("/:id/apply", r.tagHandler.ApplyRule) // 手动触发规则执行 ?action=add|remove
 	}
 }

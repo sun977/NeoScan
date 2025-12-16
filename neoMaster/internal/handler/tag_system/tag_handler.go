@@ -625,3 +625,65 @@ func (h *TagHandler) DeleteRule(c *gin.Context) {
 		Message: "Rule deleted successfully",
 	})
 }
+
+// ApplyRule 手动触发规则执行 (添加/移除标签)
+func (h *TagHandler) ApplyRule(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   "invalid id format",
+		})
+		return
+	}
+
+	// 获取 action 参数，默认为 "add"
+	action := c.DefaultQuery("action", "add")
+	if action != "add" && action != "remove" {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid action. Must be 'add' or 'remove'",
+		})
+		return
+	}
+
+	taskID, err := h.service.SubmitPropagationTask(c.Request.Context(), id, action)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "apply_rule",
+			"rule_id":   id,
+			"action":    action,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to submit propagation task",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("apply_rule", 0, "", clientIP, XRequestID, "success", "Rule application task submitted", map[string]interface{}{
+		"rule_id": id,
+		"action":  action,
+		"task_id": taskID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Rule application task submitted successfully",
+		Data: gin.H{
+			"task_id": taskID,
+			"action":  action,
+		},
+	})
+}

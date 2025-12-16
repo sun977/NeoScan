@@ -148,8 +148,8 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 		}
 
 		// 执行匹配
-		matched, err := matcher.Match(attributes, rule)
-		if err != nil {
+		matched, err2 := matcher.Match(attributes, rule)
+		if err2 != nil {
 			continue
 		}
 

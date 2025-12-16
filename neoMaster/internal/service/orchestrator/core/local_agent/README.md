@@ -28,6 +28,28 @@ graph LR
     LocalAgent -- 直接操作 --> AssetDB[(Asset Tables)]
 ```
 
+### 2.1 设计决策：为何直接操作数据库？ (Design Decision)
+
+你可能会问：*为什么 LocalAgent 作为 Service 层组件，却绕过了 Repository 层直接操作数据库？这不是违反了分层架构原则吗？*
+
+这是一个基于 **实用主义 (Pragmatism)** 和 **好品味 (Good Taste)** 的工程选择。我们有三个无法反驳的理由：
+
+1.  **批量处理的性能 (Batch Processing Performance)**
+    *   **问题**: LocalAgent 处理的是 `FindInBatches` 级别的海量数据操作。
+    *   **原因**: 如果走标准的 Repo 层，需要在 Repo 中封装复杂的 Callback 逻辑，这会导致 Service 逻辑泄露到 Repo 层，或者在内存中加载大量数据导致 OOM。
+    *   **结论**: 直接在 Service 层控制 Batch 游标是最高效、最安全的做法。
+
+2.  **跨域操作的事务边界 (Cross-Domain Boundaries)**
+    *   **问题**: LocalAgent 经常需要在一个任务中同时清洗 `Host`, `Web`, `Network` 等多张表。
+    *   **原因**: 标准 Repo 模式是按领域划分的。如果通过 Repo，需要注入多个 Repo 并协调事务。LocalAgent 本质上是一个 **"运行在 Go 进程内的 SQL 脚本执行器"**，它需要的是上帝视角的数据操作能力，而不是被领域模型束缚。
+
+3.  **避免 Repository 膨胀 (Avoiding Repository Bloat)**
+    *   **问题**: 任务逻辑依赖高度动态的 `Matcher Rule`。
+    *   **原因**: 将这种"基于动态规则删除数据"的一次性复杂逻辑下沉到 Repo 层，会污染 Repo 接口，使其变得臃肿且难以复用。
+    *   **结论**: 让 Repo 层保持纯净（只做 CRUD），让脏活累活在 LocalAgent 内部闭环解决。
+
+**总结**: LocalAgent 不是普通的 Service，它是系统的 **DBA**。
+
 ## 3. 支持的任务类型 (Supported Tasks)
 
 目前支持以下系统任务 (ToolName 以 `sys_` 开头)：

@@ -46,7 +46,7 @@ type SysEntityTag struct {
 	TagID      uint64 `json:"tag_id" gorm:"index;not null"`
 	Source     string `json:"source" gorm:"size:50;default:'manual'"` // manual, auto, api
 	RuleID     uint64 `json:"rule_id" gorm:"default:0"`               // 如果是 auto，记录命中的规则ID
-	CreatedAt  int64  `json:"created_at" gorm:"autoCreateTime"`
+	CreatedAt  int64  `json:"created_at" gorm:"autoCreateTime"`       // 创建时间,没有使用时间格式而是int64,方便性能
 }
 
 func (SysEntityTag) TableName() string {

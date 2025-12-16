@@ -62,7 +62,7 @@ func (d *taskDispatcher) Dispatch(ctx context.Context, agent *agentModel.Agent, 
 	// 1. 获取待执行任务
 	// 这里获取比 needed 更多的任务，因为有些任务可能被 Allocator 或 Policy 过滤掉
 	// TODO: 优化查询，支持按优先级排序
-	pendingTasks, err := d.taskRepo.GetPendingTasks(ctx, needed*3)
+	pendingTasks, err := d.taskRepo.GetPendingTasks(ctx, "agent", needed*3)
 	if err != nil {
 		logger.LogError(err, "failed to get pending tasks", 0, "", "service.orchestrator.dispatcher.Dispatch", "REPO", nil)
 		return nil, err

@@ -15,14 +15,15 @@ import (
 type AgentTask struct {
 	basemodel.BaseModel
 
-	TaskID     string `json:"task_id" gorm:"uniqueIndex;not null;size:100;comment:任务唯一标识ID"`
-	ProjectID  uint64 `json:"project_id" gorm:"index;not null;comment:所属项目ID"`
-	WorkflowID uint64 `json:"workflow_id" gorm:"index;not null;comment:所属工作流ID"`
-	StageID    uint64 `json:"stage_id" gorm:"index;not null;comment:所属阶段ID"`
-	AgentID    string `json:"agent_id" gorm:"index;size:100;comment:执行Agent的ID"`
-	Status     string `json:"status" gorm:"size:20;default:'pending';comment:任务状态(pending/assigned/running/completed/failed)"`
-	Priority   int    `json:"priority" gorm:"default:0;comment:任务优先级"`
-	TaskType   string `json:"task_type" gorm:"size:20;default:'tool';comment:任务类型"`
+	TaskID       string `json:"task_id" gorm:"uniqueIndex;not null;size:100;comment:任务唯一标识ID"`
+	ProjectID    uint64 `json:"project_id" gorm:"index;not null;comment:所属项目ID"`
+	WorkflowID   uint64 `json:"workflow_id" gorm:"index;not null;comment:所属工作流ID"`
+	StageID      uint64 `json:"stage_id" gorm:"index;not null;comment:所属阶段ID"`
+	AgentID      string `json:"agent_id" gorm:"index;size:100;comment:执行Agent的ID"`
+	Status       string `json:"status" gorm:"size:20;default:'pending';comment:任务状态(pending/assigned/running/completed/failed)"`
+	Priority     int    `json:"priority" gorm:"default:0;comment:任务优先级"`
+	TaskType     string `json:"task_type" gorm:"size:20;default:'tool';comment:任务类型"`
+	TaskCategory string `json:"task_category" gorm:"size:20;default:'agent';comment:任务分类(agent/system)"` // agent: 普通任务; system: 系统任务
 
 	// 任务参数
 	ToolName     string `json:"tool_name" gorm:"size:100;comment:工具名称"`

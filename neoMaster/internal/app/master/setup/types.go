@@ -18,6 +18,7 @@ import (
 	authService "neomaster/internal/service/auth"
 	orchestratorService "neomaster/internal/service/orchestrator"
 	"neomaster/internal/service/orchestrator/core/scheduler"
+	"neomaster/internal/service/orchestrator/core/system_worker"
 )
 
 // AuthModule 是认证模块的聚合输出
@@ -110,6 +111,7 @@ type OrchestratorModule struct {
 	// Core Components (核心组件)
 	TaskDispatcher   orchestratorService.TaskDispatcher
 	SchedulerService scheduler.SchedulerService
+	SystemWorker     *system_worker.SystemTaskWorker // 系统任务执行器
 }
 
 // AssetModule 是资产管理模块的聚合输出

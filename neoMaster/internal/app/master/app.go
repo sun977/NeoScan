@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"neomaster/internal/service/orchestrator/core/scheduler"
+	"neomaster/internal/service/orchestrator/core/system_worker"
 
 	"neomaster/internal/app/master/router"
 	"neomaster/internal/config"
@@ -30,11 +31,12 @@ import (
 
 // App 应用程序结构体
 type App struct {
-	router    *router.Router
-	db        *gorm.DB
-	redis     *redis.Client
-	config    *config.Config
-	scheduler scheduler.SchedulerService
+	router       *router.Router
+	db           *gorm.DB
+	redis        *redis.Client
+	config       *config.Config
+	scheduler    scheduler.SchedulerService
+	systemWorker *system_worker.SystemTaskWorker
 }
 
 // NewApp 创建新的应用程序实例
@@ -153,13 +155,15 @@ func NewApp() (*App, error) {
 	// 通过 Router 获取 OrchestratorModule 中初始化的 SchedulerService
 	// 避免重复初始化和多实例问题
 	schedulerService := router.GetSchedulerService()
+	systemWorker := router.GetSystemWorker()
 
 	return &App{
-		router:    router,
-		db:        db,
-		redis:     redisClient,
-		config:    cfg,
-		scheduler: schedulerService,
+		router:       router,
+		db:           db,
+		redis:        redisClient,
+		config:       cfg,
+		scheduler:    schedulerService,
+		systemWorker: systemWorker,
 	}, nil
 }
 
@@ -178,12 +182,18 @@ func (a *App) StartScheduler(ctx context.Context) {
 	if a.scheduler != nil {
 		a.scheduler.Start(ctx)
 	}
+	if a.systemWorker != nil {
+		a.systemWorker.Start()
+	}
 }
 
 // StopScheduler 停止调度引擎
 func (a *App) StopScheduler() {
 	if a.scheduler != nil {
 		a.scheduler.Stop()
+	}
+	if a.systemWorker != nil {
+		a.systemWorker.Stop()
 	}
 }
 

@@ -1,0 +1,488 @@
+// SystemTaskWorker 系统任务执行器
+// 负责执行 Master 内部产生的系统任务 (如: 标签传播、资产清洗等)
+package system_worker
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"gorm.io/gorm"
+
+	assetModel "neomaster/internal/model/asset"
+	"neomaster/internal/model/orchestrator"
+	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/matcher"
+	orcrepo "neomaster/internal/repo/mysql/orchestrator"
+)
+
+// SystemTaskWorker 系统任务执行器
+// 负责执行 Master 内部产生的系统任务 (如: 标签传播、资产清洗等)
+// 对应文档: 1.1 Orchestrator - SystemTaskWorker
+type SystemTaskWorker struct {
+	db        *gorm.DB
+	taskRepo  orcrepo.TaskRepository
+	isRunning bool
+	stopChan  chan struct{}
+	wg        sync.WaitGroup
+	interval  time.Duration
+}
+
+// NewSystemTaskWorker 创建系统任务执行器实例
+func NewSystemTaskWorker(db *gorm.DB, taskRepo orcrepo.TaskRepository) *SystemTaskWorker {
+	return &SystemTaskWorker{
+		db:       db,
+		taskRepo: taskRepo,
+		stopChan: make(chan struct{}),
+		interval: 5 * time.Second, // 默认每5秒轮询一次
+	}
+}
+
+// SetInterval 设置轮询间隔 (用于测试或配置调整)
+func (w *SystemTaskWorker) SetInterval(interval time.Duration) {
+	w.interval = interval
+}
+
+// Start 启动执行器
+func (w *SystemTaskWorker) Start() {
+	if w.isRunning {
+		return
+	}
+	w.isRunning = true
+	w.wg.Add(1)
+	go w.run()
+
+	logger.WithFields(map[string]interface{}{
+		"path":      "service.orchestrator.system_worker",
+		"operation": "start",
+	}).Info("SystemTaskWorker started")
+}
+
+// Stop 停止执行器
+func (w *SystemTaskWorker) Stop() {
+	if !w.isRunning {
+		return
+	}
+	close(w.stopChan)
+	w.wg.Wait()
+	w.isRunning = false
+
+	logger.WithFields(map[string]interface{}{
+		"path":      "service.orchestrator.system_worker",
+		"operation": "stop",
+	}).Info("SystemTaskWorker stopped")
+}
+
+// run 主循环
+func (w *SystemTaskWorker) run() {
+	defer w.wg.Done()
+	ticker := time.NewTicker(w.interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-w.stopChan:
+			return
+		case <-ticker.C:
+			w.processTasks()
+		}
+	}
+}
+
+// processTasks 处理待执行的系统任务
+func (w *SystemTaskWorker) processTasks() {
+	ctx := context.Background()
+
+	// 1. 获取待执行的系统任务
+	tasks, err := w.taskRepo.GetPendingTasks(ctx, "system", 10) // 每次处理10个
+	if err != nil {
+		logger.LogError(err, "failed to get pending system tasks", 0, "", "service.orchestrator.system_worker.processTasks", "REPO", nil)
+		return
+	}
+
+	if len(tasks) == 0 {
+		return
+	}
+
+	// 2. 遍历执行
+	for _, task := range tasks {
+		// 2. 更新状态为 running
+		if err := w.taskRepo.UpdateTaskStatus(ctx, task.TaskID, "running"); err != nil {
+			logger.LogWarn("Failed to update task status to running", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
+			continue
+		}
+
+		// 3. 执行任务
+		var result interface{}
+		var execErr error
+
+		// 根据 ToolName 分发任务
+		// 约定: 系统任务的 ToolName 以 "sys_" 开头
+		switch task.ToolName {
+		case "sys_tag_propagation":
+			result, execErr = w.handleTagPropagation(ctx, task)
+		case "sys_asset_cleanup":
+			result, execErr = w.handleAssetCleanup(ctx, task)
+		default:
+			execErr = fmt.Errorf("unknown system tool: %s", task.ToolName)
+		}
+
+		// 4. 更新任务结果
+		status := "completed"
+		errorMsg := ""
+		resultJSON := "{}"
+
+		if execErr != nil {
+			// 检查重试逻辑
+			if task.RetryCount < task.MaxRetries {
+				retryCount := task.RetryCount + 1
+				retryMsg := fmt.Sprintf("System Task Retry %d/%d: %v", retryCount, task.MaxRetries, execErr)
+				logger.LogWarn("System task failed, retrying...", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{
+					"task_id":     task.TaskID,
+					"retry_count": retryCount,
+					"reason":      execErr.Error(),
+				})
+				if err := w.taskRepo.RetryTask(ctx, task.TaskID, retryCount, retryMsg); err != nil {
+					logger.LogWarn("Failed to retry task", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
+				}
+				continue // Skip update result to avoid marking as failed
+			}
+
+			status = "failed"
+			errorMsg = execErr.Error()
+		}
+
+		if result != nil {
+			if b, err := json.Marshal(result); err == nil {
+				resultJSON = string(b)
+			}
+		}
+
+		if err := w.taskRepo.UpdateTaskResult(ctx, task.TaskID, resultJSON, errorMsg, status); err != nil {
+			logger.LogWarn("Failed to update task result", "", 0, "", "system_worker.processTasks", "", map[string]interface{}{"error": err, "task_id": task.TaskID})
+		}
+	}
+}
+
+// TagPropagationPayload 标签传播任务载荷
+type TagPropagationPayload struct {
+	TargetType string            `json:"target_type"` // host, web, network
+	Action     string            `json:"action"`      // add, remove
+	Tags       []string          `json:"tags"`
+	Rule       matcher.MatchRule `json:"rule"`
+}
+
+// handleTagPropagation 处理标签传播任务
+func (w *SystemTaskWorker) handleTagPropagation(ctx context.Context, task *orchestrator.AgentTask) (map[string]interface{}, error) {
+	var payload TagPropagationPayload
+	if err := json.Unmarshal([]byte(task.ToolParams), &payload); err != nil {
+		return nil, fmt.Errorf("invalid payload: %v", err)
+	}
+
+	// 默认 action 为 add
+	if payload.Action == "" {
+		payload.Action = "add"
+	}
+
+	var count int64
+	var err error
+
+	switch payload.TargetType {
+	case "host":
+		count, err = w.processAssetHost(ctx, payload)
+	case "web":
+		count, err = w.processAssetWeb(ctx, payload)
+	case "network":
+		count, err = w.processAssetNetwork(ctx, payload)
+	default:
+		return nil, fmt.Errorf("unsupported target_type: %s", payload.TargetType)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"processed_count": count,
+		"target_type":     payload.TargetType,
+		"action":          payload.Action,
+	}, nil
+}
+
+// processAssetHost 处理主机资产标签
+func (w *SystemTaskWorker) processAssetHost(ctx context.Context, payload TagPropagationPayload) (int64, error) {
+	var count int64
+	var batchSize = 100
+	var assets []assetModel.AssetHost
+
+	err := w.db.WithContext(ctx).Model(&assetModel.AssetHost{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		for _, asset := range assets {
+			// 1. 转换为 Map 用于匹配
+			assetData, err := structToMap(asset)
+			if err != nil {
+				continue
+			}
+
+			// 2. 执行匹配
+			matched, err := matcher.Match(assetData, payload.Rule)
+			if err != nil {
+				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processAssetHost", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				continue
+			}
+
+			if matched {
+				// 3. 更新标签
+				newTags := updateTags(asset.Tags, payload.Tags, payload.Action)
+				if newTags != asset.Tags {
+					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
+						count++
+					}
+				}
+			}
+		}
+		return nil
+	}).Error
+
+	return count, err
+}
+
+// processAssetWeb 处理Web资产标签
+func (w *SystemTaskWorker) processAssetWeb(ctx context.Context, payload TagPropagationPayload) (int64, error) {
+	var count int64
+	var batchSize = 100
+	var assets []assetModel.AssetWeb
+
+	err := w.db.WithContext(ctx).Model(&assetModel.AssetWeb{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		for _, asset := range assets {
+			assetData, err := structToMap(asset)
+			if err != nil {
+				continue
+			}
+
+			matched, err := matcher.Match(assetData, payload.Rule)
+			if err != nil {
+				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processAssetWeb", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				continue
+			}
+
+			if matched {
+				newTags := updateTags(asset.Tags, payload.Tags, payload.Action)
+				if newTags != asset.Tags {
+					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
+						count++
+					}
+				}
+			}
+		}
+		return nil
+	}).Error
+
+	return count, err
+}
+
+// processAssetNetwork 处理网段资产标签
+func (w *SystemTaskWorker) processAssetNetwork(ctx context.Context, payload TagPropagationPayload) (int64, error) {
+	var count int64
+	var batchSize = 100
+	var assets []assetModel.AssetNetwork
+
+	err := w.db.WithContext(ctx).Model(&assetModel.AssetNetwork{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		for _, asset := range assets {
+			assetData, err := structToMap(asset)
+			if err != nil {
+				continue
+			}
+
+			matched, err := matcher.Match(assetData, payload.Rule)
+			if err != nil {
+				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processAssetNetwork", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				continue
+			}
+
+			if matched {
+				newTags := updateTags(asset.Tags, payload.Tags, payload.Action)
+				if newTags != asset.Tags {
+					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
+						count++
+					}
+				}
+			}
+		}
+		return nil
+	}).Error
+
+	return count, err
+}
+
+// AssetCleanupPayload 资产清洗任务载荷
+type AssetCleanupPayload struct {
+	TargetType string            `json:"target_type"` // host, web, network
+	Rule       matcher.MatchRule `json:"rule"`
+}
+
+// handleAssetCleanup 处理资产清洗任务
+func (w *SystemTaskWorker) handleAssetCleanup(ctx context.Context, task *orchestrator.AgentTask) (map[string]interface{}, error) {
+	var payload AssetCleanupPayload
+	if err := json.Unmarshal([]byte(task.ToolParams), &payload); err != nil {
+		return nil, fmt.Errorf("invalid payload: %v", err)
+	}
+
+	var count int64
+	var err error
+
+	switch payload.TargetType {
+	case "host":
+		count, err = w.processCleanupHost(ctx, payload)
+	case "web":
+		count, err = w.processCleanupWeb(ctx, payload)
+	case "network":
+		count, err = w.processCleanupNetwork(ctx, payload)
+	default:
+		return nil, fmt.Errorf("unsupported target_type: %s", payload.TargetType)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"deleted_count": count,
+		"target_type":   payload.TargetType,
+	}, nil
+}
+
+// processCleanupHost 清洗主机资产
+func (w *SystemTaskWorker) processCleanupHost(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
+	var count int64
+	var batchSize = 100
+	var assets []assetModel.AssetHost
+
+	err := w.db.WithContext(ctx).Model(&assetModel.AssetHost{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		for _, asset := range assets {
+			assetData, err := structToMap(asset)
+			if err != nil {
+				continue
+			}
+
+			matched, err := matcher.Match(assetData, payload.Rule)
+			if err != nil {
+				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processCleanupHost", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				continue
+			}
+
+			if matched {
+				if err := w.db.Delete(&asset).Error; err == nil {
+					count++
+				}
+			}
+		}
+		return nil
+	}).Error
+
+	return count, err
+}
+
+// processCleanupWeb 清洗Web资产
+func (w *SystemTaskWorker) processCleanupWeb(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
+	var count int64
+	var batchSize = 100
+	var assets []assetModel.AssetWeb
+
+	err := w.db.WithContext(ctx).Model(&assetModel.AssetWeb{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		for _, asset := range assets {
+			assetData, err := structToMap(asset)
+			if err != nil {
+				continue
+			}
+
+			matched, err := matcher.Match(assetData, payload.Rule)
+			if err != nil {
+				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processCleanupWeb", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				continue
+			}
+
+			if matched {
+				if err := w.db.Delete(&asset).Error; err == nil {
+					count++
+				}
+			}
+		}
+		return nil
+	}).Error
+
+	return count, err
+}
+
+// processCleanupNetwork 清洗网段资产
+func (w *SystemTaskWorker) processCleanupNetwork(ctx context.Context, payload AssetCleanupPayload) (int64, error) {
+	var count int64
+	var batchSize = 100
+	var assets []assetModel.AssetNetwork
+
+	err := w.db.WithContext(ctx).Model(&assetModel.AssetNetwork{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		for _, asset := range assets {
+			assetData, err := structToMap(asset)
+			if err != nil {
+				continue
+			}
+
+			matched, err := matcher.Match(assetData, payload.Rule)
+			if err != nil {
+				logger.LogWarn("Matcher error", "", 0, "", "system_worker.processCleanupNetwork", "", map[string]interface{}{"error": err, "asset_id": asset.ID})
+				continue
+			}
+
+			if matched {
+				if err := w.db.Delete(&asset).Error; err == nil {
+					count++
+				}
+			}
+		}
+		return nil
+	}).Error
+
+	return count, err
+}
+
+// structToMap 辅助函数：结构体转Map
+func structToMap(v interface{}) (map[string]interface{}, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var res map[string]interface{}
+	err = json.Unmarshal(data, &res)
+	return res, err
+}
+
+// updateTags 辅助函数：更新标签JSON字符串
+func updateTags(currentTagsJSON string, newTags []string, action string) string {
+	var tags []string
+	if currentTagsJSON != "" {
+		_ = json.Unmarshal([]byte(currentTagsJSON), &tags)
+	}
+
+	tagSet := make(map[string]struct{})
+	for _, t := range tags {
+		tagSet[t] = struct{}{}
+	}
+
+	for _, t := range newTags {
+		switch action {
+		case "add":
+			tagSet[t] = struct{}{}
+		case "remove":
+			delete(tagSet, t)
+		}
+	}
+
+	result := make([]string, 0, len(tagSet))
+	for t := range tagSet {
+		result = append(result, t)
+	}
+
+	b, _ := json.Marshal(result)
+	return string(b)
+}

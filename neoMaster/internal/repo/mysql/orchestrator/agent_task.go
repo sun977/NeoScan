@@ -15,7 +15,7 @@ type TaskRepository interface {
 	CreateTask(ctx context.Context, task *agentModel.AgentTask) error
 	UpdateTaskStatus(ctx context.Context, taskID string, status string) error
 	GetTaskByID(ctx context.Context, taskID string) (*agentModel.AgentTask, error)
-	GetPendingTasks(ctx context.Context, limit int) ([]*agentModel.AgentTask, error)
+	GetPendingTasks(ctx context.Context, category string, limit int) ([]*agentModel.AgentTask, error)
 	UpdateTaskResult(ctx context.Context, taskID string, result string, errorMsg string, status string) error
 	GetLatestTaskByProjectID(ctx context.Context, projectID uint64) (*agentModel.AgentTask, error)
 	GetTasksByAgentID(ctx context.Context, agentID string) ([]*agentModel.AgentTask, error)
@@ -62,10 +62,13 @@ func (r *taskRepository) GetTaskByID(ctx context.Context, taskID string) (*agent
 }
 
 // GetPendingTasks 获取所有待处理的任务
-func (r *taskRepository) GetPendingTasks(ctx context.Context, limit int) ([]*agentModel.AgentTask, error) {
+// category: 任务分类(agent/system)
+// agent: 获取所有待处理的 Agent 任务
+// system: 获取所有待处理的 System 任务
+func (r *taskRepository) GetPendingTasks(ctx context.Context, category string, limit int) ([]*agentModel.AgentTask, error) {
 	var tasks []*agentModel.AgentTask
 	err := r.db.WithContext(ctx).
-		Where("status = ?", "pending").
+		Where("status = ? AND task_category = ?", "pending", category).
 		Order("priority desc, created_at asc").
 		Limit(limit).
 		Find(&tasks).Error
@@ -78,7 +81,7 @@ func (r *taskRepository) UpdateTaskResult(ctx context.Context, taskID string, re
 		"output_result": result,
 		"error_msg":     errorMsg,
 		"status":        status,
-		"finished_at":   gorm.Expr("NOW()"),
+		"finished_at":   time.Now(),
 	}
 	return r.db.WithContext(ctx).Model(&agentModel.AgentTask{}).
 		Where("task_id = ?", taskID).

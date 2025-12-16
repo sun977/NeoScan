@@ -16,6 +16,7 @@ package scheduler
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"neomaster/internal/config"
 	orcModel "neomaster/internal/model/orchestrator"
@@ -146,6 +147,12 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			return nil, fmt.Errorf("failed to generate task ID: %v", err)
 		}
 
+		// 判断任务分类
+		taskCategory := "agent"
+		if strings.HasPrefix(stage.ToolName, "sys_") {
+			taskCategory = "system"
+		}
+
 		// 2.创建任务对象并添加到任务列表中
 		task := &orcModel.AgentTask{
 			TaskID:       taskID,              // 任务ID
@@ -155,6 +162,7 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			Status:       "pending",           // 任务状态 (pending, running, completed, failed)
 			Priority:     priority,            // 任务优先级
 			TaskType:     "tool",              // Explicitly set default
+			TaskCategory: taskCategory,        // 任务分类
 			ToolName:     stage.ToolName,      // 工具名称
 			ToolParams:   stage.ToolParams,    // 工具参数
 			InputTarget:  string(targetsJSON), // 当前批次的目标列表（JSON 字符串，包含 Meta）

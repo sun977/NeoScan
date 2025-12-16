@@ -121,19 +121,23 @@ const (
     TaskCategoryAgent  = "agent"
     TaskCategorySystem = "system"
 
-    // Task Types (System)
-    TaskTypeSysTagPropagation = "sys_tag_propagation"
-    TaskTypeSysDataCleaning   = "sys_data_cleaning"
+    // Task Tool Names (System)
+    ToolNameSysTagPropagation = "sys_tag_propagation"
+    ToolNameSysAssetCleanup   = "sys_asset_cleanup"
 )
-```
 
-这样设计既复用了现有的 Task 表结构和基础设施（UI、API、状态机），又保持了逻辑上的清晰隔离。
+// 1. 标签传播任务载荷 (Tag Propagation Payload)
+type TagPropagationPayload struct {
+    TargetType string            `json:"target_type"` // host, web, network
+    Action     string            `json:"action"`      // add, remove
+    Tags       []string          `json:"tags"`        // 要添加/移除的标签列表
+    Rule       matcher.MatchRule `json:"rule"`        // 匹配规则 (复杂嵌套逻辑)
+}
 
-// 任务参数 Payload (存储在 ToolParams 或 InputTarget 中)
-type SysTagPropagationParams struct {
-    RuleID     uint64 `json:"rule_id,omitempty"` // 0 表示全量规则
-    EntityType string `json:"entity_type"`       // 默认为 "asset"
-    BatchSize  int    `json:"batch_size"`        // 默认 1000
+// 2. 资产清洗任务载荷 (Asset Cleanup Payload)
+type AssetCleanupPayload struct {
+    TargetType string            `json:"target_type"` // host, web, network
+    Rule       matcher.MatchRule `json:"rule"`        // 匹配规则 (匹配到的资产将被删除)
 }
 ```
 

@@ -9,8 +9,8 @@ package router
 
 import (
 	setup "neomaster/internal/app/master/setup"
-	"neomaster/internal/service/orchestrator/core/local_agent"
 	"neomaster/internal/service/orchestrator/core/scheduler"
+	"neomaster/internal/service/orchestrator/local_agent"
 
 	"neomaster/internal/app/master/middleware"
 	"neomaster/internal/config"

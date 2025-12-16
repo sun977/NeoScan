@@ -17,8 +17,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"neomaster/internal/service/orchestrator/core/local_agent"
 	"neomaster/internal/service/orchestrator/core/scheduler"
+	"neomaster/internal/service/orchestrator/local_agent"
 
 	"neomaster/internal/app/master/router"
 	"neomaster/internal/config"

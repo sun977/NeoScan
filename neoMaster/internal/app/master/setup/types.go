@@ -17,8 +17,8 @@ import (
 	assetService "neomaster/internal/service/asset"
 	authService "neomaster/internal/service/auth"
 	orchestratorService "neomaster/internal/service/orchestrator"
-	"neomaster/internal/service/orchestrator/core/local_agent"
 	"neomaster/internal/service/orchestrator/core/scheduler"
+	"neomaster/internal/service/orchestrator/local_agent"
 )
 
 // AuthModule 是认证模块的聚合输出

@@ -148,6 +148,9 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 		}
 
 		// 判断任务分类
+		// 默认为 agent 任务
+		// 如果想指定为 system 任务，需要在 ToolName 前添加 sys_ 前缀
+		// 因为 scanStage 不知道任务实在本地执行还是在远程执行器执行,他也不需要知道
 		taskCategory := "agent"
 		if strings.HasPrefix(stage.ToolName, "sys_") {
 			taskCategory = "system"

@@ -33,7 +33,7 @@ type AgentRepository interface {
 	Update(agentData *agentModel.Agent) error
 	Delete(agentID string) error
 	// Agent 查询操作
-	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, features []string, taskSupport []string) ([]*agentModel.Agent, int64, error)
+	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, taskSupport []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
 
 	// Agent 状态和心跳管理
@@ -77,8 +77,8 @@ type AgentRepository interface {
 	GetTagIDsByTaskSupportIDs(ids []string) ([]uint64, error)     // 根据任务支持ID获取TagID
 
 	// Agent 标签管理
-	IsValidTagId(tag string) bool                                  // 判断标签ID是否有效
-	IsValidTagByName(tag string) bool                              // 判断标签名称是否有效
+	IsValidTagId(tag string) bool                          // 判断标签ID是否有效
+	IsValidTagByName(tag string) bool                      // 判断标签名称是否有效
 	AddTag(agentID string, tagID string) error             // 添加Agent标签
 	RemoveTag(agentID string, tagID string) error          // 移除Agent标签
 	HasTag(agentID string, tagID string) bool              // 判断Agent是否有指定标签

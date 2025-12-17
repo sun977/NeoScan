@@ -12,6 +12,7 @@
 USE `neoscan_dev`;
 
 -- 1. Agent基础信息表 (agents)
+DROP TABLE IF EXISTS `agents`;
 CREATE TABLE `agents` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent唯一标识ID',
@@ -46,6 +47,7 @@ CREATE TABLE `agents` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent基础信息表';
 
 -- 2. Agent版本信息表 (agent_versions)
+DROP TABLE IF EXISTS `agent_versions`;
 CREATE TABLE `agent_versions` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `version` varchar(50) NOT NULL COMMENT '版本号',
@@ -64,6 +66,7 @@ CREATE TABLE `agent_versions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent版本信息表';
 
 -- 3. Agent配置表 (agent_configs)
+DROP TABLE IF EXISTS `agent_configs`;
 CREATE TABLE `agent_configs` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
@@ -86,6 +89,7 @@ CREATE TABLE `agent_configs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent配置表';
 
 -- 4. Agent指标表 (agent_metrics)
+DROP TABLE IF EXISTS `agent_metrics`;
 CREATE TABLE `agent_metrics` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
@@ -134,6 +138,7 @@ CREATE TABLE `agent_scan_types` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent扫描类型表';
 
 -- 6. Agent标签类型表 (agent_tag_types)
+DROP TABLE IF EXISTS `agent_tag_types`;
 CREATE TABLE `agent_tag_types` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `name` varchar(100) NOT NULL COMMENT '标签类型名称，唯一',

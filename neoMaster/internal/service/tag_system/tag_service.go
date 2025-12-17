@@ -122,14 +122,14 @@ func (s *tagService) GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_syst
 	}
 	// 填充全路径名称
 	if len(tags) > 0 {
-		_ = s.enrichTagsWithFullPath(ctx, tags)
+		_ = s.enrichTagsWithFullPath(tags)
 	}
 	return tags, nil
 }
 
 // enrichTagsWithFullPath 批量填充标签的全路径名称
 // 核心逻辑: 解析 Path 字段获取所有祖先ID，批量查询名称，构建 "Root/Parent/Child" 字符串
-func (s *tagService) enrichTagsWithFullPath(ctx context.Context, tags []tag_system.SysTag) error {
+func (s *tagService) enrichTagsWithFullPath(tags []tag_system.SysTag) error {
 	ancestorIDs := make(map[uint64]struct{})
 	for _, tag := range tags {
 		// Parse path: /1/5/ -> ["", "1", "5", ""]

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"neomaster/internal/pkg/utils"
 
@@ -114,7 +116,78 @@ func (s *tagService) GetTagByName(ctx context.Context, name string) (*tag_system
 }
 
 func (s *tagService) GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error) {
-	return s.repo.GetTagsByIDs(ids)
+	tags, err := s.repo.GetTagsByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+	// 填充全路径名称
+	if len(tags) > 0 {
+		_ = s.enrichTagsWithFullPath(ctx, tags)
+	}
+	return tags, nil
+}
+
+// enrichTagsWithFullPath 批量填充标签的全路径名称
+// 核心逻辑: 解析 Path 字段获取所有祖先ID，批量查询名称，构建 "Root/Parent/Child" 字符串
+func (s *tagService) enrichTagsWithFullPath(ctx context.Context, tags []tag_system.SysTag) error {
+	ancestorIDs := make(map[uint64]struct{})
+	for _, tag := range tags {
+		// Parse path: /1/5/ -> ["", "1", "5", ""]
+		parts := strings.Split(tag.Path, "/")
+		for _, part := range parts {
+			if part == "" {
+				continue
+			}
+			id, err := strconv.ParseUint(part, 10, 64)
+			if err == nil && id > 0 {
+				ancestorIDs[id] = struct{}{}
+			}
+		}
+	}
+
+	if len(ancestorIDs) == 0 {
+		// No ancestors (all are roots), just set FullPathName = Name
+		for i := range tags {
+			tags[i].FullPathName = tags[i].Name
+		}
+		return nil
+	}
+
+	var ids []uint64
+	for id := range ancestorIDs {
+		ids = append(ids, id)
+	}
+
+	// Fetch ancestors from Repo directly to avoid recursion loop
+	ancestorTags, err := s.repo.GetTagsByIDs(ids)
+	if err != nil {
+		return err
+	}
+
+	nameMap := make(map[uint64]string)
+	for _, t := range ancestorTags {
+		nameMap[t.ID] = t.Name
+	}
+
+	for i := range tags {
+		parts := strings.Split(tags[i].Path, "/")
+		var names []string
+		for _, part := range parts {
+			if part == "" {
+				continue
+			}
+			id, _ := strconv.ParseUint(part, 10, 64)
+			if name, ok := nameMap[id]; ok {
+				names = append(names, name)
+			} else {
+				names = append(names, part) // Fallback to ID if name missing
+			}
+		}
+		names = append(names, tags[i].Name)
+		tags[i].FullPathName = strings.Join(names, "/")
+	}
+
+	return nil
 }
 
 func (s *tagService) UpdateTag(ctx context.Context, tag *tag_system.SysTag) error {

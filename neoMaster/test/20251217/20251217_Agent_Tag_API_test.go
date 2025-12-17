@@ -68,6 +68,11 @@ func TestAgentTagAPI(t *testing.T) {
 	if err := tagSvc.CreateTag(ctx, tag2); err != nil {
 		t.Fatalf("Failed to create tag 2: %v", err)
 	}
+	// 创建 Child Tag
+	tag3 := &tag_system.SysTag{Name: "APITestTag_3", ParentID: tag1.ID}
+	if err := tagSvc.CreateTag(ctx, tag3); err != nil {
+		t.Fatalf("Failed to create tag 3: %v", err)
+	}
 
 	// 创建 Agent
 	agent := &agentModel.Agent{
@@ -82,11 +87,11 @@ func TestAgentTagAPI(t *testing.T) {
 		t.Fatalf("Failed to create agent: %v", err)
 	}
 
-	t.Logf("Setup Complete. AgentID: %s, Tag1ID: %d, Tag2ID: %d", agent.AgentID, tag1.ID, tag2.ID)
+	t.Logf("Setup Complete. AgentID: %s, Tag1ID: %d, Tag2ID: %d, Tag3ID: %d", agent.AgentID, tag1.ID, tag2.ID, tag3.ID)
 
 	// === 测试 Case 1: AddAgentTag (POST) ===
 	t.Run("AddAgentTag", func(t *testing.T) {
-		payload := map[string]uint64{"tag_id": tag1.ID}
+		payload := map[string]uint64{"tag_id": tag3.ID}
 		jsonBody, _ := json.Marshal(payload)
 		req, _ := http.NewRequest("POST", "/agent/"+agent.AgentID+"/tags", bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -100,15 +105,14 @@ func TestAgentTagAPI(t *testing.T) {
 
 		// 验证 DB
 		tags, _ := agentSvc.GetAgentTags(agent.AgentID)
-		if len(tags) != 1 || tags[0].Name != tag1.Name {
-			t.Errorf("DB check failed. Expected [%s], got %v", tag1.Name, tags)
+		if len(tags) != 1 || tags[0].Name != tag3.Name {
+			t.Errorf("DB check failed. Expected [%s], got %v", tag3.Name, tags)
 		}
 	})
 
 	// === 测试 Case 2: UpdateAgentTags (PUT) ===
 	t.Run("UpdateAgentTags", func(t *testing.T) {
-		// 替换 Tag1 为 Tag2
-		payload := map[string][]uint64{"tag_ids": {tag2.ID}}
+		payload := map[string][]uint64{"tag_ids": {tag3.ID}}
 		jsonBody, _ := json.Marshal(payload)
 		req, _ := http.NewRequest("PUT", "/agent/"+agent.AgentID+"/tags", bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -122,8 +126,8 @@ func TestAgentTagAPI(t *testing.T) {
 
 		// 验证 DB
 		tags, _ := agentSvc.GetAgentTags(agent.AgentID)
-		if len(tags) != 1 || tags[0].Name != tag2.Name {
-			t.Errorf("DB check failed. Expected [%s], got %v", tag2.Name, tags)
+		if len(tags) != 1 || tags[0].Name != tag3.Name {
+			t.Errorf("DB check failed. Expected [%s], got %v", tag3.Name, tags)
 		}
 	})
 
@@ -171,6 +175,15 @@ func TestAgentTagAPI(t *testing.T) {
 			if _, ok := tagMap["name"]; !ok {
 				t.Errorf("Tag Name missing in response")
 			}
+			// 验证 FullPathName
+			if fullPath, ok := tagMap["full_path_name"].(string); !ok {
+				t.Errorf("Tag FullPathName missing in response")
+			} else {
+				expectedPath := "APITestTag_1/APITestTag_3"
+				if fullPath != expectedPath {
+					t.Errorf("Expected FullPathName %s, got %s", expectedPath, fullPath)
+				}
+			}
 		} else {
 			t.Errorf("Expected at least 1 tag, got 0")
 		}
@@ -178,7 +191,7 @@ func TestAgentTagAPI(t *testing.T) {
 
 	// === 测试 Case 4: RemoveAgentTag (DELETE) ===
 	t.Run("RemoveAgentTag", func(t *testing.T) {
-		payload := map[string]uint64{"tag_id": tag2.ID}
+		payload := map[string]uint64{"tag_id": tag3.ID}
 		jsonBody, _ := json.Marshal(payload)
 		req, _ := http.NewRequest("DELETE", "/agent/"+agent.AgentID+"/tags", bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")

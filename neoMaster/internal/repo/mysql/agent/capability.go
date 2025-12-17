@@ -61,6 +61,50 @@ func (r *agentRepository) IsValidCapabilityByName(capability string) bool {
 	return count > 0
 }
 
+// GetTagIDsByScanTypeNames 根据ScanType名称列表获取对应的TagID列表
+func (r *agentRepository) GetTagIDsByScanTypeNames(names []string) ([]uint64, error) {
+	if len(names) == 0 {
+		return []uint64{}, nil
+	}
+	var tagIDs []uint64
+	// 查询ScanType表，获取对应TagID
+	// 只查询激活的ScanType
+	err := r.db.Model(&agentModel.ScanType{}).
+		Where("name IN ? AND is_active = ?", names, true).
+		Pluck("tag_id", &tagIDs).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetTagIDsByScanTypeNames", "gorm", map[string]interface{}{
+			"operation": "get_tag_ids_by_scantype_names",
+			"option":    "db.Pluck",
+			"names":     names,
+		})
+		return nil, err
+	}
+	return tagIDs, nil
+}
+
+// GetTagIDsByScanTypeIDs 根据ScanType ID列表获取对应的TagID列表
+func (r *agentRepository) GetTagIDsByScanTypeIDs(ids []string) ([]uint64, error) {
+	if len(ids) == 0 {
+		return []uint64{}, nil
+	}
+	var tagIDs []uint64
+	err := r.db.Model(&agentModel.ScanType{}).
+		Where("id IN ? AND is_active = ?", ids, true).
+		Pluck("tag_id", &tagIDs).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetTagIDsByScanTypeIDs", "gorm", map[string]interface{}{
+			"operation": "get_tag_ids_by_scantype_ids",
+			"option":    "db.Pluck",
+			"ids":       ids,
+		})
+		return nil, err
+	}
+	return tagIDs, nil
+}
+
 // 为Agent添加能力
 func (r *agentRepository) AddCapability(agentID string, capabilityID string) error {
 	// 参数校验

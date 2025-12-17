@@ -33,7 +33,7 @@ type AgentRepository interface {
 	Update(agentData *agentModel.Agent) error
 	Delete(agentID string) error
 	// Agent 查询操作
-	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error)
+	GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, taskSupport []string) ([]*agentModel.Agent, int64, error)
 	GetByStatus(status agentModel.AgentStatus) ([]*agentModel.Agent, error)
 
 	// Agent 状态和心跳管理
@@ -57,17 +57,18 @@ type AgentRepository interface {
 	GetMetricsByAgentIDsSince(agentIDs []string, since time.Time) ([]*agentModel.AgentMetrics, error) // 按AgentID集合+时间窗口过滤获取快照
 
 	// Agent 能力管理 - 能力是Agent自己属性,需要结合Agent实际情况(Agent需要有自检能力的方法),不同于标签
-	IsValidCapabilityId(capability string) bool                 // 判断能力ID是否有效
-	IsValidCapabilityByName(capability string) bool             // 判断能力名称是否有效
-	GetTagIDsByScanTypeNames(names []string) ([]uint64, error)  // 新增：根据能力名称获取TagID
-	GetTagIDsByScanTypeIDs(ids []string) ([]uint64, error)      // 新增：根据能力ID获取TagID
-	AddCapability(agentID string, capabilityID string) error    // 添加Agent能力
-	RemoveCapability(agentID string, capabilityID string) error // 移除Agent能力
-	HasCapability(agentID string, capabilityID string) bool     // 判断Agent是否有指定能力
-	GetCapabilities(agentID string) []string                    // 获取Agent所有能力ID列表
+	// IsValidCapabilityId(capability string) bool                 // 判断能力ID是否有效
+	// IsValidCapabilityByName(capability string) bool             // 判断能力名称是否有效
+	// GetTagIDsByScanTypeNames(names []string) ([]uint64, error)  // 新增：根据能力名称获取TagID
+	// GetTagIDsByScanTypeIDs(ids []string) ([]uint64, error)      // 新增：根据能力ID获取TagID
+	// AddCapability(agentID string, capabilityID string) error    // 添加Agent能力
+	// RemoveCapability(agentID string, capabilityID string) error // 移除Agent能力
+	// HasCapability(agentID string, capabilityID string) bool     // 判断Agent是否有指定能力
+	// GetCapabilities(agentID string) []string                    // 获取Agent所有能力ID列表
 
 	// Agent 任务支持管理 (TaskSupport) - 新增，功能对齐 Capability
 	IsValidTaskSupportId(taskID string) bool                      // 判断任务支持ID是否有效
+	IsValidTaskSupportByName(taskName string) bool                // 判断任务支持名称是否有效
 	AddTaskSupport(agentID string, taskID string) error           // 添加Agent任务支持
 	RemoveTaskSupport(agentID string, taskID string) error        // 移除Agent任务支持
 	HasTaskSupport(agentID string, taskID string) bool            // 判断Agent是否支持指定任务

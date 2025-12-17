@@ -395,10 +395,10 @@ func (r *agentRepository) Delete(agentID string) error {
 	return nil
 }
 
-// GetList 获取Agent列表（支持分页、按状态、关键词、标签、能力过滤）
-// 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, keyword - 关键字过滤, tags - 标签过滤, capabilities - 功能模块过滤
+// GetList 获取Agent列表（支持分页、按状态、关键词、标签、任务支持过滤）
+// 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, keyword - 关键字过滤, tags - 标签过滤, taskSupport - 任务支持过滤
 // 返回: []*agentModel.Agent - Agent列表, int64 - 总数量, error - 错误信息
-func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, capabilities []string) ([]*agentModel.Agent, int64, error) {
+func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, taskSupport []string) ([]*agentModel.Agent, int64, error) {
 	var agents []*agentModel.Agent
 	var total int64
 
@@ -425,11 +425,10 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 			// query = query.Where("JSON_CONTAINS(tags, ?)", `"`+tag+`"`)
 		}
 	}
-	// 能力过滤
-	if len(capabilities) > 0 {
-		for _, cap := range capabilities {
-			query = query.Where("JSON_CONTAINS(capabilities, JSON_QUOTE(?))", cap)
-			// query = query.Where("JSON_CONTAINS(capabilities, ?)", `"`+capability+`"`)
+	// 任务支持过滤 (TaskSupport) - 替代原 Capabilities
+	if len(taskSupport) > 0 {
+		for _, task := range taskSupport {
+			query = query.Where("JSON_CONTAINS(task_support, JSON_QUOTE(?))", task)
 		}
 	}
 

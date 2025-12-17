@@ -73,20 +73,7 @@ type AgentTaskAssignRequest struct {
 	TaskType string `json:"task_type" validate:"required"` // 任务类型，必填
 }
 
-// AgentGroupCreateRequest Agent分组创建请求结构
-type AgentGroupCreateRequest struct {
-	GroupID     string   `json:"group_id" validate:"required"`                                                           // 分组ID，必填
-	Name        string   `json:"name" validate:"required"`                                                               // 分组名称，必填
-	Description string   `json:"description"`                                                                            // 分组描述，可选
-	Status      uint8    `json:"status" gorm:"column:status;type:tinyint(1);not null;default:1;comment:分组状态(1=激活,0=禁用)"` // 分组状态，限定值
-	Tags        []string `json:"tags"`                                                                                   // 分组标签列表，可选
-}
 
-// AgentGroupMemberRequest Agent分组成员操作请求结构
-type AgentGroupMemberRequest struct {
-	AgentID string `json:"agent_id" validate:"required"` // Agent业务ID，必填
-	GroupID string `json:"group_id" validate:"required"` // 分组ID，必填
-}
 
 // AgentTagRequest Agent标签操作请求结构
 type AgentTagRequest struct {

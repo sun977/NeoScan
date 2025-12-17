@@ -29,11 +29,11 @@ type AgentMonitorService interface {
 	CreateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                                                                                                                       // 创建Agent性能指标
 	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error                                                                                                                       // 更新Agent性能指标
 
-	// Agent 数据分析
-	GetAgentStatistics(groupID string, windowSeconds int) (*agentModel.AgentStatisticsResponse, error)                                              // 获取Agent统计信息（可选按分组）
-	GetAgentLoadBalance(groupID string, windowSeconds int, topN int) (*agentModel.AgentLoadBalanceResponse, error)                                  // 获取负载均衡分析（可选按分组）
-	GetAgentPerformanceAnalysis(groupID string, windowSeconds int, topN int) (*agentModel.AgentPerformanceAnalysisResponse, error)                  // 获取性能分析（可选按分组）
-	GetAgentCapacityAnalysis(groupID string, windowSeconds int, cpuThr, memThr, diskThr float64) (*agentModel.AgentCapacityAnalysisResponse, error) // 获取容量分析（可选按分组）
+	// Agent 数据分析 (可按标签聚合)
+	GetAgentStatistics(windowSeconds int, tagIDs []uint64) (*agentModel.AgentStatisticsResponse, error)                                              // 获取Agent统计信息
+	GetAgentLoadBalance(windowSeconds int, topN int, tagIDs []uint64) (*agentModel.AgentLoadBalanceResponse, error)                                  // 获取负载均衡分析
+	GetAgentPerformanceAnalysis(windowSeconds int, topN int, tagIDs []uint64) (*agentModel.AgentPerformanceAnalysisResponse, error)                  // 获取性能分析
+	GetAgentCapacityAnalysis(windowSeconds int, cpuThr, memThr, diskThr float64, tagIDs []uint64) (*agentModel.AgentCapacityAnalysisResponse, error) // 获取容量分析
 }
 
 // agentMonitorService Agent监控服务实现
@@ -361,50 +361,83 @@ func (s *agentMonitorService) UpdateAgentMetrics(agentID string, metrics *agentM
 // ==================== 数据分析实现 ====================
 
 // GetAgentStatistics 获取Agent统计信息（仅基于agent_metrics快照）
-func (s *agentMonitorService) GetAgentStatistics(groupID string, windowSeconds int) (*agentModel.AgentStatisticsResponse, error) {
+func (s *agentMonitorService) GetAgentStatistics(windowSeconds int, tagIDs []uint64) (*agentModel.AgentStatisticsResponse, error) {
 	if windowSeconds <= 0 {
 		windowSeconds = 180
 	}
 	since := time.Now().Add(-time.Duration(windowSeconds) * time.Second)
 
-	// 全量与窗口内快照（可选分组过滤）
+	// 全量与窗口内快照
 	var all []*agentModel.AgentMetrics
-	var err error
-	if groupID != "" {
-		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
-		if e != nil {
-			return nil, e
-		}
-		all, err = s.agentRepo.GetMetricsByAgentIDs(ids)
-	} else {
-		all, err = s.agentRepo.GetAllMetrics()
-	}
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
-			"operation": "get_agent_statistics",
-			"option":    "repo.GetAllMetrics",
-			"func_name": "service.agent.monitor.GetAgentStatistics",
-		})
-		return nil, err
-	}
 	var window []*agentModel.AgentMetrics
-	if groupID != "" {
-		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
-		if e != nil {
-			return nil, e
+	var err error
+
+	if len(tagIDs) > 0 {
+		// 按标签过滤
+		var agentIDs []string
+		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+				"operation": "get_agent_statistics",
+				"option":    "repo.GetAgentIDsByTagIDs",
+				"func_name": "service.agent.monitor.GetAgentStatistics",
+				"tag_ids":   tagIDs,
+			})
+			return nil, err
 		}
-		window, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+
+		// 如果指定了标签但没有找到对应的Agent，直接返回空结果
+		if len(agentIDs) == 0 {
+			return &agentModel.AgentStatisticsResponse{
+				Performance:            agentModel.AggregatedPerformance{},
+				WorkStatusDistribution: map[string]int64{},
+				ScanTypeDistribution:   map[string]int64{},
+			}, nil
+		}
+
+		all, err = s.agentRepo.GetMetricsByAgentIDs(agentIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+				"operation": "get_agent_statistics",
+				"option":    "repo.GetMetricsByAgentIDs",
+				"func_name": "service.agent.monitor.GetAgentStatistics",
+				"count_ids": len(agentIDs),
+			})
+			return nil, err
+		}
+
+		window, err = s.agentRepo.GetMetricsByAgentIDsSince(agentIDs, since)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+				"operation": "get_agent_statistics",
+				"option":    "repo.GetMetricsByAgentIDsSince",
+				"func_name": "service.agent.monitor.GetAgentStatistics",
+				"count_ids": len(agentIDs),
+				"since":     since,
+			})
+			return nil, err
+		}
 	} else {
+		// 无标签过滤，查询所有
+		all, err = s.agentRepo.GetAllMetrics()
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+				"operation": "get_agent_statistics",
+				"option":    "repo.GetAllMetrics",
+				"func_name": "service.agent.monitor.GetAgentStatistics",
+			})
+			return nil, err
+		}
 		window, err = s.agentRepo.GetMetricsSince(since)
-	}
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
-			"operation": "get_agent_statistics",
-			"option":    "repo.GetMetricsSince",
-			"func_name": "service.agent.monitor.GetAgentStatistics",
-			"since":     since,
-		})
-		return nil, err
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
+				"operation": "get_agent_statistics",
+				"option":    "repo.GetMetricsSince",
+				"func_name": "service.agent.monitor.GetAgentStatistics",
+				"since":     since,
+			})
+			return nil, err
+		}
 	}
 
 	total := int64(len(all))
@@ -506,7 +539,7 @@ func (s *agentMonitorService) GetAgentStatistics(groupID string, windowSeconds i
 }
 
 // GetAgentLoadBalance 负载均衡分析
-func (s *agentMonitorService) GetAgentLoadBalance(groupID string, windowSeconds int, topN int) (*agentModel.AgentLoadBalanceResponse, error) {
+func (s *agentMonitorService) GetAgentLoadBalance(windowSeconds int, topN int, tagIDs []uint64) (*agentModel.AgentLoadBalanceResponse, error) {
 	if windowSeconds <= 0 {
 		windowSeconds = 180
 	}
@@ -517,22 +550,50 @@ func (s *agentMonitorService) GetAgentLoadBalance(groupID string, windowSeconds 
 
 	var metrics []*agentModel.AgentMetrics
 	var err error
-	if groupID != "" {
-		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
-		if e != nil {
-			return nil, e
+
+	if len(tagIDs) > 0 {
+		var agentIDs []string
+		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentLoadBalance", "", map[string]interface{}{
+				"operation": "get_agent_load_balance",
+				"option":    "repo.GetAgentIDsByTagIDs",
+				"func_name": "service.agent.monitor.GetAgentLoadBalance",
+				"tag_ids":   tagIDs,
+			})
+			return nil, err
 		}
-		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+
+		if len(agentIDs) == 0 {
+			return &agentModel.AgentLoadBalanceResponse{
+				TopBusyAgents: []agentModel.AgentLoadItem{},
+				TopIdleAgents: []agentModel.AgentLoadItem{},
+				Advice:        "无Agent数据",
+			}, nil
+		}
+
+		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(agentIDs, since)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentLoadBalance", "", map[string]interface{}{
+				"operation": "get_agent_load_balance",
+				"option":    "repo.GetMetricsByAgentIDsSince",
+				"func_name": "service.agent.monitor.GetAgentLoadBalance",
+				"count_ids": len(agentIDs),
+				"since":     since,
+			})
+			return nil, err
+		}
 	} else {
 		metrics, err = s.agentRepo.GetMetricsSince(since)
-	}
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentLoadBalance", "", map[string]interface{}{
-			"operation": "get_agent_load_balance",
-			"option":    "repo.GetMetricsSince",
-			"func_name": "service.agent.monitor.GetAgentLoadBalance",
-		})
-		return nil, err
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentLoadBalance", "", map[string]interface{}{
+				"operation": "get_agent_load_balance",
+				"option":    "repo.GetMetricsSince",
+				"func_name": "service.agent.monitor.GetAgentLoadBalance",
+				"since":     since,
+			})
+			return nil, err
+		}
 	}
 
 	// 计算负载分数
@@ -590,7 +651,7 @@ func (s *agentMonitorService) GetAgentLoadBalance(groupID string, windowSeconds 
 }
 
 // GetAgentPerformanceAnalysis 性能分析
-func (s *agentMonitorService) GetAgentPerformanceAnalysis(groupID string, windowSeconds int, topN int) (*agentModel.AgentPerformanceAnalysisResponse, error) {
+func (s *agentMonitorService) GetAgentPerformanceAnalysis(windowSeconds int, topN int, tagIDs []uint64) (*agentModel.AgentPerformanceAnalysisResponse, error) {
 	if windowSeconds <= 0 {
 		windowSeconds = 180
 	}
@@ -601,22 +662,52 @@ func (s *agentMonitorService) GetAgentPerformanceAnalysis(groupID string, window
 
 	var metrics []*agentModel.AgentMetrics
 	var err error
-	if groupID != "" {
-		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
-		if e != nil {
-			return nil, e
+
+	if len(tagIDs) > 0 {
+		var agentIDs []string
+		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentPerformanceAnalysis", "", map[string]interface{}{
+				"operation": "get_agent_performance",
+				"option":    "repo.GetAgentIDsByTagIDs",
+				"func_name": "service.agent.monitor.GetAgentPerformanceAnalysis",
+				"tag_ids":   tagIDs,
+			})
+			return nil, err
 		}
-		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+
+		if len(agentIDs) == 0 {
+			return &agentModel.AgentPerformanceAnalysisResponse{
+				Aggregated:     agentModel.AggregatedPerformance{},
+				TopCPU:         []agentModel.AgentPerformanceItem{},
+				TopMemory:      []agentModel.AgentPerformanceItem{},
+				TopNetwork:     []agentModel.AgentPerformanceItem{},
+				TopFailedTasks: []agentModel.AgentPerformanceItem{},
+			}, nil
+		}
+
+		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(agentIDs, since)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentPerformanceAnalysis", "", map[string]interface{}{
+				"operation": "get_agent_performance",
+				"option":    "repo.GetMetricsByAgentIDsSince",
+				"func_name": "service.agent.monitor.GetAgentPerformanceAnalysis",
+				"count_ids": len(agentIDs),
+				"since":     since,
+			})
+			return nil, err
+		}
 	} else {
 		metrics, err = s.agentRepo.GetMetricsSince(since)
-	}
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentPerformanceAnalysis", "", map[string]interface{}{
-			"operation": "get_agent_performance",
-			"option":    "repo.GetMetricsSince",
-			"func_name": "service.agent.monitor.GetAgentPerformanceAnalysis",
-		})
-		return nil, err
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentPerformanceAnalysis", "", map[string]interface{}{
+				"operation": "get_agent_performance",
+				"option":    "repo.GetMetricsSince",
+				"func_name": "service.agent.monitor.GetAgentPerformanceAnalysis",
+				"since":     since,
+			})
+			return nil, err
+		}
 	}
 
 	// 聚合统计
@@ -739,7 +830,7 @@ func (s *agentMonitorService) GetAgentPerformanceAnalysis(groupID string, window
 }
 
 // GetAgentCapacityAnalysis 容量分析
-func (s *agentMonitorService) GetAgentCapacityAnalysis(groupID string, windowSeconds int, cpuThr, memThr, diskThr float64) (*agentModel.AgentCapacityAnalysisResponse, error) {
+func (s *agentMonitorService) GetAgentCapacityAnalysis(windowSeconds int, cpuThr, memThr, diskThr float64, tagIDs []uint64) (*agentModel.AgentCapacityAnalysisResponse, error) {
 	if windowSeconds <= 0 {
 		windowSeconds = 180
 	}
@@ -756,22 +847,57 @@ func (s *agentMonitorService) GetAgentCapacityAnalysis(groupID string, windowSec
 
 	var metrics []*agentModel.AgentMetrics
 	var err error
-	if groupID != "" {
-		ids, e := s.agentRepo.GetAgentIDsInGroup(groupID)
-		if e != nil {
-			return nil, e
+
+	if len(tagIDs) > 0 {
+		var agentIDs []string
+		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentCapacityAnalysis", "", map[string]interface{}{
+				"operation": "get_agent_capacity",
+				"option":    "repo.GetAgentIDsByTagIDs",
+				"func_name": "service.agent.monitor.GetAgentCapacityAnalysis",
+				"tag_ids":   tagIDs,
+			})
+			return nil, err
 		}
-		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(ids, since)
+
+		if len(agentIDs) == 0 {
+			return &agentModel.AgentCapacityAnalysisResponse{
+				OnlineAgents:    0,
+				Overloaded:      0,
+				CPUThreshold:    cpuThr,
+				MemThreshold:    memThr,
+				DiskThreshold:   diskThr,
+				AverageHeadroom: 0,
+				CapacityScore:   0,
+				Bottlenecks:     map[string]int64{"cpu": 0, "memory": 0, "disk": 0},
+				Recommendations: "无Agent数据",
+				OverloadedList:  []agentModel.AgentCapacityItem{},
+			}, nil
+		}
+
+		metrics, err = s.agentRepo.GetMetricsByAgentIDsSince(agentIDs, since)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentCapacityAnalysis", "", map[string]interface{}{
+				"operation": "get_agent_capacity",
+				"option":    "repo.GetMetricsByAgentIDsSince",
+				"func_name": "service.agent.monitor.GetAgentCapacityAnalysis",
+				"count_ids": len(agentIDs),
+				"since":     since,
+			})
+			return nil, err
+		}
 	} else {
 		metrics, err = s.agentRepo.GetMetricsSince(since)
-	}
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentCapacityAnalysis", "", map[string]interface{}{
-			"operation": "get_agent_capacity",
-			"option":    "repo.GetMetricsSince",
-			"func_name": "service.agent.monitor.GetAgentCapacityAnalysis",
-		})
-		return nil, err
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentCapacityAnalysis", "", map[string]interface{}{
+				"operation": "get_agent_capacity",
+				"option":    "repo.GetMetricsSince",
+				"func_name": "service.agent.monitor.GetAgentCapacityAnalysis",
+				"since":     since,
+			})
+			return nil, err
+		}
 	}
 
 	var online int64

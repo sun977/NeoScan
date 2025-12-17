@@ -17,6 +17,7 @@ package agent
 
 import (
 	"fmt"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -268,4 +269,41 @@ func (r *agentRepository) GetTags(agentID string) []string {
 
 	// 4. 返回Agent的标签ID列表
 	return agent.Tags
+}
+
+// 根据标签ID获取AgentID列表
+func (r *agentRepository) GetAgentIDsByTagIDs(tagIDs []uint64) ([]string, error) {
+	if len(tagIDs) == 0 {
+		return []string{}, nil
+	}
+
+	var agentIDs []string
+
+	// 构建查询：只要包含任意一个标签即可 (OR逻辑)
+	// 使用 GORM 的 Group Condition
+	err := r.db.Model(&agentModel.Agent{}).Where(func(db *gorm.DB) *gorm.DB {
+		subQuery := db
+		for i, tagID := range tagIDs {
+			// 将 uint64 转为 string
+			tagStr := strconv.FormatUint(tagID, 10)
+			if i == 0 {
+				subQuery = subQuery.Where("JSON_CONTAINS(tags, JSON_QUOTE(?))", tagStr)
+			} else {
+				subQuery = subQuery.Or("JSON_CONTAINS(tags, JSON_QUOTE(?))", tagStr)
+			}
+		}
+		return subQuery
+	}).Pluck("agent_id", &agentIDs).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetAgentIDsByTagIDs", "gorm", map[string]interface{}{
+			"operation": "get_agent_ids_by_tag_ids",
+			"option":    "db.Pluck",
+			"func_name": "repo.agent.GetAgentIDsByTagIDs",
+			"tag_ids":   tagIDs,
+		})
+		return nil, err
+	}
+
+	return agentIDs, nil
 }

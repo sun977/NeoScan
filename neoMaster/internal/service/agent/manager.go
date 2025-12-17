@@ -8,11 +8,13 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	agentRepository "neomaster/internal/repo/mysql/agent"
+	"neomaster/internal/service/tag_system"
 	"time"
 )
 
@@ -59,14 +61,16 @@ type AgentManagerService interface {
 
 // agentManagerService Agent基础管理服务实现
 type agentManagerService struct {
-	agentRepo agentRepository.AgentRepository // Agent数据访问层
+	agentRepo  agentRepository.AgentRepository // Agent数据访问层
+	tagService tag_system.TagService           // 标签系统服务
 }
 
 // NewAgentManagerService 创建Agent基础管理服务实例
 // 遵循依赖注入原则，保持代码的可测试性
-func NewAgentManagerService(agentRepo agentRepository.AgentRepository) AgentManagerService {
+func NewAgentManagerService(agentRepo agentRepository.AgentRepository, tagService tag_system.TagService) AgentManagerService {
 	return &agentManagerService{
-		agentRepo: agentRepo,
+		agentRepo:  agentRepo,
+		tagService: tagService,
 	}
 }
 
@@ -975,58 +979,37 @@ func (s *agentManagerService) SetAgentGroupStatus(groupID string, status int) er
 func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error {
 	// 输入验证 - 遵循"好品味"原则，消除特殊情况
 	if req == nil {
-		logger.Error("请求参数为空",
-			"path", "AddAgentTag",
-			"operation", "add_agent_tag",
-			"option", "agentManagerService.AddAgentTag",
-			"func_name", "service.agent.manager.AddAgentTag",
-		)
 		return fmt.Errorf("请求参数不能为空")
 	}
 
 	if req.AgentID == "" {
-		logger.Error("Agent ID为空",
-			"path", "AddAgentTag",
-			"operation", "add_agent_tag",
-			"option", "agentManagerService.AddAgentTag",
-			"func_name", "service.agent.manager.AddAgentTag",
-			"agent_id", req.AgentID,
-		)
 		return fmt.Errorf("agent ID不能为空")
 	}
 
 	if req.Tag == "" {
-		logger.Error("标签ID为空",
-			"path", "AddAgentTag",
-			"operation", "add_agent_tag",
-			"option", "agentManagerService.AddAgentTag",
-			"func_name", "service.agent.manager.AddAgentTag",
-			"agent_id", req.AgentID,
-			"tag", req.Tag,
-		)
 		return fmt.Errorf("标签ID不能为空")
 	}
 
-	// 验证标签ID是否有效
-	if !s.IsValidTagId(req.Tag) {
-		logger.Error("无效的标签ID",
-			"path", "AddAgentTag",
-			"operation", "add_agent_tag",
-			"option", "agentManagerService.AddAgentTag",
-			"func_name", "service.agent.manager.AddAgentTag",
-			"agent_id", req.AgentID,
-			"tag", req.Tag,
-		)
-		return fmt.Errorf("无效的标签ID: %s", req.Tag)
+	ctx := context.Background()
+
+	// 1. 获取标签信息 (验证标签是否存在)
+	// 这里的 req.Tag 实际上是标签名称
+	tag, err := s.tagService.GetTagByName(ctx, req.Tag)
+	if err != nil {
+		return fmt.Errorf("获取标签失败: %v", err)
+	}
+	if tag == nil {
+		return fmt.Errorf("标签不存在: %s", req.Tag)
 	}
 
-	// 委托Repository层处理数据操作
-	err := s.agentRepo.AddTag(req.AgentID, req.Tag)
+	// 2. 添加实体标签关联
+	// Source: "manual", RuleID: 0
+	err = s.tagService.AddEntityTag(ctx, "agent", req.AgentID, tag.ID, "manual", 0)
 	if err != nil {
 		logger.Error("添加Agent标签失败",
 			"path", "AddAgentTag",
 			"operation", "add_agent_tag",
-			"option", "agentManagerService.AddAgentTag",
+			"option", "tagService.AddEntityTag",
 			"func_name", "service.agent.manager.AddAgentTag",
 			"agent_id", req.AgentID,
 			"tag", req.Tag,
@@ -1038,7 +1021,7 @@ func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error
 	logger.Info("Agent标签添加成功",
 		"path", "AddAgentTag",
 		"operation", "add_agent_tag",
-		"option", "agentManagerService.AddAgentTag",
+		"option", "success",
 		"func_name", "service.agent.manager.AddAgentTag",
 		"agent_id", req.AgentID,
 		"tag", req.Tag,
@@ -1049,47 +1032,35 @@ func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error
 
 // RemoveAgentTag 移除Agent标签
 func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) error {
-	// 输入验证 - 遵循"好品味"原则，消除特殊情况
 	if req == nil {
-		logger.Error("请求参数为空",
-			"path", "RemoveAgentTag",
-			"operation", "remove_agent_tag",
-			"option", "agentManagerService.RemoveAgentTag",
-			"func_name", "service.agent.manager.RemoveAgentTag",
-		)
 		return fmt.Errorf("请求参数不能为空")
 	}
-
 	if req.AgentID == "" {
-		logger.Error("Agent ID为空",
-			"path", "RemoveAgentTag",
-			"operation", "remove_agent_tag",
-			"option", "agentManagerService.RemoveAgentTag",
-			"func_name", "service.agent.manager.RemoveAgentTag",
-			"agent_id", req.AgentID,
-		)
 		return fmt.Errorf("agent ID不能为空")
 	}
-
 	if req.Tag == "" {
-		logger.Error("标签ID为空",
-			"path", "RemoveAgentTag",
-			"operation", "remove_agent_tag",
-			"option", "agentManagerService.RemoveAgentTag",
-			"func_name", "service.agent.manager.RemoveAgentTag",
-			"agent_id", req.AgentID,
-			"tag", req.Tag,
-		)
 		return fmt.Errorf("标签ID不能为空")
 	}
 
-	// 委托Repository层处理数据操作
-	err := s.agentRepo.RemoveTag(req.AgentID, req.Tag)
+	ctx := context.Background()
+
+	// 1. 获取标签信息
+	tag, err := s.tagService.GetTagByName(ctx, req.Tag)
+	if err != nil {
+		// 如果标签不存在，认为移除成功（幂等性）
+		return nil
+	}
+	if tag == nil {
+		return nil
+	}
+
+	// 2. 移除实体标签关联
+	err = s.tagService.RemoveEntityTag(ctx, "agent", req.AgentID, tag.ID)
 	if err != nil {
 		logger.Error("移除Agent标签失败",
 			"path", "RemoveAgentTag",
 			"operation", "remove_agent_tag",
-			"option", "agentManagerService.RemoveAgentTag",
+			"option", "tagService.RemoveEntityTag",
 			"func_name", "service.agent.manager.RemoveAgentTag",
 			"agent_id", req.AgentID,
 			"tag", req.Tag,
@@ -1101,7 +1072,7 @@ func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) er
 	logger.Info("Agent标签移除成功",
 		"path", "RemoveAgentTag",
 		"operation", "remove_agent_tag",
-		"option", "agentManagerService.RemoveAgentTag",
+		"option", "success",
 		"func_name", "service.agent.manager.RemoveAgentTag",
 		"agent_id", req.AgentID,
 		"tag", req.Tag,
@@ -1112,168 +1083,102 @@ func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) er
 
 // GetAgentTags 获取Agent的所有标签
 func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
-	// 记录操作日志
-	logger.Info("开始获取Agent标签列表",
-		"path", "GetAgentTags",
-		"operation", "get_agent_tags",
-		"option", "agentManagerService.GetAgentTags",
-		"func_name", "service.agent.manager.GetAgentTags",
-		"agent_id", agentID,
-	)
-
-	// 输入验证 - 遵循"好品味"原则，消除特殊情况
 	if agentID == "" {
-		logger.Error("Agent ID为空",
-			"path", "GetAgentTags",
-			"operation", "get_agent_tags",
-			"option", "agentManagerService.GetAgentTags",
-			"func_name", "service.agent.manager.GetAgentTags",
-			"agent_id", agentID,
-		)
-		// 返回空切片而非nil，消除特殊情况
 		return []string{}, fmt.Errorf("agent ID不能为空")
 	}
 
-	// 委托Repository层处理数据查询
-	tags := s.agentRepo.GetTags(agentID)
+	ctx := context.Background()
 
-	logger.Info("Agent标签列表获取成功",
-		"path", "GetAgentTags",
-		"operation", "get_agent_tags",
-		"option", "agentManagerService.GetAgentTags",
-		"func_name", "service.agent.manager.GetAgentTags",
-		"agent_id", agentID,
-		"tags_count", len(tags),
-	)
+	// 1. 获取实体标签关联列表
+	entityTags, err := s.tagService.GetEntityTags(ctx, "agent", agentID)
+	if err != nil {
+		return []string{}, fmt.Errorf("获取Agent标签失败: %v", err)
+	}
 
-	// 始终返回非nil切片，遵循"好品味"原则
-	return tags, nil
+	if len(entityTags) == 0 {
+		return []string{}, nil
+	}
+
+	// 2. 提取 Tag IDs
+	tagIDs := make([]uint64, 0, len(entityTags))
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+
+	// 3. 批量获取标签详情 (获取名称)
+	tags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+	if err != nil {
+		return []string{}, fmt.Errorf("获取标签详情失败: %v", err)
+	}
+
+	// 4. 提取名称
+	tagNames := make([]string, 0, len(tags))
+	for _, t := range tags {
+		tagNames = append(tagNames, t.Name)
+	}
+
+	return tagNames, nil
 }
 
 // UpdateAgentTags 更新Agent的标签列表
 // 返回旧标签列表和新标签列表
 func (s *agentManagerService) UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error) {
-	// 输入验证
 	if agentID == "" {
 		return nil, nil, fmt.Errorf("agent ID不能为空")
 	}
 
-	// 获取当前标签
+	ctx := context.Background()
+
+	// 1. 获取旧标签 (为了返回)
 	oldTags, err := s.GetAgentTags(agentID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取旧标签失败: %w", err)
 	}
 
-	// 计算差异并更新标签（使用已有的 Repository 方法 AddTag/RemoveTag 实现）
-	// 构建旧标签、新标签集合，去重并便于差异计算
-	oldSet := make(map[string]struct{}, len(oldTags))
-	for _, t := range oldTags {
-		if t == "" {
+	// 2. 解析新标签名称为 IDs
+	var targetTagIDs []uint64
+	for _, tagName := range newTags {
+		if tagName == "" {
 			continue
 		}
-		oldSet[t] = struct{}{}
-	}
-
-	newSet := make(map[string]struct{}, len(newTags))
-	for _, t := range newTags {
-		if t == "" {
-			continue
+		tag, err1 := s.tagService.GetTagByName(ctx, tagName)
+		if err1 != nil {
+			return nil, nil, fmt.Errorf("查询标签失败(%s): %v", tagName, err1)
 		}
-		newSet[t] = struct{}{}
-	}
-
-	// 待添加：在新集合中但不在旧集合中的标签
-	toAdd := make([]string, 0)
-	for t := range newSet {
-		if _, ok := oldSet[t]; !ok {
-			toAdd = append(toAdd, t)
+		if tag == nil {
+			return nil, nil, fmt.Errorf("标签不存在: %s", tagName)
 		}
+		targetTagIDs = append(targetTagIDs, tag.ID)
 	}
 
-	// 待移除：在旧集合中但不在新集合中的标签
-	toRemove := make([]string, 0)
-	for t := range oldSet {
-		if _, ok := newSet[t]; !ok {
-			toRemove = append(toRemove, t)
-		}
+	// 3. 同步标签 (SyncEntityTags)
+	// 使用 SyncEntityTags 可以自动处理增删，且保留 Manual 标签（如果 sourceScope 也是 manual）
+	// 这里假设 UpdateAgentTags 是手动全量更新，所以 sourceScope = "manual"
+	err = s.tagService.SyncEntityTags(ctx, "agent", agentID, targetTagIDs, "manual", 0)
+	if err != nil {
+		return nil, nil, fmt.Errorf("同步标签失败: %v", err)
 	}
-
-	// 依次执行添加和移除操作；若任一失败，返回错误
-	for _, t := range toAdd {
-		if err := s.agentRepo.AddTag(agentID, t); err != nil {
-			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.AddTag", map[string]interface{}{
-				"operation": "update_agent_tags",
-				"option":    "agentRepo.AddTag",
-				"func_name": "service.agent.manager.UpdateAgentTags",
-				"agent_id":  agentID,
-				"tag":       t,
-			})
-			return nil, nil, fmt.Errorf("添加标签失败(%s): %w", t, err)
-		}
-	}
-
-	for _, t := range toRemove {
-		if err := s.agentRepo.RemoveTag(agentID, t); err != nil {
-			logger.LogBusinessError(err, "", 0, "update_agent_tags", "service.agent.manager.UpdateAgentTags", "agentRepo.RemoveTag", map[string]interface{}{
-				"operation": "update_agent_tags",
-				"option":    "agentRepo.RemoveTag",
-				"func_name": "service.agent.manager.UpdateAgentTags",
-				"agent_id":  agentID,
-				"tag":       t,
-			})
-			return nil, nil, fmt.Errorf("移除标签失败(%s): %w", t, err)
-		}
-	}
-
-	// 记录日志
-	logger.LogInfo("Agent标签更新成功", "", 0, "", "service.agent.manager.UpdateAgentTags", "", map[string]interface{}{
-		"operation": "update_agent_tags",
-		"option":    "success",
-		"func_name": "service.agent.manager.UpdateAgentTags",
-		"agent_id":  agentID,
-		"old_tags":  oldTags,
-		"new_tags":  newTags,
-	})
 
 	return oldTags, newTags, nil
 }
 
-// IsValidTagId 验证标签ID是否有效
+// IsValidTagId 验证标签ID是否有效 (兼容旧接口，实际验证标签名称是否存在)
 func (s *agentManagerService) IsValidTagId(tag string) bool {
-	// 1. 输入验证：检查ID是否为空
 	if tag == "" {
-		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidTagId", "", map[string]interface{}{
-			"operation": "validate_tag_id",
-			"option":    "agentManagerService.IsValidTagId",
-			"func_name": "service.agent.manager.IsValidTagId",
-			"tag_id":    tag,
-			"error":     "标签ID不能为空",
-		})
 		return false
 	}
-
-	// 2. 委托给Repository层进行数据库验证
-	// Repository层会检查TagType表中是否存在该ID
-	return s.agentRepo.IsValidTagId(tag)
+	ctx := context.Background()
+	// 尝试作为名称查找
+	t, err := s.tagService.GetTagByName(ctx, tag)
+	if err != nil {
+		return false
+	}
+	return t != nil
 }
 
 // IsValidTagByName 验证标签名称是否有效
 func (s *agentManagerService) IsValidTagByName(tag string) bool {
-	// 1. 输入验证：检查名称是否为空
-	if tag == "" {
-		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidTagByName", "", map[string]interface{}{
-			"operation": "validate_tag_name",
-			"option":    "agentManagerService.IsValidTagByName",
-			"func_name": "service.agent.manager.IsValidTagByName",
-			"tag_name":  tag,
-			"error":     "标签名称不能为空",
-		})
-		return false
-	}
-
-	// 2. 委托给Repository层进行数据库验证
-	// Repository层会检查TagType表中是否存在该名称
-	return s.agentRepo.IsValidTagByName(tag)
+	return s.IsValidTagId(tag)
 }
 
 // ==================== Agent能力管理方法 ====================

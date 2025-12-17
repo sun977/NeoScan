@@ -5,6 +5,7 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	agentService "neomaster/internal/service/agent"
+	"neomaster/internal/service/tag_system"
 
 	"gorm.io/gorm"
 )
@@ -17,10 +18,11 @@ import (
 //
 // 参数：
 // - db：数据库连接（gorm.DB），用于构建 AgentRepository（基于 gorm）。
+// - tagService: 标签服务，用于 Agent 标签管理。
 //
 // 返回：
 // - *AgentModule：聚合后的 Agent 模块输出（包含 Handler 与具体 Service）。
-func BuildAgentModule(db *gorm.DB) *AgentModule {
+func BuildAgentModule(db *gorm.DB, tagService tag_system.TagService) *AgentModule {
 	// 结构化日志：记录模块初始化关键步骤，便于问题定位与审计
 	logger.WithFields(map[string]interface{}{
 		"path":      "internal.app.master.setup.agent.BuildAgentModule",
@@ -34,7 +36,7 @@ func BuildAgentModule(db *gorm.DB) *AgentModule {
 	// TaskRepository 现由 Orchestrator 模块管理，Agent 模块仅做 Agent 本身管理
 
 	// 2) 初始化服务（遵循 Handler → Service → Repository 层级调用约束）
-	managerService := agentService.NewAgentManagerService(agentRepository)
+	managerService := agentService.NewAgentManagerService(agentRepository, tagService)
 	monitorService := agentService.NewAgentMonitorService(agentRepository)
 	configService := agentService.NewAgentConfigService(agentRepository)
 	// AgentTaskService 已移至 Orchestrator 模块

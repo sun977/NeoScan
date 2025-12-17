@@ -309,6 +309,43 @@ func (a *Agent) HasTag(tagID string) bool {
 }
 
 // ============================================================================
+// Agent 任务支持管理方法 (TaskSupport) - 新增
+// ============================================================================
+
+// AddTaskSupport 添加任务支持（避免重复）
+// 参数: taskID - 任务类型ID（字符串形式）
+func (a *Agent) AddTaskSupport(taskID string) {
+	for _, t := range a.TaskSupport {
+		if t == taskID {
+			return // 避免重复添加
+		}
+	}
+	a.TaskSupport = append(a.TaskSupport, taskID)
+}
+
+// RemoveTaskSupport 移除任务支持
+// 参数: taskID - 任务类型ID（字符串形式）
+func (a *Agent) RemoveTaskSupport(taskID string) {
+	for i, t := range a.TaskSupport {
+		if t == taskID {
+			a.TaskSupport = append(a.TaskSupport[:i], a.TaskSupport[i+1:]...)
+			return
+		}
+	}
+}
+
+// HasTaskSupport 检查是否支持指定任务
+// 参数: taskID - 任务类型ID（字符串形式）
+func (a *Agent) HasTaskSupport(taskID string) bool {
+	for _, t := range a.TaskSupport {
+		if t == taskID {
+			return true
+		}
+	}
+	return false
+}
+
+// ============================================================================
 // Agent 安全认证方法
 // ============================================================================
 

@@ -87,6 +87,13 @@ type AgentCapabilityRequest struct {
 	Capability string `json:"capability" validate:"required"` // 能力名称，必填
 }
 
+// AgentTaskSupportRequest Agent任务支持操作请求结构
+// 新增：对应 TaskSupport 字段的操作
+type AgentTaskSupportRequest struct {
+	AgentID     string `json:"agent_id" validate:"required"`     // Agent业务ID，必填
+	TaskSupport string `json:"task_support" validate:"required"` // 任务支持ID/名称，必填
+}
+
 // AgentTaskResultRequest Agent任务结果上报请求结构
 type AgentTaskResultRequest struct {
 	TaskID      string      `json:"task_id" validate:"required"`  // 任务ID，必填

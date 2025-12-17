@@ -883,6 +883,119 @@ func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
 	return s.agentRepo.IsValidCapabilityByName(capability)
 }
 
+// ============================================================================
+// Agent 任务支持管理模块 (TaskSupport) - 新增
+// ============================================================================
+
+// AddAgentTaskSupport 为Agent添加任务支持
+func (s *agentManagerService) AddAgentTaskSupport(req *agentModel.AgentTaskSupportRequest) error {
+	// 1. 输入验证
+	if req.AgentID == "" || req.TaskSupport == "" {
+		logger.Error("参数错误: AgentID或TaskSupport为空",
+			"path", "AddAgentTaskSupport",
+			"operation", "add_agent_task_support",
+			"option", "validate_input",
+			"func_name", "service.agent.manager.AddAgentTaskSupport",
+			"agent_id", req.AgentID,
+			"task_support", req.TaskSupport,
+		)
+		return fmt.Errorf("agent_id and task_support cannot be empty")
+	}
+
+	// 2. 验证任务支持ID是否有效 (TaskSupport 对应 ScanType)
+	// 注意：TaskSupport 存储的是 ScanType 的 ID (数字字符串)
+	if !s.IsValidTaskSupportId(req.TaskSupport) {
+		logger.Error("无效的任务支持ID",
+			"path", "AddAgentTaskSupport",
+			"operation", "add_agent_task_support",
+			"option", "validate_task_support",
+			"func_name", "service.agent.manager.AddAgentTaskSupport",
+			"task_support", req.TaskSupport,
+		)
+		return fmt.Errorf("invalid task_support id: %s", req.TaskSupport)
+	}
+
+	// 3. 调用Repository添加
+	if err := s.agentRepo.AddTaskSupport(req.AgentID, req.TaskSupport); err != nil {
+		logger.Error("添加Agent任务支持失败",
+			"path", "AddAgentTaskSupport",
+			"operation", "add_agent_task_support",
+			"option", "repo.AddTaskSupport",
+			"func_name", "service.agent.manager.AddAgentTaskSupport",
+			"agent_id", req.AgentID,
+			"error", err.Error(),
+		)
+		return fmt.Errorf("failed to add task support: %w", err)
+	}
+
+	logger.Info("Agent任务支持添加成功",
+		"path", "AddAgentTaskSupport",
+		"operation", "add_agent_task_support",
+		"func_name", "service.agent.manager.AddAgentTaskSupport",
+		"agent_id", req.AgentID,
+		"task_support", req.TaskSupport,
+	)
+	return nil
+}
+
+// RemoveAgentTaskSupport 移除Agent任务支持
+func (s *agentManagerService) RemoveAgentTaskSupport(req *agentModel.AgentTaskSupportRequest) error {
+	// 1. 输入验证
+	if req.AgentID == "" || req.TaskSupport == "" {
+		return fmt.Errorf("agent_id and task_support cannot be empty")
+	}
+
+	// 2. 调用Repository移除
+	if err := s.agentRepo.RemoveTaskSupport(req.AgentID, req.TaskSupport); err != nil {
+		logger.Error("移除Agent任务支持失败",
+			"path", "RemoveAgentTaskSupport",
+			"operation", "remove_agent_task_support",
+			"func_name", "service.agent.manager.RemoveAgentTaskSupport",
+			"agent_id", req.AgentID,
+			"error", err.Error(),
+		)
+		return fmt.Errorf("failed to remove task support: %w", err)
+	}
+
+	logger.Info("Agent任务支持移除成功",
+		"path", "RemoveAgentTaskSupport",
+		"operation", "remove_agent_task_support",
+		"func_name", "service.agent.manager.RemoveAgentTaskSupport",
+		"agent_id", req.AgentID,
+		"task_support", req.TaskSupport,
+	)
+	return nil
+}
+
+// GetAgentTaskSupport 获取Agent的所有任务支持
+func (s *agentManagerService) GetAgentTaskSupport(agentID string) ([]string, error) {
+	// 1. 输入验证
+	if agentID == "" {
+		return []string{}, fmt.Errorf("agent_id cannot be empty")
+	}
+
+	// 2. 调用Repository获取
+	taskSupports := s.agentRepo.GetTaskSupport(agentID)
+
+	logger.Info("Agent任务支持列表获取成功",
+		"path", "GetAgentTaskSupport",
+		"operation", "get_agent_task_support",
+		"func_name", "service.agent.manager.GetAgentTaskSupport",
+		"agent_id", agentID,
+		"count", len(taskSupports),
+	)
+
+	return taskSupports, nil
+}
+
+// IsValidTaskSupportId 判断任务支持ID是否有效
+func (s *agentManagerService) IsValidTaskSupportId(taskID string) bool {
+	if taskID == "" {
+		return false
+	}
+	return s.agentRepo.IsValidTaskSupportId(taskID)
+}
+
 // ==================== System Bootstrap & Sync ====================
 
 // BootstrapSystemTags 初始化系统预设标签骨架

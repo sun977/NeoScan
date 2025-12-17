@@ -37,6 +37,8 @@ type AgentInfo struct {
 	MemoryTotal      int64       `json:"memory_total"`       // 总内存大小(字节)
 	DiskTotal        int64       `json:"disk_total"`         // 总磁盘大小(字节)
 	Capabilities     []string    `json:"capabilities"`       // Agent支持的功能模块列表
+	TaskSupport      []string    `json:"task_support"`       // Agent支持的任务类型列表 (对应ScanType)
+	Feature          []string    `json:"feature"`            // Agent具备的特性功能列表
 	Tags             []string    `json:"tags"`               // Agent标签列表
 	LastHeartbeat    time.Time   `json:"last_heartbeat"`     // 最后心跳时间
 	ResultLatestTime *time.Time  `json:"result_latest_time"` // 最新返回结果时间

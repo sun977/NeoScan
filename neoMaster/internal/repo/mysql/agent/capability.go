@@ -313,6 +313,116 @@ func (r *agentRepository) GetCapabilities(agentID string) []string {
 	return agent.Capabilities
 }
 
+// ============================================================================
+// Agent 任务支持管理实现 (TaskSupport) - 新增
+// ============================================================================
+
+// IsValidTaskSupportId 判断任务支持ID是否有效
+// 逻辑与 IsValidCapabilityId 一致，因为 TaskSupport 也对应 ScanType
+func (r *agentRepository) IsValidTaskSupportId(taskID string) bool {
+	// 复用 IsValidCapabilityId 的逻辑，因为底层数据源相同 (ScanType)
+	return r.IsValidCapabilityId(taskID)
+}
+
+// AddTaskSupport 为Agent添加任务支持
+func (r *agentRepository) AddTaskSupport(agentID string, taskID string) error {
+	// 参数校验
+	if agentID == "" || taskID == "" {
+		logger.LogError(gorm.ErrInvalidData, "", 0, "", "repo.agent.AddTaskSupport", "", map[string]interface{}{
+			"operation": "add_task_support",
+			"error":     "invalid_input",
+		})
+		return gorm.ErrInvalidData
+	}
+
+	// 校验ID是否有效
+	if !r.IsValidTaskSupportId(taskID) {
+		return fmt.Errorf("invalid task_support id: %s", taskID)
+	}
+
+	// 读取 Agent
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		return fmt.Errorf("agent not found: %s", agentID)
+	}
+
+	// 幂等检查
+	if agent.HasTaskSupport(taskID) {
+		return nil
+	}
+
+	// 更新模型
+	agent.AddTaskSupport(taskID)
+
+	// 更新数据库 task_support 字段
+	if err := r.db.Model(&agent).Select("task_support").Updates(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.AddTaskSupport", "gorm", map[string]interface{}{
+			"operation": "add_task_support",
+			"agentID":   agentID,
+			"taskID":    taskID,
+		})
+		return fmt.Errorf("update agent task_support failed: %v", err)
+	}
+
+	return nil
+}
+
+// RemoveTaskSupport 移除Agent任务支持
+func (r *agentRepository) RemoveTaskSupport(agentID string, taskID string) error {
+	if agentID == "" || taskID == "" {
+		return gorm.ErrInvalidData
+	}
+
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		return fmt.Errorf("agent not found: %s", agentID)
+	}
+
+	if !agent.HasTaskSupport(taskID) {
+		return nil
+	}
+
+	agent.RemoveTaskSupport(taskID)
+
+	if err := r.db.Model(&agent).Select("task_support").Updates(&agent).Error; err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.RemoveTaskSupport", "gorm", map[string]interface{}{
+			"operation": "remove_task_support",
+			"agentID":   agentID,
+			"taskID":    taskID,
+		})
+		return fmt.Errorf("update agent task_support failed: %v", err)
+	}
+
+	return nil
+}
+
+// HasTaskSupport 判断Agent是否支持指定任务
+func (r *agentRepository) HasTaskSupport(agentID string, taskID string) bool {
+	if agentID == "" || taskID == "" {
+		return false
+	}
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		return false
+	}
+	return agent.HasTaskSupport(taskID)
+}
+
+// GetTaskSupport 获取Agent所有任务支持列表
+func (r *agentRepository) GetTaskSupport(agentID string) []string {
+	if agentID == "" {
+		return []string{}
+	}
+	var agent agentModel.Agent
+	if err := r.db.Where("agent_id = ?", agentID).First(&agent).Error; err != nil {
+		return []string{}
+	}
+	if agent.TaskSupport == nil {
+		return []string{}
+	}
+	return agent.TaskSupport
+}
+
 // GetAllScanTypes 获取所有ScanType
 func (r *agentRepository) GetAllScanTypes() ([]*agentModel.ScanType, error) {
 	var scanTypes []*agentModel.ScanType

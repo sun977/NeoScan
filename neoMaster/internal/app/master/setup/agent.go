@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	agentHandler "neomaster/internal/handler/agent"
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
@@ -40,6 +41,19 @@ func BuildAgentModule(db *gorm.DB, tagService tag_system.TagService) *AgentModul
 	monitorService := agentService.NewAgentMonitorService(agentRepository)
 	configService := agentService.NewAgentConfigService(agentRepository)
 	// AgentTaskService 已移至 Orchestrator 模块
+
+	// 执行系统标签初始化与同步 (Bootstrap & Sync)
+	// 确保 Agent 能力标签体系就绪
+	ctx := context.Background()
+	if err := managerService.SyncScanTypesToTags(ctx); err != nil {
+		// 记录错误但不中断启动，避免因标签系统小问题导致服务完全不可用
+		// 遵循"实用主义"，服务能跑起来比完美更重要
+		logger.LogBusinessError(err, "", 0, "", "BuildAgentModule", "SyncScanTypesToTags", map[string]interface{}{
+			"operation": "bootstrap_tags",
+		})
+	} else {
+		logger.LogInfo("Agent能力标签同步完成", "", 0, "", "BuildAgentModule", "SyncScanTypesToTags", nil)
+	}
 
 	// 3) 聚合处理器（控制器）：分组功能已合并到 ManagerService 内部
 	agentHandler := agentHandler.NewAgentHandler(

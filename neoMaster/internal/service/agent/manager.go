@@ -44,6 +44,10 @@ type AgentManagerService interface {
 	AddAgentCapability(req *agentModel.AgentCapabilityRequest) error    // 添加Agent能力
 	RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error // 移除Agent能力
 	GetAgentCapabilities(agentID string) ([]string, error)              // 获取Agent能力
+
+	// System Bootstrap & Sync
+	BootstrapSystemTags(ctx context.Context) error // 初始化Agent管理相关的系统预设标签骨架
+	SyncScanTypesToTags(ctx context.Context) error // 同步ScanType到系统标签
 }
 
 // agentManagerService Agent基础管理服务实现
@@ -877,4 +881,173 @@ func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
 	// 2. 委托给Repository层进行数据库验证
 	// Repository层会检查ScanType表中是否存在该名称
 	return s.agentRepo.IsValidCapabilityByName(capability)
+}
+
+// ==================== System Bootstrap & Sync ====================
+
+// BootstrapSystemTags 初始化系统预设标签骨架
+// 按照设计文档构建标签树:
+// ROOT (ID: 1)
+// ├── System (Category: 'system')
+// │   ├── TaskSupport (Category: 'system')  <-- 对应 ScanType
+// │   └── Feature (Category: 'system')      <-- 对应通用能力
+// └── AgentGroup (Category: 'agent_group')
+//
+//	└── Default (Category: 'agent_group')
+func (s *agentManagerService) BootstrapSystemTags(ctx context.Context) error {
+	// Helper function to ensure a tag exists
+	ensureTag := func(name, category string, parentID uint64, description string) (*tagSystemModel.SysTag, error) {
+		// 1. 尝试按名称和父节点查找
+		tag, err := s.tagService.GetTagByNameAndParent(ctx, name, parentID)
+		if err != nil {
+			// 假设错误不仅仅是 RecordNotFound，也可能是其他DB错误，但为了简化流程，我们假设找不到
+			// 更好的做法是 tagService 提供更明确的错误或 IsNotFound 判定
+		}
+		if tag != nil {
+			return tag, nil
+		}
+
+		// 2. 创建新标签
+		newTag := &tagSystemModel.SysTag{
+			Name:        name,
+			Description: description,
+			Category:    category,
+			ParentID:    parentID,
+		}
+		if err := s.tagService.CreateTag(ctx, newTag); err != nil {
+			return nil, err
+		}
+		// CreateTag 应该回填 ID
+		return newTag, nil
+	}
+
+	// 1. ROOT
+	rootTag, err := ensureTag("ROOT", "system", 0, "Root Tag")
+	if err != nil {
+		return fmt.Errorf("ensure ROOT failed: %v", err)
+	}
+
+	// 2. System
+	systemTag, err := ensureTag("System", "system", rootTag.ID, "System Internal Tags")
+	if err != nil {
+		return fmt.Errorf("ensure System failed: %v", err)
+	}
+
+	// 3. TaskSupport
+	_, err = ensureTag("TaskSupport", "system", systemTag.ID, "Agent Task Capabilities (ScanTypes)")
+	if err != nil {
+		return fmt.Errorf("ensure TaskSupport failed: %v", err)
+	}
+
+	// 4. Feature
+	_, err = ensureTag("Feature", "system", systemTag.ID, "Agent General Features")
+	if err != nil {
+		return fmt.Errorf("ensure Feature failed: %v", err)
+	}
+
+	// 5. AgentGroup
+	agentGroupTag, err := ensureTag("AgentGroup", "agent_group", rootTag.ID, "Agent Group Root")
+	if err != nil {
+		return fmt.Errorf("ensure AgentGroup failed: %v", err)
+	}
+
+	// 6. Default Group
+	_, err = ensureTag("Default", "agent_group", agentGroupTag.ID, "Default Agent Group")
+	if err != nil {
+		return fmt.Errorf("ensure Default Group failed: %v", err)
+	}
+
+	logger.LogInfo("BootstrapSystemTags success", "", 0, "", "BootstrapSystemTags", "completed", nil)
+	return nil
+}
+
+// SyncScanTypesToTags 同步ScanType到系统标签
+// 确保每个 ScanType 都在 "System/TaskSupport" 下有一个对应的 Tag
+func (s *agentManagerService) SyncScanTypesToTags(ctx context.Context) error {
+	// 1. 确保骨架存在
+	if err := s.BootstrapSystemTags(ctx); err != nil {
+		return err
+	}
+
+	// 2. 定位 TaskSupport 标签
+	// 路径: ROOT -> System -> TaskSupport
+	// 为准确起见，我们按层级查找
+	rootTag, err := s.tagService.GetTagByNameAndParent(ctx, "ROOT", 0)
+	if err != nil || rootTag == nil {
+		return fmt.Errorf("ROOT tag not found")
+	}
+	systemTag, err := s.tagService.GetTagByNameAndParent(ctx, "System", rootTag.ID)
+	if err != nil || systemTag == nil {
+		return fmt.Errorf("System tag not found")
+	}
+	taskSupportTag, err := s.tagService.GetTagByNameAndParent(ctx, "TaskSupport", systemTag.ID)
+	if err != nil || taskSupportTag == nil {
+		return fmt.Errorf("TaskSupport tag not found")
+	}
+
+	// 3. 获取所有 ScanTypes
+	scanTypes, err := s.agentRepo.GetAllScanTypes()
+	if err != nil {
+		return fmt.Errorf("failed to get all scan types: %v", err)
+	}
+
+	// 4. 遍历处理
+	for _, st := range scanTypes {
+		needsUpdate := false
+
+		// 4.1 检查是否已关联 Tag
+		if st.TagID != 0 {
+			tag, err := s.tagService.GetTag(ctx, st.TagID)
+			if err == nil && tag != nil {
+				// 检查父节点是否正确 (可选，如果想强制移动到 TaskSupport 下)
+				if tag.ParentID != taskSupportTag.ID {
+					// 修正父节点
+					tag.ParentID = taskSupportTag.ID
+					_ = s.tagService.UpdateTag(ctx, tag)
+				}
+				// 检查名称同步
+				if tag.Name != st.Name {
+					tag.Name = st.Name
+					_ = s.tagService.UpdateTag(ctx, tag)
+				}
+				continue
+			}
+			st.TagID = 0
+			needsUpdate = true
+		}
+
+		// 4.2 查找或创建 Tag (在 TaskSupport 下)
+		existingTag, err := s.tagService.GetTagByNameAndParent(ctx, st.Name, taskSupportTag.ID)
+		if err == nil && existingTag != nil {
+			st.TagID = existingTag.ID
+			needsUpdate = true
+		} else {
+			newTag := &tagSystemModel.SysTag{
+				Name:        st.Name,
+				Description: st.Description,
+				Category:    "system", // ScanType 属于 system 分类
+				ParentID:    taskSupportTag.ID,
+			}
+			if err := s.tagService.CreateTag(ctx, newTag); err != nil {
+				logger.LogError(err, "", 0, "", "SyncScanTypesToTags", "CreateTag", map[string]interface{}{
+					"scan_type": st.Name,
+				})
+				continue
+			}
+			st.TagID = newTag.ID
+			needsUpdate = true
+		}
+
+		// 4.3 更新 ScanType
+		if needsUpdate {
+			if err := s.agentRepo.UpdateScanType(st); err != nil {
+				logger.LogError(err, "", 0, "", "SyncScanTypesToTags", "UpdateScanType", map[string]interface{}{
+					"scan_type": st.Name,
+					"tag_id":    st.TagID,
+				})
+			}
+		}
+	}
+
+	return nil
 }

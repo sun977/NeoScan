@@ -46,6 +46,10 @@ type AgentRepository interface {
 	UpdateAgentMetrics(agentID string, metrics *agentModel.AgentMetrics) error
 	GetMetricsList(page, pageSize int, workStatus *agentModel.AgentWorkStatus, scanType *agentModel.AgentScanType, keyword *string) ([]*agentModel.AgentMetrics, int64, error) // 性能指标批量查询（分页 + 过滤）
 
+	// Capability (ScanType) Management
+	GetAllScanTypes() ([]*agentModel.ScanType, error)
+	UpdateScanType(scanType *agentModel.ScanType) error
+
 	// Agent 性能指标分析支撑 - 只读聚合的基础（返回当前快照集）
 	GetAllMetrics() ([]*agentModel.AgentMetrics, error)                                               // 获取所有Agent的最新快照（单表全量）
 	GetMetricsSince(since time.Time) ([]*agentModel.AgentMetrics, error)                              // 获取指定时间窗口内的快照（timestamp >= since）

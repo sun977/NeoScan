@@ -109,18 +109,15 @@ func (h *AgentHandler) GetAgentTags(c *gin.Context) {
 		},
 	)
 
-	// 装填响应数据 data
-	data := map[string]interface{}{
-		"agent_id":  agentID,
-		"operation": "get_agent_tags",
-		"tags":      tags,
-	}
-
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "Agent tags retrieved successfully",
-		Data:    data,
+		Data: map[string]interface{}{
+			"agent_id":  agentID,
+			"operation": "get_agent_tags",
+			"tags":      tags,
+		},
 	})
 }
 

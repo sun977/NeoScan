@@ -9,14 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	agentHandler "neomaster/internal/handler/agent"
 	agentModel "neomaster/internal/model/agent"
+	"neomaster/internal/model/system"
 	"neomaster/internal/model/tag_system"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	tagRepo "neomaster/internal/repo/mysql/tag_system"
 	agentService "neomaster/internal/service/agent"
 	tagService "neomaster/internal/service/tag_system"
+
+	"github.com/gin-gonic/gin"
 )
 
 // TestAgentTagAPI 测试 Agent 标签管理的 HTTP 接口
@@ -41,7 +43,7 @@ func TestAgentTagAPI(t *testing.T) {
 	// 2. 设置 Gin 路由
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	
+
 	// 注册路由 (参考 internal/app/master/router/agent_routers.go)
 	agentGroup := r.Group("/agent")
 	{
@@ -95,10 +97,10 @@ func TestAgentTagAPI(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected 200 OK, got %d", w.Code)
 		}
-		
+
 		// 验证 DB
 		tags, _ := agentSvc.GetAgentTags(agent.AgentID)
-		if len(tags) != 1 || tags[0] != tag1.Name {
+		if len(tags) != 1 || tags[0].Name != tag1.Name {
 			t.Errorf("DB check failed. Expected [%s], got %v", tag1.Name, tags)
 		}
 	})
@@ -120,12 +122,61 @@ func TestAgentTagAPI(t *testing.T) {
 
 		// 验证 DB
 		tags, _ := agentSvc.GetAgentTags(agent.AgentID)
-		if len(tags) != 1 || tags[0] != tag2.Name {
+		if len(tags) != 1 || tags[0].Name != tag2.Name {
 			t.Errorf("DB check failed. Expected [%s], got %v", tag2.Name, tags)
 		}
 	})
 
-	// === 测试 Case 3: RemoveAgentTag (DELETE) ===
+	// === 测试 Case 3: GetAgentTags (GET) - Should have 1 tag now ===
+	t.Run("GetAgentTags", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/agent/"+agent.AgentID+"/tags", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		t.Logf("Response: %d %s", w.Code, w.Body.String())
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", w.Code)
+		}
+
+		// 解析响应，验证是否包含 ID
+		var resp system.APIResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("Failed to parse response: %v", err)
+		}
+
+		dataMap, ok := resp.Data.(map[string]interface{})
+		if !ok {
+			t.Fatalf("Data is not a map")
+		}
+
+		tagsInterface, ok := dataMap["tags"]
+		if !ok {
+			t.Fatalf("Tags field missing in data")
+		}
+
+		tagsList, ok := tagsInterface.([]interface{})
+		if !ok {
+			t.Fatalf("Tags is not a list")
+		}
+
+		// 检查第一个 tag 是否包含 id 和 name
+		if len(tagsList) > 0 {
+			tagMap, ok := tagsList[0].(map[string]interface{})
+			if !ok {
+				t.Fatalf("Tag item is not a map")
+			}
+			if _, ok := tagMap["id"]; !ok {
+				t.Errorf("Tag ID missing in response")
+			}
+			if _, ok := tagMap["name"]; !ok {
+				t.Errorf("Tag Name missing in response")
+			}
+		} else {
+			t.Errorf("Expected at least 1 tag, got 0")
+		}
+	})
+
+	// === 测试 Case 4: RemoveAgentTag (DELETE) ===
 	t.Run("RemoveAgentTag", func(t *testing.T) {
 		payload := map[string]uint64{"tag_id": tag2.ID}
 		jsonBody, _ := json.Marshal(payload)
@@ -146,7 +197,22 @@ func TestAgentTagAPI(t *testing.T) {
 		}
 	})
 
-    // === 测试 Case 4: Add Non-Existent Tag (Not Found) ===
+	// === 测试 Case 4: RemoveAgentTag (DELETE) ===
+	t.Run("RemoveAgentTag", func(t *testing.T) {
+		payload := map[string]uint64{"tag_id": tag2.ID}
+		jsonBody, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("DELETE", "/agent/"+agent.AgentID+"/tags", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		t.Logf("Response: %d %s", w.Code, w.Body.String())
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", w.Code)
+		}
+	})
+
+	// === 测试 Case 5: Add Non-Existent Tag (Not Found) ===
 	t.Run("AddNonExistentTag", func(t *testing.T) {
 		payload := map[string]uint64{"tag_id": 999999}
 		jsonBody, _ := json.Marshal(payload)
@@ -161,15 +227,15 @@ func TestAgentTagAPI(t *testing.T) {
 		}
 	})
 
-	// === 测试 Case 5: Invalid Input (Bad Request) ===
+	// === 测试 Case 6: Invalid Input (Bad Request) ===
 	t.Run("InvalidInput", func(t *testing.T) {
-        req, _ := http.NewRequest("POST", "/agent/"+agent.AgentID+"/tags", bytes.NewBufferString("invalid json"))
-        req.Header.Set("Content-Type", "application/json")
-        w := httptest.NewRecorder()
-        r.ServeHTTP(w, req)
+		req, _ := http.NewRequest("POST", "/agent/"+agent.AgentID+"/tags", bytes.NewBufferString("invalid json"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
 
-        if w.Code != http.StatusBadRequest {
-             t.Errorf("Expected 400 Bad Request, got %d", w.Code)
-        }
-    })
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected 400 Bad Request, got %d", w.Code)
+		}
+	})
 }

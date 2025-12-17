@@ -68,9 +68,9 @@ type TagService interface {
 	// 5. 忽略 Source != scope 的标签 (保持不变)。
 	SyncEntityTags(ctx context.Context, entityType string, entityID string, targetTagIDs []uint64, sourceScope string, ruleID uint64) error
 
-	// --- 系统初始化 Bootstrap ---
-	// BootstrapSystemTags 初始化系统预设标签骨架 (Root, System, AgentGroup 等)
-	BootstrapSystemTags(ctx context.Context) error
+	// // --- 系统初始化 Bootstrap ---
+	// // BootstrapSystemTags 初始化系统预设标签骨架 (Root, System, AgentGroup 等)
+	// BootstrapSystemTags(ctx context.Context) error
 
 	// --- 实体标签操作 (Single Entity) ---
 	AddEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64, source string, ruleID uint64) error // 给实体添加标签
@@ -527,76 +527,76 @@ func (s *tagService) GetEntityTags(ctx context.Context, entityType string, entit
 // └── AgentGroup (Category: 'agent_group')
 //
 //	└── Default (Category: 'agent_group')
-func (s *tagService) BootstrapSystemTags(ctx context.Context) error {
-	// Helper to create tag if not exists
-	ensureTag := func(name string, parentID uint64, category string) (*tag_system.SysTag, error) {
-		// 1. Check if exists by name and parent
-		// Note: repo should ideally provide FindByNameAndParent.
-		// Since we don't have it, we might need to rely on CreateTag's idempotency or add a check.
-		// For now, let's assume CreateTag handles duplication gracefully or we check manually.
-		// But wait, CreateTag uses GORM which might return error on unique constraint.
-		// Let's list children of parent and find.
-		children, err := s.repo.GetTagsByParent(parentID)
-		if err != nil {
-			return nil, err
-		}
-		for _, child := range children {
-			if child.Name == name {
-				return &child, nil
-			}
-		}
+// func (s *tagService) BootstrapSystemTags(ctx context.Context) error {
+// 	// Helper to create tag if not exists
+// 	ensureTag := func(name string, parentID uint64, category string) (*tag_system.SysTag, error) {
+// 		// 1. Check if exists by name and parent
+// 		// Note: repo should ideally provide FindByNameAndParent.
+// 		// Since we don't have it, we might need to rely on CreateTag's idempotency or add a check.
+// 		// For now, let's assume CreateTag handles duplication gracefully or we check manually.
+// 		// But wait, CreateTag uses GORM which might return error on unique constraint.
+// 		// Let's list children of parent and find.
+// 		children, err := s.repo.GetTagsByParent(parentID)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		for _, child := range children {
+// 			if child.Name == name {
+// 				return &child, nil
+// 			}
+// 		}
 
-		// 2. Create if not found
-		newTag := &tag_system.SysTag{
-			Name:     name,
-			ParentID: parentID,
-			Category: category,
-		}
-		if err := s.CreateTag(ctx, newTag); err != nil {
-			return nil, err
-		}
-		return newTag, nil
-	}
+// 		// 2. Create if not found
+// 		newTag := &tag_system.SysTag{
+// 			Name:     name,
+// 			ParentID: parentID,
+// 			Category: category,
+// 		}
+// 		if err := s.CreateTag(ctx, newTag); err != nil {
+// 			return nil, err
+// 		}
+// 		return newTag, nil
+// 	}
 
-	// 1. Root Node (ID: 1 is usually reserved or we find/create a "ROOT" tag)
-	// In our system, ParentID=0 is root. But usually we want a visible Root tag?
-	// Based on design, we have top-level tags like "System", "AgentGroup".
-	// They have ParentID = 0.
-	// Wait, standard practice: ParentID=0 are top level.
-	// Let's ensure top level tags exist.
+// 	// 1. Root Node (ID: 1 is usually reserved or we find/create a "ROOT" tag)
+// 	// In our system, ParentID=0 is root. But usually we want a visible Root tag?
+// 	// Based on design, we have top-level tags like "System", "AgentGroup".
+// 	// They have ParentID = 0.
+// 	// Wait, standard practice: ParentID=0 are top level.
+// 	// Let's ensure top level tags exist.
 
-	// 1. System
-	sysTag, err := ensureTag("System", 0, "system")
-	if err != nil {
-		return fmt.Errorf("failed to ensure System tag: %w", err)
-	}
+// 	// 1. System
+// 	sysTag, err := ensureTag("System", 0, "system")
+// 	if err != nil {
+// 		return fmt.Errorf("failed to ensure System tag: %w", err)
+// 	}
 
-	// 1.1 TaskSupport
-	_, err = ensureTag("TaskSupport", sysTag.ID, "system")
-	if err != nil {
-		return fmt.Errorf("failed to ensure TaskSupport tag: %w", err)
-	}
+// 	// 1.1 TaskSupport
+// 	_, err = ensureTag("TaskSupport", sysTag.ID, "system")
+// 	if err != nil {
+// 		return fmt.Errorf("failed to ensure TaskSupport tag: %w", err)
+// 	}
 
-	// 1.2 Feature
-	_, err = ensureTag("Feature", sysTag.ID, "system")
-	if err != nil {
-		return fmt.Errorf("failed to ensure Feature tag: %w", err)
-	}
+// 	// 1.2 Feature
+// 	_, err = ensureTag("Feature", sysTag.ID, "system")
+// 	if err != nil {
+// 		return fmt.Errorf("failed to ensure Feature tag: %w", err)
+// 	}
 
-	// 2. AgentGroup
-	groupTag, err := ensureTag("AgentGroup", 0, "agent_group")
-	if err != nil {
-		return fmt.Errorf("failed to ensure AgentGroup tag: %w", err)
-	}
+// 	// 2. AgentGroup
+// 	groupTag, err := ensureTag("AgentGroup", 0, "agent_group")
+// 	if err != nil {
+// 		return fmt.Errorf("failed to ensure AgentGroup tag: %w", err)
+// 	}
 
-	// 2.1 Default Group
-	_, err = ensureTag("Default", groupTag.ID, "agent_group")
-	if err != nil {
-		return fmt.Errorf("failed to ensure Default group tag: %w", err)
-	}
+// 	// 2.1 Default Group
+// 	_, err = ensureTag("Default", groupTag.ID, "agent_group")
+// 	if err != nil {
+// 		return fmt.Errorf("failed to ensure Default group tag: %w", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // SubmitPropagationTask 提交标签传播任务
 func (s *tagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error) {

@@ -252,8 +252,8 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		LastHeartbeat: time.Now(),
 	}
 
-	if err := s.agentRepo.Create(newAgent); err != nil {
-		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+	if err1 := s.agentRepo.Create(newAgent); err1 != nil {
+		logger.LogBusinessError(err1, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
 			"operation": "register_agent",
 			"option":    "agentManagerService.RegisterAgent",
 			"func_name": "service.agent.manager.RegisterAgent",

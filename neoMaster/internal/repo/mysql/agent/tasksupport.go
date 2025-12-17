@@ -1,20 +1,20 @@
 /**
  * @author: Sun977
  * @date: 2025.10.14
- * @description: Agent 能力管理实现
- * @func: 提供Agent能力的CRUD操作，不包含业务逻辑
- * Agent 能力管理实现（基于 Agent 模型 JSON 字段）
+ * @description: Agent 任务支持管理实现
+ * @func: 提供Agent任务支持的CRUD操作，不包含业务逻辑
+ * Agent 任务支持管理实现
  * 包含：
- * - IsValidCapabilityId: 能力ID是否合法（是否在能力表定义）
- * - IsValidCapabilityByName: 能力名称是否合法
- * - AddCapability: 为Agent添加能力
- * - RemoveCapability: 从Agent移除能力
- * - HasCapability: 检查Agent是否有指定能力
- * - GetCapabilities: 获取Agent所有能力
+ * - IsValidTaskSupportId: 任务支持ID是否合法（是否在任务支持表定义）
+ * - IsValidTaskSupportByName: 任务支持名称是否合法
+ * - AddTaskSupport: 为Agent添加任务支持
+ * - RemoveTaskSupport: 从Agent移除任务支持
+ * - HasTaskSupport: 检查Agent是否有指定任务支持
+ * - GetTaskSupports: 获取Agent所有任务支持
  * 重构说明：
  * - 统一使用 logger.LogInfo / logger.LogError
- * - 移除不存在的关系表（AgentCapabilityRel、AgentTagRel），改为更新 agents 表的 JSON 字段
- * - 能力校验对齐 ScanType 表，标签校验对齐 TagType 表
+ * - 移除不存在的关系表（AgentCapabilityRel、AgentTagRel）
+ * - 任务支持校验对齐 ScanType 表，标签校验对齐 TagType 表
  */
 package agent
 

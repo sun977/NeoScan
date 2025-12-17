@@ -114,12 +114,12 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块
 	orchestratorModule := setup.BuildOrchestratorModule(db, config)
 
-	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
-	// TaskDispatcher 现已完全由 Orchestrator 管理，AgentModule 不再需要注入
-	agentModule := setup.BuildAgentModule(db)
-
 	// 通过 setup.BuildTagSystemModule 初始化标签系统模块
 	tagModule := setup.BuildTagSystemModule(db)
+
+	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
+	// TaskDispatcher 现已完全由 Orchestrator 管理，AgentModule 不再需要注入
+	agentModule := setup.BuildAgentModule(db, tagModule.TagService)
 
 	// 从 OrchestratorModule 中获取聚合后的处理器
 	projectHandler := orchestratorModule.ProjectHandler

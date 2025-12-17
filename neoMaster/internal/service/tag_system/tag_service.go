@@ -35,7 +35,8 @@ type TagService interface {
 	// --- 标签 CRUD ---
 	CreateTag(ctx context.Context, tag *tag_system.SysTag) error
 	GetTag(ctx context.Context, id uint64) (*tag_system.SysTag, error)
-	GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error) // 通过名称获取标签
+	GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error)   // 通过名称获取标签
+	GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error) // 批量获取标签
 	UpdateTag(ctx context.Context, tag *tag_system.SysTag) error
 	DeleteTag(ctx context.Context, id uint64) error
 	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
@@ -67,6 +68,11 @@ type TagService interface {
 	// --- 系统初始化 Bootstrap ---
 	// BootstrapSystemTags 初始化系统预设标签骨架 (Root, System, AgentGroup 等)
 	BootstrapSystemTags(ctx context.Context) error
+
+	// --- 实体标签操作 (Single Entity) ---
+	AddEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64, source string, ruleID uint64) error // 给实体添加标签
+	RemoveEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64) error                            // 删除实体的标签
+	GetEntityTags(ctx context.Context, entityType string, entityID string) ([]tag_system.SysEntityTag, error)               // 获取实体的标签
 }
 
 type tagService struct {
@@ -105,6 +111,10 @@ func (s *tagService) GetTag(ctx context.Context, id uint64) (*tag_system.SysTag,
 
 func (s *tagService) GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error) {
 	return s.repo.GetTagByName(name)
+}
+
+func (s *tagService) GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error) {
+	return s.repo.GetTagsByIDs(ids)
 }
 
 func (s *tagService) UpdateTag(ctx context.Context, tag *tag_system.SysTag) error {
@@ -398,6 +408,27 @@ func (s *tagService) SyncEntityTags(ctx context.Context, entityType string, enti
 	}
 
 	return nil
+}
+
+// AddEntityTag 添加实体标签
+func (s *tagService) AddEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64, source string, ruleID uint64) error {
+	return s.repo.AddEntityTag(&tag_system.SysEntityTag{
+		EntityType: entityType,
+		EntityID:   entityID,
+		TagID:      tagID,
+		Source:     source,
+		RuleID:     ruleID,
+	})
+}
+
+// RemoveEntityTag 移除实体标签
+func (s *tagService) RemoveEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64) error {
+	return s.repo.RemoveEntityTag(entityType, entityID, tagID)
+}
+
+// GetEntityTags 获取实体标签
+func (s *tagService) GetEntityTags(ctx context.Context, entityType string, entityID string) ([]tag_system.SysEntityTag, error) {
+	return s.repo.GetEntityTags(entityType, entityID)
 }
 
 // BootstrapSystemTags 初始化系统预设标签骨架

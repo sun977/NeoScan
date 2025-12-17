@@ -5,19 +5,18 @@
  * @description: 规则引擎管理处理器，提供规则引擎的执行、管理、监控等功能
  * @func: 处理规则引擎相关的HTTP请求
  */
-package orchestrator_drop
+package orchestrator_handler_drop
 
 import (
 	"context"
+	scanConfigService "neomaster/drop/orchestrator_sev_drop"
+	rule_engine2 "neomaster/drop/orchestrator_sev_drop/rule_engine"
 	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 
-	"neomaster/internal/pkg/logger"
-	scanConfigService "neomaster/internal/service/orchestrator_drop"
-	"neomaster/internal/service/orchestrator_drop/rule_engine"
-
 	"github.com/gin-gonic/gin"
+	"neomaster/internal/pkg/logger"
 )
 
 // RuleEngineHandler 规则引擎处理器
@@ -31,7 +30,7 @@ type RuleEngineHandler struct {
 // @param ruleEngine 规则引擎实例（已废弃，传入nil即可）
 // @param scanRuleService 扫描规则服务实例
 // @return *RuleEngineHandler 规则引擎处理器实例
-func NewRuleEngineHandler(ruleEngine *rule_engine.RuleEngine, scanRuleService *scanConfigService.ScanRuleService) *RuleEngineHandler {
+func NewRuleEngineHandler(ruleEngine *rule_engine2.RuleEngine, scanRuleService *scanConfigService.ScanRuleService) *RuleEngineHandler {
 	return &RuleEngineHandler{
 		scanRuleService: scanRuleService,
 	}
@@ -218,8 +217,8 @@ func (h *RuleEngineHandler) ExecuteRules(c *gin.Context) {
 
 	// 定义批量执行请求结构
 	type BatchExecuteRulesRequest struct {
-		RuleIDs []uint                   `json:"rule_ids" binding:"required,min=1" example:"[1,2,3]"`
-		Context *rule_engine.RuleContext `json:"context" binding:"required"`
+		RuleIDs []uint                    `json:"rule_ids" binding:"required,min=1" example:"[1,2,3]"`
+		Context *rule_engine2.RuleContext `json:"context" binding:"required"`
 	}
 
 	// 解析请求体

@@ -37,7 +37,7 @@ import (
 	"sync"
 	"time"
 
-	"neomaster/internal/model/orchestrator_drop"
+	"neomaster/internal/model/orchestrator_model_drop"
 	"neomaster/internal/pkg/logger"
 )
 
@@ -56,9 +56,9 @@ type RuleEngine struct {
 
 // CachedRule 缓存的规则结构体
 type CachedRule struct {
-	Rule            *orchestrator_drop.ScanRule // 规则对象
-	ParsedCondition *ParsedCondition            // 解析后的条件
-	CachedAt        time.Time                   // 缓存时间
+	Rule            *orchestrator_model_drop.ScanRule // 规则对象
+	ParsedCondition *ParsedCondition                  // 解析后的条件
+	CachedAt        time.Time                         // 缓存时间
 }
 
 // ParsedCondition 解析后的条件结构体
@@ -71,11 +71,11 @@ type ParsedCondition struct {
 
 // RuleMatchResult 规则匹配结果
 type RuleMatchResult struct {
-	Rule    *orchestrator_drop.ScanRule // 匹配的规则
-	Matched bool                        // 是否匹配
-	Score   float64                     // 匹配分数
-	Reason  string                      // 匹配原因
-	Actions []RuleAction                // 要执行的动作
+	Rule    *orchestrator_model_drop.ScanRule // 匹配的规则
+	Matched bool                              // 是否匹配
+	Score   float64                           // 匹配分数
+	Reason  string                            // 匹配原因
+	Actions []RuleAction                      // 要执行的动作
 }
 
 // RuleAction 规则动作
@@ -780,7 +780,7 @@ func (re *RuleEngine) evaluateRegexCondition(target, pattern interface{}) (bool,
 // @param target 目标数据
 // @return map[string]interface{} 执行结果
 // @return error 错误信息
-func (re *RuleEngine) ExecuteAction(ctx context.Context, action *orchestrator_drop.RuleAction, target map[string]interface{}) (map[string]interface{}, error) {
+func (re *RuleEngine) ExecuteAction(ctx context.Context, action *orchestrator_model_drop.RuleAction, target map[string]interface{}) (map[string]interface{}, error) {
 	if action == nil {
 		return nil, errors.New("动作不能为空")
 	}
@@ -850,7 +850,7 @@ func (re *RuleEngine) ExecuteAction(ctx context.Context, action *orchestrator_dr
 // @param target 目标数据
 // @return []*RuleMatchResult 匹配结果列表
 // @return error 错误信息
-func (re *RuleEngine) MatchRules(ctx context.Context, rules []*orchestrator_drop.ScanRule, target map[string]interface{}) ([]*RuleMatchResult, error) {
+func (re *RuleEngine) MatchRules(ctx context.Context, rules []*orchestrator_model_drop.ScanRule, target map[string]interface{}) ([]*RuleMatchResult, error) {
 	var results []*RuleMatchResult
 
 	// 按优先级排序规则
@@ -920,7 +920,7 @@ func (re *RuleEngine) MatchRules(ctx context.Context, rules []*orchestrator_drop
 // @param rule 规则
 // @param matched 是否匹配
 // @return float64 匹配分数
-func (re *RuleEngine) calculateMatchScore(rule *orchestrator_drop.ScanRule, matched bool) float64 {
+func (re *RuleEngine) calculateMatchScore(rule *orchestrator_model_drop.ScanRule, matched bool) float64 {
 	if !matched {
 		return 0.0
 	}
@@ -930,13 +930,13 @@ func (re *RuleEngine) calculateMatchScore(rule *orchestrator_drop.ScanRule, matc
 
 	// 根据规则严重程度调整分数
 	switch rule.Severity {
-	case orchestrator_drop.ScanRuleSeverityCritical:
+	case orchestrator_model_drop.ScanRuleSeverityCritical:
 		score *= 1.5
-	case orchestrator_drop.ScanRuleSeverityHigh:
+	case orchestrator_model_drop.ScanRuleSeverityHigh:
 		score *= 1.3
-	case orchestrator_drop.ScanRuleSeverityMedium:
+	case orchestrator_model_drop.ScanRuleSeverityMedium:
 		score *= 1.1
-	case orchestrator_drop.ScanRuleSeverityLow:
+	case orchestrator_model_drop.ScanRuleSeverityLow:
 		score *= 1.0
 	}
 
@@ -950,7 +950,7 @@ func (re *RuleEngine) calculateMatchScore(rule *orchestrator_drop.ScanRule, matc
 // @param rule 规则
 // @param matched 是否匹配
 // @return string 匹配原因
-func (re *RuleEngine) generateMatchReason(rule *orchestrator_drop.ScanRule, matched bool) string {
+func (re *RuleEngine) generateMatchReason(rule *orchestrator_model_drop.ScanRule, matched bool) string {
 	if matched {
 		return fmt.Sprintf("规则 '%s' 匹配成功，严重程度: %s", rule.Name, rule.Severity.String())
 	}
@@ -960,7 +960,7 @@ func (re *RuleEngine) generateMatchReason(rule *orchestrator_drop.ScanRule, matc
 // prepareRuleActions 准备规则动作
 // @param rule 规则
 // @return []RuleAction 动作列表
-func (re *RuleEngine) prepareRuleActions(rule *orchestrator_drop.ScanRule) []RuleAction {
+func (re *RuleEngine) prepareRuleActions(rule *orchestrator_model_drop.ScanRule) []RuleAction {
 	var actions []RuleAction
 
 	// 解析Action字段（JSON格式）
@@ -978,7 +978,7 @@ func (re *RuleEngine) prepareRuleActions(rule *orchestrator_drop.ScanRule) []Rul
 // @param ruleID 规则ID
 // @param rule 规则对象
 // @param parsedCondition 解析后的条件
-func (re *RuleEngine) CacheRule(ruleID uint, rule *orchestrator_drop.ScanRule, parsedCondition *ParsedCondition) {
+func (re *RuleEngine) CacheRule(ruleID uint, rule *orchestrator_model_drop.ScanRule, parsedCondition *ParsedCondition) {
 	re.cacheMutex.Lock()
 	defer re.cacheMutex.Unlock()
 
@@ -1175,10 +1175,10 @@ func (re *RuleEngine) Stop() {
 
 // sortRulesByPriority 按优先级排序规则
 // @param rules 规则列表
-// @return []*orchestrator_drop.ScanRule 排序后的规则列表
-func (re *RuleEngine) sortRulesByPriority(rules []*orchestrator_drop.ScanRule) []*orchestrator_drop.ScanRule {
+// @return []*orchestrator_model_drop.ScanRule 排序后的规则列表
+func (re *RuleEngine) sortRulesByPriority(rules []*orchestrator_model_drop.ScanRule) []*orchestrator_model_drop.ScanRule {
 	// 创建副本避免修改原始切片
-	sortedRules := make([]*orchestrator_drop.ScanRule, len(rules))
+	sortedRules := make([]*orchestrator_model_drop.ScanRule, len(rules))
 	copy(sortedRules, rules)
 
 	// 按优先级降序排序（优先级数值越大越优先）
@@ -1191,23 +1191,23 @@ func (re *RuleEngine) sortRulesByPriority(rules []*orchestrator_drop.ScanRule) [
 
 // SortRulesByPriority 按优先级排序规则（公开方法）
 // @param rules 规则列表
-// @return []*orchestrator_drop.ScanRule 排序后的规则列表
-func (re *RuleEngine) SortRulesByPriority(rules []*orchestrator_drop.ScanRule) []*orchestrator_drop.ScanRule {
+// @return []*orchestrator_model_drop.ScanRule 排序后的规则列表
+func (re *RuleEngine) SortRulesByPriority(rules []*orchestrator_model_drop.ScanRule) []*orchestrator_model_drop.ScanRule {
 	return re.sortRulesByPriority(rules)
 }
 
 // getSeverityWeight 获取严重程度权重
 // @param severity 严重程度
 // @return int 权重值
-func (re *RuleEngine) getSeverityWeight(severity orchestrator_drop.ScanRuleSeverity) int {
+func (re *RuleEngine) getSeverityWeight(severity orchestrator_model_drop.ScanRuleSeverity) int {
 	switch severity {
-	case orchestrator_drop.ScanRuleSeverityCritical:
+	case orchestrator_model_drop.ScanRuleSeverityCritical:
 		return 4
-	case orchestrator_drop.ScanRuleSeverityHigh:
+	case orchestrator_model_drop.ScanRuleSeverityHigh:
 		return 3
-	case orchestrator_drop.ScanRuleSeverityMedium:
+	case orchestrator_model_drop.ScanRuleSeverityMedium:
 		return 2
-	case orchestrator_drop.ScanRuleSeverityLow:
+	case orchestrator_model_drop.ScanRuleSeverityLow:
 		return 1
 	default:
 		return 0

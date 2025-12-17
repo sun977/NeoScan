@@ -29,21 +29,20 @@
 //  	GET    /api/v1/orchestrator/workflows/:id/logs - 获取工作流日志
 //  	GET    /api/v1/orchestrator/workflows/:id/metrics - 获取工作流指标
 
-package orchestrator_drop
+package orchestrator_handler_drop
 
 import (
 	"errors"
+	scanConfigService "neomaster/drop/orchestrator_sev_drop"
 	"neomaster/internal/model/system"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"neomaster/internal/model/orchestrator_drop"
+	"github.com/gin-gonic/gin"
+	"neomaster/internal/model/orchestrator_model_drop"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	scanConfigService "neomaster/internal/service/orchestrator_drop"
-
-	"github.com/gin-gonic/gin"
 )
 
 // WorkflowHandler 工作流处理器结构体
@@ -71,7 +70,7 @@ func (h *WorkflowHandler) CreateWorkflow(c *gin.Context) {
 	urlPath := c.Request.URL.String()
 
 	// 解析请求体
-	var req orchestrator_drop.WorkflowConfig
+	var req orchestrator_model_drop.WorkflowConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "POST", map[string]interface{}{
 			"operation":  "create_workflow",
@@ -287,7 +286,7 @@ func (h *WorkflowHandler) UpdateWorkflow(c *gin.Context) {
 	}
 
 	// 解析请求体
-	var req orchestrator_drop.WorkflowConfig
+	var req orchestrator_model_drop.WorkflowConfig
 	if err1 := c.ShouldBindJSON(&req); err1 != nil {
 		logger.LogBusinessError(err1, requestID, uint(id), clientIP, urlPath, "PUT", map[string]interface{}{
 			"operation":   "update_workflow",
@@ -513,29 +512,29 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 	}
 
 	// 解析状态过滤参数
-	var statusFilter *orchestrator_drop.WorkflowStatus
+	var statusFilter *orchestrator_model_drop.WorkflowStatus
 	if status != "" {
 		// 根据字符串值转换为对应的WorkflowStatus枚举
 		switch strings.ToLower(status) {
 		case "draft", "0":
-			s := orchestrator_drop.WorkflowStatusDraft
+			s := orchestrator_model_drop.WorkflowStatusDraft
 			statusFilter = &s
 		case "active", "1":
-			s := orchestrator_drop.WorkflowStatusActive
+			s := orchestrator_model_drop.WorkflowStatusActive
 			statusFilter = &s
 		case "inactive", "2":
-			s := orchestrator_drop.WorkflowStatusInactive
+			s := orchestrator_model_drop.WorkflowStatusInactive
 			statusFilter = &s
 		case "archived", "3":
-			s := orchestrator_drop.WorkflowStatusArchived
+			s := orchestrator_model_drop.WorkflowStatusArchived
 			statusFilter = &s
 		}
 	}
 
 	// 解析触发类型过滤参数
-	var triggerTypeFilter *orchestrator_drop.WorkflowTriggerType
+	var triggerTypeFilter *orchestrator_model_drop.WorkflowTriggerType
 	if triggerType != "" {
-		t := orchestrator_drop.WorkflowTriggerType(triggerType)
+		t := orchestrator_model_drop.WorkflowTriggerType(triggerType)
 		triggerTypeFilter = &t
 	}
 
@@ -637,14 +636,14 @@ func (h *WorkflowHandler) RetryWorkflow(c *gin.Context) {
 // @route POST /api/v1/orchestrator/workflows/:id/enable
 // @param c Gin上下文
 func (h *WorkflowHandler) EnableWorkflow(c *gin.Context) {
-	h.updateWorkflowStatus(c, orchestrator_drop.WorkflowStatusActive, "enable_workflow", "启用工作流")
+	h.updateWorkflowStatus(c, orchestrator_model_drop.WorkflowStatusActive, "enable_workflow", "启用工作流")
 }
 
 // DisableWorkflow 禁用工作流
 // @route POST /api/v1/orchestrator/workflows/:id/disable
 // @param c Gin上下文
 func (h *WorkflowHandler) DisableWorkflow(c *gin.Context) {
-	h.updateWorkflowStatus(c, orchestrator_drop.WorkflowStatusInactive, "disable_workflow", "禁用工作流")
+	h.updateWorkflowStatus(c, orchestrator_model_drop.WorkflowStatusInactive, "disable_workflow", "禁用工作流")
 }
 
 // GetWorkflowStatus 获取工作流状态
@@ -1044,7 +1043,7 @@ func (h *WorkflowHandler) controlWorkflow(c *gin.Context, action, message string
 }
 
 // 私有方法：更新工作流状态
-func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrator_drop.WorkflowStatus, operation, message string) {
+func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrator_model_drop.WorkflowStatus, operation, message string) {
 	// 获取请求上下文信息
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
@@ -1076,7 +1075,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 
 	// 调用Service层更新状态
 	var serviceErr error
-	if status == orchestrator_drop.WorkflowStatusActive {
+	if status == orchestrator_model_drop.WorkflowStatusActive {
 		serviceErr = h.workflowService.EnableWorkflowConfig(c.Request.Context(), uint(id))
 	} else {
 		serviceErr = h.workflowService.DisableWorkflowConfig(c.Request.Context(), uint(id))
@@ -1135,7 +1134,7 @@ func (h *WorkflowHandler) updateWorkflowStatus(c *gin.Context, status orchestrat
 }
 
 // 私有方法：验证工作流请求参数
-func (h *WorkflowHandler) validateWorkflowRequest(req *orchestrator_drop.WorkflowConfig) error {
+func (h *WorkflowHandler) validateWorkflowRequest(req *orchestrator_model_drop.WorkflowConfig) error {
 	// 基础字段验证
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("工作流名称不能为空")

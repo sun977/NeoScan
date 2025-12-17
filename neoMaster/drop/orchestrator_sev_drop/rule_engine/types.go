@@ -44,12 +44,12 @@ type RuleContext struct {
 
 // RuleResult 规则执行结果
 type RuleResult struct {
-	RuleID    string                 `json:"rule_id"`    // 规则ID
-	Matched   bool                   `json:"matched"`    // 是否匹配
-	Actions   []ActionResult         `json:"actions"`    // 执行的动作结果
-	Message   string                 `json:"message"`    // 结果消息
-	Metadata  map[string]interface{} `json:"metadata"`   // 结果元数据
-	Timestamp time.Time              `json:"timestamp"`  // 执行时间
+	RuleID    string                 `json:"rule_id"`   // 规则ID
+	Matched   bool                   `json:"matched"`   // 是否匹配
+	Actions   []ActionResult         `json:"actions"`   // 执行的动作结果
+	Message   string                 `json:"message"`   // 结果消息
+	Metadata  map[string]interface{} `json:"metadata"`  // 结果元数据
+	Timestamp time.Time              `json:"timestamp"` // 执行时间
 }
 
 // ActionResult 动作执行结果
@@ -64,12 +64,12 @@ type ActionResult struct {
 
 // BatchRuleResult 批量规则执行结果
 type BatchRuleResult struct {
-	Results   []RuleResult `json:"results"`   // 规则结果列表
-	Total     int          `json:"total"`     // 总规则数
-	Matched   int          `json:"matched"`   // 匹配规则数
-	Failed    int          `json:"failed"`    // 失败规则数
-	Duration  time.Duration `json:"duration"` // 执行耗时
-	Timestamp time.Time    `json:"timestamp"` // 执行时间
+	Results   []RuleResult  `json:"results"`   // 规则结果列表
+	Total     int           `json:"total"`     // 总规则数
+	Matched   int           `json:"matched"`   // 匹配规则数
+	Failed    int           `json:"failed"`    // 失败规则数
+	Duration  time.Duration `json:"duration"`  // 执行耗时
+	Timestamp time.Time     `json:"timestamp"` // 执行时间
 }
 
 // RuleEngineConfig 规则引擎配置

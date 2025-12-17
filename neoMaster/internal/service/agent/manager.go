@@ -990,11 +990,26 @@ func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error
 
 	ctx := context.Background()
 
+	// 验证 TagID 是否存在
+	_, err := s.tagService.GetTag(ctx, req.TagID)
+	if err != nil {
+		logger.Error("标签不存在",
+			"path", "AddAgentTag",
+			"operation", "add_agent_tag",
+			"option", "tagService.GetTag",
+			"func_name", "service.agent.manager.AddAgentTag",
+			"agent_id", req.AgentID,
+			"tag_id", req.TagID,
+			"error", err.Error(),
+		)
+		return fmt.Errorf("标签不存在: %d", req.TagID)
+	}
+
 	// 1. 添加实体标签关联
 	// Source: "manual", RuleID: 0
 	// 移除了 GetTagByName 的调用，直接使用 ID
 	// 假设 TagID 是有效的，或者由 DB 外键/AddEntityTag 内部检查保证一致性
-	err := s.tagService.AddEntityTag(ctx, "agent", req.AgentID, req.TagID, "manual", 0)
+	err = s.tagService.AddEntityTag(ctx, "agent", req.AgentID, req.TagID, "manual", 0)
 	if err != nil {
 		logger.Error("添加Agent标签失败",
 			"path", "AddAgentTag",
@@ -1113,6 +1128,34 @@ func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) (
 	oldTags, err := s.GetAgentTags(agentID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取旧标签失败: %w", err)
+	}
+
+	// 验证所有 TagID 是否存在
+	if len(tagIDs) > 0 {
+		// 去重 tagIDs
+		uniqueIDs := make(map[uint64]bool)
+		for _, id := range tagIDs {
+			uniqueIDs[id] = true
+		}
+
+		validTags, err1 := s.tagService.GetTagsByIDs(ctx, tagIDs)
+		if err1 != nil {
+			return nil, nil, fmt.Errorf("验证标签失败: %v", err1)
+		}
+
+		if len(validTags) != len(uniqueIDs) {
+			// 找出不存在的 ID (可选，为了更好得报错)
+			validMap := make(map[uint64]bool)
+			for _, t := range validTags {
+				validMap[t.ID] = true
+			}
+			for id := range uniqueIDs {
+				if !validMap[id] {
+					return nil, nil, fmt.Errorf("标签ID不存在: %d", id)
+				}
+			}
+			return nil, nil, fmt.Errorf("部分标签不存在")
+		}
 	}
 
 	// 2. 同步标签 (SyncEntityTags)

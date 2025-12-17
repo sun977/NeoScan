@@ -173,8 +173,8 @@ func (h *AgentHandler) getErrorStatusCode(err error) int {
 	// 可以根据具体的错误类型进行更精确的状态码映射
 	errMsg := err.Error()
 	// 统一处理“未找到”类错误
-	if errMsg == "Agent not found" || errMsg == "agent not found" || errMsg == "Agent不存在" ||
-		strings.Contains(errMsg, "未找到") || strings.Contains(errMsg, "not found") {
+	if errMsg == "Agent not found" || errMsg == "agent not found" || 
+		strings.Contains(errMsg, "不存在") || strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "未找到") {
 		return http.StatusNotFound
 	}
 

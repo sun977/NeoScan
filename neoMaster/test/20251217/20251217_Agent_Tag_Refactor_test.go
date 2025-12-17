@@ -201,8 +201,8 @@ func TestAgentTagRefactor(t *testing.T) {
 		AgentID: testAgent.AgentID,
 		TagID:   tag1.ID,
 	}
-	if err := agentSvc.RemoveAgentTag(reqRemove); err != nil {
-		t.Fatalf("RemoveAgentTag failed: %v", err)
+	if err1 := agentSvc.RemoveAgentTag(reqRemove); err1 != nil {
+		t.Fatalf("RemoveAgentTag failed: %v", err1)
 	}
 
 	// 验证
@@ -214,6 +214,29 @@ func TestAgentTagRefactor(t *testing.T) {
 		t.Errorf("Expected tags [%s], got %v", tag2.Name, currentTags)
 	}
 	t.Logf("RemoveAgentTag Success. Current Tags: %v", currentTags)
+
+	// === 测试 5: Add Non-existent Tag ===
+	t.Log("=== Test 5: Add Non-existent Tag ===")
+	reqInvalid := &agentModel.AgentTagRequest{
+		AgentID: testAgent.AgentID,
+		TagID:   999999, // Assume this ID does not exist
+	}
+	err = agentSvc.AddAgentTag(reqInvalid)
+	if err == nil {
+		t.Errorf("Expected error when adding non-existent tag, but got nil")
+	} else {
+		t.Logf("Got expected error: %v", err)
+	}
+
+	// === 测试 6: Update with Non-existent Tag ===
+	t.Log("=== Test 6: Update with Non-existent Tag ===")
+	invalidTagIDs := []uint64{tag2.ID, 999999}
+	_, _, err = agentSvc.UpdateAgentTags(testAgent.AgentID, invalidTagIDs)
+	if err == nil {
+		t.Errorf("Expected error when updating with non-existent tag, but got nil")
+	} else {
+		t.Logf("Got expected error: %v", err)
+	}
 
 	// 清理
 	t.Log("=== Cleaning up ===")

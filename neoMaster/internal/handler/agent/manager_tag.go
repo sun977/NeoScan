@@ -162,7 +162,7 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 
 	// 解析请求体
 	var body struct {
-		Tag string `json:"tag" binding:"required"`
+		TagID uint64 `json:"tag_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		logger.LogBusinessError(
@@ -192,7 +192,7 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 	// 构建服务请求
 	req := &agentModel.AgentTagRequest{
 		AgentID: agentID,
-		Tag:     body.Tag,
+		TagID:   body.TagID,
 	}
 
 	// 调用服务层添加标签
@@ -212,7 +212,7 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 				"func_name":   "handler.agent.AddAgentTag",
 				"user_agent":  userAgent,
 				"agent_id":    agentID,
-				"tag":         body.Tag,
+				"tag_id":      body.TagID,
 				"status_code": statusCode,
 			},
 		)
@@ -241,7 +241,7 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 			"method":     "POST",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
-			"tag":        body.Tag,
+			"tag_id":     body.TagID,
 		},
 	)
 
@@ -249,7 +249,7 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 	data := map[string]interface{}{
 		"agent_id":  agentID,
 		"operation": "add_agent_tag",
-		"tag":       body.Tag,
+		"tag_id":    body.TagID,
 	}
 
 	c.JSON(http.StatusOK, system.APIResponse{
@@ -298,7 +298,7 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 
 	// 解析请求体（解析请求 body 中的 tag 值）
 	var body struct {
-		Tag string `json:"tag" binding:"required"`
+		TagID uint64 `json:"tag_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		logger.LogBusinessError(
@@ -328,7 +328,7 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 	// 构建服务请求
 	req := &agentModel.AgentTagRequest{
 		AgentID: agentID,
-		Tag:     body.Tag,
+		TagID:   body.TagID,
 	}
 
 	// 调用服务层移除标签
@@ -348,7 +348,7 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 				"func_name":   "handler.agent.RemoveAgentTag",
 				"user_agent":  userAgent,
 				"agent_id":    agentID,
-				"tag":         body.Tag,
+				"tag_id":      body.TagID,
 				"status_code": statusCode,
 			},
 		)
@@ -377,7 +377,7 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 			"method":     "DELETE",
 			"user_agent": userAgent,
 			"agent_id":   agentID,
-			"tag":        body.Tag,
+			"tag_id":     body.TagID,
 		},
 	)
 
@@ -385,7 +385,7 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 	data := map[string]interface{}{
 		"agent_id":  agentID,
 		"operation": "remove_agent_tag",
-		"tag":       body.Tag,
+		"tag_id":    body.TagID,
 	}
 
 	c.JSON(http.StatusOK, system.APIResponse{
@@ -435,7 +435,7 @@ func (h *AgentHandler) UpdateAgentTags(c *gin.Context) {
 	// 解析请求体（tags为必填）
 	// 说明：为了保持与已有Handler风格一致，这里使用局部结构体+binding标签进行校验
 	var body struct {
-		Tags []string `json:"tags" binding:"required"`
+		TagIDs []uint64 `json:"tag_ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		// 记录解析错误日志
@@ -464,7 +464,7 @@ func (h *AgentHandler) UpdateAgentTags(c *gin.Context) {
 	}
 
 	// 调用服务层更新标签列表（原子更新：使用AddTag/RemoveTag差异更新）
-	oldTags, newTags, err := h.agentManagerService.UpdateAgentTags(agentID, body.Tags)
+	oldTags, newTags, err := h.agentManagerService.UpdateAgentTags(agentID, body.TagIDs)
 	if err != nil {
 		statusCode := h.getErrorStatusCode(err)
 		// 记录业务错误日志，包含关键字段
@@ -481,7 +481,7 @@ func (h *AgentHandler) UpdateAgentTags(c *gin.Context) {
 				"func_name":   "handler.agent.UpdateAgentTags",
 				"user_agent":  userAgent,
 				"agent_id":    agentID,
-				"tags_count":  len(body.Tags),
+				"tags_count":  len(body.TagIDs),
 				"status_code": statusCode,
 			},
 		)

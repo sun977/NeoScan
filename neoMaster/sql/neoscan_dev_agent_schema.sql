@@ -1,18 +1,41 @@
 -- NeoScan Agent模块数据库建表SQL脚本
 -- 数据库: neoscan_dev
 -- 版本: MySQL 8.0
--- 生成时间: 2025-12-17 (Refactored)
+-- 生成时间: 2025-12-17 (Refactored & Fixed)
 -- 说明: 根据重构后的Agent模型定义生成的建表语句
 -- 变更: 
 --   1. 移除Capabilities字段，新增TaskSupport和Feature字段
 --   2. 移除AgentGroup相关表，统一使用标签系统
 --   3. AgentScanType新增is_system和tag_id字段
 --   4. 移除agent_task_assignments相关数据(模型不存在)
+--   5. 增加 FOREIGN_KEY_CHECKS 控制以确保重置顺利
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
 
 USE `neoscan_dev`;
 
--- 1. Agent基础信息表 (agents)
+-- ============================================================================
+-- 清理旧表 (Drop Tables)
+-- ============================================================================
+
 DROP TABLE IF EXISTS `agents`;
+DROP TABLE IF EXISTS `agent_versions`;
+DROP TABLE IF EXISTS `agent_configs`;
+DROP TABLE IF EXISTS `agent_metrics`;
+DROP TABLE IF EXISTS `agent_scan_types`;
+DROP TABLE IF EXISTS `agent_tag_types`;
+
+-- 清理已废弃的表
+DROP TABLE IF EXISTS `agent_groups`;
+DROP TABLE IF EXISTS `agent_group_members`;
+DROP TABLE IF EXISTS `agent_task_assignments`;
+
+-- ============================================================================
+-- 创建新表 (Create Tables)
+-- ============================================================================
+
+-- 1. Agent基础信息表 (agents)
 CREATE TABLE `agents` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent唯一标识ID',
@@ -47,7 +70,6 @@ CREATE TABLE `agents` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent基础信息表';
 
 -- 2. Agent版本信息表 (agent_versions)
-DROP TABLE IF EXISTS `agent_versions`;
 CREATE TABLE `agent_versions` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `version` varchar(50) NOT NULL COMMENT '版本号',
@@ -66,7 +88,6 @@ CREATE TABLE `agent_versions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent版本信息表';
 
 -- 3. Agent配置表 (agent_configs)
-DROP TABLE IF EXISTS `agent_configs`;
 CREATE TABLE `agent_configs` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
@@ -89,7 +110,6 @@ CREATE TABLE `agent_configs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent配置表';
 
 -- 4. Agent指标表 (agent_metrics)
-DROP TABLE IF EXISTS `agent_metrics`;
 CREATE TABLE `agent_metrics` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `agent_id` varchar(100) NOT NULL COMMENT 'Agent业务ID，唯一索引',
@@ -117,7 +137,6 @@ CREATE TABLE `agent_metrics` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent指标表';
 
 -- 5. Agent扫描类型表 (agent_scan_types)
-DROP TABLE IF EXISTS `agent_scan_types`;
 CREATE TABLE `agent_scan_types` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `name` varchar(100) NOT NULL COMMENT '扫描类型名称，唯一',
@@ -138,7 +157,6 @@ CREATE TABLE `agent_scan_types` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent扫描类型表';
 
 -- 6. Agent标签类型表 (agent_tag_types)
-DROP TABLE IF EXISTS `agent_tag_types`;
 CREATE TABLE `agent_tag_types` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `name` varchar(100) NOT NULL COMMENT '标签类型名称，唯一',
@@ -151,7 +169,9 @@ CREATE TABLE `agent_tag_types` (
     UNIQUE KEY `idx_agent_tag_types_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent标签类型表';
 
--- 插入默认数据
+-- ============================================================================
+-- 插入默认数据 (Insert Data)
+-- ============================================================================
 
 -- 默认Agent版本
 INSERT INTO `agent_versions` (`version`, `release_date`, `changelog`, `download_url`, `is_active`, `is_latest`) VALUES
@@ -203,7 +223,10 @@ INSERT INTO `agent_metrics` (`agent_id`, `cpu_usage`, `memory_usage`, `disk_usag
 ('neoscan-agent-002', 15.8, 32.4, 55.7, 5242880, 10485760, 12, 4, 892, 8, 'working', 'vulnScan', '{"nmap": {"status": "idle"}, "nuclei": {"status": "running", "pid": 23456}, "masscan": {"status": "idle"}}'),
 ('neoscan-agent-003', 5.2, 18.9, 42.3, 524288, 1048576, 2, 0, 45, 2, 'idle', 'idle', '{"nmap": {"status": "idle"}}');
 
--- 创建性能优化索引
+-- ============================================================================
+-- 创建性能优化索引 (Create Indexes)
+-- ============================================================================
+
 -- Agent表复合索引
 CREATE INDEX `idx_agents_status_heartbeat` ON `agents` (`status`, `last_heartbeat`);
 CREATE INDEX `idx_agents_version_status` ON `agents` (`version`, `status`);
@@ -211,6 +234,8 @@ CREATE INDEX `idx_agents_version_status` ON `agents` (`version`, `status`);
 -- Agent指标表时间分区索引
 CREATE INDEX `idx_agent_metrics_agent_timestamp` ON `agent_metrics` (`agent_id`, `timestamp`);
 CREATE INDEX `idx_agent_metrics_work_scan` ON `agent_metrics` (`work_status`, `scan_type`);
+
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- 显示建表完成信息
 SELECT 'NeoScan Agent模块数据库表结构创建完成！(重构版本)' as message;

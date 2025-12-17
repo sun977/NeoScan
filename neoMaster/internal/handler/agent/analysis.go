@@ -13,6 +13,7 @@ package agent
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -35,9 +36,19 @@ func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 			windowSeconds = n
 		}
 	}
-	groupID := c.Query("group_id")
 
-	resp, err := h.agentMonitorService.GetAgentStatistics(groupID, windowSeconds)
+	var tagIDs []uint64
+	if v := c.Query("tag_ids"); v != "" {
+		ids := strings.Split(v, ",")
+		for _, idStr := range ids {
+			if id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64); err == nil {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	// resp, err := h.agentMonitorService.GetAgentStatistics(groupID, windowSeconds)
+	resp, err := h.agentMonitorService.GetAgentStatistics(windowSeconds, tagIDs)
 	if err != nil {
 		status := h.getErrorStatusCode(err)
 		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
@@ -45,7 +56,7 @@ func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 			"option":         "service.GetAgentStatistics",
 			"func_name":      "handler.agent.GetAgentStatistics",
 			"window_seconds": windowSeconds,
-			"group_id":       groupID,
+			"tag_ids":        tagIDs,
 			"user_agent":     userAgent,
 		})
 		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
@@ -59,7 +70,7 @@ func (h *AgentHandler) GetAgentStatistics(c *gin.Context) {
 		"method":         "GET",
 		"user_agent":     userAgent,
 		"window_seconds": windowSeconds,
-		"group_id":       groupID,
+		"tag_ids":        tagIDs,
 	})
 
 	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
@@ -85,9 +96,20 @@ func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 			topN = n
 		}
 	}
-	groupID := c.Query("group_id")
 
-	resp, err := h.agentMonitorService.GetAgentLoadBalance(groupID, windowSeconds, topN)
+	var tagIDs []uint64
+	if v := c.Query("tag_ids"); v != "" {
+		ids := strings.Split(v, ",")
+		for _, idStr := range ids {
+			if id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64); err == nil {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	// resp, err := h.agentMonitorService.GetAgentLoadBalance(groupID, windowSeconds, topN)
+
+	resp, err := h.agentMonitorService.GetAgentLoadBalance(windowSeconds, topN, tagIDs)
 	if err != nil {
 		status := h.getErrorStatusCode(err)
 		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
@@ -96,7 +118,7 @@ func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 			"func_name":      "handler.agent.GetAgentLoadBalance",
 			"window_seconds": windowSeconds,
 			"top_n":          topN,
-			"group_id":       groupID,
+			"tag_ids":        tagIDs,
 			"user_agent":     userAgent,
 		})
 		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
@@ -111,8 +133,9 @@ func (h *AgentHandler) GetAgentLoadBalance(c *gin.Context) {
 		"user_agent":     userAgent,
 		"window_seconds": windowSeconds,
 		"top_n":          topN,
-		"group_id":       groupID,
+		"tag_ids":        tagIDs,
 	})
+
 	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
 }
 
@@ -136,9 +159,21 @@ func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 			topN = n
 		}
 	}
-	groupID := c.Query("group_id")
 
-	resp, err := h.agentMonitorService.GetAgentPerformanceAnalysis(groupID, windowSeconds, topN)
+	var tagIDs []uint64
+	if v := c.Query("tag_ids"); v != "" {
+		ids := strings.Split(v, ",")
+		for _, idStr := range ids {
+			if id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64); err == nil {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	// groupID := c.Query("group_id")
+	// resp, err := h.agentMonitorService.GetAgentPerformanceAnalysis(groupID, windowSeconds, topN)
+
+	resp, err := h.agentMonitorService.GetAgentPerformanceAnalysis(windowSeconds, topN, tagIDs)
 	if err != nil {
 		status := h.getErrorStatusCode(err)
 		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
@@ -147,7 +182,7 @@ func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 			"func_name":      "handler.agent.GetAgentPerformanceAnalysis",
 			"window_seconds": windowSeconds,
 			"top_n":          topN,
-			"group_id":       groupID,
+			"tag_ids":        tagIDs,
 			"user_agent":     userAgent,
 		})
 		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
@@ -162,7 +197,7 @@ func (h *AgentHandler) GetAgentPerformanceAnalysis(c *gin.Context) {
 		"user_agent":     userAgent,
 		"window_seconds": windowSeconds,
 		"top_n":          topN,
-		"group_id":       groupID,
+		"tag_ids":        tagIDs,
 	})
 
 	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})
@@ -182,7 +217,7 @@ func (h *AgentHandler) GetAgentCapacityAnalysis(c *gin.Context) {
 			windowSeconds = n
 		}
 	}
-	groupID := c.Query("group_id")
+	// groupID := c.Query("group_id")
 	cpuThr := 80.0
 	if v := c.Query("cpu_threshold"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
@@ -202,7 +237,19 @@ func (h *AgentHandler) GetAgentCapacityAnalysis(c *gin.Context) {
 		}
 	}
 
-	resp, err := h.agentMonitorService.GetAgentCapacityAnalysis(groupID, windowSeconds, cpuThr, memThr, diskThr)
+	var tagIDs []uint64
+	if v := c.Query("tag_ids"); v != "" {
+		ids := strings.Split(v, ",")
+		for _, idStr := range ids {
+			if id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64); err == nil {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	// resp, err := h.agentMonitorService.GetAgentCapacityAnalysis(groupID, windowSeconds, cpuThr, memThr, diskThr)
+
+	resp, err := h.agentMonitorService.GetAgentCapacityAnalysis(windowSeconds, cpuThr, memThr, diskThr, tagIDs)
 	if err != nil {
 		status := h.getErrorStatusCode(err)
 		logger.LogBusinessError(err, XRequestID, currentUserID, clientIP, pathUrl, "GET", map[string]interface{}{
@@ -213,7 +260,7 @@ func (h *AgentHandler) GetAgentCapacityAnalysis(c *gin.Context) {
 			"cpu_threshold":    cpuThr,
 			"memory_threshold": memThr,
 			"disk_threshold":   diskThr,
-			"group_id":         groupID,
+			"tag_ids":          tagIDs,
 			"user_agent":       userAgent,
 		})
 		c.JSON(status, system.APIResponse{Code: status, Status: "error", Message: err.Error(), Data: nil})
@@ -230,7 +277,7 @@ func (h *AgentHandler) GetAgentCapacityAnalysis(c *gin.Context) {
 		"cpu_threshold":    cpuThr,
 		"memory_threshold": memThr,
 		"disk_threshold":   diskThr,
-		"group_id":         groupID,
+		"tag_ids":          tagIDs,
 	})
 
 	c.JSON(http.StatusOK, system.APIResponse{Code: http.StatusOK, Status: "success", Message: "OK", Data: resp})

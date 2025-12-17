@@ -132,24 +132,6 @@ type AgentTaskAssignmentResponse struct {
 	InputTarget string `json:"input_target,omitempty"` // 输入目标
 }
 
-// AgentGroupResponse Agent分组响应结构
-// 返回分组信息
-type AgentGroupResponse struct {
-	ID          uint      `json:"id"`          // 数据库主键ID
-	GroupID     string    `json:"group_id"`    // 分组ID
-	Name        string    `json:"name"`        // 分组名称
-	Description string    `json:"description"` // 分组描述
-	Tags        []string  `json:"tags"`        // 分组标签列表
-	CreatedAt   time.Time `json:"created_at"`  // 创建时间
-	UpdatedAt   time.Time `json:"updated_at"`  // 更新时间
-}
-
-// AgentGroupListResponse 获取分组列表响应结构
-type AgentGroupListResponse struct {
-	Groups     []*AgentGroupResponse `json:"groups"`
-	Pagination *PaginationResponse   `json:"pagination"`
-}
-
 // AgentVersionResponse Agent版本响应结构
 // 返回Agent版本信息
 type AgentVersionResponse struct {

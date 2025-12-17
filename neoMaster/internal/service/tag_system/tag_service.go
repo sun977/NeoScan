@@ -72,7 +72,7 @@ type TagService interface {
 	// --- 实体标签操作 (Single Entity) ---
 	AddEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64, source string, ruleID uint64) error // 给实体添加标签
 	RemoveEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64) error                            // 删除实体的标签
-	GetEntityTags(ctx context.Context, entityType string, entityID string) ([]tag_system.SysEntityTag, error)               // 获取实体的标签
+	GetEntityTags(ctx context.Context, entityType string, entityID string) ([]tag_system.SysEntityTag, error)               // 获取实体所有标签
 }
 
 type tagService struct {

@@ -36,7 +36,7 @@ type AgentInfo struct {
 	CPUCores         int         `json:"cpu_cores"`          // CPU核心数
 	MemoryTotal      int64       `json:"memory_total"`       // 总内存大小(字节)
 	DiskTotal        int64       `json:"disk_total"`         // 总磁盘大小(字节)
-	Capabilities     []string    `json:"capabilities"`       // Agent支持的功能模块列表
+	Capabilities     []string    `json:"capabilities"`       // Agent支持的扫描类型ID列表 (兼容旧版)
 	TaskSupport      []string    `json:"task_support"`       // Agent支持的任务类型列表 (对应ScanType)
 	Feature          []string    `json:"feature"`            // Agent具备的特性功能列表
 	Tags             []string    `json:"tags"`               // Agent标签列表

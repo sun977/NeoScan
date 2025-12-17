@@ -474,6 +474,7 @@ type ScanType struct {
 	Description    string             `json:"description" gorm:"size:500;comment:扫描类型描述"`
 	Category       string             `json:"category" gorm:"size:50;comment:扫描类型分类"`
 	IsActive       bool               `json:"is_active" gorm:"default:true;comment:是否激活"`
+	IsSystem       bool               `json:"is_system" gorm:"default:false;comment:是否为系统内置类型"` // 新增字段：标识是否为系统内置
 	ConfigTemplate ConfigTemplateJSON `json:"config_template" gorm:"type:json;comment:配置模板"`
 	TagID          uint64             `json:"tag_id" gorm:"default:0;index;comment:关联的系统标签ID(SysTag.ID)"` // 新增字段：关联新版标签系统
 }

@@ -312,3 +312,24 @@ func (r *agentRepository) GetCapabilities(agentID string) []string {
 	}
 	return agent.Capabilities
 }
+
+// GetAllScanTypes 获取所有ScanType
+func (r *agentRepository) GetAllScanTypes() ([]*agentModel.ScanType, error) {
+	var scanTypes []*agentModel.ScanType
+	err := r.db.Model(&agentModel.ScanType{}).Find(&scanTypes).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetAllScanTypes", "gorm", map[string]interface{}{
+			"operation": "get_all_scan_types",
+		})
+		return nil, err
+	}
+	return scanTypes, nil
+}
+
+// UpdateScanType 更新ScanType
+func (r *agentRepository) UpdateScanType(scanType *agentModel.ScanType) error {
+	if scanType == nil {
+		return nil
+	}
+	return r.db.Save(scanType).Error
+}

@@ -316,21 +316,6 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 		req.Tags = tagsArray
 	}
 
-	// 功能模块过滤参数处理 (兼容)
-	capabilitiesArray := c.QueryArray("capabilities")
-	if len(capabilitiesArray) > 0 {
-		if len(capabilitiesArray) > 1 {
-			req.Capabilities = capabilitiesArray
-		} else if len(capabilitiesArray) == 1 && strings.Contains(capabilitiesArray[0], ",") {
-			req.Capabilities = strings.Split(capabilitiesArray[0], ",")
-			for i, v := range req.Capabilities {
-				req.Capabilities[i] = strings.TrimSpace(v)
-			}
-		} else {
-			req.Capabilities = capabilitiesArray
-		}
-	}
-
 	// 任务支持过滤参数处理 - 支持逗号分隔的值
 	taskSupportArray := c.QueryArray("task_support")
 	if len(taskSupportArray) > 0 {

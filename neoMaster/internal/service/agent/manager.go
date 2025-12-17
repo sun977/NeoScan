@@ -113,7 +113,6 @@ func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
 		CPUCores:         agent.CPUCores,
 		MemoryTotal:      agent.MemoryTotal,
 		DiskTotal:        agent.DiskTotal,
-		Capabilities:     agent.Capabilities,
 		TaskSupport:      agent.TaskSupport,
 		Feature:          agent.Feature,
 		Tags:             agent.Tags,
@@ -163,13 +162,7 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 		return fmt.Errorf("port must be between 1 and 65535")
 	}
 
-	// 兼容性处理：如果 TaskSupport 为空但 Capabilities 不为空，则使用 Capabilities
-	// 这是为了兼容旧版本 Agent，确保 TaskSupport 字段总是有值
-	if len(req.TaskSupport) == 0 && len(req.Capabilities) > 0 {
-		req.TaskSupport = req.Capabilities
-	}
-
-	// 检查TaskSupport(原Capabilities)是否为空
+	// 检查TaskSupport是否为空
 	if len(req.TaskSupport) == 0 {
 		return fmt.Errorf("at least one task support (capability) is required")
 	}
@@ -347,11 +340,7 @@ func (s *agentManagerService) GetAgentList(req *agentModel.GetAgentListRequest) 
 		keyword = &req.Keyword
 	}
 
-	// 页码 页码大小 状态 关键字 标签 能力(兼容) 任务支持
-	// 兼容性处理：如果 TaskSupport 为空但 Capabilities 不为空，则使用 Capabilities
-	if len(req.TaskSupport) == 0 && len(req.Capabilities) > 0 {
-		req.TaskSupport = req.Capabilities
-	}
+	// 页码 页码大小 状态 关键字 标签 任务支持
 	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, keyword, req.Tags, req.TaskSupport)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentList", "", map[string]interface{}{

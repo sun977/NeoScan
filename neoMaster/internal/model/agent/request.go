@@ -47,7 +47,7 @@ type GetAgentListRequest struct {
 	Status      AgentStatus `json:"status"`                             // 按状态过滤，可选
 	ScanType    string      `json:"scan_type"`                          // 按扫描类型过滤，可选
 	Keyword     string      `json:"keyword"`                            // 关键词搜索(主机名、IP地址)，可选
-	Tags        []string    `json:"tags"`                               // 按标签过滤，可选
+	Feature     []string    `json:"feature"`                            // 按特性/标签过滤，可选 (替代tags)
 	TaskSupport []string    `json:"task_support"`                       // 按任务支持过滤，可选
 }
 

@@ -44,12 +44,10 @@ type AgentManagerService interface {
 	// GetGroupTags() ([]*agentModel.GroupTagType, error) // 获取所有分组标签类型
 
 	// Agent标签管理
-	IsValidTagId(tag string) bool                                                 // 判断标签ID是否有效
-	IsValidTagByName(tag string) bool                                             // 判断标签名称是否有效
-	AddAgentTag(req *agentModel.AgentTagRequest) error                            // 添加Agent标签
-	RemoveAgentTag(req *agentModel.AgentTagRequest) error                         // 移除Agent标签
-	GetAgentTags(agentID string) ([]string, error)                                // 获取Agent标签
-	UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error) // 更新Agent标签
+	AddAgentTag(req *agentModel.AgentTagRequest) error                           // 添加Agent标签
+	RemoveAgentTag(req *agentModel.AgentTagRequest) error                        // 移除Agent标签
+	GetAgentTags(agentID string) ([]string, error)                               // 获取Agent所有标签
+	UpdateAgentTags(agentID string, tagIDs []uint64) ([]string, []string, error) // 更新Agent标签
 
 	// Agent能力管理
 	IsValidCapabilityId(capability string) bool                         // 判断能力ID是否有效
@@ -986,25 +984,17 @@ func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error
 		return fmt.Errorf("agent ID不能为空")
 	}
 
-	if req.Tag == "" {
-		return fmt.Errorf("标签ID不能为空")
+	if req.TagID == 0 {
+		return fmt.Errorf("标签ID无效")
 	}
 
 	ctx := context.Background()
 
-	// 1. 获取标签信息 (验证标签是否存在)
-	// 这里的 req.Tag 实际上是标签名称
-	tag, err := s.tagService.GetTagByName(ctx, req.Tag)
-	if err != nil {
-		return fmt.Errorf("获取标签失败: %v", err)
-	}
-	if tag == nil {
-		return fmt.Errorf("标签不存在: %s", req.Tag)
-	}
-
-	// 2. 添加实体标签关联
+	// 1. 添加实体标签关联
 	// Source: "manual", RuleID: 0
-	err = s.tagService.AddEntityTag(ctx, "agent", req.AgentID, tag.ID, "manual", 0)
+	// 移除了 GetTagByName 的调用，直接使用 ID
+	// 假设 TagID 是有效的，或者由 DB 外键/AddEntityTag 内部检查保证一致性
+	err := s.tagService.AddEntityTag(ctx, "agent", req.AgentID, req.TagID, "manual", 0)
 	if err != nil {
 		logger.Error("添加Agent标签失败",
 			"path", "AddAgentTag",
@@ -1012,7 +1002,7 @@ func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error
 			"option", "tagService.AddEntityTag",
 			"func_name", "service.agent.manager.AddAgentTag",
 			"agent_id", req.AgentID,
-			"tag", req.Tag,
+			"tag_id", req.TagID,
 			"error", err.Error(),
 		)
 		return fmt.Errorf("添加Agent标签失败: %w", err)
@@ -1024,7 +1014,7 @@ func (s *agentManagerService) AddAgentTag(req *agentModel.AgentTagRequest) error
 		"option", "success",
 		"func_name", "service.agent.manager.AddAgentTag",
 		"agent_id", req.AgentID,
-		"tag", req.Tag,
+		"tag_id", req.TagID,
 	)
 
 	return nil
@@ -1038,24 +1028,14 @@ func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) er
 	if req.AgentID == "" {
 		return fmt.Errorf("agent ID不能为空")
 	}
-	if req.Tag == "" {
-		return fmt.Errorf("标签ID不能为空")
+	if req.TagID == 0 {
+		return fmt.Errorf("标签ID无效")
 	}
 
 	ctx := context.Background()
 
-	// 1. 获取标签信息
-	tag, err := s.tagService.GetTagByName(ctx, req.Tag)
-	if err != nil {
-		// 如果标签不存在，认为移除成功（幂等性）
-		return nil
-	}
-	if tag == nil {
-		return nil
-	}
-
-	// 2. 移除实体标签关联
-	err = s.tagService.RemoveEntityTag(ctx, "agent", req.AgentID, tag.ID)
+	// 1. 移除实体标签关联
+	err := s.tagService.RemoveEntityTag(ctx, "agent", req.AgentID, req.TagID)
 	if err != nil {
 		logger.Error("移除Agent标签失败",
 			"path", "RemoveAgentTag",
@@ -1063,7 +1043,7 @@ func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) er
 			"option", "tagService.RemoveEntityTag",
 			"func_name", "service.agent.manager.RemoveAgentTag",
 			"agent_id", req.AgentID,
-			"tag", req.Tag,
+			"tag_id", req.TagID,
 			"error", err.Error(),
 		)
 		return fmt.Errorf("移除Agent标签失败: %w", err)
@@ -1075,7 +1055,7 @@ func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) er
 		"option", "success",
 		"func_name", "service.agent.manager.RemoveAgentTag",
 		"agent_id", req.AgentID,
-		"tag", req.Tag,
+		"tag_id", req.TagID,
 	)
 
 	return nil
@@ -1121,64 +1101,44 @@ func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
 }
 
 // UpdateAgentTags 更新Agent的标签列表
-// 返回旧标签列表和新标签列表
-func (s *agentManagerService) UpdateAgentTags(agentID string, newTags []string) ([]string, []string, error) {
+// 返回旧标签列表和新标签列表 (Names)
+func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) ([]string, []string, error) {
 	if agentID == "" {
 		return nil, nil, fmt.Errorf("agent ID不能为空")
 	}
 
 	ctx := context.Background()
 
-	// 1. 获取旧标签 (为了返回)
+	// 1. 获取旧标签 (Names) - 用于返回
 	oldTags, err := s.GetAgentTags(agentID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取旧标签失败: %w", err)
 	}
 
-	// 2. 解析新标签名称为 IDs
-	var targetTagIDs []uint64
-	for _, tagName := range newTags {
-		if tagName == "" {
-			continue
-		}
-		tag, err1 := s.tagService.GetTagByName(ctx, tagName)
-		if err1 != nil {
-			return nil, nil, fmt.Errorf("查询标签失败(%s): %v", tagName, err1)
-		}
-		if tag == nil {
-			return nil, nil, fmt.Errorf("标签不存在: %s", tagName)
-		}
-		targetTagIDs = append(targetTagIDs, tag.ID)
-	}
-
-	// 3. 同步标签 (SyncEntityTags)
+	// 2. 同步标签 (SyncEntityTags)
 	// 使用 SyncEntityTags 可以自动处理增删，且保留 Manual 标签（如果 sourceScope 也是 manual）
 	// 这里假设 UpdateAgentTags 是手动全量更新，所以 sourceScope = "manual"
-	err = s.tagService.SyncEntityTags(ctx, "agent", agentID, targetTagIDs, "manual", 0)
+	err = s.tagService.SyncEntityTags(ctx, "agent", agentID, tagIDs, "manual", 0)
 	if err != nil {
 		return nil, nil, fmt.Errorf("同步标签失败: %v", err)
 	}
 
+	// 3. 获取新标签 Names - 用于返回
+	var newTags []string
+	if len(tagIDs) > 0 {
+		newSysTags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+		if err != nil {
+			return nil, nil, fmt.Errorf("获取新标签详情失败: %v", err)
+		}
+		newTags = make([]string, 0, len(newSysTags))
+		for _, t := range newSysTags {
+			newTags = append(newTags, t.Name)
+		}
+	} else {
+		newTags = []string{}
+	}
+
 	return oldTags, newTags, nil
-}
-
-// IsValidTagId 验证标签ID是否有效 (兼容旧接口，实际验证标签名称是否存在)
-func (s *agentManagerService) IsValidTagId(tag string) bool {
-	if tag == "" {
-		return false
-	}
-	ctx := context.Background()
-	// 尝试作为名称查找
-	t, err := s.tagService.GetTagByName(ctx, tag)
-	if err != nil {
-		return false
-	}
-	return t != nil
-}
-
-// IsValidTagByName 验证标签名称是否有效
-func (s *agentManagerService) IsValidTagByName(tag string) bool {
-	return s.IsValidTagId(tag)
 }
 
 // ==================== Agent能力管理方法 ====================

@@ -91,7 +91,7 @@ type AgentGroupMemberRequest struct {
 // AgentTagRequest Agent标签操作请求结构
 type AgentTagRequest struct {
 	AgentID string `json:"agent_id" validate:"required"` // Agent业务ID，必填
-	Tag     string `json:"tag" validate:"required"`      // 标签名称，必填
+	TagID   uint64 `json:"tag_id" validate:"required"`   // 标签ID，必填
 }
 
 // AgentCapabilityRequest Agent能力操作请求结构
@@ -102,12 +102,12 @@ type AgentCapabilityRequest struct {
 
 // AgentTaskResultRequest Agent任务结果上报请求结构
 type AgentTaskResultRequest struct {
-	TaskID      string      `json:"task_id" validate:"required"` // 任务ID，必填
+	TaskID      string      `json:"task_id" validate:"required"`  // 任务ID，必填
 	AgentID     string      `json:"agent_id" validate:"required"` // AgentID，必填
-	Status      string      `json:"status" validate:"required"`  // 任务状态 (running, completed, failed)
-	Result      interface{} `json:"result"`                      // 任务结果数据 (JSON对象或字符串)
-	Error       string      `json:"error"`                       // 错误信息
-	CompletedAt int64       `json:"completed_at"`                // 完成时间戳
+	Status      string      `json:"status" validate:"required"`   // 任务状态 (running, completed, failed)
+	Result      interface{} `json:"result"`                       // 任务结果数据 (JSON对象或字符串)
+	Error       string      `json:"error"`                        // 错误信息
+	CompletedAt int64       `json:"completed_at"`                 // 完成时间戳
 }
 
 // // UpdateAgentTagsRequest 更新指定 Agent 标签列表请求结构

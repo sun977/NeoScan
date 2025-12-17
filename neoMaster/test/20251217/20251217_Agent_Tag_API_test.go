@@ -146,8 +146,23 @@ func TestAgentTagAPI(t *testing.T) {
 		}
 	})
 
-    // === 测试 Case 4: Invalid Input (Bad Request) ===
-    t.Run("InvalidInput", func(t *testing.T) {
+    // === 测试 Case 4: Add Non-Existent Tag (Not Found) ===
+	t.Run("AddNonExistentTag", func(t *testing.T) {
+		payload := map[string]uint64{"tag_id": 999999}
+		jsonBody, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/agent/"+agent.AgentID+"/tags", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		t.Logf("Response: %d %s", w.Code, w.Body.String())
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected 404 Not Found, got %d", w.Code)
+		}
+	})
+
+	// === 测试 Case 5: Invalid Input (Bad Request) ===
+	t.Run("InvalidInput", func(t *testing.T) {
         req, _ := http.NewRequest("POST", "/agent/"+agent.AgentID+"/tags", bytes.NewBufferString("invalid json"))
         req.Header.Set("Content-Type", "application/json")
         w := httptest.NewRecorder()

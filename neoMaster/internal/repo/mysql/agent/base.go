@@ -398,7 +398,7 @@ func (r *agentRepository) Delete(agentID string) error {
 // GetList 获取Agent列表（支持分页、按状态、关键词、标签、任务支持过滤）
 // 参数: page - 页码, pageSize - 每页大小, status - 状态过滤, keyword - 关键字过滤, tags - 标签过滤, taskSupport - 任务支持过滤
 // 返回: []*agentModel.Agent - Agent列表, int64 - 总数量, error - 错误信息
-func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, features []string, taskSupport []string) ([]*agentModel.Agent, int64, error) {
+func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentStatus, keyword *string, tags []string, taskSupport []string) ([]*agentModel.Agent, int64, error) {
 	var agents []*agentModel.Agent
 	var total int64
 
@@ -415,11 +415,14 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 		// 修正字段名为 ip_address，以匹配模型定义
 		query = query.Where("agent_id LIKE ? OR hostname LIKE ? OR ip_address LIKE ? OR remark LIKE ?", like, like, like, like)
 	}
-	// 特性/标签过滤 (Feature) - 替代原 Tags
-	if len(features) > 0 {
+	// 标签过滤
+	if len(tags) > 0 {
 		// 通过 JSON_CONTAINS 在 JSON 数组字段上逐项过滤
-		for _, feature := range features {
-			query = query.Where("JSON_CONTAINS(feature, JSON_QUOTE(?))", feature)
+		for _, tag := range tags {
+			query = query.Where("JSON_CONTAINS(tags, JSON_QUOTE(?))", tag)
+			// // 使用JSON_CONTAINS函数精确匹配JSON数组中的字符串值
+			// // 注意：tag需要用双引号包围，因为JSON数组中存储的是字符串
+			// query = query.Where("JSON_CONTAINS(tags, ?)", `"`+tag+`"`)
 		}
 	}
 	// 任务支持过滤 (TaskSupport) - 替代原 Capabilities

@@ -159,7 +159,7 @@ type Agent struct {
 	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
 	// 能力和标签(存储ScanType和TagType的ID) - 内容格式:["2","3"] (字符串形式的ID列表)
-	Tags StringSlice `json:"tags" gorm:"type:json;comment:Agent标签ID列表，对应TagType表的ID"`
+	Tags StringSlice `json:"tags" gorm:"type:json;comment:Agent标签ID列表"`
 
 	// 新增字段：TaskSupport 和 Feature (替换 Capabilities)
 	// 遵循重构设计方案：将Capabilities拆分为TaskSupport(任务支持)和Feature(特性功能)

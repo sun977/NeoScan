@@ -153,6 +153,7 @@ CREATE TABLE `agent_group_members` (
 
 -- 8. Agent扫描类型表 (agent_scan_types)
 -- 对应Go结构体: ScanType (使用BaseModel)
+DROP TABLE IF EXISTS `agent_scan_types`;
 CREATE TABLE `agent_scan_types` (
     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
     `name` varchar(100) NOT NULL COMMENT '扫描类型名称，唯一',
@@ -161,12 +162,14 @@ CREATE TABLE `agent_scan_types` (
     `category` varchar(50) DEFAULT NULL COMMENT '扫描类型分类',
     `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否激活',
     `config_template` json DEFAULT NULL COMMENT '配置模板',
+    `tag_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '关联的系统标签ID(SysTag.ID)',
     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
     PRIMARY KEY (`id`),
     UNIQUE KEY `idx_agent_scan_types_name` (`name`),
     KEY `idx_agent_scan_types_is_active` (`is_active`),
-    KEY `idx_agent_scan_types_category` (`category`)
+    KEY `idx_agent_scan_types_category` (`category`),
+    KEY `idx_agent_scan_types_tag_id` (`tag_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent扫描类型表';
 
 -- 9. Agent标签类型表 (agent_tag_types)

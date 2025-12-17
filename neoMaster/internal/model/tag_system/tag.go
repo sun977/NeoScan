@@ -16,6 +16,8 @@ type SysTag struct {
 	Color       string `json:"color" gorm:"size:7"`                                     // 标签颜色 (HEX)
 	Category    string `json:"category" gorm:"size:50;index"`                           // 业务分类 (asset, vul, user...) - 仅作UI分组，逻辑上通用
 	Description string `json:"description" gorm:"size:255"`
+
+	FullPathName string `json:"full_path_name" gorm:"-"` // 完整路径名称 e.g. "Root/Parent/Child" 仅作展示，不存储在DB
 }
 
 func (SysTag) TableName() string {

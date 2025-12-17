@@ -93,7 +93,7 @@ func hasCapability(agent *agentModel.Agent, toolName string) bool {
 	// TODO: 将 toolName 映射为 ScanType ID，或者 Agent 直接上报支持的 ToolName 列表
 	// 目前 Agent.Capabilities 存储的是 ID 列表 (["1", "2"])
 	// 这里暂时做一个简单的模拟，或者假设所有 Online Agent 都有基础能力
-	if len(agent.Capabilities) == 0 {
+	if len(agent.TaskSupport) == 0 {
 		// 如果没有上报能力，默认认为没有能力，或者根据配置决定
 		// 为了开发方便，暂时返回 true，待 Capability 系统完善后改为 false
 		return true
@@ -101,12 +101,12 @@ func hasCapability(agent *agentModel.Agent, toolName string) bool {
 
 	// 使用 Matcher 引擎进行检查
 	agentData := map[string]interface{}{
-		"capabilities": agent.Capabilities,
+		"task_support": agent.TaskSupport,
 	}
 
-	// 规则: capabilities 包含 toolName (忽略大小写)
+	// 规则: task_support 包含 toolName (忽略大小写)
 	rule := matcher.MatchRule{
-		Field:      "capabilities",
+		Field:      "task_support",
 		Operator:   "list_contains",
 		Value:      toolName,
 		IgnoreCase: true,

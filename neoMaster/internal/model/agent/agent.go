@@ -159,8 +159,7 @@ type Agent struct {
 	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
 	// 能力和标签(存储ScanType和TagType的ID) - 内容格式:["2","3"] (字符串形式的ID列表)
-	Capabilities StringSlice `json:"capabilities" gorm:"type:json;comment:Agent支持的扫描类型ID列表，对应ScanType表的ID"`
-	Tags         StringSlice `json:"tags" gorm:"type:json;comment:Agent标签ID列表，对应TagType表的ID"`
+	Tags StringSlice `json:"tags" gorm:"type:json;comment:Agent标签ID列表，对应TagType表的ID"`
 
 	// 新增字段：TaskSupport 和 Feature (替换 Capabilities)
 	// 遵循重构设计方案：将Capabilities拆分为TaskSupport(任务支持)和Feature(特性功能)
@@ -224,49 +223,10 @@ func (a *Agent) UpdateHeartbeat() {
 	a.LastHeartbeat = time.Now()
 }
 
-// ============================================================================
-// Agent 能力管理方法
-// ============================================================================
-
-// AddCapability 添加能力（避免重复）
-// 参数: capabilityID - 扫描类型ID（字符串形式）
-func (a *Agent) AddCapability(capabilityID string) {
-	for _, c := range a.Capabilities {
-		if c == capabilityID {
-			return // 避免重复添加
-		}
-	}
-	a.Capabilities = append(a.Capabilities, capabilityID)
-}
-
-// RemoveCapability 移除能力
-// Agent 结构体的方法 - 移除指定能力
-// 参数: capabilityID - 扫描类型ID（字符串形式）
-func (a *Agent) RemoveCapability(capabilityID string) {
-	for i, c := range a.Capabilities {
-		if c == capabilityID {
-			a.Capabilities = append(a.Capabilities[:i], a.Capabilities[i+1:]...)
-			return
-		}
-	}
-}
-
-// HasCapability 检查是否具有指定能力
-// Agent 结构体的方法 - 检查是否具有指定能力
-// 参数: capabilityID - 扫描类型ID（字符串形式）
-func (a *Agent) HasCapability(capabilityID string) bool {
-	for _, c := range a.Capabilities {
-		if c == capabilityID {
-			return true
-		}
-	}
-	return false
-}
-
 // CanAcceptTask 判断Agent是否可以接受指定类型的任务
 // 参数: taskTypeID - 任务类型ID（字符串形式）
 func (a *Agent) CanAcceptTask(taskTypeID string) bool {
-	return a.IsOnline() && a.HasCapability(taskTypeID)
+	return a.IsOnline() && a.HasTaskSupport(taskTypeID)
 }
 
 // ============================================================================
@@ -309,7 +269,7 @@ func (a *Agent) HasTag(tagID string) bool {
 }
 
 // ============================================================================
-// Agent 任务支持管理方法 (TaskSupport) - 新增
+// Agent 任务支持管理方法 (TaskSupport)
 // ============================================================================
 
 // AddTaskSupport 添加任务支持（避免重复）

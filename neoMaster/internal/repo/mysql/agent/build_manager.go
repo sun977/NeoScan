@@ -66,7 +66,7 @@ type AgentRepository interface {
 	// HasCapability(agentID string, capabilityID string) bool     // 判断Agent是否有指定能力
 	// GetCapabilities(agentID string) []string                    // 获取Agent所有能力ID列表
 
-	// Agent 任务支持管理 (TaskSupport) - 新增，功能对齐 Capability
+	// Agent 任务支持管理 (TaskSupport)
 	IsValidTaskSupportId(taskID string) bool                      // 判断任务支持ID是否有效
 	IsValidTaskSupportByName(taskName string) bool                // 判断任务支持名称是否有效
 	AddTaskSupport(agentID string, taskID string) error           // 添加Agent任务支持

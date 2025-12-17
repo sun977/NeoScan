@@ -162,6 +162,11 @@ type Agent struct {
 	Capabilities StringSlice `json:"capabilities" gorm:"type:json;comment:Agent支持的扫描类型ID列表，对应ScanType表的ID"`
 	Tags         StringSlice `json:"tags" gorm:"type:json;comment:Agent标签ID列表，对应TagType表的ID"`
 
+	// 新增字段：TaskSupport 和 Feature (替换 Capabilities)
+	// 遵循重构设计方案：将Capabilities拆分为TaskSupport(任务支持)和Feature(特性功能)
+	TaskSupport StringSlice `json:"task_support" gorm:"type:json;comment:Agent支持的任务类型列表，与ScanType一一对应"` // 对应 ScanType
+	Feature     StringSlice `json:"feature" gorm:"type:json;comment:Agent具备的特性功能列表"`                    // 备用，后续使用
+
 	// 安全认证
 	GRPCToken   string    `json:"grpc_token" gorm:"column:grpc_token;size:500;comment:gRPC通信Token"`
 	TokenExpiry time.Time `json:"token_expiry" gorm:"comment:Token过期时间"`

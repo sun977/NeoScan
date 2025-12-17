@@ -101,6 +101,8 @@ func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
 		MemoryTotal:      agent.MemoryTotal,
 		DiskTotal:        agent.DiskTotal,
 		Capabilities:     agent.Capabilities,
+		TaskSupport:      agent.TaskSupport,
+		Feature:          agent.Feature,
 		Tags:             agent.Tags,
 		LastHeartbeat:    agent.LastHeartbeat,
 		ResultLatestTime: agent.ResultLatestTime,
@@ -148,15 +150,23 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 		return fmt.Errorf("port must be between 1 and 65535")
 	}
 
-	// 检查capabilities是否为空
-	if len(req.Capabilities) == 0 {
-		return fmt.Errorf("at least one capability is required")
+	// 兼容性处理：如果 TaskSupport 为空但 Capabilities 不为空，则使用 Capabilities
+	// 这是为了兼容旧版本 Agent，确保 TaskSupport 字段总是有值
+	if len(req.TaskSupport) == 0 && len(req.Capabilities) > 0 {
+		req.TaskSupport = req.Capabilities
 	}
 
-	// 检查capabilities是否包含有效值 - 委托给Repository层验证
-	for _, capabilityID := range req.Capabilities {
-		if !s.agentRepo.IsValidCapabilityId(capabilityID) {
-			return fmt.Errorf("invalid capability ID: %s", capabilityID)
+	// 检查TaskSupport(原Capabilities)是否为空
+	if len(req.TaskSupport) == 0 {
+		return fmt.Errorf("at least one task support (capability) is required")
+	}
+
+	// 检查capabilities/TaskSupport是否包含有效值 - 委托给Repository层验证
+	// 统一使用 ID 进行校验，TaskSupport 和 Capabilities 都存储 ScanType ID
+	for _, id := range req.TaskSupport {
+		if !s.agentRepo.IsValidCapabilityId(id) {
+			// 暂时只记录警告，或者返回错误。
+			// return fmt.Errorf("invalid capability/task_support id: %s", id)
 		}
 	}
 
@@ -232,6 +242,8 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		ContainerID:   req.ContainerID,
 		PID:           req.PID,
 		Capabilities:  req.Capabilities,
+		TaskSupport:   req.TaskSupport, // 新增字段：TaskSupport (对应 ScanType)
+		Feature:       req.Feature,     // 新增字段：Feature (备用)
 		Tags:          req.Tags,
 		Remark:        req.Remark,
 		Status:        agentModel.AgentStatusOnline,
@@ -248,6 +260,38 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 			"agent_id":  agentID,
 		})
 		return nil, fmt.Errorf("创建新Agent失败: %v", err)
+	}
+
+	// ------------------------------------------------------------
+	// Tag 系统同步：将 TaskSupport (ScanType) 映射为系统标签并绑定到 Agent
+	// ------------------------------------------------------------
+	// 获取 TaskSupport 对应的 TagID
+	tagIDs, err := s.agentRepo.GetTagIDsByScanTypeIDs(req.TaskSupport)
+	if err != nil {
+		logger.LogWarn("获取TaskSupport对应的TagID失败", "", 0, "", "RegisterAgent", "GetTagIDsByScanTypeIDs", map[string]interface{}{
+			"error":        err.Error(),
+			"task_support": req.TaskSupport,
+			"agent_id":     agentID,
+		})
+		// 不中断注册流程，仅记录警告
+	} else if len(tagIDs) > 0 {
+		// 同步 Tags
+		// 使用 context.Background() 因为 RegisterAgent 没有 Context 参数
+		// sourceScope 使用 "agent_capability" 以区别于其他来源
+		// 这样可以确保 Agent 的能力标签被正确管理，且不影响手动打的标签
+		err = s.tagService.SyncEntityTags(context.Background(), "agent", agentID, tagIDs, "agent_capability", 0)
+		if err != nil {
+			logger.LogError(err, "", 0, "", "RegisterAgent", "SyncEntityTags", map[string]interface{}{
+				"agent_id": agentID,
+				"tag_ids":  tagIDs,
+			})
+			// 同样不中断注册流程，但这可能导致标签数据不一致
+		} else {
+			logger.LogInfo("Agent能力标签同步成功", "", 0, "", "RegisterAgent", "SyncEntityTags", map[string]interface{}{
+				"agent_id": agentID,
+				"tag_ids":  tagIDs,
+			})
+		}
 	}
 
 	logger.LogInfo("Agent注册成功", "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{

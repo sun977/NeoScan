@@ -21,7 +21,9 @@ type RegisterAgentRequest struct {
 	DiskTotal    int64    `json:"disk_total" validate:"min=1"`              // 总磁盘大小(字节)，最少1字节
 	ContainerID  string   `json:"container_id"`                             // 容器ID，可选
 	PID          int      `json:"pid" validate:"min=1"`                     // 进程ID，最少1
-	Capabilities []string `json:"capabilities"`                             // Agent支持的功能模块列表
+	Capabilities []string `json:"capabilities"`                             // Agent支持的功能模块列表 (旧)
+	TaskSupport  []string `json:"task_support"`                             // Agent支持的任务类型列表 (新，对应ScanType)
+	Feature      []string `json:"feature"`                                  // Agent具备的特性功能列表 (新，备用)
 	Tags         []string `json:"tags"`                                     // Agent标签列表
 	Remark       string   `json:"remark"`                                   // 备注信息
 }
@@ -72,8 +74,6 @@ type AgentTaskAssignRequest struct {
 	TaskID   string `json:"task_id" validate:"required"`   // 任务ID，必填
 	TaskType string `json:"task_type" validate:"required"` // 任务类型，必填
 }
-
-
 
 // AgentTagRequest Agent标签操作请求结构
 type AgentTagRequest struct {

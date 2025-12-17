@@ -67,11 +67,13 @@ type AgentRepository interface {
 	GetCapabilities(agentID string) []string                    // 获取Agent所有能力ID列表
 
 	// Agent 任务支持管理 (TaskSupport) - 新增，功能对齐 Capability
-	IsValidTaskSupportId(taskID string) bool               // 判断任务支持ID是否有效
-	AddTaskSupport(agentID string, taskID string) error    // 添加Agent任务支持
-	RemoveTaskSupport(agentID string, taskID string) error // 移除Agent任务支持
-	HasTaskSupport(agentID string, taskID string) bool     // 判断Agent是否支持指定任务
-	GetTaskSupport(agentID string) []string                // 获取Agent所有任务支持列表
+	IsValidTaskSupportId(taskID string) bool                      // 判断任务支持ID是否有效
+	AddTaskSupport(agentID string, taskID string) error           // 添加Agent任务支持
+	RemoveTaskSupport(agentID string, taskID string) error        // 移除Agent任务支持
+	HasTaskSupport(agentID string, taskID string) bool            // 判断Agent是否支持指定任务
+	GetTaskSupport(agentID string) []string                       // 获取Agent所有任务支持列表
+	GetTagIDsByTaskSupportNames(names []string) ([]uint64, error) // 根据任务支持名称获取TagID
+	GetTagIDsByTaskSupportIDs(ids []string) ([]uint64, error)     // 根据任务支持ID获取TagID
 
 	// Agent 标签管理
 	IsValidTagId(tag string) bool                          // 判断标签ID是否有效

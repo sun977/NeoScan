@@ -318,10 +318,65 @@ func (r *agentRepository) GetCapabilities(agentID string) []string {
 // ============================================================================
 
 // IsValidTaskSupportId 判断任务支持ID是否有效
-// 逻辑与 IsValidCapabilityId 一致，因为 TaskSupport 也对应 ScanType
+// 逻辑独立，不复用 IsValidCapabilityId
 func (r *agentRepository) IsValidTaskSupportId(taskID string) bool {
-	// 复用 IsValidCapabilityId 的逻辑，因为底层数据源相同 (ScanType)
-	return r.IsValidCapabilityId(taskID)
+	var count int64
+	// 直接查询ScanType表的id字段，验证该ID是否存在且激活
+	result := r.db.Model(&agentModel.ScanType{}).Where("id = ? AND is_active = ?", taskID, 1).Count(&count)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidTaskSupportId", "", map[string]interface{}{
+			"operation": "validate_task_support_id",
+			"option":    "agentRepository.IsValidTaskSupportId",
+			"func_name": "repo.agent.IsValidTaskSupportId",
+			"taskID":    taskID,
+		})
+		return false
+	}
+	return count > 0
+}
+
+// GetTagIDsByTaskSupportNames 根据任务支持名称列表获取对应的TagID列表
+func (r *agentRepository) GetTagIDsByTaskSupportNames(names []string) ([]uint64, error) {
+	if len(names) == 0 {
+		return []uint64{}, nil
+	}
+	var tagIDs []uint64
+	// 查询ScanType表，获取对应TagID
+	// 只查询激活的ScanType
+	err := r.db.Model(&agentModel.ScanType{}).
+		Where("name IN ? AND is_active = ?", names, true).
+		Pluck("tag_id", &tagIDs).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetTagIDsByTaskSupportNames", "gorm", map[string]interface{}{
+			"operation": "get_tag_ids_by_task_support_names",
+			"option":    "db.Pluck",
+			"names":     names,
+		})
+		return nil, err
+	}
+	return tagIDs, nil
+}
+
+// GetTagIDsByTaskSupportIDs 根据任务支持ID列表获取对应的TagID列表
+func (r *agentRepository) GetTagIDsByTaskSupportIDs(ids []string) ([]uint64, error) {
+	if len(ids) == 0 {
+		return []uint64{}, nil
+	}
+	var tagIDs []uint64
+	err := r.db.Model(&agentModel.ScanType{}).
+		Where("id IN ? AND is_active = ?", ids, true).
+		Pluck("tag_id", &tagIDs).Error
+
+	if err != nil {
+		logger.LogError(err, "", 0, "", "repo.agent.GetTagIDsByTaskSupportIDs", "gorm", map[string]interface{}{
+			"operation": "get_tag_ids_by_task_support_ids",
+			"option":    "db.Pluck",
+			"ids":       ids,
+		})
+		return nil, err
+	}
+	return tagIDs, nil
 }
 
 // AddTaskSupport 为Agent添加任务支持

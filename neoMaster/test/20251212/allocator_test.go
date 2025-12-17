@@ -16,18 +16,18 @@ func TestAllocator_CanExecute(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name         string
-		agent        *agentModel.Agent
-		task         *orchestrator.AgentTask
-		expected     bool
-		description  string
+		name        string
+		agent       *agentModel.Agent
+		task        *orchestrator.AgentTask
+		expected    bool
+		description string
 	}{
 		{
 			name: "Basic Success",
 			agent: &agentModel.Agent{
-				Status:       agentModel.AgentStatusOnline,
-				Capabilities: agentModel.StringSlice{"nmap"},
-				Tags:         agentModel.StringSlice{"dmz"},
+				Status:      agentModel.AgentStatusOnline,
+				TaskSupport: agentModel.StringSlice{"nmap"},
+				Tags:        agentModel.StringSlice{"dmz"},
 			},
 			task: &orchestrator.AgentTask{
 				ToolName:     "nmap",
@@ -39,29 +39,29 @@ func TestAllocator_CanExecute(t *testing.T) {
 		{
 			name: "Agent Offline",
 			agent: &agentModel.Agent{
-				Status:       agentModel.AgentStatusOffline,
-				Capabilities: agentModel.StringSlice{"nmap"},
+				Status:      agentModel.AgentStatusOffline,
+				TaskSupport: agentModel.StringSlice{"nmap"},
 			},
-			task: &orchestrator.AgentTask{ToolName: "nmap"},
+			task:        &orchestrator.AgentTask{ToolName: "nmap"},
 			expected:    false,
 			description: "Agent offline should fail",
 		},
 		{
 			name: "Missing Capability",
 			agent: &agentModel.Agent{
-				Status:       agentModel.AgentStatusOnline,
-				Capabilities: agentModel.StringSlice{"masscan"},
+				Status:      agentModel.AgentStatusOnline,
+				TaskSupport: agentModel.StringSlice{"masscan"},
 			},
-			task: &orchestrator.AgentTask{ToolName: "nmap"},
+			task:        &orchestrator.AgentTask{ToolName: "nmap"},
 			expected:    false,
 			description: "Agent missing tool should fail",
 		},
 		{
 			name: "Missing Tag",
 			agent: &agentModel.Agent{
-				Status:       agentModel.AgentStatusOnline,
-				Capabilities: agentModel.StringSlice{"nmap"},
-				Tags:         agentModel.StringSlice{"internal"},
+				Status:      agentModel.AgentStatusOnline,
+				TaskSupport: agentModel.StringSlice{"nmap"},
+				Tags:        agentModel.StringSlice{"internal"},
 			},
 			task: &orchestrator.AgentTask{
 				ToolName:     "nmap",
@@ -73,19 +73,19 @@ func TestAllocator_CanExecute(t *testing.T) {
 		{
 			name: "Capability Case Insensitive",
 			agent: &agentModel.Agent{
-				Status:       agentModel.AgentStatusOnline,
-				Capabilities: agentModel.StringSlice{"NMAP"},
+				Status:      agentModel.AgentStatusOnline,
+				TaskSupport: agentModel.StringSlice{"NMAP"},
 			},
-			task: &orchestrator.AgentTask{ToolName: "nmap"},
+			task:        &orchestrator.AgentTask{ToolName: "nmap"},
 			expected:    true,
 			description: "Capability check should be case insensitive",
 		},
 		{
 			name: "Tag Case Sensitive (Current Behavior)",
 			agent: &agentModel.Agent{
-				Status:       agentModel.AgentStatusOnline,
-				Capabilities: agentModel.StringSlice{"nmap"},
-				Tags:         agentModel.StringSlice{"DMZ"},
+				Status:      agentModel.AgentStatusOnline,
+				TaskSupport: agentModel.StringSlice{"nmap"},
+				Tags:        agentModel.StringSlice{"DMZ"},
 			},
 			task: &orchestrator.AgentTask{
 				ToolName:     "nmap",

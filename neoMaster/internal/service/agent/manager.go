@@ -38,15 +38,6 @@ type AgentManagerService interface {
 	GetAgentTags(agentID string) ([]*tagSystemModel.SysTag, error)                                               // 获取Agent所有标签
 	UpdateAgentTags(agentID string, tagIDs []uint64) ([]*tagSystemModel.SysTag, []*tagSystemModel.SysTag, error) // 更新Agent标签
 
-	// Agent能力管理 (已废弃，请使用任务支持管理)
-	/*
-		IsValidCapabilityId(capability string) bool                         // 判断能力ID是否有效
-		IsValidCapabilityByName(capability string) bool                     // 判断能力名称是否有效
-		AddAgentCapability(req *agentModel.AgentCapabilityRequest) error    // 添加Agent能力
-		RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error // 移除Agent能力
-		GetAgentCapabilities(agentID string) ([]string, error)              // 获取Agent能力
-	*/
-
 	// Agent任务支持管理 (替代能力管理)
 	IsValidTaskSupportId(taskID string) bool                              // 判断任务支持ID是否有效
 	IsValidTaskSupportByName(taskName string) bool                        // 判断任务支持名称是否有效
@@ -167,8 +158,8 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 		return fmt.Errorf("at least one task support (capability) is required")
 	}
 
-	// 检查capabilities/TaskSupport是否包含有效值 - 委托给Repository层验证
-	// 统一使用 ID 进行校验，TaskSupport 和 Capabilities 都存储 ScanType ID
+	// 检查TaskSupport是否包含有效值 - 委托给Repository层验证
+	// 统一使用 ID 进行校验，TaskSupport 存储 ScanType ID
 	for _, id := range req.TaskSupport {
 		if !s.agentRepo.IsValidTaskSupportId(id) {
 			// 暂时只记录警告，或者返回错误。
@@ -247,7 +238,6 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		DiskTotal:     req.DiskTotal,
 		ContainerID:   req.ContainerID,
 		PID:           req.PID,
-		Capabilities:  req.Capabilities,
 		TaskSupport:   req.TaskSupport, // 新增字段：TaskSupport (对应 ScanType)
 		Feature:       req.Feature,     // 新增字段：Feature (备用)
 		Tags:          req.Tags,
@@ -318,7 +308,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 }
 
 // GetAgentList 获取Agent列表服务
-// 支持分页和过滤条件：status 状态、keyword 关键字、tags 标签、capabilities 功能模块
+// 支持分页和过滤条件：status 状态、keyword 关键字、tags TaskSupport 功能模块
 func (s *agentManagerService) GetAgentList(req *agentModel.GetAgentListRequest) (*agentModel.GetAgentListResponse, error) {
 	// 设置默认值
 	if req.Page <= 0 {
@@ -675,217 +665,6 @@ func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) (
 	return oldTags, newTags, nil
 }
 
-// ==================== Agent能力管理方法 (已废弃) ====================
-/*
-// AddAgentCapability 为Agent添加能力
-func (s *agentManagerService) AddAgentCapability(req *agentModel.AgentCapabilityRequest) error {
-	// 输入验证 - 遵循"好品味"原则，消除特殊情况
-	if req == nil {
-		logger.Error("请求参数为空",
-			"path", "AddAgentCapability",
-			"operation", "add_agent_capability",
-			"option", "agentManagerService.AddAgentCapability",
-			"func_name", "service.agent.manager.AddAgentCapability",
-		)
-		return fmt.Errorf("请求参数不能为空")
-	}
-
-	if req.AgentID == "" {
-		logger.Error("Agent ID为空",
-			"path", "AddAgentCapability",
-			"operation", "add_agent_capability",
-			"option", "agentManagerService.AddAgentCapability",
-			"func_name", "service.agent.manager.AddAgentCapability",
-			"agent_id", req.AgentID,
-		)
-		return fmt.Errorf("agent ID不能为空")
-	}
-
-	if req.Capability == "" {
-		logger.Error("能力ID为空",
-			"path", "AddAgentCapability",
-			"operation", "add_agent_capability",
-			"option", "agentManagerService.AddAgentCapability",
-			"func_name", "service.agent.manager.AddAgentCapability",
-			"agent_id", req.AgentID,
-			"capability", req.Capability,
-		)
-		return fmt.Errorf("能力ID不能为空")
-	}
-
-	// 验证能力ID是否有效
-	if !s.IsValidCapabilityId(req.Capability) {
-		logger.Error("无效的能力ID",
-			"path", "AddAgentCapability",
-			"operation", "add_agent_capability",
-			"option", "agentManagerService.AddAgentCapability",
-			"func_name", "service.agent.manager.AddAgentCapability",
-			"agent_id", req.AgentID,
-			"capability", req.Capability,
-		)
-		return fmt.Errorf("无效的能力ID: %s", req.Capability)
-	}
-
-	// 委托Repository层处理数据操作
-	err := s.agentRepo.AddCapability(req.AgentID, req.Capability)
-	if err != nil {
-		logger.Error("添加Agent能力失败",
-			"path", "AddAgentCapability",
-			"operation", "add_agent_capability",
-			"option", "agentManagerService.AddAgentCapability",
-			"func_name", "service.agent.manager.AddAgentCapability",
-			"agent_id", req.AgentID,
-			"capability", req.Capability,
-			"error", err.Error(),
-		)
-		return fmt.Errorf("添加Agent能力失败: %w", err)
-	}
-
-	logger.Info("Agent能力添加成功",
-		"path", "AddAgentCapability",
-		"operation", "add_agent_capability",
-		"option", "agentManagerService.AddAgentCapability",
-		"func_name", "service.agent.manager.AddAgentCapability",
-		"agent_id", req.AgentID,
-		"capability", req.Capability,
-	)
-
-	return nil
-}
-
-// RemoveAgentCapability 移除Agent能力
-func (s *agentManagerService) RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error {
-	// 输入验证 - 遵循"好品味"原则，消除特殊情况
-	if req == nil {
-		logger.Error("请求参数为空",
-			"path", "RemoveAgentCapability",
-			"operation", "remove_agent_capability",
-			"option", "agentManagerService.RemoveAgentCapability",
-			"func_name", "service.agent.manager.RemoveAgentCapability",
-		)
-		return fmt.Errorf("请求参数不能为空")
-	}
-
-	if req.AgentID == "" {
-		logger.Error("Agent ID为空",
-			"path", "RemoveAgentCapability",
-			"operation", "remove_agent_capability",
-			"option", "agentManagerService.RemoveAgentCapability",
-			"func_name", "service.agent.manager.RemoveAgentCapability",
-			"agent_id", req.AgentID,
-		)
-		return fmt.Errorf("agent ID不能为空")
-	}
-
-	if req.Capability == "" {
-		logger.Error("能力ID为空",
-			"path", "RemoveAgentCapability",
-			"operation", "remove_agent_capability",
-			"option", "agentManagerService.RemoveAgentCapability",
-			"func_name", "service.agent.manager.RemoveAgentCapability",
-			"agent_id", req.AgentID,
-			"capability", req.Capability,
-		)
-		return fmt.Errorf("能力ID不能为空")
-	}
-
-	// 委托Repository层处理数据操作
-	err := s.agentRepo.RemoveCapability(req.AgentID, req.Capability)
-	if err != nil {
-		logger.Error("移除Agent能力失败",
-			"path", "RemoveAgentCapability",
-			"operation", "remove_agent_capability",
-			"option", "agentManagerService.RemoveAgentCapability",
-			"func_name", "service.agent.manager.RemoveAgentCapability",
-			"agent_id", req.AgentID,
-			"capability", req.Capability,
-			"error", err.Error(),
-		)
-		return fmt.Errorf("移除Agent能力失败: %w", err)
-	}
-
-	logger.Info("Agent能力移除成功",
-		"path", "RemoveAgentCapability",
-		"operation", "remove_agent_capability",
-		"option", "agentManagerService.RemoveAgentCapability",
-		"func_name", "service.agent.manager.RemoveAgentCapability",
-		"agent_id", req.AgentID,
-		"capability", req.Capability,
-	)
-
-	return nil
-}
-
-// GetAgentCapabilities 获取Agent的所有能力
-func (s *agentManagerService) GetAgentCapabilities(agentID string) ([]string, error) {
-	// 输入验证 - 遵循"好品味"原则，消除特殊情况
-	if agentID == "" {
-		logger.Error("Agent ID为空",
-			"path", "GetAgentCapabilities",
-			"operation", "get_agent_capabilities",
-			"option", "agentManagerService.GetAgentCapabilities",
-			"func_name", "service.agent.manager.GetAgentCapabilities",
-			"agent_id", agentID,
-		)
-		// 返回空切片而非nil，消除特殊情况
-		return []string{}, fmt.Errorf("agent ID不能为空")
-	}
-
-	// 委托Repository层处理数据查询
-	capabilities := s.agentRepo.GetCapabilities(agentID)
-
-	logger.Info("Agent能力列表获取成功",
-		"path", "GetAgentCapabilities",
-		"operation", "get_agent_capabilities",
-		"option", "agentManagerService.GetAgentCapabilities",
-		"func_name", "service.agent.manager.GetAgentCapabilities",
-		"agent_id", agentID,
-		"capabilities_count", len(capabilities),
-	)
-
-	// 始终返回非nil切片，遵循"好品味"原则
-	return capabilities, nil
-}
-
-// IsValidCapabilityId 判断能力ID是否有效
-func (s *agentManagerService) IsValidCapabilityId(capability string) bool {
-	// 1. 输入验证：检查ID是否为空
-	if capability == "" {
-		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityId", "", map[string]interface{}{
-			"operation":     "validate_capability_id",
-			"option":        "agentManagerService.IsValidCapabilityId",
-			"func_name":     "service.agent.manager.IsValidCapabilityId",
-			"capability_id": capability,
-			"error":         "能力ID不能为空",
-		})
-		return false
-	}
-
-	// 2. 委托给Repository层进行数据库验证
-	// Repository层会检查ScanType表中是否存在该ID
-	return s.agentRepo.IsValidCapabilityId(capability)
-}
-
-// IsValidCapabilityByName 判断能力名称是否有效
-func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
-	// 1. 输入验证：检查名称是否为空
-	if capability == "" {
-		logger.LogBusinessError(nil, "", 0, "", "service.agent.manager.IsValidCapabilityByName", "", map[string]interface{}{
-			"operation":       "validate_capability_name",
-			"option":          "agentManagerService.IsValidCapabilityByName",
-			"func_name":       "service.agent.manager.IsValidCapabilityByName",
-			"capability_name": capability,
-			"error":           "能力名称不能为空",
-		})
-		return false
-	}
-
-	// 2. 委托给Repository层进行数据库验证
-	// Repository层会检查ScanType表中是否存在该名称
-	return s.agentRepo.IsValidCapabilityByName(capability)
-}
-*/
-
 // ============================================================================
 // Agent 任务支持管理模块 (TaskSupport) - 新增
 // ============================================================================
@@ -1058,7 +837,7 @@ func (s *agentManagerService) BootstrapSystemTags(ctx context.Context) error {
 	}
 
 	// 3. TaskSupport
-	_, err = ensureTag("TaskSupport", "system", systemTag.ID, "Agent Task Capabilities (ScanTypes)")
+	_, err = ensureTag("TaskSupport", "system", systemTag.ID, "Agent TaskSupport (ScanTypes)")
 	if err != nil {
 		return fmt.Errorf("ensure TaskSupport failed: %v", err)
 	}

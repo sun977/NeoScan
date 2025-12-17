@@ -127,7 +127,7 @@ func TestAgentTagRefactor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAgentTags failed: %v", err)
 	}
-	if len(tags) != 1 || tags[0] != tag1.Name {
+	if len(tags) != 1 || tags[0].Name != tag1.Name {
 		t.Errorf("Expected tags [%s], got %v", tag1.Name, tags)
 	}
 	t.Logf("AddAgentTag Success. Current Tags: %v", tags)
@@ -144,10 +144,10 @@ func TestAgentTagRefactor(t *testing.T) {
 
 	// 验证返回值
 	t.Logf("Update Return - Old: %v, New: %v", oldTags, newTagsResp)
-	if len(oldTags) != 1 || oldTags[0] != tag1.Name {
+	if len(oldTags) != 1 || oldTags[0].Name != tag1.Name {
 		t.Errorf("Old tags incorrect. Expected [%s], got %v", tag1.Name, oldTags)
 	}
-	if len(newTagsResp) != 1 || newTagsResp[0] != tag2.Name {
+	if len(newTagsResp) != 1 || newTagsResp[0].Name != tag2.Name {
 		t.Errorf("New tags incorrect. Expected [%s], got %v", tag2.Name, newTagsResp)
 	}
 
@@ -156,7 +156,7 @@ func TestAgentTagRefactor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAgentTags failed: %v", err)
 	}
-	if len(currentTags) != 1 || currentTags[0] != tag2.Name {
+	if len(currentTags) != 1 || currentTags[0].Name != tag2.Name {
 		t.Errorf("Expected current tags [%s], got %v", tag2.Name, currentTags)
 	}
 	t.Logf("UpdateAgentTags Success. Current Tags: %v", currentTags)
@@ -181,11 +181,11 @@ func TestAgentTagRefactor(t *testing.T) {
 		// 简单检查
 		hasTag1 := false
 		hasTag2 := false
-		for _, name := range currentTags {
-			if name == tag1.Name {
+		for _, tObj := range currentTags {
+			if tObj.Name == tag1.Name {
 				hasTag1 = true
 			}
-			if name == tag2.Name {
+			if tObj.Name == tag2.Name {
 				hasTag2 = true
 			}
 		}
@@ -210,7 +210,7 @@ func TestAgentTagRefactor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAgentTags failed: %v", err)
 	}
-	if len(currentTags) != 1 || currentTags[0] != tag2.Name {
+	if len(currentTags) != 1 || currentTags[0].Name != tag2.Name {
 		t.Errorf("Expected tags [%s], got %v", tag2.Name, currentTags)
 	}
 	t.Logf("RemoveAgentTag Success. Current Tags: %v", currentTags)

@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	agentModel "neomaster/internal/model/agent"
+	tagSystemModel "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	agentRepository "neomaster/internal/repo/mysql/agent"
@@ -44,10 +45,10 @@ type AgentManagerService interface {
 	// GetGroupTags() ([]*agentModel.GroupTagType, error) // 获取所有分组标签类型
 
 	// Agent标签管理
-	AddAgentTag(req *agentModel.AgentTagRequest) error                           // 添加Agent标签
-	RemoveAgentTag(req *agentModel.AgentTagRequest) error                        // 移除Agent标签
-	GetAgentTags(agentID string) ([]string, error)                               // 获取Agent所有标签
-	UpdateAgentTags(agentID string, tagIDs []uint64) ([]string, []string, error) // 更新Agent标签
+	AddAgentTag(req *agentModel.AgentTagRequest) error                                                           // 添加Agent标签
+	RemoveAgentTag(req *agentModel.AgentTagRequest) error                                                        // 移除Agent标签
+	GetAgentTags(agentID string) ([]*tagSystemModel.SysTag, error)                                               // 获取Agent所有标签
+	UpdateAgentTags(agentID string, tagIDs []uint64) ([]*tagSystemModel.SysTag, []*tagSystemModel.SysTag, error) // 更新Agent标签
 
 	// Agent能力管理
 	IsValidCapabilityId(capability string) bool                         // 判断能力ID是否有效
@@ -1077,9 +1078,9 @@ func (s *agentManagerService) RemoveAgentTag(req *agentModel.AgentTagRequest) er
 }
 
 // GetAgentTags 获取Agent的所有标签
-func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
+func (s *agentManagerService) GetAgentTags(agentID string) ([]*tagSystemModel.SysTag, error) {
 	if agentID == "" {
-		return []string{}, fmt.Errorf("agent ID不能为空")
+		return nil, fmt.Errorf("agent ID不能为空")
 	}
 
 	ctx := context.Background()
@@ -1087,11 +1088,11 @@ func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
 	// 1. 获取实体标签关联列表
 	entityTags, err := s.tagService.GetEntityTags(ctx, "agent", agentID)
 	if err != nil {
-		return []string{}, fmt.Errorf("获取Agent标签失败: %v", err)
+		return nil, fmt.Errorf("获取Agent标签失败: %v", err)
 	}
 
 	if len(entityTags) == 0 {
-		return []string{}, nil
+		return []*tagSystemModel.SysTag{}, nil
 	}
 
 	// 2. 提取 Tag IDs
@@ -1100,31 +1101,30 @@ func (s *agentManagerService) GetAgentTags(agentID string) ([]string, error) {
 		tagIDs = append(tagIDs, et.TagID)
 	}
 
-	// 3. 批量获取标签详情 (获取名称)
-	tags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+	// 3. 批量获取标签详情
+	tagsVal, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
 	if err != nil {
-		return []string{}, fmt.Errorf("获取标签详情失败: %v", err)
+		return nil, fmt.Errorf("获取标签详情失败: %v", err)
 	}
 
-	// 4. 提取名称
-	tagNames := make([]string, 0, len(tags))
-	for _, t := range tags {
-		tagNames = append(tagNames, t.Name)
+	tags := make([]*tagSystemModel.SysTag, len(tagsVal))
+	for i := range tagsVal {
+		tags[i] = &tagsVal[i]
 	}
 
-	return tagNames, nil
+	return tags, nil
 }
 
 // UpdateAgentTags 更新Agent的标签列表
-// 返回旧标签列表和新标签列表 (Names)
-func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) ([]string, []string, error) {
+// 返回旧标签列表和新标签列表
+func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) ([]*tagSystemModel.SysTag, []*tagSystemModel.SysTag, error) {
 	if agentID == "" {
 		return nil, nil, fmt.Errorf("agent ID不能为空")
 	}
 
 	ctx := context.Background()
 
-	// 1. 获取旧标签 (Names) - 用于返回
+	// 1. 获取旧标签 - 用于返回
 	oldTags, err := s.GetAgentTags(agentID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取旧标签失败: %w", err)
@@ -1166,19 +1166,19 @@ func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) (
 		return nil, nil, fmt.Errorf("同步标签失败: %v", err)
 	}
 
-	// 3. 获取新标签 Names - 用于返回
-	var newTags []string
+	// 3. 获取新标签 - 用于返回
+	var newTags []*tagSystemModel.SysTag
 	if len(tagIDs) > 0 {
-		newSysTags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+		tagsVal, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
 		if err != nil {
 			return nil, nil, fmt.Errorf("获取新标签详情失败: %v", err)
 		}
-		newTags = make([]string, 0, len(newSysTags))
-		for _, t := range newSysTags {
-			newTags = append(newTags, t.Name)
+		newTags = make([]*tagSystemModel.SysTag, len(tagsVal))
+		for i := range tagsVal {
+			newTags[i] = &tagsVal[i]
 		}
 	} else {
-		newTags = []string{}
+		newTags = []*tagSystemModel.SysTag{}
 	}
 
 	return oldTags, newTags, nil

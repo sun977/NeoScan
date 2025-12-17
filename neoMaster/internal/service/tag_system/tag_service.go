@@ -37,8 +37,9 @@ type TagService interface {
 	// --- 标签 CRUD ---
 	CreateTag(ctx context.Context, tag *tag_system.SysTag) error
 	GetTag(ctx context.Context, id uint64) (*tag_system.SysTag, error)
-	GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error)   // 通过名称获取标签
-	GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error) // 批量获取标签
+	GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error)                           // 通过名称获取标签
+	GetTagByNameAndParent(ctx context.Context, name string, parentID uint64) (*tag_system.SysTag, error) // 通过名称和父ID获取标签
+	GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error)                         // 批量获取标签
 	UpdateTag(ctx context.Context, tag *tag_system.SysTag) error
 	DeleteTag(ctx context.Context, id uint64) error
 	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
@@ -113,6 +114,19 @@ func (s *tagService) GetTag(ctx context.Context, id uint64) (*tag_system.SysTag,
 
 func (s *tagService) GetTagByName(ctx context.Context, name string) (*tag_system.SysTag, error) {
 	return s.repo.GetTagByName(name)
+}
+
+func (s *tagService) GetTagByNameAndParent(ctx context.Context, name string, parentID uint64) (*tag_system.SysTag, error) {
+	children, err := s.repo.GetTagsByParent(parentID)
+	if err != nil {
+		return nil, err
+	}
+	for _, child := range children {
+		if child.Name == name {
+			return &child, nil
+		}
+	}
+	return nil, fmt.Errorf("tag not found: name=%s, parentID=%d", name, parentID)
 }
 
 func (s *tagService) GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error) {

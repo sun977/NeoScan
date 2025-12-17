@@ -10,22 +10,21 @@ package agent
 // RegisterAgentRequest Agent注册请求结构
 // 遵循Linus原则：简洁明了，消除特殊情况
 type RegisterAgentRequest struct {
-	Hostname     string   `json:"hostname" validate:"required"`             // 主机名，必填
-	IPAddress    string   `json:"ip_address" validate:"required"`           // IP地址，必填
-	Port         int      `json:"port" validate:"required,min=1,max=65535"` // 端口，必填，范围1-65535
-	Version      string   `json:"version" validate:"required"`              // Agent版本，必填
-	OS           string   `json:"os" validate:"required"`                   // 操作系统，必填
-	Arch         string   `json:"arch" validate:"required"`                 // 系统架构，必填
-	CPUCores     int      `json:"cpu_cores" validate:"min=1"`               // CPU核心数，最少1个
-	MemoryTotal  int64    `json:"memory_total" validate:"min=1"`            // 总内存大小(字节)，最少1字节
-	DiskTotal    int64    `json:"disk_total" validate:"min=1"`              // 总磁盘大小(字节)，最少1字节
-	ContainerID  string   `json:"container_id"`                             // 容器ID，可选
-	PID          int      `json:"pid" validate:"min=1"`                     // 进程ID，最少1
-	Capabilities []string `json:"capabilities"`                             // Agent支持的扫描类型ID列表 (兼容旧版)
-	Tags         []string `json:"tags"`                                     // Agent标签列表 (兼容旧版)
-	TaskSupport  []string `json:"task_support"`                             // Agent支持的任务类型列表 (新，对应ScanType)
-	Feature      []string `json:"feature"`                                  // Agent具备的特性功能列表 (新，备用)
-	Remark       string   `json:"remark"`                                   // 备注信息
+	Hostname    string   `json:"hostname" validate:"required"`             // 主机名，必填
+	IPAddress   string   `json:"ip_address" validate:"required"`           // IP地址，必填
+	Port        int      `json:"port" validate:"required,min=1,max=65535"` // 端口，必填，范围1-65535
+	Version     string   `json:"version" validate:"required"`              // Agent版本，必填
+	OS          string   `json:"os" validate:"required"`                   // 操作系统，必填
+	Arch        string   `json:"arch" validate:"required"`                 // 系统架构，必填
+	CPUCores    int      `json:"cpu_cores" validate:"min=1"`               // CPU核心数，最少1个
+	MemoryTotal int64    `json:"memory_total" validate:"min=1"`            // 总内存大小(字节)，最少1字节
+	DiskTotal   int64    `json:"disk_total" validate:"min=1"`              // 总磁盘大小(字节)，最少1字节
+	ContainerID string   `json:"container_id"`                             // 容器ID，可选
+	PID         int      `json:"pid" validate:"min=1"`                     // 进程ID，最少1
+	Tags        []string `json:"tags"`                                     // Agent标签列表 (兼容旧版)
+	TaskSupport []string `json:"task_support"`                             // Agent支持的任务类型列表 (新，对应ScanType)
+	Feature     []string `json:"feature"`                                  // Agent具备的特性功能列表 (新，备用)
+	Remark      string   `json:"remark"`                                   // 备注信息
 }
 
 // HeartbeatRequest Agent心跳请求结构
@@ -43,13 +42,13 @@ type HeartbeatRequest struct {
 // GetAgentListRequest 获取Agent列表请求结构
 // 支持分页和过滤条件
 type GetAgentListRequest struct {
-	Page         int         `json:"page" validate:"min=1"`              // 页码，最少1
-	PageSize     int         `json:"page_size" validate:"min=1,max=100"` // 每页大小，1-100
-	Status       AgentStatus `json:"status"`                             // 按状态过滤，可选
-	ScanType     string      `json:"scan_type"`                          // 按扫描类型过滤，可选
-	Keyword      string      `json:"keyword"`                            // 关键词搜索(主机名、IP地址)，可选
-	Tags         []string    `json:"tags"`                               // 按标签过滤，可选
-	TaskSupport  []string    `json:"task_support"`                       // 按任务支持过滤，可选
+	Page        int         `json:"page" validate:"min=1"`              // 页码，最少1
+	PageSize    int         `json:"page_size" validate:"min=1,max=100"` // 每页大小，1-100
+	Status      AgentStatus `json:"status"`                             // 按状态过滤，可选
+	ScanType    string      `json:"scan_type"`                          // 按扫描类型过滤，可选
+	Keyword     string      `json:"keyword"`                            // 关键词搜索(主机名、IP地址)，可选
+	Tags        []string    `json:"tags"`                               // 按标签过滤，可选
+	TaskSupport []string    `json:"task_support"`                       // 按任务支持过滤，可选
 }
 
 // UpdateAgentStatusRequest 更新Agent状态请求结构

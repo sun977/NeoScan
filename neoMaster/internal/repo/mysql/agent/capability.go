@@ -27,6 +27,7 @@ import (
 	"neomaster/internal/pkg/logger"
 )
 
+/*
 // 能力ID是否合法（是否在能力表定义）
 func (r *agentRepository) IsValidCapabilityId(capabilityId string) bool {
 	var count int64
@@ -104,7 +105,9 @@ func (r *agentRepository) GetTagIDsByScanTypeIDs(ids []string) ([]uint64, error)
 	}
 	return tagIDs, nil
 }
+*/
 
+/*
 // 为Agent添加能力
 func (r *agentRepository) AddCapability(agentID string, capabilityID string) error {
 	// 参数校验
@@ -312,6 +315,7 @@ func (r *agentRepository) GetCapabilities(agentID string) []string {
 	}
 	return agent.Capabilities
 }
+*/
 
 // ============================================================================
 // Agent 任务支持管理实现 (TaskSupport) - 新增
@@ -329,6 +333,22 @@ func (r *agentRepository) IsValidTaskSupportId(taskID string) bool {
 			"option":    "agentRepository.IsValidTaskSupportId",
 			"func_name": "repo.agent.IsValidTaskSupportId",
 			"taskID":    taskID,
+		})
+		return false
+	}
+	return count > 0
+}
+
+// IsValidTaskSupportByName 判断任务支持名称是否有效
+func (r *agentRepository) IsValidTaskSupportByName(taskName string) bool {
+	var count int64
+	result := r.db.Model(&agentModel.ScanType{}).Where("name = ? AND is_active = ?", taskName, 1).Count(&count)
+	if result.Error != nil {
+		logger.LogError(result.Error, "", 0, "", "repo.agent.IsValidTaskSupportByName", "", map[string]interface{}{
+			"operation": "validate_task_support_name",
+			"option":    "agentRepository.IsValidTaskSupportByName",
+			"func_name": "repo.agent.IsValidTaskSupportByName",
+			"taskName":  taskName,
 		})
 		return false
 	}

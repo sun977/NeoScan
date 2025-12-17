@@ -92,11 +92,6 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	if req.DiskTotal < 0 {
 		return fmt.Errorf("invalid disk total")
 	}
-	// 验证capabilities/TaskSupport兼容性
-	if len(req.TaskSupport) == 0 && len(req.Capabilities) > 0 {
-		req.TaskSupport = req.Capabilities
-	}
-
 	// 验证TaskSupport不能为空
 	if len(req.TaskSupport) == 0 {
 		return fmt.Errorf("at least one task support is required")

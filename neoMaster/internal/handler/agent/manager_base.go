@@ -316,22 +316,34 @@ func (h *AgentHandler) GetAgentList(c *gin.Context) {
 		req.Tags = tagsArray
 	}
 
-	// 功能模块过滤参数处理 - 支持逗号分隔的功能模块值
-	// 例如: capabilities=1,2 或 capabilities=1&capabilities=2 两种格式都支持
+	// 功能模块过滤参数处理 (兼容)
 	capabilitiesArray := c.QueryArray("capabilities")
-	if len(capabilitiesArray) > 1 {
-		// 处理多个capabilities参数: capabilities=1&capabilities=2
-		req.Capabilities = capabilitiesArray
-	} else if len(capabilitiesArray) == 1 && strings.Contains(capabilitiesArray[0], ",") {
-		// 处理逗号分隔的功能模块值: capabilities=1,2
-		req.Capabilities = strings.Split(capabilitiesArray[0], ",")
-		// 去除空白字符
-		for i, capability := range req.Capabilities {
-			req.Capabilities[i] = strings.TrimSpace(capability)
+	if len(capabilitiesArray) > 0 {
+		if len(capabilitiesArray) > 1 {
+			req.Capabilities = capabilitiesArray
+		} else if len(capabilitiesArray) == 1 && strings.Contains(capabilitiesArray[0], ",") {
+			req.Capabilities = strings.Split(capabilitiesArray[0], ",")
+			for i, v := range req.Capabilities {
+				req.Capabilities[i] = strings.TrimSpace(v)
+			}
+		} else {
+			req.Capabilities = capabilitiesArray
 		}
-	} else if len(capabilitiesArray) == 1 {
-		// 单个功能模块: capabilities=scan
-		req.Capabilities = capabilitiesArray
+	}
+
+	// 任务支持过滤参数处理 - 支持逗号分隔的值
+	taskSupportArray := c.QueryArray("task_support")
+	if len(taskSupportArray) > 0 {
+		if len(taskSupportArray) > 1 {
+			req.TaskSupport = taskSupportArray
+		} else if len(taskSupportArray) == 1 && strings.Contains(taskSupportArray[0], ",") {
+			req.TaskSupport = strings.Split(taskSupportArray[0], ",")
+			for i, v := range req.TaskSupport {
+				req.TaskSupport[i] = strings.TrimSpace(v)
+			}
+		} else {
+			req.TaskSupport = taskSupportArray
+		}
 	}
 
 	// 调用服务层获取Agent列表

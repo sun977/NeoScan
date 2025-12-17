@@ -92,14 +92,19 @@ func (h *AgentHandler) validateRegisterRequest(req *agentModel.RegisterAgentRequ
 	if req.DiskTotal < 0 {
 		return fmt.Errorf("invalid disk total")
 	}
-	// 验证capabilities不能为空
-	if len(req.Capabilities) == 0 {
-		return fmt.Errorf("at least one capability is required")
+	// 验证capabilities/TaskSupport兼容性
+	if len(req.TaskSupport) == 0 && len(req.Capabilities) > 0 {
+		req.TaskSupport = req.Capabilities
 	}
-	// 验证capabilities包含有效值(根据CapabilityID验证) - 委托Service层处理业务逻辑
-	for _, capabilityID := range req.Capabilities {
-		if !h.agentManagerService.IsValidCapabilityId(capabilityID) {
-			return fmt.Errorf("invalid capability ID: %s", capabilityID)
+
+	// 验证TaskSupport不能为空
+	if len(req.TaskSupport) == 0 {
+		return fmt.Errorf("at least one task support is required")
+	}
+	// 验证TaskSupport包含有效值(根据ID验证) - 委托Service层处理业务逻辑
+	for _, taskID := range req.TaskSupport {
+		if !h.agentManagerService.IsValidTaskSupportId(taskID) {
+			return fmt.Errorf("invalid task support ID: %s", taskID)
 		}
 	}
 	return nil
@@ -173,7 +178,7 @@ func (h *AgentHandler) getErrorStatusCode(err error) int {
 	// 可以根据具体的错误类型进行更精确的状态码映射
 	errMsg := err.Error()
 	// 统一处理“未找到”类错误
-	if errMsg == "Agent not found" || errMsg == "agent not found" || 
+	if errMsg == "Agent not found" || errMsg == "agent not found" ||
 		strings.Contains(errMsg, "不存在") || strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "未找到") {
 		return http.StatusNotFound
 	}

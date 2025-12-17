@@ -50,6 +50,7 @@ type GetAgentListRequest struct {
 	Keyword      string      `json:"keyword"`                            // 关键词搜索(主机名、IP地址)，可选
 	Tags         []string    `json:"tags"`                               // 按标签过滤，可选
 	Capabilities []string    `json:"capabilities"`                       // 按功能模块过滤，可选
+	TaskSupport  []string    `json:"task_support"`                       // 按任务支持过滤，可选
 }
 
 // UpdateAgentStatusRequest 更新Agent状态请求结构

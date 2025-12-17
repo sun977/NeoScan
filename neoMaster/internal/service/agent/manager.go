@@ -38,12 +38,21 @@ type AgentManagerService interface {
 	GetAgentTags(agentID string) ([]*tagSystemModel.SysTag, error)                                               // 获取Agent所有标签
 	UpdateAgentTags(agentID string, tagIDs []uint64) ([]*tagSystemModel.SysTag, []*tagSystemModel.SysTag, error) // 更新Agent标签
 
-	// Agent能力管理
-	IsValidCapabilityId(capability string) bool                         // 判断能力ID是否有效
-	IsValidCapabilityByName(capability string) bool                     // 判断能力名称是否有效
-	AddAgentCapability(req *agentModel.AgentCapabilityRequest) error    // 添加Agent能力
-	RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error // 移除Agent能力
-	GetAgentCapabilities(agentID string) ([]string, error)              // 获取Agent能力
+	// Agent能力管理 (已废弃，请使用任务支持管理)
+	/*
+		IsValidCapabilityId(capability string) bool                         // 判断能力ID是否有效
+		IsValidCapabilityByName(capability string) bool                     // 判断能力名称是否有效
+		AddAgentCapability(req *agentModel.AgentCapabilityRequest) error    // 添加Agent能力
+		RemoveAgentCapability(req *agentModel.AgentCapabilityRequest) error // 移除Agent能力
+		GetAgentCapabilities(agentID string) ([]string, error)              // 获取Agent能力
+	*/
+
+	// Agent任务支持管理 (替代能力管理)
+	IsValidTaskSupportId(taskID string) bool                              // 判断任务支持ID是否有效
+	IsValidTaskSupportByName(taskName string) bool                        // 判断任务支持名称是否有效
+	AddAgentTaskSupport(req *agentModel.AgentTaskSupportRequest) error    // 添加Agent任务支持
+	RemoveAgentTaskSupport(req *agentModel.AgentTaskSupportRequest) error // 移除Agent任务支持
+	GetAgentTaskSupport(agentID string) ([]string, error)                 // 获取Agent任务支持
 
 	// System Bootstrap & Sync
 	BootstrapSystemTags(ctx context.Context) error // 初始化Agent管理相关的系统预设标签骨架
@@ -168,7 +177,7 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 	// 检查capabilities/TaskSupport是否包含有效值 - 委托给Repository层验证
 	// 统一使用 ID 进行校验，TaskSupport 和 Capabilities 都存储 ScanType ID
 	for _, id := range req.TaskSupport {
-		if !s.agentRepo.IsValidCapabilityId(id) {
+		if !s.agentRepo.IsValidTaskSupportId(id) {
 			// 暂时只记录警告，或者返回错误。
 			// return fmt.Errorf("invalid capability/task_support id: %s", id)
 		}
@@ -270,9 +279,9 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	// Tag 系统同步：将 TaskSupport (ScanType) 映射为系统标签并绑定到 Agent
 	// ------------------------------------------------------------
 	// 获取 TaskSupport 对应的 TagID
-	tagIDs, err := s.agentRepo.GetTagIDsByScanTypeIDs(req.TaskSupport)
+	tagIDs, err := s.agentRepo.GetTagIDsByTaskSupportIDs(req.TaskSupport)
 	if err != nil {
-		logger.LogWarn("获取TaskSupport对应的TagID失败", "", 0, "", "RegisterAgent", "GetTagIDsByScanTypeIDs", map[string]interface{}{
+		logger.LogWarn("获取TaskSupport对应的TagID失败", "", 0, "", "RegisterAgent", "GetTagIDsByTaskSupportIDs", map[string]interface{}{
 			"error":        err.Error(),
 			"task_support": req.TaskSupport,
 			"agent_id":     agentID,
@@ -338,8 +347,12 @@ func (s *agentManagerService) GetAgentList(req *agentModel.GetAgentListRequest) 
 		keyword = &req.Keyword
 	}
 
-	// 页码 页码大小 状态 关键字 标签 能力
-	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, keyword, req.Tags, req.Capabilities)
+	// 页码 页码大小 状态 关键字 标签 能力(兼容) 任务支持
+	// 兼容性处理：如果 TaskSupport 为空但 Capabilities 不为空，则使用 Capabilities
+	if len(req.TaskSupport) == 0 && len(req.Capabilities) > 0 {
+		req.TaskSupport = req.Capabilities
+	}
+	agents, total, err := s.agentRepo.GetList(req.Page, req.PageSize, status, keyword, req.Tags, req.TaskSupport)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.GetAgentList", "", map[string]interface{}{
 			"operation": "get_agent_list",
@@ -673,8 +686,8 @@ func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) (
 	return oldTags, newTags, nil
 }
 
-// ==================== Agent能力管理方法 ====================
-
+// ==================== Agent能力管理方法 (已废弃) ====================
+/*
 // AddAgentCapability 为Agent添加能力
 func (s *agentManagerService) AddAgentCapability(req *agentModel.AgentCapabilityRequest) error {
 	// 输入验证 - 遵循"好品味"原则，消除特殊情况
@@ -882,6 +895,7 @@ func (s *agentManagerService) IsValidCapabilityByName(capability string) bool {
 	// Repository层会检查ScanType表中是否存在该名称
 	return s.agentRepo.IsValidCapabilityByName(capability)
 }
+*/
 
 // ============================================================================
 // Agent 任务支持管理模块 (TaskSupport) - 新增
@@ -994,6 +1008,14 @@ func (s *agentManagerService) IsValidTaskSupportId(taskID string) bool {
 		return false
 	}
 	return s.agentRepo.IsValidTaskSupportId(taskID)
+}
+
+// IsValidTaskSupportByName 判断任务支持名称是否有效
+func (s *agentManagerService) IsValidTaskSupportByName(taskName string) bool {
+	if taskName == "" {
+		return false
+	}
+	return s.agentRepo.IsValidTaskSupportByName(taskName)
 }
 
 // ==================== System Bootstrap & Sync ====================

@@ -162,7 +162,7 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 
 	// 解析请求体
 	var body struct {
-		TagID uint64 `json:"tag_id" binding:"required"`
+		TagID uint64 `json:"tag_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		logger.LogBusinessError(
@@ -185,6 +185,32 @@ func (h *AgentHandler) AddAgentTag(c *gin.Context) {
 			Status:  "failed",
 			Message: "Invalid request format",
 			Error:   err.Error(),
+		})
+		return
+	}
+
+	if body.TagID == 0 {
+		err := fmt.Errorf("tag_id is required")
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"POST",
+			map[string]interface{}{
+				"operation":  "add_agent_tag",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.AddAgentTag",
+				"user_agent": userAgent,
+				"agent_id":   agentID,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Tag ID is required",
+			Error:   "tag_id is required and must be non-zero",
 		})
 		return
 	}
@@ -298,7 +324,7 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 
 	// 解析请求体（解析请求 body 中的 tag 值）
 	var body struct {
-		TagID uint64 `json:"tag_id" binding:"required"`
+		TagID uint64 `json:"tag_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		logger.LogBusinessError(
@@ -321,6 +347,32 @@ func (h *AgentHandler) RemoveAgentTag(c *gin.Context) {
 			Status:  "failed",
 			Message: "Invalid request format",
 			Error:   err.Error(),
+		})
+		return
+	}
+
+	if body.TagID == 0 {
+		err := fmt.Errorf("tag_id is required")
+		logger.LogBusinessError(
+			err,
+			XRequestID,
+			0,
+			clientIP,
+			pathUrl,
+			"DELETE",
+			map[string]interface{}{
+				"operation":  "remove_agent_tag",
+				"option":     "paramValidation",
+				"func_name":  "handler.agent.RemoveAgentTag",
+				"user_agent": userAgent,
+				"agent_id":   agentID,
+			},
+		)
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Tag ID is required",
+			Error:   "tag_id is required and must be non-zero",
 		})
 		return
 	}

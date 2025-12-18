@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 
 	"gorm.io/gorm"
@@ -115,7 +116,9 @@ func NewTagService(repo repo.TagRepository, db *gorm.DB) TagService {
 	// 初始化时加载规则
 	// 注意：如果数据库连接失败，这里可能会报错，建议在应用启动时处理错误，或者这里记录日志但不panic
 	if err := s.ReloadMatchRules(); err != nil {
-		fmt.Printf("Failed to load match rules: %v\n", err)
+		logger.LogError(err, "", 0, "", "service.tag_system.NewTagService", "INIT", map[string]interface{}{
+			"action": "reload_match_rules",
+		})
 	}
 	return s
 }
@@ -249,6 +252,7 @@ func (s *tagService) ListTags(ctx context.Context, req *tag_system.ListTagsReque
 
 // --- Rules Implementation ---
 
+// CreateRule 创建匹配规则
 func (s *tagService) CreateRule(ctx context.Context, rule *tag_system.SysMatchRule) error {
 	// 验证 RuleJSON 格式
 	if _, err := matcher.ParseJSON(rule.RuleJSON); err != nil {
@@ -261,7 +265,10 @@ func (s *tagService) CreateRule(ctx context.Context, rule *tag_system.SysMatchRu
 	// 规则变更，自动刷新缓存
 	if err := s.ReloadMatchRules(); err != nil {
 		// Log error but don't fail the request as DB update succeeded
-		fmt.Printf("Warning: Failed to reload match rules after create: %v\n", err)
+		logger.LogBusinessError(err, "", 0, "", "service.tag_system.CreateRule", "POST", map[string]interface{}{
+			"action":  "reload_match_rules",
+			"rule_id": rule.ID,
+		})
 	}
 
 	return nil
@@ -278,7 +285,10 @@ func (s *tagService) UpdateRule(ctx context.Context, rule *tag_system.SysMatchRu
 	// 规则变更，自动刷新缓存
 	if err := s.ReloadMatchRules(); err != nil {
 		// Log error but don't fail the request as DB update succeeded
-		fmt.Printf("Warning: Failed to reload match rules after update: %v\n", err)
+		logger.LogBusinessError(err, "", 0, "", "service.tag_system.UpdateRule", "PUT", map[string]interface{}{
+			"action":  "reload_match_rules",
+			"rule_id": rule.ID,
+		})
 	}
 
 	return nil
@@ -292,7 +302,10 @@ func (s *tagService) DeleteRule(ctx context.Context, id uint64) error {
 	// 规则变更，自动刷新缓存
 	if err := s.ReloadMatchRules(); err != nil {
 		// Log error but don't fail the request as DB update succeeded
-		fmt.Printf("Warning: Failed to reload match rules after delete: %v\n", err)
+		logger.LogBusinessError(err, "", 0, "", "service.tag_system.DeleteRule", "DELETE", map[string]interface{}{
+			"action":  "reload_match_rules",
+			"rule_id": id,
+		})
 	}
 
 	return nil
@@ -321,13 +334,14 @@ func (s *tagService) ReloadMatchRules() error {
 
 	newCache := make(map[string][]CachedRule)
 	for _, r := range allRules {
-		// Parse JSON
 		parsedRule, err := matcher.ParseJSON(r.RuleJSON)
 		if err != nil {
-			fmt.Printf("Error parsing rule ID=%d: %v\n", r.ID, err)
+			logger.LogError(err, "", 0, "", "service.tag_system.ReloadMatchRules", "INTERNAL", map[string]interface{}{
+				"rule_id": r.ID,
+				"action":  "parse_rule_json",
+			})
 			continue
 		}
-
 		cr := CachedRule{
 			RuleID: r.ID,
 			TagID:  r.TagID,

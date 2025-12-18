@@ -16,6 +16,7 @@ import (
 	"neomaster/internal/pkg/utils"
 	agentRepository "neomaster/internal/repo/mysql/agent"
 	"neomaster/internal/service/tag_system"
+	"strconv"
 	"time"
 )
 
@@ -167,10 +168,18 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 		}
 	}
 
-	// 检查tags是否包含有效值 - 委托给Repository层验证
+	// 检查tags是否包含有效值 - 委托给TagService层验证
 	for _, tag := range req.Tags {
-		if !s.agentRepo.IsValidTagId(tag) {
-			return fmt.Errorf("invalid tag ID: %s", tag)
+		// 尝试解析TagID
+		tagID, err := strconv.ParseUint(tag, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid tag ID format: %s", tag)
+		}
+		// 验证Tag是否存在
+		// 使用 context.Background() 因为 validateRegisterRequest 没有 Context 参数
+		_, err = s.tagService.GetTag(context.Background(), tagID)
+		if err != nil {
+			return fmt.Errorf("tag not found: %s", tag)
 		}
 	}
 

@@ -8,6 +8,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	agentRepository "neomaster/internal/repo/mysql/agent"
 	"sort"
@@ -15,6 +16,7 @@ import (
 
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/service/tag_system"
 )
 
 // AgentMonitorService Agent监控服务接口
@@ -38,14 +40,16 @@ type AgentMonitorService interface {
 
 // agentMonitorService Agent监控服务实现
 type agentMonitorService struct {
-	agentRepo agentRepository.AgentRepository // Agent数据访问层
+	agentRepo  agentRepository.AgentRepository // Agent数据访问层
+	tagService tag_system.TagService           // Tag服务
 }
 
 // NewAgentMonitorService 创建Agent监控服务实例
 // 遵循依赖注入原则，保持代码的可测试性
-func NewAgentMonitorService(agentRepo agentRepository.AgentRepository) AgentMonitorService {
+func NewAgentMonitorService(agentRepo agentRepository.AgentRepository, tagService tag_system.TagService) AgentMonitorService {
 	return &agentMonitorService{
-		agentRepo: agentRepo,
+		agentRepo:  agentRepo,
+		tagService: tagService,
 	}
 }
 
@@ -375,11 +379,11 @@ func (s *agentMonitorService) GetAgentStatistics(windowSeconds int, tagIDs []uin
 	if len(tagIDs) > 0 {
 		// 按标签过滤
 		var agentIDs []string
-		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		agentIDs, err = s.tagService.GetEntityIDsByTagIDs(context.Background(), "agent", tagIDs)
 		if err != nil {
 			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentStatistics", "", map[string]interface{}{
 				"operation": "get_agent_statistics",
-				"option":    "repo.GetAgentIDsByTagIDs",
+				"option":    "tagService.GetEntityIDsByTagIDs",
 				"func_name": "service.agent.monitor.GetAgentStatistics",
 				"tag_ids":   tagIDs,
 			})
@@ -553,11 +557,11 @@ func (s *agentMonitorService) GetAgentLoadBalance(windowSeconds int, topN int, t
 
 	if len(tagIDs) > 0 {
 		var agentIDs []string
-		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		agentIDs, err = s.tagService.GetEntityIDsByTagIDs(context.Background(), "agent", tagIDs)
 		if err != nil {
 			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentLoadBalance", "", map[string]interface{}{
 				"operation": "get_agent_load_balance",
-				"option":    "repo.GetAgentIDsByTagIDs",
+				"option":    "tagService.GetEntityIDsByTagIDs",
 				"func_name": "service.agent.monitor.GetAgentLoadBalance",
 				"tag_ids":   tagIDs,
 			})
@@ -665,11 +669,11 @@ func (s *agentMonitorService) GetAgentPerformanceAnalysis(windowSeconds int, top
 
 	if len(tagIDs) > 0 {
 		var agentIDs []string
-		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		agentIDs, err = s.tagService.GetEntityIDsByTagIDs(context.Background(), "agent", tagIDs)
 		if err != nil {
 			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentPerformanceAnalysis", "", map[string]interface{}{
 				"operation": "get_agent_performance",
-				"option":    "repo.GetAgentIDsByTagIDs",
+				"option":    "tagService.GetEntityIDsByTagIDs",
 				"func_name": "service.agent.monitor.GetAgentPerformanceAnalysis",
 				"tag_ids":   tagIDs,
 			})
@@ -850,11 +854,11 @@ func (s *agentMonitorService) GetAgentCapacityAnalysis(windowSeconds int, cpuThr
 
 	if len(tagIDs) > 0 {
 		var agentIDs []string
-		agentIDs, err = s.agentRepo.GetAgentIDsByTagIDs(tagIDs)
+		agentIDs, err = s.tagService.GetEntityIDsByTagIDs(context.Background(), "agent", tagIDs)
 		if err != nil {
 			logger.LogBusinessError(err, "", 0, "", "service.agent.monitor.GetAgentCapacityAnalysis", "", map[string]interface{}{
 				"operation": "get_agent_capacity",
-				"option":    "repo.GetAgentIDsByTagIDs",
+				"option":    "tagService.GetEntityIDsByTagIDs",
 				"func_name": "service.agent.monitor.GetAgentCapacityAnalysis",
 				"tag_ids":   tagIDs,
 			})

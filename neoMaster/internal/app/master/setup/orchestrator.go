@@ -22,12 +22,13 @@ import (
 	orchestratorService "neomaster/internal/service/orchestrator"
 	"neomaster/internal/service/orchestrator/allocator"
 	"neomaster/internal/service/orchestrator/policy"
+	"neomaster/internal/service/tag_system"
 
 	"gorm.io/gorm"
 )
 
 // BuildOrchestratorModule 构建扫描编排器模块
-func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config) *OrchestratorModule {
+func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_system.TagService) *OrchestratorModule {
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.orchestrator",
 		"operation": "build_module",
@@ -48,7 +49,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config) *OrchestratorModul
 
 	// 2. Core Components 初始化 (Policy Enforcer, Resource Allocator, Task Dispatcher, Scheduler)
 	policyEnforcer := policy.NewPolicyEnforcer(projectRepo, assetPolicyRepo)
-	resourceAllocator := allocator.NewResourceAllocator()
+	resourceAllocator := allocator.NewResourceAllocator(tagService)
 	dispatcher := task_dispatcher.NewTaskDispatcher(taskRepo, policyEnforcer, resourceAllocator)
 	schedulerService := scheduler.NewSchedulerService(
 		db,

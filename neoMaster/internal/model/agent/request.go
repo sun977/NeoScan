@@ -79,11 +79,11 @@ type AgentTagRequest struct {
 	TagID   uint64 `json:"tag_id" validate:"required"`   // 标签ID，必填
 }
 
-// AgentCapabilityRequest Agent能力操作请求结构
-type AgentCapabilityRequest struct {
-	AgentID    string `json:"agent_id" validate:"required"`   // Agent业务ID，必填
-	Capability string `json:"capability" validate:"required"` // 能力名称，必填
-}
+// // AgentCapabilityRequest Agent能力操作请求结构
+// type AgentCapabilityRequest struct {
+// 	AgentID    string `json:"agent_id" validate:"required"`   // Agent业务ID，必填
+// 	Capability string `json:"capability" validate:"required"` // 能力名称，必填
+// }
 
 // AgentTaskSupportRequest Agent任务支持操作请求结构
 // 新增：对应 TaskSupport 字段的操作

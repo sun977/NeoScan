@@ -206,10 +206,10 @@ INSERT INTO `agent_tag_types` (`name`, `display_name`, `description`, `remarks`)
 ('linux', 'Linux系统', 'Linux系统Agent标签', '用于标识运行在Linux系统上的Agent');
 
 -- 开发测试Agent数据 (Capabilities -> TaskSupport, 新增Feature)
-INSERT INTO `agents` (`agent_id`, `hostname`, `ip_address`, `port`, `version`, `status`, `os`, `arch`, `cpu_cores`, `memory_total`, `disk_total`, `tags`, `task_support`, `feature`, `grpc_token`, `token_expiry`, `last_heartbeat`, `remark`) VALUES
-('neoscan-agent-001', 'dev-scanner-01', '192.168.1.100', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 8, 17179869184, 107374182400, '["2", "5", "7"]', '["1", "2", "3", "4", "5", "7"]', '[]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:55:00', '开发环境测试Agent - 支持IP探活、快速端口扫描、全量端口扫描、服务扫描、漏洞扫描、Web扫描'),
-('neoscan-agent-002', 'prod-scanner-01', '10.0.1.50', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 16, 34359738368, 214748364800, '["1", "4", "7"]', '["1", "2", "3", "4", "5", "6", "7", "12"]', '[]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:58:00', '生产环境高性能Agent - 支持全套扫描功能包括API扫描'),
-('neoscan-agent-003', 'test-scanner-01', '172.16.0.10', 5772, 'v1.0.0', 'offline', 'Windows', 'x86_64', 4, 8589934592, 53687091200, '["3", "6"]', '["2", "7"]', '[]', NULL, NULL, '2025-01-26 10:30:00', '测试环境Windows Agent - 仅支持快速端口扫描和Web扫描');
+INSERT INTO `agents` (`agent_id`, `hostname`, `ip_address`, `port`, `version`, `status`, `os`, `arch`, `cpu_cores`, `memory_total`, `disk_total`, `task_support`, `feature`, `grpc_token`, `token_expiry`, `last_heartbeat`, `remark`) VALUES
+('neoscan-agent-001', 'dev-scanner-01', '192.168.1.100', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 8, 17179869184, 107374182400, '["1", "2", "3", "4", "5", "7"]', '[]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:55:00', '开发环境测试Agent - 支持IP探活、快速端口扫描、全量端口扫描、服务扫描、漏洞扫描、Web扫描'),
+('neoscan-agent-002', 'prod-scanner-01', '10.0.1.50', 5772, 'v1.1.0', 'online', 'Linux', 'x86_64', 16, 34359738368, 214748364800, '["1", "2", "3", "4", "5", "6", "7", "12"]', '[]', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', '2025-01-27 12:00:00', '2025-01-26 11:58:00', '生产环境高性能Agent - 支持全套扫描功能包括API扫描'),
+('neoscan-agent-003', 'test-scanner-01', '172.16.0.10', 5772, 'v1.0.0', 'offline', 'Windows', 'x86_64', 4, 8589934592, 53687091200, '["2", "7"]', '[]', NULL, NULL, '2025-01-26 10:30:00', '测试环境Windows Agent - 仅支持快速端口扫描和Web扫描');
 
 -- Agent配置数据
 INSERT INTO `agent_configs` (`agent_id`, `version`, `heartbeat_interval`, `task_poll_interval`, `max_concurrent_tasks`, `plugin_config`, `log_level`, `timeout`) VALUES

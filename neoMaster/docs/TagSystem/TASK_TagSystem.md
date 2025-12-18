@@ -36,12 +36,37 @@
 #### 状态
 - [x] 已完成
 
-### 任务4: API 完善与集成
+### 任务4: 性能优化与缓存 (Performance & Cache)
 #### 输入契约
-- OpenAPI 文档
-- 前端需求
+- 现有 AutoTag 逻辑
+- 性能瓶颈分析 (JSON 解析)
 #### 输出契约
-- 完整的 API 接口
-- 单元测试
+- MatchRuleCache 内存缓存
+- 规则预解析逻辑
+- 自动刷新机制 (ReloadMatchRules)
+- 日志规范化 (Logger)
 #### 状态
-- [ ] 进行中
+- [x] 已完成
+
+### 任务5: 层级标签体系 (Hierarchical Tags)
+#### 输入契约
+- 标签层级需求 (Path/Tree)
+- 查询需求 (子树查询)
+#### 输出契约
+- Materialized Path 方案实现
+- 路径计算与维护
+- 级联删除 (Cascading Delete)
+- 子标签包含查询优化
+#### 状态
+- [x] 已完成
+
+### 任务6: Agent 集成与测试 (Agent Integration)
+#### 输入契约
+- AgentRepository 接口
+- 现有测试用例
+#### 输出契约
+- 接口对齐 (Mock 修复)
+- 集成测试通过 (20251217_Agent_TaskSupport_test.go)
+- API 完善 (DeleteTag 参数调整)
+#### 状态
+- [x] 已完成

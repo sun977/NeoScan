@@ -3,7 +3,7 @@
 ## 架构概览
 
 本设计将标签系统构建为一个独立的服务模块 (`internal/service/tag_system`)，它不依赖具体的业务实体，而是通过接口与外部交互。
-**为了充分利用 NeoScan 强大的任务调度能力，规则回溯与全量刷新将作为标准的“任务”进行调度，由 Master 节点的内部 Worker 执行。**
+**为了充分利用 NeoScan 强大的任务调度能力，规则回溯与全量刷新将作为标准的“任务”进行调度，由 Master 节点的内部 LocalAgent 执行。**
 
 ### 模块交互图
 
@@ -24,7 +24,7 @@ graph TD
     
     subgraph "Task Scheduling System (Core)"
         TagMgr -- 1. Submit Task --> TaskScheduler[Master Scheduler]
-        TaskScheduler -- 2. Dispatch --> InternalWorker[Master Internal Worker]
+        TaskScheduler -- 2. Dispatch --> InternalWorker[Master LocalAgent]
         InternalWorker -- 3. Execute --> TagPropagator[Tag Propagation Logic]
         TagPropagator -- 4. Batch Update --> SysEntityTags
     end
@@ -80,11 +80,11 @@ type TagService interface {
     *   **场景 B (定时式)**: 用户配置一个 "Tag Refresh Project" (Cron) -> 调度器定期生成 "Tag Propagation Task"。
     
 2.  **任务调度 (Scheduler)**:
-    *   调度器识别到 `TaskType: "tag_propagation"`。
-    *   **关键策略**: 此类任务**不分发给 Agent**，而是分发给 **Master 内部的 Worker**。
+    *   调度器识别到 `ToolName: "sys_tag_propagation"`。
+    *   **关键策略**: 此类任务通过 **LocalAgent** 机制执行，无需网络分发。
     *   *原因*: 这是一个数据密集型操作 (Data-Intensive)，需要大量读取数据库。在 Master (或靠近 DB 的节点) 执行效率最高，避免将海量资产数据传输给 Agent 的网络开销。
 
-3.  **任务执行 (Consumer - Master Internal Worker)**:
+3.  **任务执行 (Consumer - Master LocalAgent)**:
     *   **Fetch**: 分页拉取资产数据 (Batch Size: 1000)。
     *   **Match**: 在内存中执行 `MatcherTagger` 逻辑。
     *   **Update**: 批量写入 `sys_entity_tags`。
@@ -98,29 +98,18 @@ type TagService interface {
 ### 2. 任务定义 (Task Definition)
 
 **问题分析**: 
-目前的 `AgentTask` 强绑定于 "Master -> Agent" 的分发模式。系统级任务（标签回溯、数据清洗）由 Master 本地执行，不需要 AgentID，也不应该进入 Agent 的调度队列。
+目前的 `AgentTask` 强绑定于 "Master -> Agent" 的分发模式。系统级任务（标签回溯、数据清洗）由 Master 本地执行。
 
-**决策 (Decision)**:
-为了清晰区分任务执行主体，避免字段含义混淆，决定在 `AgentTask` 表中**新增一个字段**，而不是通过 Magic String (如 "LOCAL_MASTER") 来区分。
+**实现方案**:
+使用 `Tool` 字段来区分任务类型，配合 `LocalAgent` 机制。
 
-**Schema 变更**:
-在 `agent_tasks` 表中增加：
-*   **Field**: `TaskCategory` (string)
-*   **Values**:
-    *   `"agent"` (Default): 下发给 Agent 执行的任务 (扫描、探测等)。
-    *   `"system"`: Master 内部执行的系统任务 (标签回溯、数据清洗)。
-
-**调度逻辑调整**:
-1.  **Agent Dispatcher**: 只拉取 `TaskCategory = 'agent'` 的任务。
-2.  **System Worker**: 只拉取 `TaskCategory = 'system'` 的任务。
+*   **Tool**: `sys_tag_propagation`
+*   **Target**: Local System (Implicit)
 
 **代码映射**:
 
 ```go
 const (
-    TaskCategoryAgent  = "agent"
-    TaskCategorySystem = "system"
-
     // Task Tool Names (System)
     ToolNameSysTagPropagation = "sys_tag_propagation"
     ToolNameSysAssetCleanup   = "sys_asset_cleanup"
@@ -150,6 +139,6 @@ type AssetCleanupPayload struct {
 | GET  | `/api/v1/tasks?type=sys_tag_propagation` | 查看打标任务进度 |
 
 ## 迁移与实施
-1.  **Phase 1**: 数据库与 Matcher 库准备。
-2.  **Phase 2**: 实现 Master 内部的任务执行器 (`InternalTaskWorker`)。
-3.  **Phase 3**: 集成调度器，支持 `TagPropagation` 任务分发。
+1.  **Phase 1**: 数据库与 Matcher 库准备。(Done)
+2.  **Phase 2**: 实现 Master 内部的任务执行器 (`LocalAgent` Integration)。(Done)
+3.  **Phase 3**: 集成调度器，支持 `TagPropagation` 任务分发。(Done)

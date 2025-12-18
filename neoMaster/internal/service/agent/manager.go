@@ -159,13 +159,14 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 	}
 
 	// 检查TaskSupport是否包含有效值 - 委托给Repository层验证
-	// 统一使用 ID 进行校验，TaskSupport 存储 ScanType ID
-	for _, id := range req.TaskSupport {
-		if !s.agentRepo.IsValidTaskSupportId(id) {
-			// 暂时只记录警告，或者返回错误。
-			// return fmt.Errorf("invalid capability/task_support id: %s", id)
-		}
-	}
+	// 允许 Agent 上传字符串标识 (Key/Name)，如果数据库中不存在，则视为无效或仅记录
+	// 这里不再强制校验 ID 是否存在，改为在注册逻辑中尝试匹配 Name -> ID
+	// for _, id := range req.TaskSupport {
+	// 	if !s.agentRepo.IsValidTaskSupportId(id) {
+	// 		// 暂时只记录警告，或者返回错误。
+	// 		// return fmt.Errorf("invalid capability/task_support id: %s", id)
+	// 	}
+	// }
 
 	// 检查Feature的有效性 (长度和数量限制)
 	if len(req.Feature) > 50 {
@@ -264,9 +265,16 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	// Tag 系统同步：将 TaskSupport (ScanType) 映射为系统标签并绑定到 Agent
 	// ------------------------------------------------------------
 	// 获取 TaskSupport 对应的 TagID
-	tagIDs, err := s.agentRepo.GetTagIDsByTaskSupportIDs(req.TaskSupport)
+	// 修改逻辑：Agent 上传的是字符串 Key (Name)，需要转换为 TagID
+	// 优先尝试作为 Name 查询，如果查不到再尝试作为 ID 查询 (兼容旧逻辑)
+	tagIDs, err := s.agentRepo.GetTagIDsByTaskSupportNames(req.TaskSupport)
+	if err != nil || len(tagIDs) == 0 {
+		// 尝试作为 ID 查询 (兼容性处理)
+		tagIDs, err = s.agentRepo.GetTagIDsByTaskSupportIDs(req.TaskSupport)
+	}
+
 	if err != nil {
-		logger.LogWarn("获取TaskSupport对应的TagID失败", "", 0, "", "RegisterAgent", "GetTagIDsByTaskSupportIDs", map[string]interface{}{
+		logger.LogWarn("获取TaskSupport对应的TagID失败", "", 0, "", "RegisterAgent", "GetTagIDsByTaskSupportNames/IDs", map[string]interface{}{
 			"error":        err.Error(),
 			"task_support": req.TaskSupport,
 			"agent_id":     agentID,

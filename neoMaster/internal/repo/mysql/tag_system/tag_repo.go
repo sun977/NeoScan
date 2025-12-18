@@ -85,7 +85,10 @@ func (r *tagRepository) GetTagsByParent(parentID uint64) ([]tag_system.SysTag, e
 }
 
 func (r *tagRepository) UpdateTag(tag *tag_system.SysTag) error {
-	return r.db.Save(tag).Error
+	// 只允许更新 Name, Color, Category, Description
+	// 使用 Select 指定字段，避免覆盖 ParentID, Path 等关键结构字段
+	// 同时改用 Updates 而不是 Save
+	return r.db.Model(tag).Select("Name", "Color", "Category", "Description").Updates(tag).Error
 }
 
 func (r *tagRepository) DeleteTag(id uint64, force bool) error {

@@ -18,7 +18,7 @@ type TagRepository interface {
 	GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) // 批量获取标签
 	GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error)
 	UpdateTag(tag *tag_system.SysTag) error
-	DeleteTag(id uint64) error
+	DeleteTag(id uint64, force bool) error
 	ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) // 获取标签列表
 
 	// 标签规则管理
@@ -88,10 +88,61 @@ func (r *tagRepository) UpdateTag(tag *tag_system.SysTag) error {
 	return r.db.Save(tag).Error
 }
 
-func (r *tagRepository) DeleteTag(id uint64) error {
-	// 注意：删除标签时，应该递归删除子标签吗？或者禁止删除非空标签？
-	// 这里简单实现为删除单个标签，业务层负责逻辑检查
-	return r.db.Delete(&tag_system.SysTag{}, id).Error
+func (r *tagRepository) DeleteTag(id uint64, force bool) error {
+	// 1. 检查是否有子标签
+	var count int64
+	if err := r.db.Model(&tag_system.SysTag{}).Where("parent_id = ?", id).Count(&count).Error; err != nil {
+		return err
+	}
+
+	// 检查是否有子标签且未使用强制删除(如果选择强制删除，会级联删除所有后代标签)
+	if count > 0 && !force {
+		return errors.New("cannot delete tag with children, use force=true to cascade delete")
+	}
+
+	// 2. 收集所有要删除的ID（包括自标签和后代标签）
+	idsToDelete := []uint64{id}
+	if count > 0 {
+		// 	在SQL中，递归搜索所有后代节点的成本很高。
+		//  由于我们拥有“路径”字段（例如 /1/5/10/），因此可以加以利用。
+		//  先获取标签本身以查找其路径
+		var tag tag_system.SysTag
+		if err := r.db.First(&tag, id).Error; err != nil {
+			return err
+		}
+
+		if tag.Path != "" {
+			var descendantIDs []uint64
+			// Path like '/root/parent/%'
+			// Note: Path format needs to be consistent. Assuming Path stores IDs like "/1/5/".
+			if err := r.db.Model(&tag_system.SysTag{}).
+				Where("path LIKE ?", tag.Path+"%").
+				Pluck("id", &descendantIDs).Error; err != nil {
+				return err
+			}
+			idsToDelete = append(idsToDelete, descendantIDs...)
+		}
+	}
+
+	// 3. 执行事务
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// A. 删除实体标签关联
+		if err := tx.Where("tag_id IN ?", idsToDelete).Delete(&tag_system.SysEntityTag{}).Error; err != nil {
+			return err
+		}
+
+		// B. 删除失效的匹配规则 --- 规则需要匹配的标签不存在了，那么使用这个标签的规则本身也就失效了
+		if err := tx.Where("tag_id IN ?", idsToDelete).Delete(&tag_system.SysMatchRule{}).Error; err != nil {
+			return err
+		}
+
+		// C. 删除标签
+		if err := tx.Where("id IN ?", idsToDelete).Delete(&tag_system.SysTag{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *tagRepository) ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) {

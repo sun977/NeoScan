@@ -2,6 +2,7 @@ package tag_system
 
 import (
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -226,17 +227,58 @@ func (r *tagRepository) RemoveAllEntityTags(entityType, entityID string) error {
 		Delete(&tag_system.SysEntityTag{}).Error
 }
 
-// GetEntityIDsByTagIDs 根据标签ID获取实体ID列表
+// GetEntityIDsByTagIDs 根据标签ID获取实体ID列表 (包含子标签)
 func (r *tagRepository) GetEntityIDsByTagIDs(entityType string, tagIDs []uint64) ([]string, error) {
-	var entityIDs []string
 	if len(tagIDs) == 0 {
-		return entityIDs, nil
+		return []string{}, nil
 	}
-	// 查询 SysEntityTag 表，获取对应 EntityID
-	// 使用 DISTINCT 去重
+
+	// 1. 获取目标标签的 Path，以便查找子标签
+	var tags []tag_system.SysTag
+	if err := r.db.Where("id IN ?", tagIDs).Find(&tags).Error; err != nil {
+		return nil, err
+	}
+
+	if len(tags) == 0 {
+		return []string{}, nil
+	}
+
+	// 2. 收集所有相关的 TagID (自身 + 子标签)
+	var allTagIDs []uint64
+
+	// 构造查询子标签的条件: path LIKE 'parent_path%'
+	likeConditions := make([]string, 0, len(tags))
+	args := make([]interface{}, 0, len(tags))
+
+	for _, tag := range tags {
+		// 始终包含自身
+		allTagIDs = append(allTagIDs, tag.ID)
+
+		if tag.Path != "" {
+			// Path 存储格式如 "/1/5/"，子标签为 "/1/5/10/"
+			// 使用 Path + "%" 匹配所有后代
+			likeConditions = append(likeConditions, "path LIKE ?")
+			args = append(args, tag.Path+"%")
+		}
+	}
+
+	// 如果有 Path，查询所有子标签
+	if len(likeConditions) > 0 {
+		var childTagIDs []uint64
+		// 拼接 OR 条件: path LIKE 'A%' OR path LIKE 'B%' ...
+		sql := strings.Join(likeConditions, " OR ")
+		if err := r.db.Model(&tag_system.SysTag{}).Where(sql, args...).Pluck("id", &childTagIDs).Error; err != nil {
+			return nil, err
+		}
+		allTagIDs = append(allTagIDs, childTagIDs...)
+	}
+
+	// 3. 查询 SysEntityTag 表，获取对应 EntityID
+	var entityIDs []string
 	err := r.db.Model(&tag_system.SysEntityTag{}).
-		Where("entity_type = ? AND tag_id IN ?", entityType, tagIDs).
+		Where("entity_type = ? AND tag_id IN ?", entityType, allTagIDs).
 		Distinct("entity_id").
 		Pluck("entity_id", &entityIDs).Error
+
 	return entityIDs, err
 }

@@ -158,10 +158,6 @@ type Agent struct {
 	MemoryTotal int64  `json:"memory_total" gorm:"comment:总内存大小(字节)"`
 	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
-	// 能力和标签(存储ScanType和TagType的ID) - 内容格式:["2","3"] (字符串形式的ID列表)
-	Tags StringSlice `json:"tags" gorm:"type:json;comment:Agent标签ID列表"`
-
-	// 新增字段：TaskSupport 和 Feature (替换 Capabilities)
 	// 遵循重构设计方案：将Capabilities拆分为TaskSupport(任务支持)和Feature(特性功能)
 	TaskSupport StringSlice `json:"task_support" gorm:"type:json;comment:Agent支持的任务类型列表，与ScanType一一对应"` // 对应 ScanType
 	Feature     StringSlice `json:"feature" gorm:"type:json;comment:Agent具备的特性功能列表"`                    // 备用，后续使用
@@ -236,35 +232,38 @@ func (a *Agent) CanAcceptTask(taskTypeID string) bool {
 // AddTag 添加标签（避免重复）
 // 参数: tagID - 标签类型ID（字符串形式）
 func (a *Agent) AddTag(tagID string) {
-	for _, t := range a.Tags {
-		if t == tagID {
-			return // 避免重复添加
-		}
-	}
-	a.Tags = append(a.Tags, tagID)
+	// Tags 字段已移除，此方法现在无效或需要重写为调用Service
+	// for _, t := range a.Tags {
+	// 	if t == tagID {
+	// 		return // 避免重复添加
+	// 	}
+	// }
+	// a.Tags = append(a.Tags, tagID)
 }
 
 // RemoveTag 移除标签
 // Agent 结构体的方法 - 移除指定标签
 // 参数: tagID - 标签类型ID（字符串形式）
 func (a *Agent) RemoveTag(tagID string) {
-	for i, t := range a.Tags {
-		if t == tagID {
-			a.Tags = append(a.Tags[:i], a.Tags[i+1:]...)
-			return
-		}
-	}
+	// Tags 字段已移除，此方法现在无效或需要重写为调用Service
+	// for i, t := range a.Tags {
+	// 	if t == tagID {
+	// 		a.Tags = append(a.Tags[:i], a.Tags[i+1:]...)
+	// 		return
+	// 	}
+	// }
 }
 
 // HasTag 检查是否具有指定标签
 // Agent 结构体的方法 - 检查是否具有指定标签
 // 参数: tagID - 标签类型ID（字符串形式）
 func (a *Agent) HasTag(tagID string) bool {
-	for _, t := range a.Tags {
-		if t == tagID {
-			return true
-		}
-	}
+	// Tags 字段已移除，此方法现在无效或需要重写为调用Service
+	// for _, t := range a.Tags {
+	// 	if t == tagID {
+	// 		return true
+	// 	}
+	// }
 	return false
 }
 

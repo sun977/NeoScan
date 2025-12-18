@@ -43,6 +43,7 @@ type TagService interface {
 	GetTagByNameAndParent(ctx context.Context, name string, parentID uint64) (*tag_system.SysTag, error) // 通过名称和父ID获取标签
 	GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error)                         // 批量获取标签
 	UpdateTag(ctx context.Context, tag *tag_system.SysTag) error
+	MoveTag(ctx context.Context, id, targetParentID uint64) error // 移动标签 改变标签的层级结构
 	DeleteTag(ctx context.Context, id uint64, force bool) error
 	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
 
@@ -238,7 +239,13 @@ func (s *tagService) enrichTagsWithFullPath(tags []tag_system.SysTag) error {
 }
 
 func (s *tagService) UpdateTag(ctx context.Context, tag *tag_system.SysTag) error {
+	// 注意: Repo层已限制只能更新 Name, Color, Description 等非结构字段
+	// 如果需要修改 ParentID，必须使用 MoveTag 方法
 	return s.repo.UpdateTag(tag)
+}
+
+func (s *tagService) MoveTag(ctx context.Context, id, targetParentID uint64) error {
+	return s.repo.MoveTag(id, targetParentID)
 }
 
 func (s *tagService) DeleteTag(ctx context.Context, id uint64, force bool) error {

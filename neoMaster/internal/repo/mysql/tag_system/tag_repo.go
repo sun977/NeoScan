@@ -2,9 +2,11 @@ package tag_system
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"neomaster/internal/model/tag_system"
 )
@@ -14,10 +16,11 @@ type TagRepository interface {
 	// 标签定义管理
 	CreateTag(tag *tag_system.SysTag) error
 	GetTagByID(id uint64) (*tag_system.SysTag, error)
-	GetTagByName(name string) (*tag_system.SysTag, error)   // 获取标签
-	GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) // 批量获取标签
-	GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error)
+	GetTagByName(name string) (*tag_system.SysTag, error)         // 获取标签
+	GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error)       // 批量获取标签
+	GetTagsByParent(parentID uint64) ([]tag_system.SysTag, error) // 根据父标签获取子标签
 	UpdateTag(tag *tag_system.SysTag) error
+	MoveTag(id, targetParentID uint64) error // 移动标签 改变标签的层级结构
 	DeleteTag(id uint64, force bool) error
 	ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) // 获取标签列表
 
@@ -89,6 +92,69 @@ func (r *tagRepository) UpdateTag(tag *tag_system.SysTag) error {
 	// 使用 Select 指定字段，避免覆盖 ParentID, Path 等关键结构字段
 	// 同时改用 Updates 而不是 Save
 	return r.db.Model(tag).Select("Name", "Color", "Category", "Description").Updates(tag).Error
+}
+
+func (r *tagRepository) MoveTag(id, targetParentID uint64) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 1. 获取当前标签 (加锁)
+		var tag tag_system.SysTag
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&tag, id).Error; err != nil {
+			return err
+		}
+
+		// 2. 获取目标父标签信息
+		var newParentPath string
+		var newLevel int
+		if targetParentID != 0 {
+			var newParent tag_system.SysTag
+			if err := tx.First(&newParent, targetParentID).Error; err != nil {
+				return err
+			}
+			// 循环检查: 不能移动到自己的后代节点下
+			// 如果 newParent.Path 以 "tag.Path + tag.ID + /" 开头，说明 newParent 是 tag 的后代
+			currentSelfPathPrefix := fmt.Sprintf("%s%d/", tag.Path, tag.ID)
+			if strings.HasPrefix(newParent.Path, currentSelfPathPrefix) {
+				return errors.New("cannot move tag to its own descendant")
+			}
+			newParentPath = fmt.Sprintf("%s%d/", newParent.Path, targetParentID)
+			newLevel = newParent.Level + 1
+		} else {
+			newParentPath = "/"
+			newLevel = 0
+		}
+
+		// 如果父节点没变，直接返回
+		if tag.ParentID == targetParentID {
+			return nil
+		}
+
+		oldPathPrefix := fmt.Sprintf("%s%d/", tag.Path, tag.ID)
+		newPathPrefix := fmt.Sprintf("%s%d/", newParentPath, tag.ID)
+		levelDiff := newLevel - tag.Level
+
+		// 3. 更新当前标签
+		if err := tx.Model(&tag).Updates(map[string]interface{}{
+			"parent_id": targetParentID,
+			"path":      newParentPath,
+			"level":     newLevel,
+		}).Error; err != nil {
+			return err
+		}
+
+		// 4. 更新所有后代节点
+		// Path: 替换前缀
+		// Level: 加上差值
+		if err := tx.Exec(`
+			UPDATE sys_tags 
+			SET path = CONCAT(?, SUBSTRING(path, ?)), 
+				level = level + ? 
+			WHERE path LIKE ?`,
+			newPathPrefix, len(oldPathPrefix)+1, levelDiff, oldPathPrefix+"%").Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *tagRepository) DeleteTag(id uint64, force bool) error {

@@ -15,6 +15,7 @@ func (r *Router) setupTagSystemRoutes(rg *gin.RouterGroup) {
 		tags.POST("", r.tagHandler.CreateTag)
 		tags.GET("/:id", r.tagHandler.GetTag)
 		tags.PUT("/:id", r.tagHandler.UpdateTag)
+		tags.PUT("/:id/move", r.tagHandler.MoveTag) // 移动标签 修改标签的层级关系(待定后续可能删除)
 		tags.DELETE("/:id", r.tagHandler.DeleteTag)
 		tags.GET("", r.tagHandler.ListTags) // 支持 ?parent_id=xxx
 

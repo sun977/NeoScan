@@ -2,31 +2,35 @@ openapi: 3.0.1
 info:
   title: NeoScan Tag System API
   description: |
-    NeoScan Tag System API 接口文档 v1.0
+    NeoScan Tag System API 接口文档 v1.1
     
     ## 版本更新说明
     
-    **版本**: v1.0
-    **更新日期**: 2025-12-16
+    **版本**: v1.1
+    **更新日期**: 2025-12-18
     **主要变更**:
-    - 初始版本：标签管理与规则管理接口
+    - 新增：标签移动接口 (PUT /tags/{id}/move)
+    - 完善：删除标签接口增加 force 参数
+    - 完善：各接口请求响应示例
+    - 优化：规则引擎 JSON 结构详细说明
     
     ## 认证说明
     
-    大部分API需要JWT Bearer Token认证，请在请求头中包含：
+    所有写操作API需要JWT Bearer Token认证，请在请求头中包含：
     ```
     Authorization: Bearer <access_token>
     ```
-  version: 1.0.0
+  version: 1.1.0
 tags:
   - name: 标签管理
-    description: 标签的增删改查
+    description: 标签的增删改查与层级移动
   - name: 规则管理
-    description: 自动打标规则管理
+    description: 自动打标规则管理与执行
 paths:
   /api/v1/tags:
     post:
       summary: 创建标签
+      description: 创建一个新的标签，支持层级关系
       tags:
         - 标签管理
       requestBody:
@@ -35,31 +39,22 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateTagRequest'
+            example:
+              name: "HighPriority"
+              parent_id: 0
+              color: "#FF0000"
+              category: "Security"
+              description: "High priority security assets"
       responses:
         '200':
           description: 成功创建
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                    example: 200
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: Tag created successfully
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: integer
-                        example: 1
+                $ref: '#/components/schemas/SuccessResponseID'
     get:
       summary: 获取标签列表
+      description: 获取标签列表，支持按父节点、关键字、分类筛选
       tags:
         - 标签管理
       parameters:
@@ -67,7 +62,7 @@ paths:
           in: query
           schema:
             type: integer
-          description: 父标签ID
+          description: 父标签ID (传0获取根标签)
         - name: keyword
           in: query
           schema:
@@ -172,23 +167,17 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateTagRequest'
+            example:
+              name: "Urgent"
+              color: "#AA0000"
+              description: "Updated description"
       responses:
         '200':
           description: 成功更新
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                    example: 200
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: Tag updated successfully
+                $ref: '#/components/schemas/SuccessResponse'
     delete:
       summary: 删除标签
       tags:
@@ -200,23 +189,48 @@ paths:
           schema:
             type: integer
           description: 标签ID
+        - name: force
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: "是否强制删除子标签 (true: 级联删除, false: 如果有子标签则报错)"
       responses:
         '200':
           description: 成功删除
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                    example: 200
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: Tag deleted successfully
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/v1/tags/{id}/move:
+    put:
+      summary: 移动标签
+      description: 修改标签的层级关系，将其移动到新的父标签下
+      tags:
+        - 标签管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 标签ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveTagRequest'
+            example:
+              target_parent_id: 5
+      responses:
+        '200':
+          description: 成功移动
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
 
   /api/v1/tags/rules:
     post:
@@ -229,29 +243,24 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateRuleRequest'
+            example:
+              tag_id: 1
+              name: "Linux Servers"
+              entity_type: "asset"
+              priority: 10
+              rule_json:
+                condition: "AND"
+                rules:
+                  - field: "os_type"
+                    operator: "eq"
+                    value: "linux"
       responses:
         '200':
           description: 成功创建
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                    example: 200
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: Rule created successfully
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: integer
-                        example: 1
+                $ref: '#/components/schemas/SuccessResponseID'
     get:
       summary: 获取规则列表
       tags:
@@ -261,6 +270,7 @@ paths:
           in: query
           schema:
             type: string
+            enum: [agent, asset, web, network]
           description: 实体类型
         - name: tag_id
           in: query
@@ -341,23 +351,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateRuleRequest'
+            example:
+              priority: 20
+              is_enabled: true
       responses:
         '200':
           description: 成功更新
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                    example: 200
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: Rule updated successfully
+                $ref: '#/components/schemas/SuccessResponse'
     delete:
       summary: 删除规则
       tags:
@@ -375,17 +378,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: integer
-                    example: 200
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: Rule deleted successfully
+                $ref: '#/components/schemas/SuccessResponse'
 
   /api/v1/tags/rules/{id}/apply:
     post:
@@ -406,7 +399,7 @@ paths:
             type: string
             enum: [add, remove]
             default: add
-          description: 执行动作 (add: 应用规则, remove: 移除规则)
+          description: "执行动作 (add: 应用规则, remove: 移除规则)"
       responses:
         '200':
           description: 任务提交成功
@@ -436,6 +429,40 @@ paths:
 
 components:
   schemas:
+    # 基础响应结构
+    SuccessResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Operation successful
+    
+    SuccessResponseID:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Created successfully
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+
+    # 请求结构体
     CreateTagRequest:
       type: object
       required:
@@ -444,18 +471,23 @@ components:
         name:
           type: string
           description: 标签名称
+          example: "HighPriority"
         parent_id:
           type: integer
-          description: 父标签ID
+          description: 父标签ID (0表示根标签)
+          example: 0
         color:
           type: string
-          description: 标签颜色
+          description: 标签颜色 (Hex Code)
+          example: "#FF0000"
         category:
           type: string
           description: 业务分类
+          example: "Security"
         description:
           type: string
           description: 描述
+          example: "High priority security assets"
 
     UpdateTagRequest:
       type: object
@@ -470,6 +502,16 @@ components:
           type: string
           description: 描述
 
+    MoveTagRequest:
+      type: object
+      required:
+        - target_parent_id
+      properties:
+        target_parent_id:
+          type: integer
+          description: 目标父标签ID (0表示移动到根节点)
+          example: 2
+
     CreateRuleRequest:
       type: object
       required:
@@ -481,21 +523,55 @@ components:
         tag_id:
           type: integer
           description: 关联标签ID
+          example: 1
         name:
           type: string
           description: 规则名称
+          example: "OS-Linux-Rule"
         entity_type:
           type: string
-          description: 实体类型
+          description: 实体类型 (agent, asset, web, network)
+          enum: [agent, asset, web, network]
+          example: "agent"
         priority:
           type: integer
-          description: 优先级
+          description: 优先级 (数值越大越高)
+          example: 10
         rule_json:
           type: object
-          description: 匹配规则 (JSON对象)
+          description: |
+            匹配规则 (JSON对象)。
+            
+            支持字段:
+            - `and` (array): 逻辑与
+            - `or` (array): 逻辑或
+            - `field` (string): 字段名
+            - `operator` (string): 操作符 (equals, not_equals, contains, not_contains, starts_with, ends_with, regex, cidr, greater_than, like, exists, is_null, is_not_null)
+            - `value` (any): 匹配值
+            - `ignore_case` (bool): 忽略大小写
+            
+            示例:
+            ```json
+            {
+              "and": [
+                { "field": "os", "operator": "contains", "value": "linux" },
+                { "or": [
+                    { "field": "port", "operator": "equals", "value": 80 },
+                    { "field": "port", "operator": "equals", "value": 443 }
+                  ]
+                }
+              ]
+            }
+            ```
+          example: 
+            and:
+              - field: "os_type"
+                operator: "eq"
+                value: "linux"
         is_enabled:
           type: boolean
           description: 是否启用
+          default: true
 
     UpdateRuleRequest:
       type: object
@@ -513,25 +589,34 @@ components:
           type: boolean
           description: 是否启用
 
+    # 响应数据模型
     TagResponse:
       type: object
       properties:
         id:
           type: integer
+          example: 1
         name:
           type: string
+          example: "HighPriority"
         parent_id:
           type: integer
+          example: 0
         path:
           type: string
+          example: "1/"
         level:
           type: integer
+          example: 1
         color:
           type: string
+          example: "#FF0000"
         category:
           type: string
+          example: "Security"
         description:
           type: string
+          example: "High priority security assets"
         created_at:
           type: string
           format: date-time
@@ -544,18 +629,29 @@ components:
       properties:
         id:
           type: integer
+          example: 1
         tag_id:
           type: integer
+          example: 1
         name:
           type: string
+          example: "OS-Linux-Rule"
         entity_type:
           type: string
+          example: "agent"
         priority:
           type: integer
+          example: 10
         rule_json:
           type: object
+          example: 
+            and:
+              - field: "os_type"
+                operator: "eq"
+                value: "linux"
         is_enabled:
           type: boolean
+          example: true
         created_at:
           type: string
           format: date-time

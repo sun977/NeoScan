@@ -156,18 +156,18 @@ CREATE TABLE `agent_scan_types` (
     KEY `idx_agent_scan_types_tag_id` (`tag_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent扫描类型表';
 
--- 6. Agent标签类型表 (agent_tag_types)
-CREATE TABLE `agent_tag_types` (
-    `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
-    `name` varchar(100) NOT NULL COMMENT '标签类型名称，唯一',
-    `display_name` varchar(100) NOT NULL COMMENT '标签类型显示名称',
-    `description` varchar(500) DEFAULT NULL COMMENT '标签类型描述',
-    `remarks` varchar(500) DEFAULT NULL COMMENT '标签类型备注',
-    `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
-    `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `idx_agent_tag_types_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent标签类型表';
+-- 6. Agent标签类型表 (agent_tag_types) - 已废弃
+-- CREATE TABLE `agent_tag_types` (
+--     `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID，对应BaseModel.ID(uint64)',
+--     `name` varchar(100) NOT NULL COMMENT '标签类型名称，唯一',
+--     `display_name` varchar(100) NOT NULL COMMENT '标签类型显示名称',
+--     `description` varchar(500) DEFAULT NULL COMMENT '标签类型描述',
+--     `remarks` varchar(500) DEFAULT NULL COMMENT '标签类型备注',
+--     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间，对应BaseModel.CreatedAt',
+--     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间，对应BaseModel.UpdatedAt',
+--     PRIMARY KEY (`id`),
+--     UNIQUE KEY `idx_agent_tag_types_name` (`name`)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent标签类型表';
 
 -- ============================================================================
 -- 插入默认数据 (Insert Data)
@@ -195,15 +195,15 @@ INSERT INTO `agent_scan_types` (`name`, `display_name`, `description`, `category
 ('fileScan', '文件扫描', '文件扫描，webshell发现，病毒查杀，基于YARA的模块', 'file', 1, 1, '{"timeout": 600, "yara_rules": "/opt/yara-rules", "scan_archives": true}', 0),
 ('otherScan', '其他扫描', '其他扫描，其他自定义的扫描类型，如自定义的脚本扫描', 'custom', 1, 1, '{"timeout": 300, "custom_scripts": "/opt/custom-scripts", "parameters": {}}', 0);
 
--- 默认标签类型 (对应agent.go中的TagType结构体)
-INSERT INTO `agent_tag_types` (`name`, `display_name`, `description`, `remarks`) VALUES
-('production', '生产环境', '生产环境Agent标签', '用于标识生产环境中的Agent'),
-('development', '开发环境', '开发环境Agent标签', '用于标识开发环境中的Agent'),
-('test', '测试环境', '测试环境Agent标签', '用于标识测试环境中的Agent'),
-('high-performance', '高性能', '高性能Agent标签', '用于标识高性能配置的Agent'),
-('scanner', '扫描器', '扫描器Agent标签', '用于标识专门用于扫描的Agent'),
-('windows', 'Windows系统', 'Windows系统Agent标签', '用于标识运行在Windows系统上的Agent'),
-('linux', 'Linux系统', 'Linux系统Agent标签', '用于标识运行在Linux系统上的Agent');
+-- 默认标签类型 (对应agent.go中的TagType结构体) - 已废弃
+-- INSERT INTO `agent_tag_types` (`name`, `display_name`, `description`, `remarks`) VALUES
+-- ('production', '生产环境', '生产环境Agent标签', '用于标识生产环境中的Agent'),
+-- ('development', '开发环境', '开发环境Agent标签', '用于标识开发环境中的Agent'),
+-- ('test', '测试环境', '测试环境Agent标签', '用于标识测试环境中的Agent'),
+-- ('high-performance', '高性能', '高性能Agent标签', '用于标识高性能配置的Agent'),
+-- ('scanner', '扫描器', '扫描器Agent标签', '用于标识专门用于扫描的Agent'),
+-- ('windows', 'Windows系统', 'Windows系统Agent标签', '用于标识运行在Windows系统上的Agent'),
+-- ('linux', 'Linux系统', 'Linux系统Agent标签', '用于标识运行在Linux系统上的Agent');
 
 -- 开发测试Agent数据 (Capabilities -> TaskSupport, 新增Feature)
 INSERT INTO `agents` (`agent_id`, `hostname`, `ip_address`, `port`, `version`, `status`, `os`, `arch`, `cpu_cores`, `memory_total`, `disk_total`, `task_support`, `feature`, `grpc_token`, `token_expiry`, `last_heartbeat`, `remark`) VALUES

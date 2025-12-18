@@ -449,18 +449,6 @@ func (st *ScanType) IsActiveType() bool {
 	return st.IsActive
 }
 
-// TagType 标签类型定义 (用来给Agent指定标签 - Agent-Tags)
-type TagType struct {
-	// 引用基类 (ID, CreatedAt, UpdatedAt)
-	// ID字段作为主键和业务标识，统一使用BaseModel.ID(uint64)
-	basemodel.BaseModel
-
-	Name        string `json:"name" gorm:"not null;size:100;comment:标签类型名称，唯一"`
-	DisplayName string `json:"display_name" gorm:"not null;size:100;comment:标签类型显示名称"`
-	Description string `json:"description" gorm:"size:500;comment:标签类型描述"`
-	Remarks     string `json:"remarks" gorm:"size:500;comment:标签类型备注"`
-}
-
-func (TagType) TableName() string {
-	return "agent_tag_types"
-}
+// TagType 标签类型定义 (已废弃)
+// 请使用 tag_system 包中的 SysTag 模型
+// 之前定义的 TagType struct 已移除

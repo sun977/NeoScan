@@ -436,7 +436,7 @@ func (s *DataSeeder) seedSystemData() error {
 	adminUser := system.User{
 		Username: "admin",
 		Email:    "admin@neoscan.com",
-		Password: "$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ", // 密码: admin123
+		Password: "$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ", // 密码: 123456
 		Nickname: "系统管理员",
 		Status:   1,
 	}
@@ -448,7 +448,7 @@ func (s *DataSeeder) seedSystemData() error {
 	sysUser := system.User{
 		Username: "sysuser",
 		Email:    "sysuser@neoscan.com",
-		Password: "$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ", // 密码: sysuser123
+		Password: "$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ", // 密码: 123456
 		Nickname: "系统用户-仅系统使用",
 		Status:   1,
 	}

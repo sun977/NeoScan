@@ -196,7 +196,7 @@ func dropTables(db *gorm.DB, logManager *logger.LoggerManager) error {
 		&agent.AgentConfig{},
 		&agent.AgentMetrics{},
 		// &agent.AgentGroup{}, // 暂时注释：模型未定义
-		// &agent.ScanType{},   // 暂时注释：模型未定义
+		&agent.ScanType{},
 
 		// Orchestrator模块 (New)
 		&orchestrator.Project{},
@@ -243,7 +243,7 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&agent.AgentMetrics{},
 		// &agent.AgentGroup{},       // 暂时注释：模型未定义
 		// &agent.AgentGroupMember{}, // 暂时注释：模型未定义
-		// &agent.ScanType{},         // 暂时注释：模型未定义
+		&agent.ScanType{},
 
 		// 标签系统
 		&tag_system.SysTag{},
@@ -537,55 +537,198 @@ func (s *DataSeeder) seedAgentData() error {
 	*/
 
 	// 3. 创建扫描类型测试数据
-	/*
-		scanTypes := []agent.ScanType{
-			{
-				Name:        "port_scan",
-				DisplayName: "端口扫描",
-				Description: "对目标主机进行端口扫描，识别开放的端口和服务",
-				Category:    "network",
-				IsActive:    true,
-				ConfigTemplate: agent.ConfigTemplateJSON{
-					"timeout":     30,
-					"max_threads": 100,
-					"port_range":  "1-65535",
-					"scan_method": "tcp",
-				},
+	scanTypes := []agent.ScanType{
+		{
+			Name:        "ipAliveScan",
+			DisplayName: "IP探活扫描",
+			Description: "IP探活阶段，探测网段内存活IP",
+			Category:    "network",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":    30,
+				"threads":    100,
+				"ping_count": 3,
 			},
-			{
-				Name:        "vuln_scan",
-				DisplayName: "漏洞扫描",
-				Description: "对目标系统进行漏洞扫描，识别已知的安全漏洞",
-				Category:    "security",
-				IsActive:    true,
-				ConfigTemplate: agent.ConfigTemplateJSON{
-					"timeout":        60,
-					"max_concurrent": 10,
-					"severity":       "medium",
-					"update_db":      true,
-				},
+		},
+		{
+			Name:        "fastPortScan",
+			DisplayName: "快速端口扫描",
+			Description: "快速端口扫描，默认端口的快速扫描",
+			Category:    "network",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout": 30,
+				"threads": 100,
+				"ports":   "22,80,443,3389,3306,5432",
 			},
-			{
-				Name:        "web_scan",
-				DisplayName: "Web扫描",
-				Description: "对Web应用进行安全扫描，识别Web漏洞",
-				Category:    "web",
-				IsActive:    true,
-				ConfigTemplate: agent.ConfigTemplateJSON{
-					"timeout":         120,
-					"max_depth":       3,
-					"user_agent":      "NeoScan/1.0",
-					"follow_redirect": true,
-				},
+		},
+		{
+			Name:        "fullPortScan",
+			DisplayName: "全量端口扫描",
+			Description: "全量端口扫描，全端口扫描，会带有端口对应的服务信息",
+			Category:    "network",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":           60,
+				"threads":           50,
+				"ports":             "1-65535",
+				"service_detection": true,
 			},
-		}
+		},
+		{
+			Name:        "serviceScan",
+			DisplayName: "服务扫描",
+			Description: "服务扫描，如果端口识别不携带服务识别，这一步单独做一次服务识别",
+			Category:    "service",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":           120,
+				"version_detection": true,
+				"script_scan":       true,
+			},
+		},
+		{
+			Name:        "vulnScan",
+			DisplayName: "漏洞扫描",
+			Description: "漏洞扫描，发现安全漏洞",
+			Category:    "security",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"severity":  "medium",
+				"timeout":   300,
+				"plugins":   []string{"cve", "exploit"},
+				"update_db": true,
+			},
+		},
+		{
+			Name:        "pocScan",
+			DisplayName: "POC扫描",
+			Description: "POC扫描，结合给定的POC工具或者脚本识别，属于高精度的vulnScan",
+			Category:    "security",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":        600,
+				"poc_templates":  "/opt/poc-templates",
+				"custom_scripts": true,
+			},
+		},
+		{
+			Name:        "webScan",
+			DisplayName: "Web扫描",
+			Description: "Web扫描，识别出有web服务或者web框架cms等执行web扫描",
+			Category:    "web",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"crawl_depth":         3,
+				"timeout":             600,
+				"check_sql_injection": true,
+				"check_xss":           true,
+			},
+		},
+		{
+			Name:        "passScan",
+			DisplayName: "弱密码扫描",
+			Description: "弱密码扫描，识别出有密码的服务后探测默认/弱口令检查",
+			Category:    "security",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":   300,
+				"wordlist":  "/opt/wordlists",
+				"protocols": []string{"ssh", "ftp", "mysql", "mssql"},
+			},
+		},
+		{
+			Name:        "proxyScan",
+			DisplayName: "代理服务探测扫描",
+			Description: "代理服务探测扫描，识别出有代理服务后进行代理扫描",
+			Category:    "network",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":     180,
+				"proxy_types": []string{"http", "https", "socks4", "socks5"},
+			},
+		},
+		{
+			Name:        "dirScan",
+			DisplayName: "目录扫描",
+			Description: "目录扫描，识别出有web系统后对系统进行目录扫描",
+			Category:    "web",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":    300,
+				"wordlist":   "/opt/dirbuster",
+				"extensions": []string{"php", "asp", "jsp"},
+			},
+		},
+		{
+			Name:        "subDomainScan",
+			DisplayName: "子域名扫描",
+			Description: "子域名扫描，识别出有web系统后对系统进行子域名扫描",
+			Category:    "web",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":     600,
+				"dns_servers": []string{"8.8.8.8", "1.1.1.1"},
+				"wordlist":    "/opt/subdomains",
+			},
+		},
+		{
+			Name:        "apiScan",
+			DisplayName: "API资产扫描",
+			Description: "API资产扫描，对需要探测的系统所暴露的API进行API资产扫描",
+			Category:    "web",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":           300,
+				"swagger_detection": true,
+				"graphql_detection": true,
+			},
+		},
+		{
+			Name:        "fileScan",
+			DisplayName: "文件扫描",
+			Description: "文件扫描，webshell发现，病毒查杀，基于YARA的模块",
+			Category:    "file",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":       600,
+				"yara_rules":    "/opt/yara-rules",
+				"scan_archives": true,
+			},
+		},
+		{
+			Name:        "otherScan",
+			DisplayName: "其他扫描",
+			Description: "其他扫描，其他自定义的扫描类型，如自定义的脚本扫描",
+			Category:    "custom",
+			IsActive:    true,
+			IsSystem:    true,
+			ConfigTemplate: agent.ConfigTemplateJSON{
+				"timeout":        300,
+				"custom_scripts": "/opt/custom-scripts",
+				"parameters":     map[string]interface{}{},
+			},
+		},
+	}
 
-		for _, scanType := range scanTypes {
-			if err := s.db.Where("name = ?", scanType.Name).FirstOrCreate(&scanType).Error; err != nil {
-				return fmt.Errorf("创建扫描类型失败: %w", err)
-			}
+	for _, scanType := range scanTypes {
+		if err := s.db.Where("name = ?", scanType.Name).FirstOrCreate(&scanType).Error; err != nil {
+			return fmt.Errorf("创建扫描类型失败: %w", err)
 		}
-	*/
+	}
 
 	// 4. 创建测试Agent（仅在test环境）
 	if s.env == "test" {

@@ -18,6 +18,11 @@ type UpdateTagRequest struct {
 	Description string `json:"description"` // 描述
 }
 
+// MoveTagRequest 移动标签请求
+type MoveTagRequest struct {
+	TargetParentID uint64 `json:"target_parent_id"` // 目标父标签ID (0表示移动到根节点)
+}
+
 // CreateRuleRequest 创建规则请求
 type CreateRuleRequest struct {
 	TagID      uint64            `json:"tag_id" validate:"required"`      // 关联标签ID

@@ -27,33 +27,68 @@
   - 匹配成功后，更新资产表的 `tags` 字段 (JSON)。
   - 同时在 `sys_entity_tags` 表中插入或删除记录，记录 `RuleID` 和 `Source='auto'`。
 
-#### 3. 遗留问题 / TODO
-- 暂无。
-
-### 任务3.1: 优化与手动触发 (Optimization & Manual Trigger)
+### 任务4: 性能优化与缓存 (Performance & Cache)
 **执行状态**: 已完成
-**完成时间**: 2025-12-16
+**完成时间**: 2025-12-18
 
 #### 1. 代码实现
-- **日志优化**:
-  - `TagService` 中移除了所有 `fmt.Printf`，替换为 `logger.LogBusinessOperation` 和 `logger.LogBusinessError`。
-- **逻辑调整**:
-  - 禁用了 `CreateRule`/`UpdateRule`/`DeleteRule` 中的自动传播任务触发（避免误操作）。
-- **新增功能**:
-  - 新增 `TagHandler.ApplyRule` 方法，支持通过 API 手动触发规则应用/移除。
-  - 新增路由 `POST /api/v1/tags/rules/{id}/apply`。
-- **OpenAPI 更新**:
-  - 新增 `POST /api/v1/tags/rules/{id}/apply` 接口文档。
+- **MatchRuleCache**: 
+  - 引入 `MatchRuleCache` 结构体，使用 `sync.RWMutex` 保护内存中的规则映射。
+  - 实现了 `ReloadMatchRules` 方法，将 JSON 解析逻辑前置，避免每次匹配时的 O(N*M) 解析开销。
+  - 在 `NewTagService` 初始化时自动加载规则。
+- **自动刷新**:
+  - 在 `CreateRule`, `UpdateRule`, `DeleteRule` 操作成功后，自动调用 `ReloadMatchRules` 刷新缓存。
+- **日志规范化**:
+  - 全面替换 `fmt.Printf` 为 `internal/pkg/logger`，确保生产环境日志的可观测性。
 
 #### 2. 验证结果
-- **编译检查**: `go build` 成功。
-- **功能验证**:
-  - API 接收 `action=add` 或 `remove` 参数，正确生成后台任务。
-  - 日志记录规范化，包含 request_id 和详细上下文。
+- **性能**: 自动打标 (`AutoTag`) 直接使用预解析的 `CachedRule`，消除了 JSON 解析瓶颈。
+- **一致性**: 规则变更后缓存即时更新，无需重启服务。
 
-## 整体进度
-- [x] 任务1: 基础 CRUD
-- [x] 任务2: 自动打标
-- [x] 任务3: 规则传播
-- [x] 任务3.1: 优化与手动触发
-- [ ] 任务4: API 完善与集成
+### 任务5: 层级标签与查询优化 (Hierarchical Tags)
+**执行状态**: 已完成
+**完成时间**: 2025-12-18
+
+#### 1. 代码实现
+- **方案选择**: 采用 **Scheme 2 (Materialized Path)**。
+- **路径维护**:
+  - `CreateTag` 自动计算 `Path` (例如 `/1/5/`)。
+  - `GetTagsByIDs` 自动根据 `Path` 填充 `FullPathName` (例如 `OS/Linux/Ubuntu`)。
+- **查询优化**:
+  - `GetEntityIDsByTagIDs` 优化：利用 `path LIKE 'prefix%'` 一次性查出所有子标签 ID，代替递归查询。
+  - 实现了子标签的自动包含查询 (查 "Linux" 会自动包含 "Ubuntu" 的资产)。
+- **级联删除**:
+  - `DeleteTag` 增加 `force` 参数。
+  - `force=true` 时，利用 `Path` 快速查找并删除所有后代标签及关联规则、实体关联。
+
+#### 2. 验证结果
+- **单元测试**: `TestAgentTagRefactor` 和 `TestAgentTaskSupport` 全部通过。
+- **功能验证**: 级联删除逻辑正确，子标签查询逻辑覆盖预期。
+
+### 任务6: Agent 任务支持集成 (Agent Task Support)
+**执行状态**: 已完成
+**完成时间**: 2025-12-18
+
+#### 1. 代码实现
+- **接口对齐**:
+  - 修复 `MockAgentRepo` 缺失的方法 (`AddTaskSupport`, `GetAllScanTypes`, `HasTaskSupport`)。
+  - 修复 `DeleteTag` 签名变更导致的调用错误。
+- **测试通过**:
+  - `20251217_Agent_TaskSupport_test.go` 测试通过。
+
+### 任务7: UpdateTag 字段限制 (Restricted Fields)
+**执行状态**: 已完成
+**完成时间**: 2025-12-18
+
+#### 1. 代码实现
+- **限制修改**: 
+  - 修改 `UpdateTag` 方法，仅允许更新 `Name`, `Color`, `Category`, `Description`。
+  - 使用 `r.db.Model(tag).Select(...).Updates(tag)` 明确指定字段。
+  - 严禁修改 `ParentID`, `Path`, `Level` 等结构性字段，防止数据不一致。
+
+#### 2. 验证结果
+- **安全性**: 即使上层业务逻辑错误地修改了 ParentID，底层 Repo 也会忽略该修改，保护树结构完整性。
+- **测试**: 现有测试通过 (现有测试未强依赖 ParentID 修改)。
+
+## 遗留问题 / TODO
+- **UpdateTag 路径更新**: 目前修改标签 ParentID 时未自动更新子节点的 Path，可能导致树结构断裂 (已记录在 TODO)。

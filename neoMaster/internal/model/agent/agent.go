@@ -159,7 +159,7 @@ type Agent struct {
 	DiskTotal   int64  `json:"disk_total" gorm:"comment:总磁盘大小(字节)"`
 
 	// 遵循重构设计方案：将Capabilities拆分为TaskSupport(任务支持)和Feature(特性功能)
-	TaskSupport StringSlice `json:"task_support" gorm:"type:json;comment:Agent支持的任务类型列表，与ScanType一一对应"` // 对应 ScanType
+	TaskSupport StringSlice `json:"task_support" gorm:"type:json;comment:Agent支持的任务类型列表，与ScanType一一对应"` // 对应 ScanType (必须得是string，因为agent不知道ScanType的ID)
 	Feature     StringSlice `json:"feature" gorm:"type:json;comment:Agent具备的特性功能列表"`                    // 备用，后续使用
 
 	// 安全认证

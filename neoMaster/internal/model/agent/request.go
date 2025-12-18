@@ -26,6 +26,31 @@ type RegisterAgentRequest struct {
 	Remark      string   `json:"remark"`                                   // 备注信息
 }
 
+// 注册请求示例数据
+// {
+//     "hostname": "test-agent-003",
+//     "ip_address": "192.168.1.100",
+//     "port": 8111,
+//     "version": "1.0.0",
+//     "os": "Linux",
+//     "arch": "x86_64",
+//     "cpu_cores": 4,
+//     "memory_total": 8589934592,
+//     "disk_total": 107374182400,
+//     "container_id": "docker-container-123456",
+//     "pid": 12345,
+//     "TaskSupport": [
+//         "ipAliveScan",
+//         "fullPortScan",
+//         "pocScan"
+//     ],
+//     "Feature": [
+//         "shell",
+//         "fileupload"
+//     ],
+//     "remark": "测试注册功能数据"
+// }
+
 // HeartbeatRequest Agent心跳请求结构
 // 遵循"好品味"原则：心跳状态信息和性能指标数据完全分离
 // 心跳请求只负责传递心跳状态和性能指标数据

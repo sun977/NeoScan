@@ -106,7 +106,7 @@ func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
 		DiskTotal:        agent.DiskTotal,
 		TaskSupport:      agent.TaskSupport,
 		Feature:          agent.Feature,
-		Tags:             agent.Tags,
+		Tags:             nil, // Tags 字段已移除，此处设为nil，后续应通过TagService获取
 		LastHeartbeat:    agent.LastHeartbeat,
 		ResultLatestTime: agent.ResultLatestTime,
 		Remark:           agent.Remark,
@@ -243,7 +243,6 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		PID:           req.PID,
 		TaskSupport:   req.TaskSupport, // 新增字段：TaskSupport (对应 ScanType)
 		Feature:       req.Feature,     // 新增字段：Feature (备用)
-		Tags:          nil,             // Tags 默认为空，不允许注册时指定
 		Remark:        req.Remark,
 		Status:        agentModel.AgentStatusOnline,
 		GRPCToken:     generateGRPCToken(),
@@ -347,7 +346,21 @@ func (s *agentManagerService) GetAgentList(req *agentModel.GetAgentListRequest) 
 	// 转换为响应格式
 	agentInfos := make([]*agentModel.AgentInfo, 0, len(agents))
 	for _, agent := range agents {
-		agentInfos = append(agentInfos, convertToAgentInfo(agent))
+		info := convertToAgentInfo(agent)
+		// 填充 Tags 信息 (保持向后兼容)
+		// 遵循 "Never break userspace" 原则
+		tags, err := s.GetAgentTags(agent.AgentID)
+		if err == nil && len(tags) > 0 {
+			// 将 SysTag 对象转换回前端习惯的 []string 列表
+			tagNames := make([]string, len(tags))
+			for i, t := range tags {
+				tagNames[i] = t.Name
+			}
+			info.Tags = tagNames
+		} else {
+			info.Tags = []string{}
+		}
+		agentInfos = append(agentInfos, info)
 	}
 
 	return &agentModel.GetAgentListResponse{
@@ -377,7 +390,21 @@ func (s *agentManagerService) GetAgentInfo(agentID string) (*agentModel.AgentInf
 		return nil, fmt.Errorf("agent不存在: %s", agentID)
 	}
 
-	return convertToAgentInfo(agent), nil
+	info := convertToAgentInfo(agent)
+	// 填充 Tags 信息 (保持向后兼容)
+	// 遵循 "Never break userspace" 原则
+	tags, err := s.GetAgentTags(agentID)
+	if err == nil && len(tags) > 0 {
+		tagNames := make([]string, len(tags))
+		for i, t := range tags {
+			tagNames[i] = t.Name
+		}
+		info.Tags = tagNames
+	} else {
+		info.Tags = []string{}
+	}
+
+	return info, nil
 }
 
 // UpdateAgentStatus 更新Agent状态服务

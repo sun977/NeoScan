@@ -80,7 +80,7 @@ func (m *MockTagService) GetTagByNameAndParent(ctx context.Context, name string,
 	return nil, nil
 }
 func (m *MockTagService) UpdateTag(ctx context.Context, tag *tagSystemModel.SysTag) error { return nil }
-func (m *MockTagService) DeleteTag(ctx context.Context, id uint64) error                  { return nil }
+func (m *MockTagService) DeleteTag(ctx context.Context, id uint64, force bool) error      { return nil }
 func (m *MockTagService) ListTags(ctx context.Context, req *tagSystemModel.ListTagsRequest) ([]tagSystemModel.SysTag, int64, error) {
 	return nil, 0, nil
 }
@@ -97,6 +97,7 @@ func (m *MockTagService) GetRule(ctx context.Context, id uint64) (*tagSystemMode
 func (m *MockTagService) ListRules(ctx context.Context, req *tagSystemModel.ListRulesRequest) ([]tagSystemModel.SysMatchRule, int64, error) {
 	return nil, 0, nil
 }
+func (m *MockTagService) ReloadMatchRules() error { return nil }
 func (m *MockTagService) AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error {
 	return nil
 }

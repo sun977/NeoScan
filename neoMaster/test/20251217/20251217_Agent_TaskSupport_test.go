@@ -47,7 +47,7 @@ func (m *MockTagService) UpdateTag(ctx context.Context, tag *tagSystemModel.SysT
 	args := m.Called(ctx, tag)
 	return args.Error(0)
 }
-func (m *MockTagService) DeleteTag(ctx context.Context, id uint64) error {
+func (m *MockTagService) DeleteTag(ctx context.Context, id uint64, force bool) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
@@ -119,6 +119,25 @@ func (m *MockTagService) GetEntityTags(ctx context.Context, entityType string, e
 	}
 	return args.Get(0).([]tagSystemModel.SysEntityTag), args.Error(1)
 }
+func (m *MockTagService) ReloadMatchRules() error {
+	args := m.Called()
+	return args.Error(0)
+}
+func (m *MockTagService) GetEntityIDsByTagIDs(ctx context.Context, entityType string, tagIDs []uint64) ([]string, error) {
+	args := m.Called(ctx, entityType, tagIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockTagService) GetTagByNameAndParent(ctx context.Context, name string, parentID uint64) (*tagSystemModel.SysTag, error) {
+	args := m.Called(ctx, name, parentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*tagSystemModel.SysTag), args.Error(1)
+}
 
 // --- Mock AgentRepository ---
 type MockAgentRepo struct {
@@ -137,19 +156,19 @@ func (m *MockAgentRepo) GetByHostnameAndPort(hostname string, port int) (*agentM
 	}
 	return args.Get(0).(*agentModel.Agent), args.Error(1)
 }
-func (m *MockAgentRepo) IsValidCapabilityId(capability string) bool {
-	args := m.Called(capability)
+func (m *MockAgentRepo) IsValidTaskSupportId(taskID string) bool {
+	args := m.Called(taskID)
 	return args.Bool(0)
 }
-func (m *MockAgentRepo) IsValidCapabilityByName(capability string) bool {
-	args := m.Called(capability)
+func (m *MockAgentRepo) IsValidTaskSupportByName(taskName string) bool {
+	args := m.Called(taskName)
 	return args.Bool(0)
 }
 func (m *MockAgentRepo) IsValidTagId(tag string) bool {
 	args := m.Called(tag)
 	return args.Bool(0)
 }
-func (m *MockAgentRepo) GetTagIDsByScanTypeNames(names []string) ([]uint64, error) {
+func (m *MockAgentRepo) GetTagIDsByTaskSupportNames(names []string) ([]uint64, error) {
 	args := m.Called(names)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -157,7 +176,7 @@ func (m *MockAgentRepo) GetTagIDsByScanTypeNames(names []string) ([]uint64, erro
 	return args.Get(0).([]uint64), args.Error(1)
 }
 
-func (m *MockAgentRepo) GetTagIDsByScanTypeIDs(ids []string) ([]uint64, error) {
+func (m *MockAgentRepo) GetTagIDsByTaskSupportIDs(ids []string) ([]uint64, error) {
 	args := m.Called(ids)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -208,38 +227,43 @@ func (m *MockAgentRepo) RemoveTag(agentID string, tagID string) error           
 func (m *MockAgentRepo) HasTag(agentID string, tagID string) bool                   { return false }
 func (m *MockAgentRepo) GetTags(agentID string) []string                            { return nil }
 func (m *MockAgentRepo) GetAgentIDsByTagIDs(tagIDs []uint64) ([]string, error)      { return nil, nil }
-
+func (m *MockAgentRepo) AddTaskSupport(agentID string, taskID string) error         { return nil }
+func (m *MockAgentRepo) GetAllScanTypes() ([]*agentModel.ScanType, error)           { return nil, nil }
+func (m *MockAgentRepo) UpdateScanType(scanType *agentModel.ScanType) error         { return nil }
+func (m *MockAgentRepo) GetTaskSupport(agentID string) []string                     { return nil }
+func (m *MockAgentRepo) HasTaskSupport(agentID string, taskID string) bool          { return false }
+func (m *MockAgentRepo) RemoveTaskSupport(agentID string, taskID string) error      { return nil }
 func TestRegisterAgent_WithTaskSupport(t *testing.T) {
 	mockRepo := new(MockAgentRepo)
 	mockTagSvc := new(MockTagService)
 	svc := agentService.NewAgentManagerService(mockRepo, mockTagSvc)
 
 	req := &agentModel.RegisterAgentRequest{
-		Hostname:     "test-host-ts",
-		IPAddress:    "192.168.1.100",
-		Port:         8080,
-		Version:      "1.0",
-		OS:           "linux",
-		Arch:         "amd64",
-		CPUCores:     4,
-		MemoryTotal:  8192,
-		DiskTotal:    102400,
-		Capabilities: []string{"cap1"}, // 即使 TaskSupport 存在，Validation 仍会检查 Capabilities
-		TaskSupport:  []string{"task1", "task2"},
+		Hostname:    "test-host-ts",
+		IPAddress:   "192.168.1.100",
+		Port:        8080,
+		Version:     "1.0",
+		OS:          "linux",
+		Arch:        "amd64",
+		CPUCores:    4,
+		MemoryTotal: 8192,
+		DiskTotal:   102400,
+		// Capabilities: []string{"cap1"}, // 即使 TaskSupport 存在，Validation 仍会检查 Capabilities
+		TaskSupport: []string{"task1", "task2"},
 	}
 
 	// 1. Mock Check Existing (None)
 	mockRepo.On("GetByHostnameAndPort", "test-host-ts", 8080).Return(nil, nil)
 
 	// 2. Mock Validation Checks
-	// validateRegisterRequest checks IsValidCapabilityId for each capability in req.Capabilities
+	// validateRegisterRequest checks IsValidTaskSupportId for each capability in req.Capabilities
 	// 注意：如果 TaskSupport 存在，validateRegisterRequest 只检查 TaskSupport，不再检查 Capabilities
 	// 所以 cap1 不会被检查，除非它也在 TaskSupport 中
-	// mockRepo.On("IsValidCapabilityId", "cap1").Return(true)
+	// mockRepo.On("IsValidTaskSupportId", "cap1").Return(true)
 
-	// RegisterAgent checks IsValidCapabilityId for each TaskSupport (updated from IsValidCapabilityByName)
-	mockRepo.On("IsValidCapabilityId", "task1").Return(true)
-	mockRepo.On("IsValidCapabilityId", "task2").Return(true)
+	// RegisterAgent checks IsValidTaskSupportId for each TaskSupport (updated from IsValidTaskSupportByName)
+	mockRepo.On("IsValidTaskSupportId", "task1").Return(true)
+	mockRepo.On("IsValidTaskSupportId", "task2").Return(true)
 
 	// 3. Mock Create
 	mockRepo.On("Create", mock.MatchedBy(func(a *agentModel.Agent) bool {
@@ -248,8 +272,8 @@ func TestRegisterAgent_WithTaskSupport(t *testing.T) {
 			len(a.Feature) == 0 // Feature should be empty as req.Feature is empty
 	})).Return(nil)
 
-	// 4. Mock GetTagIDsByScanTypeIDs (updated from GetTagIDsByScanTypeNames)
-	mockRepo.On("GetTagIDsByScanTypeIDs", []string{"task1", "task2"}).Return([]uint64{101, 102}, nil)
+	// 4. Mock GetTagIDsByTaskSupportIDs (updated from GetTagIDsByScanTypeNames)
+	mockRepo.On("GetTagIDsByTaskSupportIDs", []string{"task1", "task2"}).Return([]uint64{101, 102}, nil)
 
 	// 5. Mock SyncEntityTags
 	// Expect call with tagIDs 101, 102
@@ -275,58 +299,61 @@ func TestRegisterAgent_WithTaskSupport(t *testing.T) {
 }
 
 func TestRegisterAgent_Compatibility_TaskSupportFromCapabilities(t *testing.T) {
-	mockRepo := new(MockAgentRepo)
-	mockTagSvc := new(MockTagService)
-	svc := agentService.NewAgentManagerService(mockRepo, mockTagSvc)
+	t.Skip("Capabilities field removed from model, compatibility test skipped")
+	/*
+			mockRepo := new(MockAgentRepo)
+			mockTagSvc := new(MockTagService)
+			svc := agentService.NewAgentManagerService(mockRepo, mockTagSvc)
 
-	req := &agentModel.RegisterAgentRequest{
-		Hostname:     "test-host-compat",
-		IPAddress:    "192.168.1.101",
-		Port:         8081,
-		Version:      "1.0",
-		OS:           "linux",
-		Arch:         "amd64",
-		CPUCores:     4,
-		MemoryTotal:  8192,
-		DiskTotal:    102400,
-		Capabilities: []string{"legacy_task1"},
-		TaskSupport:  nil, // Empty, should be filled from Capabilities
-	}
+			req := &agentModel.RegisterAgentRequest{
+				Hostname:     "test-host-compat",
+				IPAddress:    "192.168.1.101",
+				Port:         8081,
+				Version:      "1.0",
+				OS:           "linux",
+				Arch:         "amd64",
+				CPUCores:     4,
+				MemoryTotal:  8192,
+				DiskTotal:    102400,
+				Capabilities: []string{"legacy_task1"},
+				// TaskSupport:  nil, // Empty, should be filled from Capabilities
+			}
 
-	// 1. Mock Check Existing
-	mockRepo.On("GetByHostnameAndPort", "test-host-compat", 8081).Return(nil, nil)
+			// 1. Mock Check Existing
+			mockRepo.On("GetByHostnameAndPort", "test-host-compat", 8081).Return(nil, nil)
 
-	// 2. Validation
-	// Capabilities is "legacy_task1"
-	mockRepo.On("IsValidCapabilityId", "legacy_task1").Return(true)
+			// 2. Validation
+			// Capabilities is "legacy_task1"
+			mockRepo.On("IsValidCapabilityId", "legacy_task1").Return(true)
+		//
+			// After compatibility fill, TaskSupport is "legacy_task1"
+			mockRepo.On("IsValidCapabilityId", "legacy_task1").Return(true)
+		//
+			// 3. Create
+			mockRepo.On("Create", mock.MatchedBy(func(a *agentModel.Agent) bool {
+				// TaskSupport should be filled from Capabilities
+				return len(a.TaskSupport) == 1 && a.TaskSupport[0] == "legacy_task1"
+			})).Return(nil)
 
-	// After compatibility fill, TaskSupport is "legacy_task1"
-	mockRepo.On("IsValidCapabilityId", "legacy_task1").Return(true)
+			// 4. GetTagIDs
+			mockRepo.On("GetTagIDsByScanTypeIDs", []string{"legacy_task1"}).Return([]uint64{201}, nil)
 
-	// 3. Create
-	mockRepo.On("Create", mock.MatchedBy(func(a *agentModel.Agent) bool {
-		// TaskSupport should be filled from Capabilities
-		return len(a.TaskSupport) == 1 && a.TaskSupport[0] == "legacy_task1"
-	})).Return(nil)
+			// 5. SyncEntityTags
+			mockTagSvc.On("SyncEntityTags",
+				mock.Anything,
+				"agent",
+				mock.AnythingOfType("string"),
+				[]uint64{201},
+				"agent_capability",
+				uint64(0),
+			).Return(nil)
 
-	// 4. GetTagIDs
-	mockRepo.On("GetTagIDsByScanTypeIDs", []string{"legacy_task1"}).Return([]uint64{201}, nil)
+			resp, err := svc.RegisterAgent(req)
 
-	// 5. SyncEntityTags
-	mockTagSvc.On("SyncEntityTags",
-		mock.Anything,
-		"agent",
-		mock.AnythingOfType("string"),
-		[]uint64{201},
-		"agent_capability",
-		uint64(0),
-	).Return(nil)
+			assert.NoError(t, err)
+			assert.NotNil(t, resp)
 
-	resp, err := svc.RegisterAgent(req)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-
-	mockRepo.AssertExpectations(t)
-	mockTagSvc.AssertExpectations(t)
+			mockRepo.AssertExpectations(t)
+			mockTagSvc.AssertExpectations(t)
+	*/
 }

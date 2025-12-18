@@ -64,6 +64,9 @@ func (m *MockTagRepository) GetEntityTags(entityType, entityID string) ([]tag_sy
 	return res, nil
 }
 func (m *MockTagRepository) RemoveAllEntityTags(entityType, entityID string) error { return nil }
+func (m *MockTagRepository) GetEntityIDsByTagIDs(entityType string, tagIDs []uint64) ([]string, error) {
+	return nil, nil
+}
 
 func TestAutoTag(t *testing.T) {
 	// 1. Setup Mock Repo

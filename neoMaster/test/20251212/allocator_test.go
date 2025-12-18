@@ -80,6 +80,7 @@ func (m *MockTagService) GetTagByNameAndParent(ctx context.Context, name string,
 	return nil, nil
 }
 func (m *MockTagService) UpdateTag(ctx context.Context, tag *tagSystemModel.SysTag) error { return nil }
+func (m *MockTagService) MoveTag(ctx context.Context, id, targetParentID uint64) error    { return nil }
 func (m *MockTagService) DeleteTag(ctx context.Context, id uint64, force bool) error      { return nil }
 func (m *MockTagService) ListTags(ctx context.Context, req *tagSystemModel.ListTagsRequest) ([]tagSystemModel.SysTag, int64, error) {
 	return nil, 0, nil

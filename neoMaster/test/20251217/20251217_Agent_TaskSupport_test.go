@@ -47,6 +47,10 @@ func (m *MockTagService) UpdateTag(ctx context.Context, tag *tagSystemModel.SysT
 	args := m.Called(ctx, tag)
 	return args.Error(0)
 }
+func (m *MockTagService) MoveTag(ctx context.Context, id, targetParentID uint64) error {
+	args := m.Called(ctx, id, targetParentID)
+	return args.Error(0)
+}
 func (m *MockTagService) DeleteTag(ctx context.Context, id uint64, force bool) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)

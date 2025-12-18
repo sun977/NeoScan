@@ -24,6 +24,7 @@ func (m *MockTagRepository) GetTagsByParent(parentID uint64) ([]tag_system.SysTa
 }
 func (m *MockTagRepository) GetTagsByIDs(ids []uint64) ([]tag_system.SysTag, error) { return nil, nil }
 func (m *MockTagRepository) UpdateTag(tag *tag_system.SysTag) error                 { return nil }
+func (m *MockTagRepository) MoveTag(id, targetParentID uint64) error                { return nil }
 func (m *MockTagRepository) DeleteTag(id uint64, force bool) error                  { return nil }
 func (m *MockTagRepository) ListTags(req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) {
 	return nil, 0, nil

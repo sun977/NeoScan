@@ -370,26 +370,26 @@ func TestTagSystemIntegration(t *testing.T) {
 		Name:     "TestTag_Manual_Ops",
 		ParentID: rootTag.ID,
 	}
-	if err := svc.CreateTag(ctx, manualTag); err != nil {
-		t.Fatalf("Failed to create manual tag: %v", err)
+	if err12 := svc.CreateTag(ctx, manualTag); err12 != nil {
+		t.Fatalf("Failed to create manual tag: %v", err12)
 	}
-	if err := repo.AddEntityTag(&tag_system.SysEntityTag{
+	if err13 := repo.AddEntityTag(&tag_system.SysEntityTag{
 		EntityType: "host",
 		EntityID:   hostID_A,
 		TagID:      manualTag.ID,
 		Source:     "manual",
-	}); err != nil {
-		t.Fatalf("Failed to add manual tag: %v", err)
+	}); err13 != nil {
+		t.Fatalf("Failed to add manual tag: %v", err13)
 	}
 
 	// 创建两个用于 Agent 上报的标签
 	linuxTag := &tag_system.SysTag{Name: "OS_Linux", ParentID: rootTag.ID}
 	dbTag := &tag_system.SysTag{Name: "App_Database", ParentID: rootTag.ID}
-	if err := svc.CreateTag(ctx, linuxTag); err != nil {
-		t.Fatalf("Failed to create linux tag: %v", err)
+	if err14 := svc.CreateTag(ctx, linuxTag); err14 != nil {
+		t.Fatalf("Failed to create linux tag: %v", err14)
 	}
-	if err := svc.CreateTag(ctx, dbTag); err != nil {
-		t.Fatalf("Failed to create db tag: %v", err)
+	if err15 := svc.CreateTag(ctx, dbTag); err15 != nil {
+		t.Fatalf("Failed to create db tag: %v", err15)
 	}
 
 	// 模拟 Agent 上报

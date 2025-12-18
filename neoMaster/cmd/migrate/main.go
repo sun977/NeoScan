@@ -445,6 +445,17 @@ func (s *DataSeeder) seedSystemData() error {
 		return fmt.Errorf("创建管理员用户失败: %w", err)
 	}
 
+	sysUser := system.User{
+		Username: "sysuser",
+		Email:    "sysuser@neoscan.com",
+		Password: "$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ", // 密码: sysuser123
+		Nickname: "系统用户-仅系统使用",
+		Status:   1,
+	}
+	if err := s.db.Where("username = ?", sysUser.Username).FirstOrCreate(&sysUser).Error; err != nil {
+		return fmt.Errorf("创建系统用户失败: %w", err)
+	}
+
 	// 4. 分配权限（管理员拥有所有权限）
 	var adminRole system.Role
 	if err := s.db.Where("name = ?", "admin").First(&adminRole).Error; err != nil {
@@ -471,6 +482,13 @@ func (s *DataSeeder) seedSystemData() error {
 		RoleID: adminRole.ID,
 	}
 	s.db.Where("user_id = ? AND role_id = ?", userRole.UserID, userRole.RoleID).FirstOrCreate(&userRole)
+
+	// 为系统用户分配系统用户角色
+	sysRole := system.UserRole{
+		UserID: sysUser.ID,
+		RoleID: adminRole.ID,
+	}
+	s.db.Where("user_id = ? AND role_id = ?", sysRole.UserID, sysRole.RoleID).FirstOrCreate(&sysRole)
 
 	return nil
 }

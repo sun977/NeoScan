@@ -11,13 +11,82 @@
 package agent_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	agentModel "neomaster/internal/model/agent"
+	tagSystemModel "neomaster/internal/model/tag_system"
 	agentRepository "neomaster/internal/repo/mysql/agent"
 	agentService "neomaster/internal/service/agent"
 )
+
+// -------------------- 测试桩：假 TagService --------------------
+type fakeTagService struct{}
+
+func (s *fakeTagService) CreateTag(ctx context.Context, tag *tagSystemModel.SysTag) error { return nil }
+func (s *fakeTagService) GetTag(ctx context.Context, id uint64) (*tagSystemModel.SysTag, error) {
+	return nil, nil
+}
+func (s *fakeTagService) GetTagByName(ctx context.Context, name string) (*tagSystemModel.SysTag, error) {
+	return nil, nil
+}
+func (s *fakeTagService) GetTagByNameAndParent(ctx context.Context, name string, parentID uint64) (*tagSystemModel.SysTag, error) {
+	return nil, nil
+}
+func (s *fakeTagService) GetTagsByIDs(ctx context.Context, ids []uint64) ([]tagSystemModel.SysTag, error) {
+	return nil, nil
+}
+func (s *fakeTagService) UpdateTag(ctx context.Context, tag *tagSystemModel.SysTag) error { return nil }
+func (s *fakeTagService) MoveTag(ctx context.Context, id, targetParentID uint64) error    { return nil }
+func (s *fakeTagService) DeleteTag(ctx context.Context, id uint64, force bool) error      { return nil }
+func (s *fakeTagService) ListTags(ctx context.Context, req *tagSystemModel.ListTagsRequest) ([]tagSystemModel.SysTag, int64, error) {
+	return nil, 0, nil
+}
+func (s *fakeTagService) CreateRule(ctx context.Context, rule *tagSystemModel.SysMatchRule) error {
+	return nil
+}
+func (s *fakeTagService) UpdateRule(ctx context.Context, rule *tagSystemModel.SysMatchRule) error {
+	return nil
+}
+func (s *fakeTagService) DeleteRule(ctx context.Context, id uint64) error { return nil }
+func (s *fakeTagService) GetRule(ctx context.Context, id uint64) (*tagSystemModel.SysMatchRule, error) {
+	return nil, nil
+}
+func (s *fakeTagService) ListRules(ctx context.Context, req *tagSystemModel.ListRulesRequest) ([]tagSystemModel.SysMatchRule, int64, error) {
+	return nil, 0, nil
+}
+func (s *fakeTagService) ReloadMatchRules() error { return nil }
+func (s *fakeTagService) AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error {
+	return nil
+}
+func (s *fakeTagService) SubmitPropagationTask(ctx context.Context, ruleID uint64, action string) (string, error) {
+	return "", nil
+}
+func (s *fakeTagService) SubmitEntityPropagationTask(ctx context.Context, entityType string, entityID uint64, tagIDs []uint64, action string) (string, error) {
+	return "", nil
+}
+func (s *fakeTagService) SyncEntityTags(ctx context.Context, entityType string, entityID string, targetTagIDs []uint64, sourceScope string, ruleID uint64) error {
+	return nil
+}
+func (s *fakeTagService) AddEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64, source string, ruleID uint64) error {
+	return nil
+}
+func (s *fakeTagService) RemoveEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64) error {
+	return nil
+}
+func (s *fakeTagService) GetEntityTags(ctx context.Context, entityType string, entityID string) ([]tagSystemModel.SysEntityTag, error) {
+	return nil, nil
+}
+func (s *fakeTagService) GetEntityIDsByTagIDs(ctx context.Context, entityType string, tagIDs []uint64) ([]string, error) {
+	// 简单模拟：如果包含 tagID=1，返回 A1, A3 (模拟之前的 G-1 分组)
+	for _, id := range tagIDs {
+		if id == 1 {
+			return []string{"A1", "A3"}, nil
+		}
+	}
+	return []string{}, nil
+}
 
 // -------------------- 测试桩：假仓储 --------------------
 // fakeRepo 实现 agentRepository.AgentRepository，用内存数据支撑分析逻辑
@@ -146,6 +215,20 @@ func (f *fakeRepo) GetAgentIDsByTagIDs(tagIDs []uint64) ([]string, error) {
 	return []string{}, nil
 }
 
+// 任务支持
+func (f *fakeRepo) IsValidTaskSupportId(string) bool                       { return true }
+func (f *fakeRepo) IsValidTaskSupportByName(string) bool                   { return true }
+func (f *fakeRepo) AddTaskSupport(string, string) error                    { return nil }
+func (f *fakeRepo) RemoveTaskSupport(string, string) error                 { return nil }
+func (f *fakeRepo) HasTaskSupport(string, string) bool                     { return false }
+func (f *fakeRepo) GetTaskSupport(string) []string                         { return []string{} }
+func (f *fakeRepo) GetTagIDsByTaskSupportNames([]string) ([]uint64, error) { return []uint64{}, nil }
+func (f *fakeRepo) GetTagIDsByTaskSupportIDs([]string) ([]uint64, error)   { return []uint64{}, nil }
+func (f *fakeRepo) GetAllScanTypes() ([]*agentModel.ScanType, error) {
+	return []*agentModel.ScanType{}, nil
+}
+func (f *fakeRepo) UpdateScanType(*agentModel.ScanType) error { return nil }
+
 var _ agentRepository.AgentRepository = (*fakeRepo)(nil)
 
 // -------------------- 工具函数 --------------------
@@ -160,7 +243,7 @@ func almostEqual(a, b, eps float64) bool {
 func Test_GetAgentStatistics_WithAndWithoutTag(t *testing.T) {
 	now := time.Now()
 	repo := newFakeRepoWithData(now)
-	svc := agentService.NewAgentMonitorService(repo)
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
 
 	// 无标签过滤：3台，总数=3；窗口180s内在线A1/A2=2，离线=1
 	respAll, err := svc.GetAgentStatistics(180, nil)
@@ -201,7 +284,7 @@ func Test_GetAgentStatistics_WithAndWithoutTag(t *testing.T) {
 func Test_GetAgentLoadBalance_TagTopN(t *testing.T) {
 	now := time.Now()
 	repo := newFakeRepoWithData(now)
-	svc := agentService.NewAgentMonitorService(repo)
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
 
 	// 负载评分 A1≈100, A3≈75, A2≈10；TopBusy取前2：A1,A3；TopIdle取前2(最小)：A2,A3
 	resp, err := svc.GetAgentLoadBalance(310, 2, nil)
@@ -229,7 +312,7 @@ func Test_GetAgentLoadBalance_TagTopN(t *testing.T) {
 func Test_GetAgentPerformanceAnalysis_TopLists(t *testing.T) {
 	now := time.Now()
 	repo := newFakeRepoWithData(now)
-	svc := agentService.NewAgentMonitorService(repo)
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
 
 	resp, err := svc.GetAgentPerformanceAnalysis(310, 2, nil) // 窗口放宽至包含A3
 	if err != nil {
@@ -265,7 +348,7 @@ func Test_GetAgentCapacityAnalysis_BottlenecksAndScore(t *testing.T) {
 	repo := newFakeRepoWithData(now)
 	repo.metrics[2].Timestamp = now.Add(-30 * time.Second) // A3 调整为窗口内
 
-	svc := agentService.NewAgentMonitorService(repo)
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
 	// 阈值：CPU/Mem/Disk=80
 	// 标签Tag-1: A1(90/90/40), A3(70/30/60)
 	resp, err := svc.GetAgentCapacityAnalysis(180, 80, 80, 80, []uint64{1})

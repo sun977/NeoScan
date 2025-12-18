@@ -90,8 +90,8 @@ func TestTagService_CRUD(t *testing.T) {
 
 	// 4. Update Tag
 	childTag.Description = "Updated Description"
-	if err := tagSvc.UpdateTag(ctx, childTag); err != nil {
-		t.Fatalf("UpdateTag failed: %v", err)
+	if err1 := tagSvc.UpdateTag(ctx, childTag); err1 != nil {
+		t.Fatalf("UpdateTag failed: %v", err1)
 	}
 	gotTagUpdated, _ := tagSvc.GetTag(ctx, childTag.ID)
 	if gotTagUpdated.Description != "Updated Description" {
@@ -111,8 +111,8 @@ func TestTagService_CRUD(t *testing.T) {
 	}
 
 	// 6. Delete Tag
-	if err := tagSvc.DeleteTag(ctx, rootTag.ID, true); err != nil { // Force delete root
-		t.Fatalf("DeleteTag failed: %v", err)
+	if err1 := tagSvc.DeleteTag(ctx, rootTag.ID, true); err1 != nil { // Force delete root
+		t.Fatalf("DeleteTag failed: %v", err1)
 	}
 
 	// Verify Deletion

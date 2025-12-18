@@ -243,10 +243,15 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteTag(c.Request.Context(), id); err != nil {
+	// 是否强制删除子标签 --- 默认不强制删除
+	forceStr := c.DefaultQuery("force", "false")
+	force, _ := strconv.ParseBool(forceStr)
+
+	if err := h.service.DeleteTag(c.Request.Context(), id, force); err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
 			"operation": "delete_tag",
 			"id":        id,
+			"force":     force,
 		})
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,

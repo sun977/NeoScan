@@ -32,7 +32,8 @@ type TagRepository interface {
 	AddEntityTag(et *tag_system.SysEntityTag) error
 	RemoveEntityTag(entityType, entityID string, tagID uint64) error
 	GetEntityTags(entityType, entityID string) ([]tag_system.SysEntityTag, error)
-	RemoveAllEntityTags(entityType, entityID string) error // 清除实体的所有标签
+	RemoveAllEntityTags(entityType, entityID string) error                     // 清除实体的所有标签
+	GetEntityIDsByTagIDs(entityType string, tagIDs []uint64) ([]string, error) // 根据标签ID获取实体ID列表
 }
 
 type tagRepository struct {
@@ -223,4 +224,19 @@ func (r *tagRepository) GetEntityTags(entityType, entityID string) ([]tag_system
 func (r *tagRepository) RemoveAllEntityTags(entityType, entityID string) error {
 	return r.db.Where("entity_type = ? AND entity_id = ?", entityType, entityID).
 		Delete(&tag_system.SysEntityTag{}).Error
+}
+
+// GetEntityIDsByTagIDs 根据标签ID获取实体ID列表
+func (r *tagRepository) GetEntityIDsByTagIDs(entityType string, tagIDs []uint64) ([]string, error) {
+	var entityIDs []string
+	if len(tagIDs) == 0 {
+		return entityIDs, nil
+	}
+	// 查询 SysEntityTag 表，获取对应 EntityID
+	// 使用 DISTINCT 去重
+	err := r.db.Model(&tag_system.SysEntityTag{}).
+		Where("entity_type = ? AND tag_id IN ?", entityType, tagIDs).
+		Distinct("entity_id").
+		Pluck("entity_id", &entityIDs).Error
+	return entityIDs, err
 }

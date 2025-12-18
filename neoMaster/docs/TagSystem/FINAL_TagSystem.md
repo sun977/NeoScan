@@ -18,6 +18,7 @@
 - **设计方案**: 采用 **Materialized Path (物化路径)** 方案 (Scheme 2)。
 - **实现细节**:
   - `CreateTag` 自动维护 `Path` 字段 (如 `/1/5/`)。
+  - `MoveTag` 实现了**完整的子树迁移**，利用事务和批量更新保障所有后代节点的 `Path` 和 `Level` 自动同步。
   - `GetEntityIDsByTagIDs` 利用 `path LIKE 'prefix%'` 实现高效的子树查询，无需递归数据库。
   - `DeleteTag` 支持 `force` 参数，基于路径实现安全的级联删除。
 
@@ -28,9 +29,7 @@
 ## 3. 技术债务与风险
 
 ### 3.1 遗留问题
-- **UpdateTag 路径维护**: 目前 `UpdateTag` 仅更新自身字段，若修改 `ParentID`，不会自动更新其子节点的 `Path`。这可能导致树结构断裂。
-  - **风险等级**: 中 (Medium) - 只有在移动标签树时才会触发。
-  - **建议**: 在后续迭代中实现 `MoveTag` 逻辑，处理路径递归更新。
+- 无重大遗留问题。
 
 ### 3.2 下一步建议
 - **监控集成**: 为 `AutoTag` 和 `ReloadMatchRules` 添加 Prometheus 监控指标。

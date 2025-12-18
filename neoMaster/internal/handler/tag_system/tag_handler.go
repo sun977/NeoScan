@@ -225,6 +225,68 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 	})
 }
 
+// MoveTag 移动标签
+func (h *TagHandler) MoveTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+	userAgent := c.GetHeader("User-Agent")
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   "invalid id format",
+		})
+		return
+	}
+
+	var req tag_system.MoveTagRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "PUT", map[string]interface{}{
+			"operation":  "move_tag",
+			"error":      "invalid_json",
+			"user_agent": userAgent,
+		})
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.MoveTag(c.Request.Context(), id, req.TargetParentID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "PUT", map[string]interface{}{
+			"operation":        "move_tag",
+			"id":               id,
+			"target_parent_id": req.TargetParentID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to move tag",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("move_tag", 0, "", clientIP, XRequestID, "success", "Tag moved successfully", map[string]interface{}{
+		"id":               id,
+		"target_parent_id": req.TargetParentID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag moved successfully",
+	})
+}
+
 // DeleteTag 删除标签
 func (h *TagHandler) DeleteTag(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)

@@ -16,7 +16,6 @@ import (
 	"neomaster/internal/pkg/utils"
 	agentRepository "neomaster/internal/repo/mysql/agent"
 	"neomaster/internal/service/tag_system"
-	"strconv"
 	"time"
 )
 
@@ -169,17 +168,12 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 	}
 
 	// 检查tags是否包含有效值 - 委托给TagService层验证
-	for _, tag := range req.Tags {
-		// 尝试解析TagID
-		tagID, err := strconv.ParseUint(tag, 10, 64)
-		if err != nil {
-			return fmt.Errorf("invalid tag ID format: %s", tag)
-		}
+	for _, tagID := range req.Tags {
 		// 验证Tag是否存在
 		// 使用 context.Background() 因为 validateRegisterRequest 没有 Context 参数
-		_, err = s.tagService.GetTag(context.Background(), tagID)
+		_, err := s.tagService.GetTag(context.Background(), tagID)
 		if err != nil {
-			return fmt.Errorf("tag not found: %s", tag)
+			return fmt.Errorf("tag not found: %d", tagID)
 		}
 	}
 
@@ -249,7 +243,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		PID:           req.PID,
 		TaskSupport:   req.TaskSupport, // 新增字段：TaskSupport (对应 ScanType)
 		Feature:       req.Feature,     // 新增字段：Feature (备用)
-		Tags:          req.Tags,
+		Tags:          utils.Uint64SliceToStringSlice(req.Tags),
 		Remark:        req.Remark,
 		Status:        agentModel.AgentStatusOnline,
 		GRPCToken:     generateGRPCToken(),
@@ -886,15 +880,15 @@ func (s *agentManagerService) SyncScanTypesToTags(ctx context.Context) error {
 	// 为准确起见，我们按层级查找
 	rootTag, err := s.tagService.GetTagByNameAndParent(ctx, "ROOT", 0)
 	if err != nil || rootTag == nil {
-		return fmt.Errorf("ROOT tag not found")
+		return fmt.Errorf("tag 'ROOT' not found")
 	}
 	systemTag, err := s.tagService.GetTagByNameAndParent(ctx, "System", rootTag.ID)
 	if err != nil || systemTag == nil {
-		return fmt.Errorf("System tag not found")
+		return fmt.Errorf("tag 'System' not found")
 	}
 	taskSupportTag, err := s.tagService.GetTagByNameAndParent(ctx, "TaskSupport", systemTag.ID)
 	if err != nil || taskSupportTag == nil {
-		return fmt.Errorf("TaskSupport tag not found")
+		return fmt.Errorf("tag 'TaskSupport' not found")
 	}
 
 	// 3. 获取所有 ScanTypes

@@ -326,6 +326,20 @@ func UintSliceToStringSlice(uintSlice []uint) []string {
 	return result
 }
 
+// Uint64SliceToStringSlice 无符号64位整数切片转字符串切片
+// 参数: uint64Slice - 无符号64位整数切片
+// 返回: 字符串切片
+func Uint64SliceToStringSlice(uint64Slice []uint64) []string {
+	if len(uint64Slice) == 0 {
+		return nil
+	}
+	result := make([]string, len(uint64Slice))
+	for i, val := range uint64Slice {
+		result[i] = strconv.FormatUint(val, 10)
+	}
+	return result
+}
+
 // StringSliceToUintSlice 字符串切片转无符号整数切片
 // 参数: strSlice - 字符串切片
 // 返回: 无符号整数切片和错误信息
@@ -631,8 +645,6 @@ func StringSliceToJSONArray(slice []string) (string, error) {
 	return string(bytes), nil
 }
 
-
-
 // ScanStringSlice 从数据库读取JSON数据并转换为字符串切片
 // 参数: value - 数据库中的值
 // 返回: 字符串切片和错误信息
@@ -712,8 +724,6 @@ func ValueMapToJSON(m map[string]interface{}) (driver.Value, error) {
 	return json.Marshal(m)
 }
 
-
-
 // PostgreSQLArrayToStringSlice PostgreSQL数组格式转字符串切片
 // 参数: pgArray - PostgreSQL数组字符串，如 {a,b,c}
 // 返回: 字符串切片和错误信息
@@ -746,7 +756,7 @@ func PostgreSQLArrayToStringSlice(pgArray string) ([]string, error) {
 // 返回: PostgreSQL数组字符串
 // 用于处理Go切片到PostgreSQL数组格式的转换
 func StringSliceToPostgreSQLArray(slice []string) string {
-	if slice == nil || len(slice) == 0 {
+	if len(slice) == 0 {
 		return "{}"
 	}
 

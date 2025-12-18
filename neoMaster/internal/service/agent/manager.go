@@ -167,13 +167,13 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 		}
 	}
 
-	// 检查tags是否包含有效值 - 委托给TagService层验证
-	for _, tagID := range req.Tags {
-		// 验证Tag是否存在
-		// 使用 context.Background() 因为 validateRegisterRequest 没有 Context 参数
-		_, err := s.tagService.GetTag(context.Background(), tagID)
-		if err != nil {
-			return fmt.Errorf("tag not found: %d", tagID)
+	// 检查Feature的有效性 (长度和数量限制)
+	if len(req.Feature) > 50 {
+		return fmt.Errorf("too many features (limit 50)")
+	}
+	for _, f := range req.Feature {
+		if len(f) > 64 {
+			return fmt.Errorf("feature string too long (limit 64 chars): %s", f)
 		}
 	}
 
@@ -243,7 +243,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		PID:           req.PID,
 		TaskSupport:   req.TaskSupport, // 新增字段：TaskSupport (对应 ScanType)
 		Feature:       req.Feature,     // 新增字段：Feature (备用)
-		Tags:          utils.Uint64SliceToStringSlice(req.Tags),
+		Tags:          nil,             // Tags 默认为空，不允许注册时指定
 		Remark:        req.Remark,
 		Status:        agentModel.AgentStatusOnline,
 		GRPCToken:     generateGRPCToken(),
@@ -840,24 +840,30 @@ func (s *agentManagerService) BootstrapSystemTags(ctx context.Context) error {
 	}
 
 	// 3. TaskSupport
-	_, err = ensureTag("TaskSupport", "system", systemTag.ID, "Agent TaskSupport (ScanTypes)")
+	_, err = ensureTag("TaskSupport", "system", systemTag.ID, "Agent Task Capabilities")
 	if err != nil {
 		return fmt.Errorf("ensure TaskSupport failed: %v", err)
 	}
 
-	// 4. Feature
-	_, err = ensureTag("Feature", "system", systemTag.ID, "Agent General Features")
+	// 4. AgentFeature (New) - 为未来自动打标预留
+	_, err = ensureTag("AgentFeature", "system", systemTag.ID, "Agent Hardware/Software Features")
+	if err != nil {
+		return fmt.Errorf("ensure AgentFeature failed: %v", err)
+	}
+
+	// 5. Feature
+	_, err = ensureTag("Feature", "system", systemTag.ID, "System Features")
 	if err != nil {
 		return fmt.Errorf("ensure Feature failed: %v", err)
 	}
 
-	// 5. AgentGroup
+	// 6. AgentGroup
 	agentGroupTag, err := ensureTag("AgentGroup", "agent_group", rootTag.ID, "Agent Group Root")
 	if err != nil {
 		return fmt.Errorf("ensure AgentGroup failed: %v", err)
 	}
 
-	// 6. Default Group
+	// 7. Default Group
 	_, err = ensureTag("Default", "agent_group", agentGroupTag.ID, "Default Agent Group")
 	if err != nil {
 		return fmt.Errorf("ensure Default Group failed: %v", err)

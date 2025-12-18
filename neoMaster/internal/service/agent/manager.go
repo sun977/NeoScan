@@ -267,20 +267,26 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	// 获取 TaskSupport 对应的 TagID
 	// 修改逻辑：Agent 上传的是字符串 Key (Name)，需要转换为 TagID
 	// 优先尝试作为 Name 查询，如果查不到再尝试作为 ID 查询 (兼容旧逻辑)
-	tagIDs, err := s.agentRepo.GetTagIDsByTaskSupportNames(req.TaskSupport)
-	if err != nil || len(tagIDs) == 0 {
-		// 尝试作为 ID 查询 (兼容性处理)
-		tagIDs, err = s.agentRepo.GetTagIDsByTaskSupportIDs(req.TaskSupport)
-	}
+	if len(req.TaskSupport) > 0 {
+		tagIDs, err := s.agentRepo.GetTagIDsByTaskSupportNames(req.TaskSupport)
+		if err != nil || len(tagIDs) == 0 {
+			// 尝试作为 ID 查询 (兼容性处理)
+			tagIDs, err = s.agentRepo.GetTagIDsByTaskSupportIDs(req.TaskSupport)
+		}
 
-	if err != nil {
-		logger.LogWarn("获取TaskSupport对应的TagID失败", "", 0, "", "RegisterAgent", "GetTagIDsByTaskSupportNames/IDs", map[string]interface{}{
-			"error":        err.Error(),
-			"task_support": req.TaskSupport,
-			"agent_id":     agentID,
-		})
-		// 不中断注册流程，仅记录警告
-	} else if len(tagIDs) > 0 {
+		// 核心校验：如果提供了TaskSupport但无法找到任何对应的TagID，说明提供的TaskSupport无效
+		if len(tagIDs) == 0 {
+			errMsg := "无效的TaskSupport: 提供的任务支持类型在系统中不存在"
+			if err != nil {
+				errMsg = fmt.Sprintf("%s: %v", errMsg, err)
+			}
+			logger.LogWarn("RegisterAgent失败", errMsg, 0, "", "RegisterAgent", "GetTagIDsByTaskSupportNames/IDs", map[string]interface{}{
+				"task_support": req.TaskSupport,
+				"agent_id":     agentID,
+			})
+			return nil, fmt.Errorf("无效的TaskSupport: 请检查scantype是否正确")
+		}
+
 		// 同步 Tags
 		// 使用 context.Background() 因为 RegisterAgent 没有 Context 参数
 		// sourceScope 使用 "agent_capability" 以区别于其他来源
@@ -291,7 +297,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 				"agent_id": agentID,
 				"tag_ids":  tagIDs,
 			})
-			// 同样不中断注册流程，但这可能导致标签数据不一致
+			// 同步失败仅记录错误，不中断注册，因为核心校验已通过
 		} else {
 			logger.LogInfo("Agent能力标签同步成功", "", 0, "", "RegisterAgent", "SyncEntityTags", map[string]interface{}{
 				"agent_id": agentID,

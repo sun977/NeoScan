@@ -43,7 +43,7 @@ type TagService interface {
 	GetTagByNameAndParent(ctx context.Context, name string, parentID uint64) (*tag_system.SysTag, error) // 通过名称和父ID获取标签
 	GetTagsByIDs(ctx context.Context, ids []uint64) ([]tag_system.SysTag, error)                         // 批量获取标签
 	UpdateTag(ctx context.Context, tag *tag_system.SysTag) error
-	DeleteTag(ctx context.Context, id uint64) error
+	DeleteTag(ctx context.Context, id uint64, force bool) error
 	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
 
 	// --- 规则 Rules CRUD ---
@@ -241,9 +241,9 @@ func (s *tagService) UpdateTag(ctx context.Context, tag *tag_system.SysTag) erro
 	return s.repo.UpdateTag(tag)
 }
 
-func (s *tagService) DeleteTag(ctx context.Context, id uint64) error {
-	// TODO: 检查是否有子标签或已关联实体
-	return s.repo.DeleteTag(id)
+func (s *tagService) DeleteTag(ctx context.Context, id uint64, force bool) error {
+	// 调用 repo 层的删除逻辑，repo 层负责级联删除的检查和执行
+	return s.repo.DeleteTag(id, force)
 }
 
 func (s *tagService) ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error) {

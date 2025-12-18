@@ -76,14 +76,14 @@ type AgentRepository interface {
 	GetTagIDsByTaskSupportNames(names []string) ([]uint64, error) // 根据任务支持名称获取TagID
 	GetTagIDsByTaskSupportIDs(ids []string) ([]uint64, error)     // 根据任务支持ID获取TagID
 
-	// Agent 标签管理
-	IsValidTagId(tag string) bool                          // 判断标签ID是否有效
-	IsValidTagByName(tag string) bool                      // 判断标签名称是否有效
-	AddTag(agentID string, tagID string) error             // 添加Agent标签
-	RemoveTag(agentID string, tagID string) error          // 移除Agent标签
-	HasTag(agentID string, tagID string) bool              // 判断Agent是否有指定标签
-	GetTags(agentID string) []string                       // 获取Agent所有标签ID列表
-	GetAgentIDsByTagIDs(tagIDs []uint64) ([]string, error) // 根据标签ID获取AgentID列表
+	// // Agent 标签管理
+	// IsValidTagId(tag string) bool                          // 判断标签ID是否有效
+	// IsValidTagByName(tag string) bool                      // 判断标签名称是否有效
+	// AddTag(agentID string, tagID string) error             // 添加Agent标签
+	// RemoveTag(agentID string, tagID string) error          // 移除Agent标签
+	// HasTag(agentID string, tagID string) bool              // 判断Agent是否有指定标签
+	// GetTags(agentID string) []string                       // 获取Agent所有标签ID列表
+	// GetAgentIDsByTagIDs(tagIDs []uint64) ([]string, error) // 根据标签ID获取AgentID列表
 
 	// Agent 分组管理
 	// (已移除 AgentGroup 相关功能，改用 Tag 系统)

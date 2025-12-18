@@ -20,6 +20,7 @@ package agent
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -417,12 +418,27 @@ func (r *agentRepository) GetList(page, pageSize int, status *agentModel.AgentSt
 	}
 	// 标签过滤
 	if len(tags) > 0 {
-		// 通过 JSON_CONTAINS 在 JSON 数组字段上逐项过滤
-		for _, tag := range tags {
-			query = query.Where("JSON_CONTAINS(tags, JSON_QUOTE(?))", tag)
-			// // 使用JSON_CONTAINS函数精确匹配JSON数组中的字符串值
-			// // 注意：tag需要用双引号包围，因为JSON数组中存储的是字符串
-			// query = query.Where("JSON_CONTAINS(tags, ?)", `"`+tag+`"`)
+		// 转换标签ID格式
+		var tagIDs []uint64
+		for _, t := range tags {
+			if id, err := strconv.ParseUint(t, 10, 64); err == nil {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+
+		if len(tagIDs) > 0 {
+			// 使用子查询过滤：找出拥有所有指定标签的AgentID
+			// SELECT entity_id FROM sys_entity_tags WHERE entity_type = 'agent' AND tag_id IN (?) GROUP BY entity_id HAVING COUNT(DISTINCT tag_id) = ?
+			subQuery := r.db.Table("sys_entity_tags").
+				Select("entity_id").
+				Where("entity_type = ? AND tag_id IN ?", "agent", tagIDs).
+				Group("entity_id").
+				Having("COUNT(DISTINCT tag_id) = ?", len(tagIDs))
+
+			query = query.Where("agent_id IN (?)", subQuery)
+		} else {
+			// 如果提供了标签参数但无法解析出任何有效ID，则应该返回空列表
+			query = query.Where("1 = 0")
 		}
 	}
 	// 任务支持过滤 (TaskSupport) - 替代原 Capabilities

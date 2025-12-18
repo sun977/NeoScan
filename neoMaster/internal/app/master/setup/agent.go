@@ -38,7 +38,7 @@ func BuildAgentModule(db *gorm.DB, tagService tag_system.TagService) *AgentModul
 
 	// 2) 初始化服务（遵循 Handler → Service → Repository 层级调用约束）
 	managerService := agentService.NewAgentManagerService(agentRepository, tagService)
-	monitorService := agentService.NewAgentMonitorService(agentRepository)
+	monitorService := agentService.NewAgentMonitorService(agentRepository, tagService)
 	configService := agentService.NewAgentConfigService(agentRepository)
 	// AgentTaskService 已移至 Orchestrator 模块
 

@@ -30,7 +30,6 @@ import (
 
 	"neomaster/internal/config"
 	"neomaster/internal/model/agent"
-	"neomaster/internal/model/orchestrator_model_drop"
 	"neomaster/internal/model/system"
 	"neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/database"
@@ -181,7 +180,7 @@ func dropTables(db *gorm.DB, logManager *logger.LoggerManager) error {
 		// 关联表先删除
 		&system.UserRole{},
 		&system.RolePermission{},
-		&agent.AgentGroupMember{},
+		// &agent.AgentGroupMember{}, // 暂时注释：模型未定义
 
 		// 标签系统
 		&tag_system.SysEntityTag{},
@@ -196,12 +195,17 @@ func dropTables(db *gorm.DB, logManager *logger.LoggerManager) error {
 		&agent.AgentVersion{},
 		&agent.AgentConfig{},
 		&agent.AgentMetrics{},
-		&agent.AgentGroup{},
-		&agent.ScanType{},
-		&orchestrator_model_drop.ProjectConfig{},
-		&orchestrator_model_drop.ScanTool{},
-		&orchestrator_model_drop.ScanRule{},
-		&orchestrator_model_drop.WorkflowConfig{},
+		// &agent.AgentGroup{}, // 暂时注释：模型未定义
+		// &agent.ScanType{},   // 暂时注释：模型未定义
+
+		// Orchestrator模块 (New)
+		&orchestrator.Project{},
+		&orchestrator.Workflow{},
+		&orchestrator.ProjectWorkflow{},
+		&orchestrator.ScanStage{},
+		&orchestrator.AgentTask{},
+		&orchestrator.StageResult{},
+		&orchestrator.ScanToolTemplate{},
 	}
 
 	for _, model := range models {
@@ -237,9 +241,9 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&agent.AgentVersion{},
 		&agent.AgentConfig{},
 		&agent.AgentMetrics{},
-		&agent.AgentGroup{},
-		&agent.AgentGroupMember{},
-		&agent.ScanType{},
+		// &agent.AgentGroup{},       // 暂时注释：模型未定义
+		// &agent.AgentGroupMember{}, // 暂时注释：模型未定义
+		// &agent.ScanType{},         // 暂时注释：模型未定义
 
 		// 标签系统
 		&tag_system.SysTag{},
@@ -253,12 +257,7 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&orchestrator.ScanStage{},
 		&orchestrator.AgentTask{},
 		&orchestrator.StageResult{},
-
-		// Orchestrator模块 (Old/Deprecated)
-		&orchestrator_model_drop.ProjectConfig{},
-		&orchestrator_model_drop.WorkflowConfig{},
-		&orchestrator_model_drop.ScanTool{},
-		&orchestrator_model_drop.ScanRule{},
+		&orchestrator.ScanToolTemplate{},
 	}
 
 	// 执行自动迁移
@@ -505,66 +504,70 @@ func (s *DataSeeder) seedAgentData() error {
 	}
 
 	// 2. 创建Agent分组
-	groups := []agent.AgentGroup{
-		{GroupID: "ag_001", Name: "default", Description: "默认分组"},
-		{GroupID: "ag_002", Name: "production", Description: "生产环境Agent分组"},
-		{GroupID: "ag_003", Name: "development", Description: "开发环境Agent分组"},
-	}
-
-	for _, group := range groups {
-		if err := s.db.Where("group_id = ?", group.GroupID).FirstOrCreate(&group).Error; err != nil {
-			return fmt.Errorf("创建Agent分组失败: %w", err)
+	/*
+		groups := []agent.AgentGroup{
+			{GroupID: "ag_001", Name: "default", Description: "默认分组"},
+			{GroupID: "ag_002", Name: "production", Description: "生产环境Agent分组"},
+			{GroupID: "ag_003", Name: "development", Description: "开发环境Agent分组"},
 		}
-	}
+
+		for _, group := range groups {
+			if err := s.db.Where("group_id = ?", group.GroupID).FirstOrCreate(&group).Error; err != nil {
+				return fmt.Errorf("创建Agent分组失败: %w", err)
+			}
+		}
+	*/
 
 	// 3. 创建扫描类型测试数据
-	scanTypes := []agent.ScanType{
-		{
-			Name:        "port_scan",
-			DisplayName: "端口扫描",
-			Description: "对目标主机进行端口扫描，识别开放的端口和服务",
-			Category:    "network",
-			IsActive:    true,
-			ConfigTemplate: agent.ConfigTemplateJSON{
-				"timeout":     30,
-				"max_threads": 100,
-				"port_range":  "1-65535",
-				"scan_method": "tcp",
+	/*
+		scanTypes := []agent.ScanType{
+			{
+				Name:        "port_scan",
+				DisplayName: "端口扫描",
+				Description: "对目标主机进行端口扫描，识别开放的端口和服务",
+				Category:    "network",
+				IsActive:    true,
+				ConfigTemplate: agent.ConfigTemplateJSON{
+					"timeout":     30,
+					"max_threads": 100,
+					"port_range":  "1-65535",
+					"scan_method": "tcp",
+				},
 			},
-		},
-		{
-			Name:        "vuln_scan",
-			DisplayName: "漏洞扫描",
-			Description: "对目标系统进行漏洞扫描，识别已知的安全漏洞",
-			Category:    "security",
-			IsActive:    true,
-			ConfigTemplate: agent.ConfigTemplateJSON{
-				"timeout":        60,
-				"max_concurrent": 10,
-				"severity":       "medium",
-				"update_db":      true,
+			{
+				Name:        "vuln_scan",
+				DisplayName: "漏洞扫描",
+				Description: "对目标系统进行漏洞扫描，识别已知的安全漏洞",
+				Category:    "security",
+				IsActive:    true,
+				ConfigTemplate: agent.ConfigTemplateJSON{
+					"timeout":        60,
+					"max_concurrent": 10,
+					"severity":       "medium",
+					"update_db":      true,
+				},
 			},
-		},
-		{
-			Name:        "web_scan",
-			DisplayName: "Web扫描",
-			Description: "对Web应用进行安全扫描，识别Web漏洞",
-			Category:    "web",
-			IsActive:    true,
-			ConfigTemplate: agent.ConfigTemplateJSON{
-				"timeout":         120,
-				"max_depth":       3,
-				"user_agent":      "NeoScan/1.0",
-				"follow_redirect": true,
+			{
+				Name:        "web_scan",
+				DisplayName: "Web扫描",
+				Description: "对Web应用进行安全扫描，识别Web漏洞",
+				Category:    "web",
+				IsActive:    true,
+				ConfigTemplate: agent.ConfigTemplateJSON{
+					"timeout":         120,
+					"max_depth":       3,
+					"user_agent":      "NeoScan/1.0",
+					"follow_redirect": true,
+				},
 			},
-		},
-	}
-
-	for _, scanType := range scanTypes {
-		if err := s.db.Where("name = ?", scanType.Name).FirstOrCreate(&scanType).Error; err != nil {
-			return fmt.Errorf("创建扫描类型失败: %w", err)
 		}
-	}
+
+		for _, scanType := range scanTypes {
+			if err := s.db.Where("name = ?", scanType.Name).FirstOrCreate(&scanType).Error; err != nil {
+				return fmt.Errorf("创建扫描类型失败: %w", err)
+			}
+		}
+	*/
 
 	// 4. 创建测试Agent（仅在test环境）
 	if s.env == "test" {
@@ -621,231 +624,106 @@ func (s *DataSeeder) seedAgentData() error {
 func (s *DataSeeder) seedOrchestratorData() error {
 	s.log.GetLogger().Info("开始填充扫描编排模块测试数据...")
 
-	// 1. 创建扫描工具
-	scanTools := []orchestrator_model_drop.ScanTool{
+	// 1. 创建扫描工具模板
+	scanToolTemplates := []orchestrator.ScanToolTemplate{
 		{
-			Name:            "nmap",
-			DisplayName:     "Nmap Network Scanner",
-			Description:     "Network exploration tool and security scanner",
-			Type:            orchestrator_model_drop.ScanToolTypePortScan,
-			Version:         "7.94",
-			ExecutablePath:  "/usr/bin/nmap",
-			WorkingDir:      "/tmp",
-			CommandTemplate: "nmap {{.target}} {{.options}}",
-			DefaultParams:   `{"target": "127.0.0.1", "options": "-sS -O"}`,
-			ParamSchema: `{
-				"type": "object",
-				"properties": {
-					"target": {"type": "string", "description": "Target IP or hostname"},
-					"options": {"type": "string", "description": "Nmap scan options"}
-				},
-				"required": ["target"]
-			}`,
-			OutputFormat: "xml",
-			OutputParser: "nmap_xml_parser",
-			ResultMapping: `{
-				"ports": "$.nmaprun.host.ports.port",
-				"os": "$.nmaprun.host.os.osmatch",
-				"services": "$.nmaprun.host.ports.port.service"
-			}`,
-			MaxExecutionTime: 1800,
-			MaxMemoryMB:      512,
-			RequiresSudo:     true,
-			Status:           orchestrator_model_drop.ScanToolStatusEnabled,
-			IsBuiltIn:        true,
-			SupportedOS:      "linux,windows,macos",
-			Dependencies:     "nmap package",
-			InstallGuide:     "Install nmap using package manager",
-			Tags:             "network,port-scan,discovery",
-			Metadata: `{
-				"category": "network_scanner",
-				"difficulty": "easy",
-				"documentation": "https://nmap.org/docs.html"
-			}`,
-			CreatedBy: 1,
-			UpdatedBy: 1,
+			Name:        "Nmap默认扫描",
+			ToolName:    "nmap",
+			ToolParams:  "-sS -T4 -p1-1000",
+			Description: "Nmap TCP SYN扫描，Top 1000端口",
+			Category:    "network",
+			IsPublic:    true,
+			CreatedBy:   "system",
 		},
 		{
-			Name:            "masscan",
-			DisplayName:     "Masscan Port Scanner",
-			Description:     "Fast TCP port scanner",
-			Type:            orchestrator_model_drop.ScanToolTypePortScan,
-			Version:         "1.3.2",
-			ExecutablePath:  "/usr/bin/masscan",
-			WorkingDir:      "/tmp",
-			CommandTemplate: "masscan {{.target}} {{.ports}} {{.rate}}",
-			DefaultParams:   `{"target": "127.0.0.1/24", "ports": "-p1-65535", "rate": "--rate=1000"}`,
-			ParamSchema: `{
-				"type": "object",
-				"properties": {
-					"target": {"type": "string", "description": "Target IP range"},
-					"ports": {"type": "string", "description": "Port range to scan"},
-					"rate": {"type": "string", "description": "Scan rate"}
-				},
-				"required": ["target"]
-			}`,
-			OutputFormat: "json",
-			OutputParser: "masscan_json_parser",
-			ResultMapping: `{
-				"open_ports": "$.ports",
-				"timestamp": "$.timestamp",
-				"ip": "$.ip"
-			}`,
-			MaxExecutionTime: 3600,
-			MaxMemoryMB:      256,
-			RequiresSudo:     true,
-			Status:           orchestrator_model_drop.ScanToolStatusEnabled,
-			IsBuiltIn:        true,
-			SupportedOS:      "linux,windows,macos",
-			Dependencies:     "masscan package",
-			InstallGuide:     "Install masscan using package manager",
-			Tags:             "network,port-scan,fast",
-			Metadata: `{
-				"category": "fast_scanner",
-				"difficulty": "medium",
-				"documentation": "https://github.com/robertdavidgraham/masscan"
-			}`,
-			CreatedBy: 1,
-			UpdatedBy: 1,
+			Name:        "Masscan全端口扫描",
+			ToolName:    "masscan",
+			ToolParams:  "-p1-65535 --rate=1000",
+			Description: "Masscan全端口快速扫描",
+			Category:    "network",
+			IsPublic:    true,
+			CreatedBy:   "system",
 		},
 	}
 
-	for _, tool := range scanTools {
-		if err := s.db.Where("name = ?", tool.Name).FirstOrCreate(&tool).Error; err != nil {
-			return fmt.Errorf("创建扫描工具失败: %w", err)
+	for _, tmpl := range scanToolTemplates {
+		if err := s.db.Where("name = ?", tmpl.Name).FirstOrCreate(&tmpl).Error; err != nil {
+			return fmt.Errorf("创建扫描工具模板失败: %w", err)
 		}
-		s.log.GetLogger().WithField("tool", tool.Name).Info("扫描工具创建成功")
+		s.log.GetLogger().WithField("template", tmpl.Name).Info("扫描工具模板创建成功")
 	}
 
-	// 2. 创建扫描规则
-	// 创建扫描规则测试数据
-	scanRules := []orchestrator_model_drop.ScanRule{
+	// 2. 创建项目
+	project := orchestrator.Project{
+		Name:         "demo_project",
+		DisplayName:  "演示项目",
+		Description:  "系统自动生成的演示项目",
+		TargetScope:  "127.0.0.1/32",
+		Status:       "idle",
+		Enabled:      true,
+		ScheduleType: "immediate",
+		ExecMode:     "sequential",
+		CreatedBy:    1,
+	}
+
+	if err := s.db.Where("name = ?", project.Name).FirstOrCreate(&project).Error; err != nil {
+		return fmt.Errorf("创建项目失败: %w", err)
+	}
+	s.log.GetLogger().WithField("project", project.Name).Info("项目创建成功")
+
+	// 3. 创建工作流
+	workflow := orchestrator.Workflow{
+		Name:        "basic_scan_workflow",
+		DisplayName: "基础扫描工作流",
+		Version:     "1.0.0",
+		Description: "包含端口发现和服务识别的基础工作流",
+		Enabled:     true,
+		ExecMode:    "sequential",
+		CreatedBy:   1,
+	}
+
+	if err := s.db.Where("name = ?", workflow.Name).FirstOrCreate(&workflow).Error; err != nil {
+		return fmt.Errorf("创建工作流失败: %w", err)
+	}
+	s.log.GetLogger().WithField("workflow", workflow.Name).Info("工作流创建成功")
+
+	// 4. 创建扫描阶段
+	stages := []orchestrator.ScanStage{
 		{
-			Name:            "port_scan_filter",
-			DisplayName:     "端口扫描过滤规则",
-			Description:     "过滤常见端口扫描结果",
-			Type:            orchestrator_model_drop.ScanRuleTypeFilter,
-			Category:        "network",
-			Condition:       `{"field": "port", "operator": "in", "value": [80, 443, 22, 21]}`,
-			Action:          `{"type": "allow", "message": "允许常见端口"}`,
-			Parameters:      `{"timeout": 30, "retry_count": 3}`,
-			ApplicableTools: "nmap,masscan",
-			TargetTypes:     "ip,domain",
-			ScanPhases:      "discovery,enumeration",
-			Severity:        orchestrator_model_drop.ScanRuleSeverityMedium,
-			Priority:        5,
-			Confidence:      0.8,
-			Status:          orchestrator_model_drop.ScanRuleStatusEnabled,
-			IsBuiltIn:       true,
-			Version:         "1.0",
-			Tags:            "network,port,filter",
-			Metadata:        `{"author": "system", "last_updated": "2024-01-01"}`,
-			CreatedBy:       1,
+			WorkflowID: workflow.ID,
+			StageName:  "端口发现",
+			StageType:  "port_scan",
+			ToolName:   "masscan",
+			ToolParams: "-p1-65535 --rate=1000",
+			Enabled:    true,
 		},
 		{
-			Name:            "vulnerability_alert",
-			DisplayName:     "漏洞告警规则",
-			Description:     "检测到高危漏洞时触发告警",
-			Type:            orchestrator_model_drop.ScanRuleTypeAlert,
-			Category:        "security",
-			Condition:       `{"field": "severity", "operator": "gte", "value": "high"}`,
-			Action:          `{"type": "alert", "message": "发现高危漏洞", "parameters": {"notify": true}}`,
-			Parameters:      `{"notification_channels": ["email", "webhook"], "escalation_level": "high"}`,
-			ApplicableTools: "nessus,openvas,nuclei",
-			TargetTypes:     "web,service",
-			ScanPhases:      "vulnerability_scan",
-			Severity:        orchestrator_model_drop.ScanRuleSeverityHigh,
-			Priority:        9,
-			Confidence:      0.95,
-			Status:          orchestrator_model_drop.ScanRuleStatusEnabled,
-			IsBuiltIn:       true,
-			Version:         "1.0",
-			Tags:            "security,vulnerability,alert",
-			Metadata:        `{"author": "system", "criticality": "high"}`,
-			CreatedBy:       1,
+			WorkflowID: workflow.ID,
+			StageName:  "服务识别",
+			StageType:  "service_scan",
+			ToolName:   "nmap",
+			ToolParams: "-sV -O",
+			Enabled:    true,
 		},
 	}
 
-	for _, rule := range scanRules {
-		if err := s.db.Where("name = ?", rule.Name).FirstOrCreate(&rule).Error; err != nil {
-			return fmt.Errorf("创建扫描规则失败: %w", err)
+	for _, stage := range stages {
+		if err := s.db.Where("workflow_id = ? AND stage_name = ?", stage.WorkflowID, stage.StageName).FirstOrCreate(&stage).Error; err != nil {
+			return fmt.Errorf("创建扫描阶段失败: %w", err)
 		}
-		s.log.GetLogger().WithField("rule", rule.Name).Info("扫描规则创建成功")
 	}
+	s.log.GetLogger().Info("扫描阶段创建成功")
 
-	// 3. 创建项目配置
-	projectConfigs := []orchestrator_model_drop.ProjectConfig{
-		{
-			Name:          "demo_web_scan",
-			DisplayName:   "演示Web扫描项目",
-			Description:   "用于演示的Web应用扫描项目配置",
-			TargetScope:   "192.168.1.0/24,example.com",
-			ExcludeList:   "192.168.1.1,admin.example.com",
-			ScanFrequency: 24,
-			MaxConcurrent: 5,
-			TimeoutSecond: 3600,
-			Priority:      5,
-			Status:        orchestrator_model_drop.ProjectConfigStatusActive,
-			IsEnabled:     true,
-			Tags:          "demo,web,security",
-			Metadata:      `{"project_type": "demo", "environment": "test", "owner": "system"}`,
-			CreatedBy:     1,
-		},
-		{
-			Name:          "internal_network_scan",
-			DisplayName:   "内网扫描项目",
-			Description:   "内部网络安全扫描项目",
-			TargetScope:   "10.0.0.0/8,172.16.0.0/12",
-			ExcludeList:   "10.0.0.1,172.16.0.1",
-			ScanFrequency: 12,
-			MaxConcurrent: 10,
-			TimeoutSecond: 7200,
-			Priority:      8,
-			Status:        orchestrator_model_drop.ProjectConfigStatusActive,
-			IsEnabled:     true,
-			Tags:          "internal,network,compliance",
-			Metadata:      `{"project_type": "production", "environment": "internal", "compliance": "required"}`,
-			CreatedBy:     1,
-		},
+	// 5. 关联项目和工作流
+	projectWorkflow := orchestrator.ProjectWorkflow{
+		ProjectID:  project.ID,
+		WorkflowID: workflow.ID,
+		SortOrder:  1,
 	}
-
-	for _, config := range projectConfigs {
-		if err := s.db.Where("name = ?", config.Name).FirstOrCreate(&config).Error; err != nil {
-			return fmt.Errorf("创建项目配置失败: %w", err)
-		}
-		s.log.GetLogger().WithField("project", config.Name).Info("项目配置创建成功")
+	if err := s.db.Where("project_id = ? AND workflow_id = ?", project.ID, workflow.ID).FirstOrCreate(&projectWorkflow).Error; err != nil {
+		return fmt.Errorf("关联项目和工作流失败: %w", err)
 	}
-
-	// 4. 创建工作流配置
-	workflowConfigs := []orchestrator_model_drop.WorkflowConfig{
-		{
-			Name:           "basic_web_scan_workflow",
-			DisplayName:    "基础Web扫描工作流",
-			Description:    "包含端口扫描和漏洞扫描的基础工作流",
-			Version:        "1.0",
-			ProjectID:      1, // 关联到第一个项目
-			TriggerType:    orchestrator_model_drop.WorkflowTriggerScheduled,
-			CronExpr:       "0 2 * * *", // 每天凌晨2点执行
-			EventFilter:    `{"event_type": "scheduled", "conditions": []}`,
-			Steps:          `[{"id":"port_scan","name":"端口扫描","type":"scan_tool","tool_id":1,"timeout":300},{"id":"vuln_scan","name":"漏洞扫描","type":"scan_tool","tool_id":2,"depends_on":["port_scan"],"timeout":600}]`,
-			Variables:      `{"scan_timeout": 300, "max_concurrent": 5, "notification_enabled": true}`,
-			Environment:    `{"SCAN_ENV": "test", "LOG_LEVEL": "info"}`,
-			MaxRetries:     3,
-			TimeoutMinutes: 120,
-			Status:         orchestrator_model_drop.WorkflowStatusActive,
-			IsEnabled:      true,
-			Tags:           "web,security,automated",
-			Metadata:       `{"author": "system", "category": "security", "priority": "normal"}`,
-			CreatedBy:      1,
-		},
-	}
-
-	for _, workflow := range workflowConfigs {
-		if err := s.db.Where("name = ?", workflow.Name).FirstOrCreate(&workflow).Error; err != nil {
-			return fmt.Errorf("创建工作流配置失败: %w", err)
-		}
-		s.log.GetLogger().WithField("workflow", workflow.Name).Info("工作流配置创建成功")
-	}
+	s.log.GetLogger().Info("项目与工作流关联成功")
 
 	s.log.GetLogger().Info("扫描编排模块测试数据填充完成")
 	return nil

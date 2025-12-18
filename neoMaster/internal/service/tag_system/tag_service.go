@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"neomaster/internal/pkg/utils"
 
@@ -45,11 +46,12 @@ type TagService interface {
 	ListTags(ctx context.Context, req *tag_system.ListTagsRequest) ([]tag_system.SysTag, int64, error)
 
 	// --- 规则 Rules CRUD ---
-	CreateRule(ctx context.Context, rule *tag_system.SysMatchRule) error
-	UpdateRule(ctx context.Context, rule *tag_system.SysMatchRule) error
-	DeleteRule(ctx context.Context, id uint64) error
-	GetRule(ctx context.Context, id uint64) (*tag_system.SysMatchRule, error)
-	ListRules(ctx context.Context, req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error)
+	CreateRule(ctx context.Context, rule *tag_system.SysMatchRule) error                                       // 创建匹配规则
+	UpdateRule(ctx context.Context, rule *tag_system.SysMatchRule) error                                       // 更新匹配规则
+	DeleteRule(ctx context.Context, id uint64) error                                                           // 删除匹配规则
+	GetRule(ctx context.Context, id uint64) (*tag_system.SysMatchRule, error)                                  // 根据ID获取匹配规则
+	ListRules(ctx context.Context, req *tag_system.ListRulesRequest) ([]tag_system.SysMatchRule, int64, error) // 获取所有匹配规则
+	ReloadMatchRules() error                                                                                   // 从数据库加载所有启用规则到内存中，缓存规则，提高性能
 
 	// --- Auto Tagging ---
 	AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error // 添加标签
@@ -76,19 +78,46 @@ type TagService interface {
 	AddEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64, source string, ruleID uint64) error // 给实体添加标签
 	RemoveEntityTag(ctx context.Context, entityType string, entityID string, tagID uint64) error                            // 删除实体的标签
 	GetEntityTags(ctx context.Context, entityType string, entityID string) ([]tag_system.SysEntityTag, error)               // 获取实体所有标签
-	GetEntityIDsByTagIDs(ctx context.Context, entityType string, tagIDs []uint64) ([]string, error)                         // 根据标签ID获取实体ID列表
+	GetEntityIDsByTagIDs(ctx context.Context, entityType string, tagIDs []uint64) ([]string, error)                         // 根据标签ID获取实体ID列表                                                                                               // 重载所有规则到内存缓存
+}
+
+type CachedRule struct {
+	RuleID uint64
+	TagID  uint64
+	Rule   matcher.MatchRule
+}
+
+type MatchRuleCache struct {
+	mu    sync.RWMutex
+	rules map[string][]CachedRule // key: entityType
+}
+
+func (c *MatchRuleCache) Get(entityType string) []CachedRule {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.rules[entityType]
 }
 
 type tagService struct {
-	repo repo.TagRepository
-	db   *gorm.DB // 用于直接插入任务，或者需要事务
+	repo      repo.TagRepository
+	db        *gorm.DB // 用于直接插入任务，或者需要事务
+	ruleCache *MatchRuleCache
 }
 
 func NewTagService(repo repo.TagRepository, db *gorm.DB) TagService {
-	return &tagService{
+	s := &tagService{
 		repo: repo,
 		db:   db,
+		ruleCache: &MatchRuleCache{
+			rules: make(map[string][]CachedRule),
+		},
 	}
+	// 初始化时加载规则
+	// 注意：如果数据库连接失败，这里可能会报错，建议在应用启动时处理错误，或者这里记录日志但不panic
+	if err := s.ReloadMatchRules(); err != nil {
+		fmt.Printf("Failed to load match rules: %v\n", err)
+	}
+	return s
 }
 
 // --- Basic CRUD Implementation ---
@@ -304,17 +333,50 @@ func (s *tagService) ListRules(ctx context.Context, req *tag_system.ListRulesReq
 	return s.repo.ListRules(req)
 }
 
-// --- Auto Tagging Implementation (Moved to auto_tag.go or here) ---
-// 为了保持文件简洁，AutoTag 和 SubmitPropagationTask 可以放在单独文件，或者这里
-// 这里先放这里，如果太长再拆分
-func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error {
-	// 1. 获取该实体类型的所有启用规则
-	rules, err := s.repo.GetRulesByEntityType(entityType)
+// ReloadMatchRules 从数据库加载所有启用规则到内存中
+// 缓存规则，提高性能，避免每次匹配规则都需要查询规则库
+func (s *tagService) ReloadMatchRules() error {
+	enabled := true
+	// Page=0, PageSize=0 means no limit in repo implementation
+	req := &tag_system.ListRulesRequest{
+		IsEnabled: &enabled,
+	}
+	allRules, _, err := s.repo.ListRules(req)
 	if err != nil {
 		return err
 	}
 
-	if len(rules) == 0 {
+	newCache := make(map[string][]CachedRule)
+	for _, r := range allRules {
+		// Parse JSON
+		parsedRule, err := matcher.ParseJSON(r.RuleJSON)
+		if err != nil {
+			fmt.Printf("Error parsing rule ID=%d: %v\n", r.ID, err)
+			continue
+		}
+
+		cr := CachedRule{
+			RuleID: r.ID,
+			TagID:  r.TagID,
+			Rule:   parsedRule,
+		}
+		newCache[r.EntityType] = append(newCache[r.EntityType], cr)
+	}
+
+	s.ruleCache.mu.Lock()
+	s.ruleCache.rules = newCache
+	s.ruleCache.mu.Unlock()
+	return nil
+}
+
+// --- Auto Tagging Implementation (Moved to auto_tag.go or here) ---
+// 为了保持文件简洁，AutoTag 和 SubmitPropagationTask 可以放在单独文件，或者这里
+// 这里先放这里，如果太长再拆分
+func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID string, attributes map[string]interface{}) error {
+	// 1. 获取该实体类型的所有启用规则 (FROM CACHE)
+	cachedRules := s.ruleCache.Get(entityType)
+
+	if len(cachedRules) == 0 {
 		return nil
 	}
 
@@ -322,24 +384,17 @@ func (s *tagService) AutoTag(ctx context.Context, entityType string, entityID st
 	var matchedTagIDs []uint64
 	var matchedRuleIDs []uint64
 
-	for _, ruleRecord := range rules {
-		// 解析规则
-		rule, err1 := matcher.ParseJSON(ruleRecord.RuleJSON)
-		if err1 != nil {
-			// 记录错误但继续处理其他规则
-			continue
-		}
-
+	for _, cr := range cachedRules {
 		// 执行匹配
-		matched, err2 := matcher.Match(attributes, rule)
+		matched, err2 := matcher.Match(attributes, cr.Rule)
 		if err2 != nil {
 			continue
 		}
 
 		if matched {
 			// 匹配成功,记录标签ID和规则ID成列表
-			matchedTagIDs = append(matchedTagIDs, ruleRecord.TagID)
-			matchedRuleIDs = append(matchedRuleIDs, ruleRecord.ID)
+			matchedTagIDs = append(matchedTagIDs, cr.TagID)
+			matchedRuleIDs = append(matchedRuleIDs, cr.RuleID)
 		}
 	}
 

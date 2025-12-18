@@ -228,44 +228,7 @@ func (a *Agent) CanAcceptTask(taskTypeID string) bool {
 // ============================================================================
 // Agent 标签管理方法
 // ============================================================================
-
-// AddTag 添加标签（避免重复）
-// 参数: tagID - 标签类型ID（字符串形式）
-func (a *Agent) AddTag(tagID string) {
-	// Tags 字段已移除，此方法现在无效或需要重写为调用Service
-	// for _, t := range a.Tags {
-	// 	if t == tagID {
-	// 		return // 避免重复添加
-	// 	}
-	// }
-	// a.Tags = append(a.Tags, tagID)
-}
-
-// RemoveTag 移除标签
-// Agent 结构体的方法 - 移除指定标签
-// 参数: tagID - 标签类型ID（字符串形式）
-func (a *Agent) RemoveTag(tagID string) {
-	// Tags 字段已移除，此方法现在无效或需要重写为调用Service
-	// for i, t := range a.Tags {
-	// 	if t == tagID {
-	// 		a.Tags = append(a.Tags[:i], a.Tags[i+1:]...)
-	// 		return
-	// 	}
-	// }
-}
-
-// HasTag 检查是否具有指定标签
-// Agent 结构体的方法 - 检查是否具有指定标签
-// 参数: tagID - 标签类型ID（字符串形式）
-func (a *Agent) HasTag(tagID string) bool {
-	// Tags 字段已移除，此方法现在无效或需要重写为调用Service
-	// for _, t := range a.Tags {
-	// 	if t == tagID {
-	// 		return true
-	// 	}
-	// }
-	return false
-}
+// 标签管理已经在tag_system中实现，Agent结构体中不再需要标签相关方法
 
 // ============================================================================
 // Agent 任务支持管理方法 (TaskSupport)

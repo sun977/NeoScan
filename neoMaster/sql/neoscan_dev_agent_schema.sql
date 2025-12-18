@@ -9,6 +9,7 @@
 --   3. AgentScanType新增is_system和tag_id字段
 --   4. 移除agent_task_assignments相关数据(模型不存在)
 --   5. 增加 FOREIGN_KEY_CHECKS 控制以确保重置顺利
+--   6. 移除agents表中的tags字段(模型已更新)
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -49,7 +50,6 @@ CREATE TABLE `agents` (
     `cpu_cores` int DEFAULT NULL COMMENT 'CPU核心数',
     `memory_total` bigint DEFAULT NULL COMMENT '总内存大小(字节)',
     `disk_total` bigint DEFAULT NULL COMMENT '总磁盘大小(字节)',
-    `tags` json DEFAULT NULL COMMENT 'Agent标签ID列表，对应TagType表的ID，格式：["2","3"]',
     `task_support` json DEFAULT NULL COMMENT 'Agent支持的任务类型列表，与ScanType一一对应',
     `feature` json DEFAULT NULL COMMENT 'Agent具备的特性功能列表',
     `grpc_token` varchar(500) DEFAULT NULL COMMENT 'gRPC通信Token',
@@ -241,5 +241,5 @@ SET FOREIGN_KEY_CHECKS = 1;
 SELECT 'NeoScan Agent模块数据库表结构创建完成！(重构版本)' as message;
 SELECT 'Tables created: agents, agent_versions, agent_configs, agent_metrics, agent_scan_types, agent_tag_types' as tables_info;
 SELECT 'Removed: agent_groups, agent_group_members, agent_task_assignments(missing model)' as removed_info;
-SELECT 'Updated: agents table now uses task_support and feature instead of capabilities' as schema_info;
+SELECT 'Updated: agents table now uses task_support and feature instead of capabilities, removed tags field' as schema_info;
 SELECT 'Performance indexes created for optimal query performance' as index_info;

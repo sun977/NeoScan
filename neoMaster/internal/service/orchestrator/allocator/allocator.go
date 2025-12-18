@@ -14,6 +14,7 @@ import (
 	agentModel "neomaster/internal/model/agent"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/matcher"
+	"neomaster/internal/service/tag_system"
 )
 
 // ResourceAllocator 资源调度器接口
@@ -31,12 +32,15 @@ type resourceAllocator struct {
 	lastDispatchTime sync.Map
 	// minInterval 最小分发间隔
 	minInterval time.Duration
+	// tagService 标签服务
+	tagService tag_system.TagService
 }
 
 // NewResourceAllocator 创建资源调度器
-func NewResourceAllocator() ResourceAllocator {
+func NewResourceAllocator(tagService tag_system.TagService) ResourceAllocator {
 	return &resourceAllocator{
 		minInterval: 200 * time.Millisecond, // 默认限制每个 Agent 每秒最多 5 个任务请求 (防止突发过载)
+		tagService:  tagService,
 	}
 }
 
@@ -81,7 +85,7 @@ func (a *resourceAllocator) CanExecute(ctx context.Context, agent *agentModel.Ag
 
 	// 3. Tag (标签) 匹配
 	// 只有 "Zone:Inside" 的 Agent 才能扫内网
-	if !matchTags(agent, task.RequiredTags) {
+	if !a.matchTags(agent, task.RequiredTags) {
 		return false
 	}
 
@@ -125,7 +129,7 @@ func hasCapability(agent *agentModel.Agent, toolName string) bool {
 }
 
 // matchTags 检查 Agent 是否满足任务的标签要求
-func matchTags(agent *agentModel.Agent, requiredTagsJSON string) bool {
+func (a *resourceAllocator) matchTags(agent *agentModel.Agent, requiredTagsJSON string) bool {
 	if requiredTagsJSON == "" || requiredTagsJSON == "[]" {
 		return true // 任务无标签要求
 	}
@@ -141,9 +145,41 @@ func matchTags(agent *agentModel.Agent, requiredTagsJSON string) bool {
 		return true
 	}
 
+	// 获取Agent标签
+	// 1. 获取实体标签关联
+	entityTags, err := a.tagService.GetEntityTags(context.Background(), "agent", agent.AgentID)
+	if err != nil {
+		logger.LogError(err, "failed to get agent entity tags", 0, "", "service.orchestrator.allocator.matchTags", "INTERNAL", nil)
+		return false
+	}
+
+	if len(entityTags) == 0 {
+		// 没有标签，但如果有 requiredTags，则不匹配 (除非 requiredTags 为空，上面已处理)
+		return false
+	}
+
+	// 2. 提取 Tag IDs
+	tagIDs := make([]uint64, 0, len(entityTags))
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+
+	// 3. 获取标签详情 (获取名称)
+	tags, err := a.tagService.GetTagsByIDs(context.Background(), tagIDs)
+	if err != nil {
+		logger.LogError(err, "failed to get tag details", 0, "", "service.orchestrator.allocator.matchTags", "INTERNAL", nil)
+		return false
+	}
+
+	// 转换为标签名称列表
+	tagNames := make([]string, len(tags))
+	for i, t := range tags {
+		tagNames[i] = t.Name
+	}
+
 	// 使用 Matcher 引擎进行检查
 	agentData := map[string]interface{}{
-		"tags": agent.Tags,
+		"tags": tagNames,
 	}
 
 	// 构造规则: 必须包含所有 Required Tags (AND)
@@ -161,6 +197,7 @@ func matchTags(agent *agentModel.Agent, requiredTagsJSON string) bool {
 		And: subRules,
 	}
 
+	// 匹配器匹配的是字符串，所以需要将标签列表转换为字符串
 	matched, err := matcher.Match(agentData, rule)
 	if err != nil {
 		logger.LogWarn("Matcher error in matchTags", "", 0, "", "allocator.matchTags", "", map[string]interface{}{

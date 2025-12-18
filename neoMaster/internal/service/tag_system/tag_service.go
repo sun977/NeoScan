@@ -258,21 +258,11 @@ func (s *tagService) CreateRule(ctx context.Context, rule *tag_system.SysMatchRu
 		return err
 	}
 
-	// 触发标签传播任务 (Backfill) - 已移除，改为手动触发
-	// if rule.IsEnabled {
-	// 	if taskID, err := s.SubmitPropagationTask(ctx, rule.ID, "add"); err != nil {
-	// 		logger.LogBusinessError(err, "", 0, "", "service.tag_system.CreateRule", "POST", map[string]interface{}{
-	// 			"rule_id": rule.ID,
-	// 			"action":  "add",
-	// 		})
-	// 	} else {
-	// 		logger.LogBusinessOperation("tag_propagation_submitted", 0, "", "", "", "success", "Tag propagation task submitted", map[string]interface{}{
-	// 			"rule_id": rule.ID,
-	// 			"task_id": taskID,
-	// 			"action":  "add",
-	// 		})
-	// 	}
-	// }
+	// 规则变更，自动刷新缓存
+	if err := s.ReloadMatchRules(); err != nil {
+		// Log error but don't fail the request as DB update succeeded
+		fmt.Printf("Warning: Failed to reload match rules after create: %v\n", err)
+	}
 
 	return nil
 }
@@ -285,44 +275,27 @@ func (s *tagService) UpdateRule(ctx context.Context, rule *tag_system.SysMatchRu
 		return err
 	}
 
-	// 触发标签传播任务 (Backfill) - 已移除，改为手动触发
-	// if rule.IsEnabled {
-	// 	if taskID, err := s.SubmitPropagationTask(ctx, rule.ID, "add"); err != nil {
-	// 		logger.LogBusinessError(err, "", 0, "", "service.tag_system.UpdateRule", "PUT", map[string]interface{}{
-	// 			"rule_id": rule.ID,
-	// 			"action":  "add",
-	// 		})
-	// 	} else {
-	// 		logger.LogBusinessOperation("tag_propagation_submitted", 0, "", "", "", "success", "Tag propagation task submitted", map[string]interface{}{
-	// 			"rule_id": rule.ID,
-	// 			"task_id": taskID,
-	// 			"action":  "add",
-	// 		})
-	// 	}
-	// }
+	// 规则变更，自动刷新缓存
+	if err := s.ReloadMatchRules(); err != nil {
+		// Log error but don't fail the request as DB update succeeded
+		fmt.Printf("Warning: Failed to reload match rules after update: %v\n", err)
+	}
+
 	return nil
 }
 
 func (s *tagService) DeleteRule(ctx context.Context, id uint64) error {
-	// 1. 获取规则详情 (为了触发移除任务)
-	// 忽略错误，因为如果规则不存在，删除操作也会失败或者无所谓
-	// if rule, err := s.repo.GetRuleByID(id); err == nil {
-	// 	// 触发移除任务 - 已移除，改为手动触发
-	// 	if taskID, err := s.SubmitPropagationTask(ctx, rule.ID, "remove"); err != nil {
-	// 		logger.LogBusinessError(err, "", 0, "", "service.tag_system.DeleteRule", "DELETE", map[string]interface{}{
-	// 			"rule_id": rule.ID,
-	// 			"action":  "remove",
-	// 		})
-	// 	} else {
-	// 		logger.LogBusinessOperation("tag_propagation_submitted", 0, "", "", "", "success", "Tag propagation task submitted", map[string]interface{}{
-	// 			"rule_id": rule.ID,
-	// 			"task_id": taskID,
-	// 			"action":  "remove",
-	// 		})
-	// 	}
-	// }
+	if err := s.repo.DeleteRule(id); err != nil {
+		return err
+	}
 
-	return s.repo.DeleteRule(id)
+	// 规则变更，自动刷新缓存
+	if err := s.ReloadMatchRules(); err != nil {
+		// Log error but don't fail the request as DB update succeeded
+		fmt.Printf("Warning: Failed to reload match rules after delete: %v\n", err)
+	}
+
+	return nil
 }
 
 func (s *tagService) GetRule(ctx context.Context, id uint64) (*tag_system.SysMatchRule, error) {

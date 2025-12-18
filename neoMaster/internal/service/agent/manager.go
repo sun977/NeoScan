@@ -714,83 +714,104 @@ func (s *agentManagerService) UpdateAgentTags(agentID string, tagIDs []uint64) (
 // ============================================================================
 
 // AddAgentTaskSupport 为Agent添加任务支持
+// Deprecated: 系统不允许手动修改TaskSupport，该字段只能由Agent上报
 func (s *agentManagerService) AddAgentTaskSupport(req *agentModel.AgentTaskSupportRequest) error {
-	// 1. 输入验证
-	if req.AgentID == "" || req.TaskSupport == "" {
-		logger.Error("参数错误: AgentID或TaskSupport为空",
-			"path", "AddAgentTaskSupport",
-			"operation", "add_agent_task_support",
-			"option", "validate_input",
-			"func_name", "service.agent.manager.AddAgentTaskSupport",
-			"agent_id", req.AgentID,
-			"task_support", req.TaskSupport,
-		)
-		return fmt.Errorf("agent_id and task_support cannot be empty")
-	}
+	// // 1. 输入验证
+	// if req.AgentID == "" || req.TaskSupport == "" {
+	// 	logger.Error("参数错误: AgentID或TaskSupport为空",
+	// 		"path", "AddAgentTaskSupport",
+	// 		"operation", "add_agent_task_support",
+	// 		"option", "validate_input",
+	// 		"func_name", "service.agent.manager.AddAgentTaskSupport",
+	// 		"agent_id", req.AgentID,
+	// 		"task_support", req.TaskSupport,
+	// 	)
+	// 	return fmt.Errorf("agent_id and task_support cannot be empty")
+	// }
 
-	// 2. 验证任务支持ID是否有效 (TaskSupport 对应 ScanType)
-	// 注意：TaskSupport 存储的是 ScanType 的 ID (数字字符串)
-	if !s.IsValidTaskSupportId(req.TaskSupport) {
-		logger.Error("无效的任务支持ID",
-			"path", "AddAgentTaskSupport",
-			"operation", "add_agent_task_support",
-			"option", "validate_task_support",
-			"func_name", "service.agent.manager.AddAgentTaskSupport",
-			"task_support", req.TaskSupport,
-		)
-		return fmt.Errorf("invalid task_support id: %s", req.TaskSupport)
-	}
+	// // 2. 验证任务支持ID是否有效 (TaskSupport 对应 ScanType)
+	// // 注意：TaskSupport 存储的是 ScanType 的 ID (数字字符串)
+	// if !s.IsValidTaskSupportId(req.TaskSupport) {
+	// 	logger.Error("无效的任务支持ID",
+	// 		"path", "AddAgentTaskSupport",
+	// 		"operation", "add_agent_task_support",
+	// 		"option", "validate_task_support",
+	// 		"func_name", "service.agent.manager.AddAgentTaskSupport",
+	// 		"task_support", req.TaskSupport,
+	// 	)
+	// 	return fmt.Errorf("invalid task_support id: %s", req.TaskSupport)
+	// }
 
-	// 3. 调用Repository添加
-	if err := s.agentRepo.AddTaskSupport(req.AgentID, req.TaskSupport); err != nil {
-		logger.Error("添加Agent任务支持失败",
-			"path", "AddAgentTaskSupport",
-			"operation", "add_agent_task_support",
-			"option", "repo.AddTaskSupport",
-			"func_name", "service.agent.manager.AddAgentTaskSupport",
-			"agent_id", req.AgentID,
-			"error", err.Error(),
-		)
-		return fmt.Errorf("failed to add task support: %w", err)
-	}
+	// // 3. 调用Repository添加
+	// if err := s.agentRepo.AddTaskSupport(req.AgentID, req.TaskSupport); err != nil {
+	// 	logger.Error("添加Agent任务支持失败",
+	// 		"path", "AddAgentTaskSupport",
+	// 		"operation", "add_agent_task_support",
+	// 		"option", "repo.AddTaskSupport",
+	// 		"func_name", "service.agent.manager.AddAgentTaskSupport",
+	// 		"agent_id", req.AgentID,
+	// 		"error", err.Error(),
+	// 	)
+	// 	return fmt.Errorf("failed to add task support: %w", err)
+	// }
 
-	logger.Info("Agent任务支持添加成功",
+	// logger.Info("Agent任务支持添加成功",
+	// 	"path", "AddAgentTaskSupport",
+	// 	"operation", "add_agent_task_support",
+	// 	"func_name", "service.agent.manager.AddAgentTaskSupport",
+	// 	"agent_id", req.AgentID,
+	// 	"task_support", req.TaskSupport,
+	// )
+	// return nil
+	logger.Warn("尝试手动添加Agent任务支持(被拒绝)",
 		"path", "AddAgentTaskSupport",
 		"operation", "add_agent_task_support",
+		"option", "not_allowed",
 		"func_name", "service.agent.manager.AddAgentTaskSupport",
+		"reason", "TaskSupport is managed by agent reporting only",
 		"agent_id", req.AgentID,
-		"task_support", req.TaskSupport,
 	)
-	return nil
+	return fmt.Errorf("operation not allowed: TaskSupport is managed by agent reporting only")
+
 }
 
 // RemoveAgentTaskSupport 移除Agent任务支持
+// Deprecated: 系统不允许手动修改TaskSupport，该字段只能由Agent上报
 func (s *agentManagerService) RemoveAgentTaskSupport(req *agentModel.AgentTaskSupportRequest) error {
-	// 1. 输入验证
-	if req.AgentID == "" || req.TaskSupport == "" {
-		return fmt.Errorf("agent_id and task_support cannot be empty")
-	}
+	// // 1. 输入验证
+	// if req.AgentID == "" || req.TaskSupport == "" {
+	// 	return fmt.Errorf("agent_id and task_support cannot be empty")
+	// }
 
-	// 2. 调用Repository移除
-	if err := s.agentRepo.RemoveTaskSupport(req.AgentID, req.TaskSupport); err != nil {
-		logger.Error("移除Agent任务支持失败",
-			"path", "RemoveAgentTaskSupport",
-			"operation", "remove_agent_task_support",
-			"func_name", "service.agent.manager.RemoveAgentTaskSupport",
-			"agent_id", req.AgentID,
-			"error", err.Error(),
-		)
-		return fmt.Errorf("failed to remove task support: %w", err)
-	}
+	// // 2. 调用Repository移除
+	// if err := s.agentRepo.RemoveTaskSupport(req.AgentID, req.TaskSupport); err != nil {
+	// 	logger.Error("移除Agent任务支持失败",
+	// 		"path", "RemoveAgentTaskSupport",
+	// 		"operation", "remove_agent_task_support",
+	// 		"func_name", "service.agent.manager.RemoveAgentTaskSupport",
+	// 		"agent_id", req.AgentID,
+	// 		"error", err.Error(),
+	// 	)
+	// 	return fmt.Errorf("failed to remove task support: %w", err)
+	// }
 
-	logger.Info("Agent任务支持移除成功",
+	// logger.Info("Agent任务支持移除成功",
+	// 	"path", "RemoveAgentTaskSupport",
+	// 	"operation", "remove_agent_task_support",
+	// 	"func_name", "service.agent.manager.RemoveAgentTaskSupport",
+	// 	"agent_id", req.AgentID,
+	// 	"task_support", req.TaskSupport,
+	// )
+	// return nil
+	logger.Warn("尝试手动移除Agent任务支持(被拒绝)",
 		"path", "RemoveAgentTaskSupport",
 		"operation", "remove_agent_task_support",
+		"option", "not_allowed",
 		"func_name", "service.agent.manager.RemoveAgentTaskSupport",
+		"reason", "TaskSupport is managed by agent reporting only",
 		"agent_id", req.AgentID,
-		"task_support", req.TaskSupport,
 	)
-	return nil
+	return fmt.Errorf("operation not allowed: TaskSupport is managed by agent reporting only")
 }
 
 // GetAgentTaskSupport 获取Agent的所有任务支持

@@ -212,24 +212,45 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	}
 
 	if existingAgent != nil {
-		// Agent已存在，返回409冲突错误
-		logger.LogBusinessError(
-			fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port),
-			"", 0, "", "service.agent.manager.RegisterAgent", "",
-			map[string]interface{}{
-				"operation": "register_agent",
-				"option":    "duplicate_hostname_port_check",
-				"func_name": "service.agent.manager.RegisterAgent",
-				"hostname":  req.Hostname,
-				"port":      req.Port,
-				"agent_id":  existingAgent.AgentID,
-			},
-		)
-		return nil, fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port)
+		// Linus: "Update Mode" Check
+		// 如果 Agent 已存在，检查是否提供了正确的 Token 进行身份验证
+		// 如果验证通过，则进入"更新模式" (Idempotent Registration)，而不是返回冲突
+		isUpdateMode := false
+		if req.AgentID != "" && req.Token != "" {
+			if req.AgentID == existingAgent.AgentID && req.Token == existingAgent.GRPCToken {
+				// 身份验证通过，允许更新
+				isUpdateMode = true
+				agentID = existingAgent.AgentID // 复用现有ID
+			}
+		}
+
+		if !isUpdateMode {
+			// 身份验证失败或未提供凭证，且 Hostname+Port 冲突
+			// Agent已存在，返回409冲突错误
+			logger.LogBusinessError(
+				fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port),
+				"", 0, "", "service.agent.manager.RegisterAgent", "",
+				map[string]interface{}{
+					"operation": "register_agent",
+					"option":    "duplicate_hostname_port_check",
+					"func_name": "service.agent.manager.RegisterAgent",
+					"hostname":  req.Hostname,
+					"port":      req.Port,
+					"agent_id":  existingAgent.AgentID,
+				},
+			)
+			return nil, fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port)
+		} else {
+			// 更新模式日志
+			logger.LogInfo("Agent进入更新模式(Re-Register)", "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+				"agent_id": agentID,
+				"hostname": req.Hostname,
+			})
+		}
 	}
 
-	// 创建新Agent
-	newAgent := &agentModel.Agent{
+	// 准备 Agent 数据对象
+	agentData := &agentModel.Agent{
 		AgentID:       agentID,
 		Hostname:      req.Hostname,
 		IPAddress:     req.IPAddress,
@@ -242,27 +263,45 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		DiskTotal:     req.DiskTotal,
 		ContainerID:   req.ContainerID,
 		PID:           req.PID,
-		TaskSupport:   req.TaskSupport, // 新增字段：TaskSupport (对应 ScanType)
-		Feature:       req.Feature,     // 新增字段：Feature (备用)
+		TaskSupport:   req.TaskSupport, // 更新 TaskSupport
+		Feature:       req.Feature,     // 更新 Feature
 		Remark:        req.Remark,
 		Status:        agentModel.AgentStatusOnline,
-		GRPCToken:     generateGRPCToken(),
-		TokenExpiry:   time.Now().Add(24 * time.Hour), // Token 24小时后过期
 		LastHeartbeat: time.Now(),
 	}
 
-	if err1 := s.agentRepo.Create(newAgent); err1 != nil {
-		logger.LogBusinessError(err1, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
-			"operation": "register_agent",
-			"option":    "agentManagerService.RegisterAgent",
-			"func_name": "service.agent.manager.RegisterAgent",
-			"agent_id":  agentID,
-		})
-		return nil, fmt.Errorf("创建新Agent失败: %v", err)
+	if existingAgent != nil {
+		// 更新模式: 复用现有 Token 和 Expiry (或者也可以在这里刷新 Token，视安全策略而定，目前保持不变)
+		agentData.GRPCToken = existingAgent.GRPCToken
+		agentData.TokenExpiry = existingAgent.TokenExpiry
+
+		// 执行更新
+		if err := s.agentRepo.Update(agentData); err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+				"operation": "register_agent_update",
+				"agent_id":  agentID,
+			})
+			return nil, fmt.Errorf("更新Agent失败: %v", err)
+		}
+	} else {
+		// 创建模式: 生成新 Token
+		agentData.GRPCToken = generateGRPCToken()
+		agentData.TokenExpiry = time.Now().Add(24 * time.Hour)
+
+		// 执行创建
+		if err := s.agentRepo.Create(agentData); err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+				"operation": "register_agent_create",
+				"agent_id":  agentID,
+			})
+			return nil, fmt.Errorf("创建新Agent失败: %v", err)
+		}
 	}
 
 	// ------------------------------------------------------------
 	// Tag 系统同步：将 TaskSupport (ScanType) 映射为系统标签并绑定到 Agent
+	// ------------------------------------------------------------
+	// (逻辑复用：无论是创建还是更新，都强制同步最新的 TaskSupport 到 Tag 系统)
 	// ------------------------------------------------------------
 	// 获取 TaskSupport 对应的 TagID
 	// 修改逻辑：Agent 上传的是字符串 Key (Name)，需要转换为 TagID
@@ -276,6 +315,8 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 
 		// 核心校验：如果提供了TaskSupport但无法找到任何对应的TagID，说明提供的TaskSupport无效
 		if len(tagIDs) == 0 {
+			// 注意：如果是更新模式且同步失败，是否应该回滚 Agent 数据更新？
+			// Linus: Fail Fast. 如果能力无效，整个注册/握手都应该失败。
 			errMsg := "无效的TaskSupport: 提供的任务支持类型在系统中不存在"
 			if err != nil {
 				errMsg = fmt.Sprintf("%s: %v", errMsg, err)
@@ -289,9 +330,9 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 
 		// 同步 Tags
 		// 使用 context.Background() 因为 RegisterAgent 没有 Context 参数
-		// sourceScope 使用 "agent_capability" 以区别于其他来源
-		// 这样可以确保 Agent 的能力标签被正确管理，且不影响手动打的标签
-		err = s.tagService.SyncEntityTags(context.Background(), "agent", agentID, tagIDs, "agent_capability", 0)
+		// sourceScope 使用 "agent_register_update" 以区别于其他来源 实际上是更新 agent 的 TaskSupport/Feature 字段标签
+		// 这样可以确保 Agent 的标签被正确管理，且不影响手动打的标签
+		err = s.tagService.SyncEntityTags(context.Background(), "agent", agentID, tagIDs, "agent_register_update", 0)
 		if err != nil {
 			logger.LogError(err, "", 0, "", "RegisterAgent", "SyncEntityTags", map[string]interface{}{
 				"agent_id": agentID,
@@ -299,14 +340,14 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 			})
 			// 同步失败仅记录错误，不中断注册，因为核心校验已通过
 		} else {
-			logger.LogInfo("Agent能力标签同步成功", "", 0, "", "RegisterAgent", "SyncEntityTags", map[string]interface{}{
+			logger.LogInfo("Agent任务支持标签同步成功", "", 0, "", "RegisterAgent", "SyncEntityTags", map[string]interface{}{
 				"agent_id": agentID,
 				"tag_ids":  tagIDs,
 			})
 		}
 	}
 
-	logger.LogInfo("Agent注册成功", "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+	logger.LogInfo("Agent注册/更新成功", "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
 		"operation": "register_agent",
 		"option":    "agentManagerService.RegisterAgent",
 		"func_name": "service.agent.manager.RegisterAgent",
@@ -316,8 +357,8 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 
 	return &agentModel.RegisterAgentResponse{
 		AgentID:     agentID,
-		GRPCToken:   newAgent.GRPCToken,
-		TokenExpiry: newAgent.TokenExpiry,
+		GRPCToken:   agentData.GRPCToken,
+		TokenExpiry: agentData.TokenExpiry,
 		Status:      "registered",
 		Message:     "Agent注册成功",
 	}, nil

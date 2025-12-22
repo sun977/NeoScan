@@ -83,9 +83,9 @@ func generateAgentID(hostname string) string {
 	return fmt.Sprintf("agent_%s", uuid)
 }
 
-// generateGRPCToken 生成GRPC通信Token
+// generateToken 生成通信Token
 // 用于Agent与Master之间的安全通信
-func generateGRPCToken() string {
+func generateToken() string {
 	return fmt.Sprintf("token_%d", time.Now().UnixNano())
 }
 
@@ -217,7 +217,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		// 如果验证通过，则进入"更新模式" (Idempotent Registration)，而不是返回冲突
 		isUpdateMode := false
 		if req.AgentID != "" && req.Token != "" {
-			if req.AgentID == existingAgent.AgentID && req.Token == existingAgent.GRPCToken {
+			if req.AgentID == existingAgent.AgentID && req.Token == existingAgent.Token {
 				// 身份验证通过，允许更新
 				isUpdateMode = true
 				agentID = existingAgent.AgentID // 复用现有ID
@@ -272,7 +272,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 
 	if existingAgent != nil {
 		// 更新模式: 复用现有 Token 和 Expiry (或者也可以在这里刷新 Token，视安全策略而定，目前保持不变)
-		agentData.GRPCToken = existingAgent.GRPCToken
+		agentData.Token = existingAgent.Token
 		agentData.TokenExpiry = existingAgent.TokenExpiry
 
 		// 执行更新
@@ -285,7 +285,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		}
 	} else {
 		// 创建模式: 生成新 Token
-		agentData.GRPCToken = generateGRPCToken()
+		agentData.Token = generateToken()
 		agentData.TokenExpiry = time.Now().Add(24 * time.Hour)
 
 		// 执行创建
@@ -357,7 +357,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 
 	return &agentModel.RegisterAgentResponse{
 		AgentID:     agentID,
-		GRPCToken:   agentData.GRPCToken,
+		Token:       agentData.Token,
 		TokenExpiry: agentData.TokenExpiry,
 		Status:      "registered",
 		Message:     "Agent注册成功",

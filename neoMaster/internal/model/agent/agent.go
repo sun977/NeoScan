@@ -163,7 +163,7 @@ type Agent struct {
 	Feature     StringSlice `json:"feature" gorm:"type:json;comment:Agent具备的特性功能列表"`                    // 备用，后续使用
 
 	// 安全认证
-	GRPCToken   string    `json:"grpc_token" gorm:"column:grpc_token;size:500;comment:gRPC通信Token"`
+	Token       string    `json:"token" gorm:"column:token;size:500;comment:通信Token"`
 	TokenExpiry time.Time `json:"token_expiry" gorm:"comment:Token过期时间"`
 
 	// 时间戳

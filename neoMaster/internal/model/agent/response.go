@@ -15,7 +15,7 @@ import (
 // 返回注册成功后的Agent信息和认证Token
 type RegisterAgentResponse struct {
 	AgentID     string    `json:"agent_id"`     // Agent唯一标识ID
-	GRPCToken   string    `json:"grpc_token"`   // gRPC通信Token
+	Token       string    `json:"token"`        // 通信Token
 	TokenExpiry time.Time `json:"token_expiry"` // Token过期时间
 	Status      string    `json:"status"`       // 注册状态
 	Message     string    `json:"message"`      // 响应消息

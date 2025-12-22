@@ -26,7 +26,7 @@ type Agent struct {
     Tags         []string  `json:"tags" gorm:"type:json"`
 
     // 安全认证字段
-    GRPCToken    string    `json:"grpc_token"`     // 用于gRPC通信的Token
+    Token        string    `json:"token"`          // 用于通信的Token
     TokenExpiry  time.Time `json:"token_expiry"`   // Token过期时间
 
     // 时间戳

@@ -39,6 +39,7 @@ type policyEnforcer struct {
 // 问题：策略执行器执行对象是 ScanStage 不应该是 project
 // ScanStage.target_policy JSON 中定义了目标策略，同时数据库中也存储了一套策略，这两套策略都需要满足
 // 白名单检验：scanStage.target_policy.whitelist_enabled 为 true 时，需要检查任务目标是否在白名单中(whitelist_sources + 数据库中存储的白名单)
+// - ScanStage.target_policy.whitelist_sources 中的默认只执行跳过动作，如果是db类型，使用白名单的时候需要注意白名单的作用域Scope，白名单中的目标只能在当前作用域中生效
 // 跳过条件检验：scanStage.target_policy.skip_enabled 为 true 时，需要检查任务目标是否符合跳过条件(skip_conditions + 数据库中存储的跳过条件)
 // - ScanStage.target_policy.skip_conditions 中的跳过策略默认只执行跳过扫描动作(skip)，数据库中的跳过策略支持命中后执行动作配置(如：skip,tag,log,alert 动作)
 //

@@ -36,6 +36,35 @@ type policyEnforcer struct {
 }
 
 // NewPolicyEnforcer 创建策略执行器
+// 问题：策略执行器执行对象是 ScanStage 不应该是 project
+// ScanStage.target_policy JSON 中定义了目标策略，同时数据库中也存储了一套策略，这两套策略都需要满足
+// 白名单检验：scanStage.target_policy.whitelist_enabled 为 true 时，需要检查任务目标是否在白名单中(whitelist_sources + 数据库中存储的白名单)
+// 跳过条件检验：scanStage.target_policy.skip_enabled 为 true 时，需要检查任务目标是否符合跳过条件(skip_conditions + 数据库中存储的跳过条件)
+//
+//	{
+//	  "target_sources": [
+//	    {
+//	      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
+//	      "source_value": "/path/to/targets.txt",  // 根据类型的具体值
+//	      "target_type": "ip_range"        // 目标类型：ip/ip_range/domain/url
+//	    }
+//	  ],
+//	  "whitelist_enabled": true,           // 是否启用白名单
+//	  "whitelist_sources": [               // 白名单来源/数据库/文件/手动输入
+//	    {
+//	      "source_type": "file",   	// 白名单来源类型：file/db/manual
+//	      "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认白名单表(默认写死), manual 对应手动输入内容
+//	    }
+//	  ],
+//	  "skip_enabled": true,                // 是否启用跳过条件
+//	  "skip_conditions": [                 // 跳过条件,列表中可添加多个条件
+//	    {
+//	      "condition_field": "device_type",
+//	      "operator": "equals",
+//	      "value": "honeypot"
+//	    }
+//	  ]
+//	}
 func NewPolicyEnforcer(projectRepo *orcrepo.ProjectRepository, policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforcer {
 	return &policyEnforcer{
 		projectRepo: projectRepo,

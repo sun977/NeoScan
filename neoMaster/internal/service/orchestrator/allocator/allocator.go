@@ -21,7 +21,7 @@ import (
 // 职责: 管理 Agent 资源池，实现最优分配。
 // 对应文档: 1.3 Resource Allocator (资源调度器)
 type ResourceAllocator interface {
-	// CanExecute 检查 Agent 是否有能力执行该任务 (Match Capability & Tags)
+	// CanExecute 检查 Agent 是否有能力执行该任务 (Match TaskSupport/Feature & Tags)
 	CanExecute(ctx context.Context, agent *agentModel.Agent, task *orchestrator.AgentTask) bool
 	// Allow 检查是否允许向该 Agent 分发任务 (Rate Limiting)
 	Allow(ctx context.Context, agentID string) bool
@@ -62,7 +62,7 @@ func (a *resourceAllocator) Allow(ctx context.Context, agentID string) bool {
 	return true
 }
 
-// CanExecute 检查 Agent 是否有能力执行该任务
+// CanExecute 检查 Agent 是否有能力执行该任务 (Match TaskSupport/Feature & Tags)
 func (a *resourceAllocator) CanExecute(ctx context.Context, agent *agentModel.Agent, task *orchestrator.AgentTask) bool {
 	// 1. RateLimiter: 速率限制
 	// 全局限速: 防止 Master 被大量心跳打挂 (这里是 Dispatch 阶段，主要防止 Agent 过载)
@@ -74,9 +74,9 @@ func (a *resourceAllocator) CanExecute(ctx context.Context, agent *agentModel.Ag
 	}
 
 	// 2. AgentSelector: 智能匹配
-	// 基于 Capability (能力) 匹配: 只有安装了对应工具的 Agent 才能领取任务
-	if !hasCapability(agent, task.ToolName) {
-		logger.LogInfo("Agent missing capability for task", "", 0, "", "service.orchestrator.allocator.CanExecute", "", map[string]interface{}{
+	// 基于 TaskSupport 匹配: 只有安装了对应工具的 Agent 才能领取任务
+	if !hasTaskSupport(agent, task.ToolName) {
+		logger.LogInfo("Agent missing task_support for task", "", 0, "", "service.orchestrator.allocator.CanExecute", "", map[string]interface{}{
 			"agent_id":  agent.AgentID,
 			"tool_name": task.ToolName,
 		})
@@ -92,10 +92,10 @@ func (a *resourceAllocator) CanExecute(ctx context.Context, agent *agentModel.Ag
 	return true
 }
 
-// hasCapability 检查 Agent 是否拥有特定能力 (工具)
-func hasCapability(agent *agentModel.Agent, toolName string) bool {
+// hasTaskSupport 检查 Agent 是否拥有支持的 TaskSupport
+func hasTaskSupport(agent *agentModel.Agent, toolName string) bool {
 	// TODO: 将 toolName 映射为 ScanType ID，或者 Agent 直接上报支持的 ToolName 列表
-	// 目前 Agent.Capabilities 存储的是 ID 列表 (["1", "2"])
+	// 目前 Agent.TaskSupport 存储的是 ID 列表 (["ipAliveScan", "pocScan"])
 	// 这里暂时做一个简单的模拟，或者假设所有 Online Agent 都有基础能力
 	if len(agent.TaskSupport) == 0 {
 		// 如果没有上报能力，默认认为没有能力，或者根据配置决定
@@ -118,7 +118,7 @@ func hasCapability(agent *agentModel.Agent, toolName string) bool {
 
 	matched, err := matcher.Match(agentData, rule)
 	if err != nil {
-		logger.LogWarn("Matcher error in hasCapability", "", 0, "", "allocator.hasCapability", "", map[string]interface{}{
+		logger.LogWarn("Matcher error in hasTaskSupport", "", 0, "", "allocator.hasTaskSupport", "", map[string]interface{}{
 			"error":     err.Error(),
 			"agent_id":  agent.AgentID,
 			"tool_name": toolName,

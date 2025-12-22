@@ -40,6 +40,7 @@ type policyEnforcer struct {
 // ScanStage.target_policy JSON 中定义了目标策略，同时数据库中也存储了一套策略，这两套策略都需要满足
 // 白名单检验：scanStage.target_policy.whitelist_enabled 为 true 时，需要检查任务目标是否在白名单中(whitelist_sources + 数据库中存储的白名单)
 // 跳过条件检验：scanStage.target_policy.skip_enabled 为 true 时，需要检查任务目标是否符合跳过条件(skip_conditions + 数据库中存储的跳过条件)
+// - ScanStage.target_policy.skip_conditions 中的跳过策略默认只执行跳过扫描动作(skip)，数据库中的跳过策略支持命中后执行动作配置(如：skip,tag,log,alert 动作)
 //
 //	{
 //	  "target_sources": [
@@ -57,7 +58,7 @@ type policyEnforcer struct {
 //	    }
 //	  ],
 //	  "skip_enabled": true,                // 是否启用跳过条件
-//	  "skip_conditions": [                 // 跳过条件,列表中可添加多个条件
+//	  "skip_conditions": [                 // 跳过条件,列表中可添加多个条件，这里写的条件直接执行跳过动作
 //	    {
 //	      "condition_field": "device_type",
 //	      "operator": "equals",

@@ -8,7 +8,7 @@
 | 维度 | 旧设计/当前代码 (Old/Current) | 用户新指令 (New Instruction) | 偏差影响 |
 | :--- | :--- | :--- | :--- |
 | **执行对象** | `Project` (项目级) | **`ScanStage` (阶段级)** | Enforcer 不应跨层级去查 Project 表，应聚焦于当前 Stage 的上下文。 |
-| **Scope 定义** | `Project.TargetScope` (项目定义范围) | **"Project 没有 Scope"** | 原有的 `validateScope` 逻辑失效，Scope 校验失去依据，需重新定义 Scope 的来源。 |
+| **Scope 定义** | `Project.TargetScope` (项目定义范围) | **"Project 没有 Scope 但有 TargetScope"** | 用户澄清：Project 虽无名为 "Scope" 的字段，但有 "TargetScope" 字段，且必须作为授权范围。 |
 | **策略来源** | 仅依赖 DB (Global Policies) | **`ScanStage` JSON + DB** | 当前代码忽略了 Stage 局部定义的白名单和跳过条件，导致局部策略失效。 |
 | **策略关系** | 单一来源 | **逻辑或 (OR)** | 需实现 `Local_Policy || Global_Policy` 的合并逻辑。 |
 
@@ -17,62 +17,69 @@
 ### 3.1 核心原则
 1.  **ScanStage 为王**: Enforcer 的所有输入依据（包括策略配置）必须源自 `ScanStage`（或由 Scheduler 在生成任务时注入的 Stage 快照）。
 2.  **混合策略 (Hybrid Policy)**: 必须同时评估局部配置与全局规则。
-3.  **移除 Project 依赖**: Enforcer 不再查询 `ProjectRepository` 获取 Scope。
+3.  **Snapshot 机制**: 在任务生成时，将 Project.TargetScope 和 ScanStage.TargetPolicy 快照化到 AgentTask 中，保证执行时的原子性。
 
 ### 3.2 重构后的校验流程
 
 ```mermaid
 graph TD
     A[AgentTask] --> B{Enforce}
-    B -->|Input| C[ScanStage Policy Snapshot]
+    B -->|Input| C[Policy Snapshot]
     B -->|Input| D[Global Policy DB]
     
     subgraph "1. Scope Validator (Scope 校验)"
         direction TB
-        E[?] -- 疑问: Scope 定义在哪里? --> F{Validate}
+        E[Check Target] -- 依据: Snapshot.TargetScope --> F{Validate}
+        F -- Out of Scope --> Block1[BLOCK & ALERT]
+        F -- In Scope --> Next1[Pass]
     end
     
     subgraph "2. Whitelist Checker (白名单)"
         direction TB
-        G[Stage.Whitelist] --> H{Match?}
+        G[Snapshot.LocalWhitelist] --> H{Match?}
         I[DB.GlobalWhitelist] --> H
-        H -- Yes --> Block[BLOCK]
-        H -- No --> Next1[Pass]
+        H -- Yes --> Block2[BLOCK]
+        H -- No --> Next2[Pass]
     end
     
     subgraph "3. Skip Logic (跳过策略)"
         direction TB
-        J[Stage.SkipConditions] --> K{Match?}
-        L[DB.SkipPolicy] --> K
+        J[Snapshot.LocalSkipConditions] --> K{Match?}
+        L[DB.GlobalSkipPolicy] --> K
         K -- Yes --> Skip[SKIP/ACTION]
         K -- No --> Pass[PASS]
     end
     
     B --> F
-    F --> Next1
     Next1 --> H
-    Next1 --> K
+    Next2 --> K
 ```
 
-## 4. 关键待确认事项 (Critical Questions)
+## 4. 已确认事项 (Confirmed Items)
 
 ### Q1: Scope 到底定义在哪里？
-**现状**: 用户明确指出 "Project 没有 Scope"。
-**问题**: 如果 Project 不定义 Scope（授权范围），那么 `ScopeValidator` 依据什么来防止越权扫描？
-**可能选项**:
-*   **Option A (下沉)**: 每个 `ScanStage` 都在其 JSON 配置中显式定义 `target_scope`？
-*   **Option B (隐式)**: `ScanStage.TargetSource` 解析出来的目标即为 Scope，不再做额外的范围校验？（风险：如果 Source 配置了 `0.0.0.0/0` 怎么办？）
-*   **Option C (外部)**: Scope 由工作流（Workflow）或其他上层结构定义？
+**确认**: **Project.TargetScope**。
+虽然用户最初说 "Project 没有 Scope"，但后续澄清 "Project 中有 TargetScope，使用它作为授权范围"。
+**结论**: `ScopeValidator` 必须校验目标是否在 `Project.TargetScope` 定义的范围内。
 
 ### Q2: 策略注入方式
-**建议**: 为了保证原子性，建议在 `Scheduler` 生成 `AgentTask` 时，将 `ScanStage` 的策略配置（JSON）**解析并快照化**，存入 `AgentTask` 的一个新字段（如 `PolicySnapshot`）。
-**确认**: 是否同意此方案？这样 Enforcer 接口只需接收 `AgentTask`，无需额外参数。
+**确认**: **支持 PolicySnapshot**。
+**结论**: 修改 `AgentTask` 模型，增加 `PolicySnapshot` 字段。在 `Scheduler` 生成任务时，将以下内容打包注入：
+*   `Project.TargetScope` (作为 Scope 校验依据)
+*   `ScanStage.TargetPolicy` (作为局部白名单/跳过策略依据)
 
-### Q3: 数据库中的全局策略触发机制
-**现状**: `ScanStage` JSON 中有 `whitelist_enabled` 字段。
-**确认**:
-*   如果 `whitelist_enabled = false`，是否**强制跳过**数据库的全局白名单检查？
-*   还是说全局白名单是**强制执行**的，不受 `ScanStage` 开关控制？(建议：全局白名单应强制执行，这是底线)。
+### Q3: 全局策略触发机制
+**确认**: **全局策略强制执行**。
+**结论**: `ScanStage` 中的 `whitelist_enabled` 和 `skip_enabled` 开关仅控制 **局部策略** 的开启/关闭，**不影响** 全局策略的执行。全局白名单和全局跳过策略始终生效 (Always On)，除非数据库中全局配置本身被禁用。
 
----
-**请确认以上理解，特别是 Q1 (Scope 的去向)。**
+## 5. 开发任务清单 (Action Items)
+
+1.  **Model Update**: 修改 `AgentTask` 结构体，添加 `PolicySnapshot` (JSON) 字段。
+2.  **Scheduler Refactor**:
+    *   在 `TaskGenerator` 中，解析 `Project.TargetScope` 和 `ScanStage.TargetPolicy`。
+    *   构造 `PolicySnapshot` 对象并赋值给新生成的 `AgentTask`。
+3.  **Enforcer Refactor**:
+    *   移除 `projectRepo` 依赖（不再查 Project 表）。
+    *   修改 `Enforce` 方法，优先从 `task.PolicySnapshot` 读取配置。
+    *   实现 Scope 校验逻辑（基于 Snapshot）。
+    *   实现 WhiteList/Skip 逻辑（Snapshot || DB）。

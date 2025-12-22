@@ -52,7 +52,7 @@ CREATE TABLE `agents` (
     `disk_total` bigint DEFAULT NULL COMMENT '总磁盘大小(字节)',
     `task_support` json DEFAULT NULL COMMENT 'Agent支持的任务类型列表，与ScanType一一对应',
     `feature` json DEFAULT NULL COMMENT 'Agent具备的特性功能列表',
-    `grpc_token` varchar(500) DEFAULT NULL COMMENT 'gRPC通信Token',
+    `token` varchar(500) DEFAULT NULL COMMENT '通信Token',
     `token_expiry` datetime DEFAULT NULL COMMENT 'Token过期时间',
     `result_latest_time` datetime DEFAULT NULL COMMENT '最新返回结果时间',
     `last_heartbeat` datetime DEFAULT NULL COMMENT '最后心跳时间',

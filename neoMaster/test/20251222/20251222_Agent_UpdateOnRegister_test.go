@@ -177,7 +177,7 @@ func TestRegisterAgent_UpdateMode(t *testing.T) {
 		AgentID:     "agent_test_123",
 		Hostname:    "test-host",
 		Port:        8080,
-		GRPCToken:   "token_abc_123",
+		Token:       "token_abc_123",
 		TokenExpiry: time.Now().Add(time.Hour),
 		TaskSupport: []string{"scan_a"},
 	}
@@ -204,13 +204,13 @@ func TestRegisterAgent_UpdateMode(t *testing.T) {
 
 		// Tag Sync Mocks
 		mockRepo.On("GetTagIDsByTaskSupportNames", []string{"scan_b"}).Return([]uint64{20}, nil).Once()
-		mockTagSvc.On("SyncEntityTags", mock.Anything, "agent", "agent_test_123", []uint64{20}, "agent_capability", uint64(0)).Return(nil).Once()
+		mockTagSvc.On("SyncEntityTags", mock.Anything, "agent", "agent_test_123", []uint64{20}, "agent_register_update", uint64(0)).Return(nil).Once()
 
 		resp, err := svc.RegisterAgent(req)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, "agent_test_123", resp.AgentID)
-		assert.Equal(t, "token_abc_123", resp.GRPCToken) // Should return existing token
+		assert.Equal(t, "token_abc_123", resp.Token) // Should return existing token
 	})
 
 	// Case 2: Conflict (Missing Token)

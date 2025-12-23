@@ -45,31 +45,6 @@ type policyEnforcer struct {
 // 跳过条件检验：scanStage.target_policy.skip_enabled 为 true 时，需要检查任务目标是否符合跳过条件(skip_conditions + 数据库中存储的跳过条件)
 // - ScanStage.target_policy.skip_conditions 中的跳过策略默认只执行跳过扫描动作(skip)，数据库中的跳过策略支持命中后执行动作配置(如：skip,tag,log,alert 动作)
 //
-//	{
-//	  "target_sources": [
-//	    {
-//	      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
-//	      "source_value": "/path/to/targets.txt",  // 根据类型的具体值
-//	      "target_type": "ip_range"        // 目标类型：ip/ip_range/domain/url
-//	    }
-//	  ],
-//	  "whitelist_enabled": true,           // 是否启用白名单
-//	  "whitelist_sources": [               // 白名单来源/数据库/文件/手动输入
-//	    {
-//	      "source_type": "file",   	// 白名单来源类型：file/db/manual
-//	      "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认白名单表(默认写死), manual 对应手动输入内容
-//	    }
-//	  ],
-//	  "skip_enabled": true,                // 是否启用跳过条件
-//	  "skip_conditions": [                 // 跳过条件,列表中可添加多个条件，这里写的条件直接执行跳过动作
-//	    {
-//	      "condition_field": "device_type",
-//	      "operator": "equals",
-//	      "value": "honeypot"
-//	    }
-//	  ]
-//	}
-//
 // 核心变更: 移除 ProjectRepository 依赖，Enforcer 只对 AgentTask 和 ScanStage 快照负责
 // PolicyEnforcer 不应该知道 Project 的存在，它只关心 Scope 和 PolicySnapshot
 func NewPolicyEnforcer(policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforcer {
@@ -85,8 +60,8 @@ func NewPolicyEnforcer(policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforc
 // 2. 移除 DB Project 查询，改为从 Snapshot 获取 Scope
 // 3. 实现 Local (ScanStage) 和 Global (DB) 策略的逻辑 OR
 func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask) error {
-	// 1. 解析 PolicySnapshot
-	var policySnapshot map[string]interface{}
+	// 1. 解析 PolicySnapshot (使用结构体)
+	var policySnapshot agentModel.PolicySnapshot
 	if task.PolicySnapshot != "" {
 		if err := json.Unmarshal([]byte(task.PolicySnapshot), &policySnapshot); err != nil {
 			logger.LogWarn("Failed to parse policy snapshot, fallback to empty", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
@@ -138,12 +113,6 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 		return fmt.Errorf("policy violation: target is empty")
 	}
 
-	// 从 task.PolicySnapshot 中获取 target_scope --- 字段必须有，可以为空，表示不限制范围
-	targetScope, _ := policySnapshot["target_scope"].(string)
-
-	// 从 task.PolicySnapshot 中获取 target_policy --- 字段必须有，可以为空，表示不限制范围
-	// targetPolicy, _ := policySnapshot["target_policy"].([]interface{})
-
 	// 解析 InputTarget (可能是 JSON 列表或单个字符串)
 	// 支持格式：["192.168.1.0/24", "10.0.0.0/16"] 或
 	// [{"type": "ip", "value": "192.168.1.1", "source": "file", "meta": {"device_type": "honeypot"}}, {"type": "ip", "value": "192.168.1.2", "source": "file", "meta": {"device_type": "honeypot"}}]
@@ -154,7 +123,8 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	}
 
 	// 校验所有目标是否在 Scope 内
-	if err1 := validateScope(targets, targetScope); err1 != nil {
+	// 注意: TargetScope 现在是 []string 类型
+	if err1 := validateScope(targets, policySnapshot.TargetScope); err1 != nil {
 		return err1
 	}
 
@@ -162,8 +132,23 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	// 检查目标是否命中白名单
 	for _, target := range targets {
 		// 3.1 检查局部白名单 (从 Snapshot.TargetPolicy 解析)
-		// TODO: 解析 Snapshot 中的 LocalWhitelist 并检查
-		// 暂时只实现了框架，具体解析逻辑待细化
+		isLocalWhitelisted := false
+		tp := policySnapshot.TargetPolicy
+		if tp.WhitelistEnabled {
+			// TODO: 实现局部白名单检查逻辑
+			// 遍历 tp.WhitelistSources 进行检查
+		}
+
+		if isLocalWhitelisted {
+			logger.LogInfo("Task skipped by local whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
+				"task_id": task.TaskID,
+				"target":  target,
+			})
+			// 修正理解: 在扫描系统中，"白名单"通常意味着"允许扫描"还是"禁止扫描"？
+			// 根据上下文 "Task blocked by global whitelist"，这里的白名单是指"免扫名单"(Do Not Scan List)。
+			// 所以命中白名单 = 阻断。
+			return fmt.Errorf("policy violation: target %s is whitelisted by local rule", target)
+		}
 
 		// 3.2 检查全局白名单 (DB) - 强制执行
 		isBlocked, ruleName, err2 := p.checkWhitelist(ctx, target)
@@ -216,10 +201,10 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	return nil
 }
 
-// // checkPartWhiteList 检查目标是否在白名单中(局部策略白名单)
-// func (p *policyEnforcer) checkPartWhiteList(ctx context.Context, target string, policySnapshot map[string]interface{}) (bool, string, error) {
+// // checkLocalWhiteList 检查目标是否在白名单中(局部策略白名单)
+// func (p *policyEnforcer) checkLocalWhiteList(ctx context.Context, target string, policySnapshot map[string]interface{}) (bool, string, error) {
 // 	// 从 task.PolicySnapshot 中获取 LocalWhitelist
-// 	localWhitelist, _ := policySnapshot["local_whitelist"].([]interface{})
+// 	localWhitelist, _ := policySnapshot["target_policy"].([]interface{})
 
 // 	// 检查目标是否在 LocalWhitelist 中
 // 	for _, item := range localWhitelist {
@@ -460,15 +445,14 @@ func parseTargets(input string) ([]string, error) {
 }
 
 // validateScope 校验目标是否在范围内 --- 基于 Project.TargetScope 检测
-func validateScope(targets []string, scope string) error {
-	if scope == "" {
+func validateScope(targets []string, allowedScopes []string) error {
+	if len(allowedScopes) == 0 {
 		// 如果 Scope 为空，默认允许所有 (或者默认拒绝，取决于安全策略)
 		// 这里为了安全，建议如果 Scope 为空则仅允许特定类型，或者默认拒绝
 		// 但为了易用性，暂时默认允许
 		return nil
 	}
 
-	allowedScopes := strings.Split(scope, ",")
 	// 简单的包含检查或 CIDR 检查
 	// TODO: 实现更强大的 CIDR / Domain 匹配
 	for _, target := range targets {

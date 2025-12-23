@@ -54,9 +54,9 @@ func (AgentTask) TableName() string {
 
 // task.PolicySnapshot 样例:
 // {
-//   "target_scope": ["192.168.1.0/24", "10.0.0.0/16"],   ---- 项目 TargetScope 可以为空，为空时表示不限制范围
-//   "target_policy": [{   ---- 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
-//     "target_sources": [{
+//   "target_scope": ["192.168.1.0/24", "10.0.0.0/16"],   // ---- 项目 TargetScope 可以为空，为空时表示不限制范围
+//   "target_policy": [{   // ---- 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
+//     "target_sources": {
 //       "source_type": "file", // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
 //       "source_value": "/path/to/targets.txt", // 根据类型的具体值
 //       "target_type": "ip_range" // 目标类型：ip/ip_range/domain/url
@@ -81,5 +81,35 @@ func (AgentTask) TableName() string {
 //         "value": "linux"
 //       }
 //     ]
-//   }]
+//   }
 // }
+
+// PolicySnapshot 策略快照结构体
+// 对应 Task.PolicySnapshot 字段的 JSON 结构
+type PolicySnapshot struct {
+	TargetScope  []string       `json:"target_scope"`  // 项目 TargetScope (CIDR 列表)
+	TargetPolicy []TargetPolicy `json:"target_policy"` // 扫描阶段的 target_policy
+}
+
+// TargetPolicy 对应 target_policy 数组中的对象
+type TargetPolicy struct {
+	TargetSources    []PolicySource  `json:"target_sources"`
+	WhitelistEnabled bool            `json:"whitelist_enabled"`
+	WhitelistSources []PolicySource  `json:"whitelist_sources"`
+	SkipEnabled      bool            `json:"skip_enabled"`
+	SkipConditions   []SkipCondition `json:"skip_conditions"`
+}
+
+// PolicySource 复用于 target_sources 和 whitelist_sources
+type PolicySource struct {
+	SourceType  string `json:"source_type"`           // 来源类型: file/db/view/sql/manual/api/previous_stage
+	SourceValue string `json:"source_value"`          // 路径或值
+	TargetType  string `json:"target_type,omitempty"` // 目标类型: ip/ip_range/domain/url (仅 target_sources 有此字段)
+}
+
+// SkipCondition 跳过条件
+type SkipCondition struct {
+	ConditionField string `json:"condition_field"` // 条件字段
+	Operator       string `json:"operator"`        // 操作符: equals, contains 等
+	Value          string `json:"value"`           // 值
+}

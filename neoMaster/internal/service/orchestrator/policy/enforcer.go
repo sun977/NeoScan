@@ -100,9 +100,9 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	// 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
 	// task.PolicySnapshot 样例:
 	// {
-	//   "target_scope": ["192.168.1.0/24", "10.0.0.0/16"],   ---- 项目 TargetScope 可以为空，为空时表示不限制范围
-	//   "target_policy": [{   ---- 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
-	//     "target_sources": [{
+	//   "target_scope": ["192.168.1.0/24", "10.0.0.0/16"],   // ---- 项目 TargetScope 可以为空，为空时表示不限制范围
+	//   "target_policy": [{   // ---- 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
+	//     "target_sources": {
 	//       "source_type": "file", // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
 	//       "source_value": "/path/to/targets.txt", // 根据类型的具体值
 	//       "target_type": "ip_range" // 目标类型：ip/ip_range/domain/url
@@ -127,7 +127,7 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	//         "value": "linux"
 	//       }
 	//     ]
-	//   }]
+	//   }
 	// }
 
 	// 2. ScopeValidator: 范围校验 (基于 Snapshot.TargetScope)

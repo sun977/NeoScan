@@ -65,7 +65,7 @@ func (AgentTask) TableName() string {
 //     "whitelist_sources": [ // 白名单来源/数据库/文件/手动输入
 //       {
 //         "source_type": "file", // 白名单来源类型：file/db/manual
-//         "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认白名单表(默认写死), manual 对应手动输入内容
+//         "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认全局白名单表(相当于不设置局部白名单), manual 对应手动输入内容["192.168.1.0/24","10.0.0.0/16"]
 //       }
 //     ],
 //     "skip_enabled": true, // 是否启用跳过条件
@@ -74,6 +74,11 @@ func (AgentTask) TableName() string {
 //         "condition_field": "device_type",
 //         "operator": "equals",
 //         "value": "honeypot"
+//       },
+//       {
+//         "condition_field": "os",
+//         "operator": "contains",
+//         "value": "linux"
 //       }
 //     ]
 //   }]

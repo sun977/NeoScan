@@ -214,23 +214,23 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	return nil
 }
 
-// checkPartWhiteList 检查目标是否在白名单中(局部策略白名单)
-func (p *policyEnforcer) checkPartWhiteList(ctx context.Context, target string, policySnapshot map[string]interface{}) (bool, string, error) {
-	// 从 task.PolicySnapshot 中获取 LocalWhitelist
-	localWhitelist, _ := policySnapshot["local_whitelist"].([]interface{})
+// // checkPartWhiteList 检查目标是否在白名单中(局部策略白名单)
+// func (p *policyEnforcer) checkPartWhiteList(ctx context.Context, target string, policySnapshot map[string]interface{}) (bool, string, error) {
+// 	// 从 task.PolicySnapshot 中获取 LocalWhitelist
+// 	localWhitelist, _ := policySnapshot["local_whitelist"].([]interface{})
 
-	// 检查目标是否在 LocalWhitelist 中
-	for _, item := range localWhitelist {
-		if w, ok := item.(map[string]interface{})["whitelist_name"]; ok {
-			whitelistName := w.(string)
-			if strings.Contains(target, whitelistName) {
-				return true, whitelistName, nil
-			}
-		}
-	}
+// 	// 检查目标是否在 LocalWhitelist 中
+// 	for _, item := range localWhitelist {
+// 		if w, ok := item.(map[string]interface{})["whitelist_name"]; ok {
+// 			whitelistName := w.(string)
+// 			if strings.Contains(target, whitelistName) {
+// 				return true, whitelistName, nil
+// 			}
+// 		}
+// 	}
 
-	return false, "", nil
-}
+// 	return false, "", nil
+// }
 
 // checkWhitelist 检查目标是否在白名单中(全局策略白名单)
 func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (bool, string, error) {

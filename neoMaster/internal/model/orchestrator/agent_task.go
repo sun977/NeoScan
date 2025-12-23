@@ -23,16 +23,17 @@ type AgentTask struct {
 	Status       string `json:"status" gorm:"size:20;default:'pending';comment:任务状态(pending/assigned/running/completed/failed)"`
 	Priority     int    `json:"priority" gorm:"default:0;comment:任务优先级"`
 	TaskType     string `json:"task_type" gorm:"size:20;default:'tool';comment:任务类型"`
-	TaskCategory string `json:"task_category" gorm:"size:20;default:'agent';comment:任务分类(agent/system)"` // agent: 普通任务; system: 系统任务
+	TaskCategory string `json:"task_category" gorm:"size:20;default:'agent';comment:任务分类(agent/system)"` // agent: 普通任务(通过Agent执行); system: 系统任务(localAgent)
 
 	// 任务参数
-	ToolName     string `json:"tool_name" gorm:"size:100;comment:工具名称"`
-	ToolParams   string `json:"tool_params" gorm:"type:text;comment:工具参数"`
-	InputTarget  string `json:"input_target" gorm:"type:json;comment:输入目标(JSON)"`
-	RequiredTags string `json:"required_tags" gorm:"type:json;comment:执行所需标签(JSON)"`
+	ToolName       string `json:"tool_name" gorm:"size:100;comment:工具名称"`
+	ToolParams     string `json:"tool_params" gorm:"type:text;comment:工具参数"`
+	InputTarget    string `json:"input_target" gorm:"type:json;comment:输入目标(JSON)"`
+	RequiredTags   string `json:"required_tags" gorm:"type:json;comment:执行所需标签(JSON)"`
+	PolicySnapshot string `json:"policy_snapshot" gorm:"type:json;comment:策略快照(JSON) - 包含TargetScope和ScanStage的策略配置"` // 任务执行时的策略配置快照
 
 	// 执行结果
-	OutputResult string `json:"output_result" gorm:"type:json;comment:输出结果摘要(JSON)"`
+	OutputResult string `json:"output_result" gorm:"type:json;comment:输出结果摘要(JSON)"` // 任务执行结果摘要 (JSON 格式) 详细结果存储在 StageResult 中
 	ErrorMsg     string `json:"error_msg" gorm:"type:text;comment:错误信息"`
 
 	// 时间记录
@@ -50,3 +51,30 @@ type AgentTask struct {
 func (AgentTask) TableName() string {
 	return "agent_tasks"
 }
+
+// task.PolicySnapshot 样例:
+// {
+//   "target_scope": ["192.168.1.0/24", "10.0.0.0/16"],   ---- 项目 TargetScope 可以为空，为空时表示不限制范围
+//   "target_policy": [{   ---- 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
+//     "target_sources": [{
+//       "source_type": "file", // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
+//       "source_value": "/path/to/targets.txt", // 根据类型的具体值
+//       "target_type": "ip_range" // 目标类型：ip/ip_range/domain/url
+//     }],
+//     "whitelist_enabled": true, // 是否启用白名单
+//     "whitelist_sources": [ // 白名单来源/数据库/文件/手动输入
+//       {
+//         "source_type": "file", // 白名单来源类型：file/db/manual
+//         "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认白名单表(默认写死), manual 对应手动输入内容
+//       }
+//     ],
+//     "skip_enabled": true, // 是否启用跳过条件
+//     "skip_conditions": [ // 跳过条件,列表中可添加多个条件，这里写的条件直接执行跳过动作
+//       {
+//         "condition_field": "device_type",
+//         "operator": "equals",
+//         "value": "honeypot"
+//       }
+//     ]
+//   }]
+// }

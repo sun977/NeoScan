@@ -54,22 +54,24 @@ func (AgentTask) TableName() string {
 
 // task.PolicySnapshot 样例:
 // {
-//   "target_scope": ["192.168.1.0/24", "10.0.0.0/16"],   // ---- 项目 TargetScope 可以为空，为空时表示不限制范围
-//   "target_policy": [{   // ---- 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
-//     "target_sources": {
-//       "source_type": "file", // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
-//       "source_value": "/path/to/targets.txt", // 根据类型的具体值
-//       "target_type": "ip_range" // 目标类型：ip/ip_range/domain/url
-//     }],
-//     "whitelist_enabled": true, // 是否启用白名单
+//   "target_scope": ["192.168.1.0/24", "10.0.0.0/16"], // 项目 TargetScope 可以为空，为空时表示不限制范围
+//   "target_policy": { // 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
+//     "target_sources": [
+//       {
+//         "source_type": "file", // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
+//         "source_value": "/path/to/targets.txt",
+//         "target_type": "ip_range" // 目标类型：ip/ip_range/domain/url
+//       }
+//     ],
+//     "whitelist_enabled": true,
 //     "whitelist_sources": [ // 白名单来源/数据库/文件/手动输入
 //       {
-//         "source_type": "file", // 白名单来源类型：file/db/manual
+//         "source_type": "file",
 //         "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认全局白名单表(相当于不设置局部白名单), manual 对应手动输入内容["192.168.1.0/24","10.0.0.0/16"]
 //       }
 //     ],
-//     "skip_enabled": true, // 是否启用跳过条件
-//     "skip_conditions": [ // 跳过条件,列表中可添加多个条件，这里写的条件直接执行跳过动作
+//     "skip_enabled": true,
+//     "skip_conditions": [  // 跳过条件,列表中可添加多个条件，这里写的条件直接执行跳过动作
 //       {
 //         "condition_field": "device_type",
 //         "operator": "equals",

@@ -88,30 +88,37 @@ func (AgentTask) TableName() string {
 
 // PolicySnapshot 策略快照结构体
 // 对应 Task.PolicySnapshot 字段的 JSON 结构
+// PolicySnapshot 定义策略快照的结构
 type PolicySnapshot struct {
-	TargetScope  []string       `json:"target_scope"`  // 项目 TargetScope (CIDR 列表)
-	TargetPolicy []TargetPolicy `json:"target_policy"` // 扫描阶段的 target_policy
+	TargetScope  []string     `json:"target_scope"`  // 项目目标范围
+	TargetPolicy TargetPolicy `json:"target_policy"` // 目标策略配置（注意：是对象而不是数组）
 }
 
-// TargetPolicy 对应 target_policy 数组中的对象
+// TargetPolicy 定义目标策略配置
 type TargetPolicy struct {
-	TargetSources    []PolicySource  `json:"target_sources"`
-	WhitelistEnabled bool            `json:"whitelist_enabled"`
-	WhitelistSources []PolicySource  `json:"whitelist_sources"`
-	SkipEnabled      bool            `json:"skip_enabled"`
-	SkipConditions   []SkipCondition `json:"skip_conditions"`
+	TargetSources    []TargetSource    `json:"target_sources"`    // 目标来源配置
+	WhitelistEnabled bool              `json:"whitelist_enabled"` // 是否启用白名单
+	WhitelistSources []WhitelistSource `json:"whitelist_sources"` // 白名单来源配置
+	SkipEnabled      bool              `json:"skip_enabled"`      // 是否启用跳过条件
+	SkipConditions   []SkipCondition   `json:"skip_conditions"`   // 跳过条件配置
 }
 
-// PolicySource 复用于 target_sources 和 whitelist_sources
-type PolicySource struct {
-	SourceType  string `json:"source_type"`           // 来源类型: file/db/view/sql/manual/api/previous_stage
-	SourceValue string `json:"source_value"`          // 路径或值
-	TargetType  string `json:"target_type,omitempty"` // 目标类型: ip/ip_range/domain/url (仅 target_sources 有此字段)
+// TargetSource 定义目标来源
+type TargetSource struct {
+	SourceType  string `json:"source_type"`  // 来源类型：file/db/view/sql/manual/api/previous_stage
+	SourceValue string `json:"source_value"` // 来源值
+	TargetType  string `json:"target_type"`  // 目标类型：ip/ip_range/domain/url
 }
 
-// SkipCondition 跳过条件
+// WhitelistSource 定义白名单来源
+type WhitelistSource struct {
+	SourceType  string `json:"source_type"`  // 来源类型：file/db/manual
+	SourceValue string `json:"source_value"` // 来源值
+}
+
+// SkipCondition 定义跳过条件
 type SkipCondition struct {
 	ConditionField string `json:"condition_field"` // 条件字段
-	Operator       string `json:"operator"`        // 操作符: equals, contains 等
+	Operator       string `json:"operator"`        // 操作符
 	Value          string `json:"value"`           // 值
 }

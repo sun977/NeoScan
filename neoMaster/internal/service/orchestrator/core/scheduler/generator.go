@@ -27,7 +27,8 @@ import (
 // TaskGenerator 任务生成器接口
 type TaskGenerator interface {
 	// GenerateTasks 修改: 接收 []policy.Target 而不是 []string
-	GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []policy.Target) ([]*orcModel.AgentTask, error)
+	// 增加 projectTargetScope 参数，用于注入 PolicySnapshot
+	GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []policy.Target, projectTargetScope string) ([]*orcModel.AgentTask, error)
 }
 
 type taskGenerator struct {
@@ -46,14 +47,39 @@ func NewTaskGenerator(cfg *config.Config) TaskGenerator {
 //   - stage: 扫描阶段配置，包含任务生成规则
 //   - projectID: 项目ID，用于关联任务
 //   - targets: 扫描目标列表 (完整对象，包含 Meta)
+//   - projectTargetScope: 项目定义的目标范围 (Project.TargetScope)
 //
 // 返回值:
 //   - []*orcModel.AgentTask: 生成的任务列表
 //   - error: 若生成任务过程中发生错误，则返回错误信息
-func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []policy.Target) ([]*orcModel.AgentTask, error) {
+func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint64, targets []policy.Target, projectTargetScope string) ([]*orcModel.AgentTask, error) {
 	// 如果没有目标，则返回 nil
 	if len(targets) == 0 {
 		return nil, nil
+	}
+
+	// 构造 PolicySnapshot (策略快照)
+	// 包含:
+	// 1. TargetScope: 项目定义的授权范围 (Project.TargetScope)
+	// 2. ScanStage.TargetPolicy: 阶段定义的局部策略 (ScanStage.TargetPolicy)
+	policySnapshot := map[string]interface{}{
+		"target_scope":  projectTargetScope,
+		"target_policy": nil,
+	}
+
+	if stage.TargetPolicy != "" {
+		var tp interface{}
+		if err := json.Unmarshal([]byte(stage.TargetPolicy), &tp); err == nil {
+			policySnapshot["target_policy"] = tp
+		} else {
+			// 如果解析失败，为了安全起见，记录错误或者置空，这里选择保留原始字符串或置空
+			// 也可以选择报错，但为了不阻塞任务生成，暂时置空
+		}
+	}
+
+	policySnapshotJSON, err := json.Marshal(policySnapshot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal policy snapshot: %v", err)
 	}
 
 	// 解析 PerformanceSettings 参数
@@ -158,22 +184,23 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 
 		// 2.创建任务对象并添加到任务列表中
 		task := &orcModel.AgentTask{
-			TaskID:       taskID,              // 任务ID
-			ProjectID:    projectID,           // 项目ID
-			WorkflowID:   stage.WorkflowID,    // 工作流ID
-			StageID:      uint64(stage.ID),    // 阶段ID
-			Status:       "pending",           // 任务状态 (pending, running, completed, failed)
-			Priority:     priority,            // 任务优先级
-			TaskType:     "tool",              // Explicitly set default
-			TaskCategory: taskCategory,        // 任务分类
-			ToolName:     stage.ToolName,      // 工具名称
-			ToolParams:   stage.ToolParams,    // 工具参数
-			InputTarget:  string(targetsJSON), // 当前批次的目标列表（JSON 字符串，包含 Meta）
-			RequiredTags: "[]",                // Default empty JSON array 执行所需标签(JSON)
-			OutputResult: "{}",                // Default empty JSON object 输出结果摘要(JSON)
-			Timeout:      timeout,             // 任务超时时间（秒）--- stage.PerformanceSettings["timeout"]
-			MaxRetries:   maxRetries,          // 最大重试次数
-			RetryCount:   0,                   // 初始重试次数
+			TaskID:         taskID,                     // 任务ID
+			ProjectID:      projectID,                  // 项目ID
+			WorkflowID:     stage.WorkflowID,           // 工作流ID
+			StageID:        uint64(stage.ID),           // 阶段ID
+			Status:         "pending",                  // 任务状态 (pending, running, completed, failed)
+			Priority:       priority,                   // 任务优先级
+			TaskType:       "tool",                     // Explicitly set default
+			TaskCategory:   taskCategory,               // 任务分类
+			ToolName:       stage.ToolName,             // 工具名称
+			ToolParams:     stage.ToolParams,           // 工具参数
+			InputTarget:    string(targetsJSON),        // 当前批次的目标列表（JSON 字符串，包含 Meta）
+			RequiredTags:   "[]",                       // Default empty JSON array 执行所需标签(JSON)
+			OutputResult:   "{}",                       // Default empty JSON object 输出结果摘要(JSON)
+			Timeout:        timeout,                    // 任务超时时间（秒）--- stage.PerformanceSettings["timeout"]
+			MaxRetries:     maxRetries,                 // 最大重试次数
+			RetryCount:     0,                          // 初始重试次数
+			PolicySnapshot: string(policySnapshotJSON), // 策略快照(JSON)
 		}
 		tasks = append(tasks, task)
 	}

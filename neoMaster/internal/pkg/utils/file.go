@@ -35,7 +35,8 @@ func ReadFileLines(filePath string) ([]string, error) {
 		// 移除行末的回车符（Windows换行符 \r\n）
 		line = strings.TrimSuffix(line, "\r")
 		// 只添加非空行或包含非空白字符的行
-		if strings.TrimSpace(line) != "" {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") { // 增加对注释行(#开头)的过滤
 			result = append(result, line)
 		}
 	}

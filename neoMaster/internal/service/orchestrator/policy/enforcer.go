@@ -85,10 +85,10 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	//       }
 	//     ],
 	//     "whitelist_enabled": true,
-	//     "whitelist_sources": [ // 白名单来源/数据库/文件/手动输入
+	//     "whitelist_sources": [ // 白名单来源/文件/手动输入
 	//       {
 	//         "source_type": "file",
-	//         "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认全局白名单表(相当于不设置局部白名单), manual 对应手动输入内容["192.168.1.0/24","10.0.0.0/16"]
+	//         "source_value": "/path/to/whitelist.txt" // file 对应文件路径, manual 对应手动输入内容["192.168.1.0/24","10.0.0.0/16"]
 	//       }
 	//     ],
 	//     "skip_enabled": true,
@@ -132,22 +132,26 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	// 检查目标是否命中白名单
 	for _, target := range targets {
 		// 3.1 检查局部白名单 (从 Snapshot.TargetPolicy 解析)
-		isLocalWhitelisted := false
 		tp := policySnapshot.TargetPolicy
-		if tp.WhitelistEnabled {
-			// TODO: 实现局部白名单检查逻辑
-			// 遍历 tp.WhitelistSources 进行检查
+		isLocalWhitelisted, ruleName, err := p.checkLocalWhiteList(ctx, target, tp.WhitelistSources)
+		if err != nil {
+			logger.LogWarn("Failed to check local whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
+				"task_id": task.TaskID,
+				"target":  target,
+				"error":   err.Error(),
+			})
+			// 局部检查失败不应阻断流程，除非是严重的逻辑错误。
+			// 但这里作为白名单，如果检查出错，默认不放行（fail closed）或 忽略错误继续？
+			// 安全起见，忽略错误继续（即认为未命中白名单）
 		}
 
 		if isLocalWhitelisted {
-			logger.LogInfo("Task skipped by local whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-				"task_id": task.TaskID,
-				"target":  target,
+			logger.LogInfo("Task blocked by local whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
+				"task_id":   task.TaskID,
+				"target":    target,
+				"rule_name": ruleName,
 			})
-			// 修正理解: 在扫描系统中，"白名单"通常意味着"允许扫描"还是"禁止扫描"？
-			// 根据上下文 "Task blocked by global whitelist"，这里的白名单是指"免扫名单"(Do Not Scan List)。
-			// 所以命中白名单 = 阻断。
-			return fmt.Errorf("policy violation: target %s is whitelisted by local rule", target)
+			return fmt.Errorf("policy violation: target %s is whitelisted by local rule: %s", target, ruleName)
 		}
 
 		// 3.2 检查全局白名单 (DB) - 强制执行
@@ -201,23 +205,88 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	return nil
 }
 
-// // checkLocalWhiteList 检查目标是否在白名单中(局部策略白名单)
-// func (p *policyEnforcer) checkLocalWhiteList(ctx context.Context, target string, policySnapshot map[string]interface{}) (bool, string, error) {
-// 	// 从 task.PolicySnapshot 中获取 LocalWhitelist
-// 	localWhitelist, _ := policySnapshot["target_policy"].([]interface{})
+// checkLocalWhiteList 检查目标是否在白名单中(局部策略白名单)
+func (p *policyEnforcer) checkLocalWhiteList(ctx context.Context, target string, whitelistSources []agentModel.WhitelistSource) (bool, string, error) {
+	// 预处理目标 (Host提取逻辑复用 checkWhitelist 中的逻辑，或者最好提取公共函数)
+	// 这里为了简单，先复制逻辑，后续建议提取 utils.ExtractHost(target)
 
-// 	// 检查目标是否在 LocalWhitelist 中
-// 	for _, item := range localWhitelist {
-// 		if w, ok := item.(map[string]interface{})["whitelist_name"]; ok {
-// 			whitelistName := w.(string)
-// 			if strings.Contains(target, whitelistName) {
-// 				return true, whitelistName, nil
-// 			}
-// 		}
-// 	}
+	targetHost := target
+	// 只有当看起来像 URL 时才尝试解析 Host
+	if strings.Contains(target, "://") {
+		if u, err := url.Parse(target); err == nil && u.Host != "" {
+			targetHost = u.Host
+		}
+	}
+	// 去掉端口号
+	if h, _, err := net.SplitHostPort(targetHost); err == nil {
+		targetHost = h
+	}
 
-// 	return false, "", nil
-// }
+	for _, source := range whitelistSources {
+		// 根据 SourceType 解析白名单内容
+		var whitelistItems []string
+
+		switch source.SourceType {
+		case "manual":
+			// manual 类型，SourceValue 是 JSON 数组字符串，例如 `["1.1.1.1", "google.com"]`
+			if err := json.Unmarshal([]byte(source.SourceValue), &whitelistItems); err != nil {
+				logger.LogWarn("Failed to parse manual whitelist source", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
+					"source_value": source.SourceValue,
+					"error":        err.Error(),
+				})
+				continue
+			}
+		case "file":
+			// file 类型，SourceValue 是文件路径
+			// 使用 utils.ReadFileLines 读取文件内容
+			lines, err := utils.ReadFileLines(source.SourceValue)
+			if err != nil {
+				logger.LogWarn("Failed to read whitelist file", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
+					"file_path": source.SourceValue,
+					"error":     err.Error(),
+				})
+				continue
+			}
+			whitelistItems = lines
+		default:
+			// 忽略不支持的类型 (如 db 已移除支持)
+			continue
+		}
+
+		// 检查目标是否在白名单项中
+		for _, item := range whitelistItems {
+			// 支持 CIDR, IP, Domain, URL 等匹配
+			// 复用 checkWhitelist 的核心匹配逻辑
+			// 1. CIDR / IP Range
+			if isMatch, err := utils.CheckIPInRange(targetHost, item); err == nil && isMatch {
+				return true, fmt.Sprintf("LocalManual:%s", item), nil
+			}
+
+			// 2. Domain / Host
+			if targetHost == item {
+				return true, fmt.Sprintf("LocalManual:%s", item), nil
+			} else if strings.HasPrefix(item, ".") && strings.HasSuffix(targetHost, item) {
+				return true, fmt.Sprintf("LocalManual:%s", item), nil
+			} else if strings.HasPrefix(item, "*.") && strings.HasSuffix(targetHost, item[1:]) {
+				return true, fmt.Sprintf("LocalManual:%s", item), nil
+			}
+
+			// 3. URL Prefix
+			if strings.HasPrefix(target, item) {
+				return true, fmt.Sprintf("LocalManual:%s", item), nil
+			}
+
+			// 4. Keyword
+			// 只有当 item 不是 IP/Domain 格式时才当作关键字? 或者总是?
+			// 简单起见，如果包含则匹配 (宽松模式)
+			// if strings.Contains(target, item) {
+			// 	 return true, fmt.Sprintf("LocalManual:%s", item), nil
+			// }
+		}
+	}
+
+	return false, "", nil
+}
 
 // checkWhitelist 检查目标是否在白名单中(全局策略白名单)
 func (p *policyEnforcer) checkWhitelist(ctx context.Context, target string) (bool, string, error) {

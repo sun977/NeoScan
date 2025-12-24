@@ -133,8 +133,8 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	for _, target := range targets {
 		// 3.1 检查局部白名单 (从 Snapshot.TargetPolicy 解析)
 		tp := policySnapshot.TargetPolicy
-		isLocalWhitelisted, ruleName, err := p.checkLocalWhiteList(ctx, target, tp.WhitelistSources)
-		if err != nil {
+		isLocalWhitelisted, ruleName, err2 := p.checkLocalWhiteList(ctx, target, tp.WhitelistSources)
+		if err2 != nil {
 			logger.LogWarn("Failed to check local whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
 				"task_id": task.TaskID,
 				"target":  target,

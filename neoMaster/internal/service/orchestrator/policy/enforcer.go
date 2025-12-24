@@ -172,22 +172,17 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 
 	// 4. SkipLogicEvaluator: 动态跳过 (Local || Global)
 	// 执行 AssetSkipPolicy 逻辑
+	// 只进行 跳过策略 的检查，不做时间窗口和tag的检查
 
 	// 4.1 检查局部跳过策略 (Snapshot)
 	// TODO: 实现局部跳过逻辑
+	// 解析 Snapshot.TargetPolicy.target_policy 中的 skip_enabled 和 skip_conditions
+	// 如果 skip_enabled 为 true，则检查 targets 是否命中 skip_conditions 中的条件
+	// 如果命中，则跳过任务
 
 	// 4.2 检查全局跳过策略 (DB)
-	// 注意: 原 checkSkipPolicy 依赖 Project 对象，现在需要重构为依赖 Snapshot 中的 Tags 等信息
-	// 为了不破坏现有逻辑，我们需要构造一个模拟的 Project 对象或重构 checkSkipPolicy
-	// 鉴于时间紧迫，我们暂时通过 ID 查 Project 是不行的(已移除依赖)。
-	// 必须要求 Snapshot 中包含用于跳过判断的上下文信息 (如 Project Tags)。
-	// 但目前 TaskGenerator 只注入了 Scope 和 Policy。
-	// TODO: 需要在 TaskGenerator 中注入 Project Tags 到 Snapshot。
-	// 现在的 checkSkipPolicy 需要 Project 对象，这是个问题。
-	// 临时方案: 暂时只支持基于时间的全局跳过，忽略基于 Tags 的，或者在后续迭代中完善 Snapshot 内容。
-	// 或者，恢复 ProjectRepo 依赖？不，用户明确要求移除。
-	// 我们可以假设 Project Tags 在 Snapshot 中 (需要回过头改 Generator 吗？是的，为了完美)
-	// 让我们先保留 checkSkipPolicy 的调用，但传入 nil project，并在 checkSkipPolicy 中处理 nil
+	// 从数据库中获取全局跳过策略，检查 targets 是否命中数据库中的跳过策略中的条件
+	// 如果命中，则跳过任务
 
 	shouldSkip, reason, err := p.checkSkipPolicy(ctx, nil) // 暂时传入 nil
 	if err != nil {
@@ -363,6 +358,11 @@ type SkipConditionRules struct {
 	BlockTimeWindows []string          `json:"block_time_windows"` // e.g. ["00:00-06:00", "22:00-23:59"]
 	BlockEnvTags     []string          `json:"block_env_tags"`     // e.g. ["production", "sensitive"]
 	MatchRule        matcher.MatchRule `json:"match_rule"`         // 复杂匹配规则 (New)
+}
+
+// checkLocalSkipPolicy 检查是否应该跳过任务(本地策略跳过)
+func (p *policyEnforcer) checkLocalSkipPolicy(ctx context.Context, target string, rules SkipConditionRules) (bool, string, error) {
+	return utils.CheckLocalSkipPolicy(target, rules)
 }
 
 // checkSkipPolicy 检查是否应该跳过任务

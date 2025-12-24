@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/url"
 	"strings"
-	"time"
 
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/matcher"
@@ -60,7 +59,7 @@ func NewPolicyEnforcer(policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforc
 // 2. 移除 DB Project 查询，改为从 Snapshot 获取 Scope
 // 3. 实现 Local (ScanStage) 和 Global (DB) 策略的逻辑 OR
 func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask) error {
-	// 1. 解析 PolicySnapshot (使用结构体)
+	// 1. 解析 PolicySnapshot (使用结构体) --- 修改AgentTask.PolicySnapshot 结构体类型为 PolicySnapshot 是不是就不用解析一遍json了
 	var policySnapshot agentModel.PolicySnapshot
 	if task.PolicySnapshot != "" {
 		if err := json.Unmarshal([]byte(task.PolicySnapshot), &policySnapshot); err != nil {
@@ -173,28 +172,48 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	// 4. SkipLogicEvaluator: 动态跳过 (Local || Global)
 	// 执行 AssetSkipPolicy 逻辑
 	// 只进行 跳过策略 的检查，不做时间窗口和tag的检查
-
 	// 4.1 检查局部跳过策略 (Snapshot)
-	// TODO: 实现局部跳过逻辑
+	// 局部跳过逻辑
 	// 解析 Snapshot.TargetPolicy.target_policy 中的 skip_enabled 和 skip_conditions
 	// 如果 skip_enabled 为 true，则检查 targets 是否命中 skip_conditions 中的条件
 	// 如果命中，则跳过任务
 
-	// 4.2 检查全局跳过策略 (DB)
-	// 从数据库中获取全局跳过策略，检查 targets 是否命中数据库中的跳过策略中的条件
-	// 如果命中，则跳过任务
+	for _, target := range targets {
+		// 4.1 检查局部跳过策略 (Snapshot)
+		tp := policySnapshot.TargetPolicy
+		if tp.SkipEnabled {
+			shouldSkip, ruleName, err := p.checkLocalSkipPolicy(ctx, target, tp.SkipConditions)
+			if err != nil {
+				logger.LogWarn("Failed to check local skip policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
+					"task_id": task.TaskID,
+					"target":  target,
+					"error":   err.Error(),
+				})
+			}
+			if shouldSkip {
+				logger.LogInfo("Task skipped by local policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
+					"task_id":   task.TaskID,
+					"target":    target,
+					"rule_name": ruleName,
+				})
+				return fmt.Errorf("policy violation: target %s skipped by local policy: %s", target, ruleName)
+			}
+		}
 
-	shouldSkip, reason, err := p.checkSkipPolicy(ctx, nil) // 暂时传入 nil
-	if err != nil {
-		logger.LogError(err, "skip policy check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
-		return fmt.Errorf("policy check error: %v", err)
-	}
-	if shouldSkip {
-		logger.LogInfo("Task skipped by global policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-			"task_id": task.TaskID,
-			"reason":  reason,
-		})
-		return fmt.Errorf("policy violation: task skipped due to policy: %s", reason)
+		// 4.2 检查全局跳过策略 (DB)
+		shouldSkip, ruleName, err := p.checkGlobalSkipPolicy(ctx, target)
+		if err != nil {
+			logger.LogError(err, "global skip policy check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
+			return fmt.Errorf("policy check error: %v", err)
+		}
+		if shouldSkip {
+			logger.LogInfo("Task skipped by global policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
+				"task_id":   task.TaskID,
+				"target":    target,
+				"rule_name": ruleName,
+			})
+			return fmt.Errorf("policy violation: target %s skipped by global policy: %s", target, ruleName)
+		}
 	}
 
 	return nil
@@ -361,116 +380,88 @@ type SkipConditionRules struct {
 }
 
 // checkLocalSkipPolicy 检查是否应该跳过任务(本地策略跳过)
-func (p *policyEnforcer) checkLocalSkipPolicy(ctx context.Context, target string, rules SkipConditionRules) (bool, string, error) {
-	return utils.CheckLocalSkipPolicy(target, rules)
-}
-
-// checkSkipPolicy 检查是否应该跳过任务
-// 1. 支持传统的时间窗口和环境标签检查
-// 2. 支持基于 Matcher 的复杂规则检查
-// 注意: project 参数可能为 nil (如果 Snapshot 尚未完全注入 Project 信息)
-func (p *policyEnforcer) checkSkipPolicy(ctx context.Context, project *agentModel.Project) (bool, string, error) {
-	policies, err := p.policyRepo.GetEnabledSkipPolicies(ctx)
-	if err != nil {
-		return false, "", err
-	}
-
-	now := time.Now()
-	currentTimeStr := now.Format("15:04") // HH:MM
-
-	// 构建上下文数据
+// 基于 Snapshot 中的 SkipConditions
+func (p *policyEnforcer) checkLocalSkipPolicy(ctx context.Context, target string, conditions []agentModel.SkipCondition) (bool, string, error) {
+	// 构建匹配上下文
+	// 默认字段: target, ip, domain (简单起见，都设为 target，具体由 matcher 处理或提取)
 	matchContext := map[string]interface{}{
-		"time":    currentTimeStr,
-		"weekday": now.Weekday().String(),
-		"hour":    now.Hour(),
+		"target": target,
+		"ip":     target, // 假设 target 可能是 IP
+		"domain": target, // 假设 target 可能是域名
+		"host":   target,
 	}
 
-	// 如果 project 不为空，补充项目相关上下文
-	if project != nil {
-		projectTags := parseTags(project.Tags)
-		matchContext["project_id"] = project.ID
-		matchContext["project_name"] = project.Name
-		matchContext["tags"] = projectTags
-	} else {
-		// 如果 project 为空，只进行基于时间的检查
-		// 记录一条调试日志
-		logger.LogInfo("Checking skip policy without project context (time-based only)", "", 0, "", "checkSkipPolicy", "", nil)
-	}
-
-	for _, policy := range policies {
-		var rules SkipConditionRules
-		if err := json.Unmarshal([]byte(policy.ConditionRules), &rules); err != nil {
-			logger.LogWarn("Failed to parse skip policy rules", "", 0, "", "checkSkipPolicy", "", map[string]interface{}{
-				"policy_id": policy.ID,
-				"error":     err.Error(),
-			})
-			continue // 忽略解析失败的规则
+	for _, cond := range conditions {
+		// 将 SkipCondition 转换为 MatchRule
+		rule := matcher.MatchRule{
+			Field:    cond.ConditionField,
+			Operator: cond.Operator,
+			Value:    cond.Value,
 		}
 
-		// 构建聚合规则 (Root Rule)
-		// 逻辑: LegacyTags OR LegacyTime OR NewMatchRule
-		// 只要命中其中任何一个，就视为跳过
-		var rootRule matcher.MatchRule
-		rootRule.Or = make([]matcher.MatchRule, 0)
-
-		// 1. 转换 Legacy Environment Tags -> MatchRule (仅当有 project 上下文时)
-		if len(rules.BlockEnvTags) > 0 && project != nil {
-			// 逻辑: 只要项目包含任意一个 BlockEnvTag，即命中
-			// tags list_contains tag1 OR tags list_contains tag2 ...
-			for _, blockTag := range rules.BlockEnvTags {
-				rootRule.Or = append(rootRule.Or, matcher.MatchRule{
-					Field:      "tags",
-					Operator:   "list_contains",
-					Value:      blockTag,
-					IgnoreCase: true, // 忽略大小写
-				})
-			}
+		// 如果 Field 为空，默认为 "target"
+		if rule.Field == "" {
+			rule.Field = "target"
 		}
 
-		// 2. 转换 Legacy Time Windows -> MatchRule
-		if len(rules.BlockTimeWindows) > 0 {
-			// 逻辑: 当前时间在任意一个时间窗内
-			// (time >= start AND time <= end) OR ...
-			for _, window := range rules.BlockTimeWindows {
-				parts := strings.Split(window, "-")
-				if len(parts) != 2 {
-					continue
-				}
-				start := strings.TrimSpace(parts[0])
-				end := strings.TrimSpace(parts[1])
-
-				timeWindowRule := matcher.MatchRule{
-					And: []matcher.MatchRule{
-						{Field: "time", Operator: "greater_than_or_equal", Value: start},
-						{Field: "time", Operator: "less_than_or_equal", Value: end},
-					},
-				}
-				rootRule.Or = append(rootRule.Or, timeWindowRule)
-			}
-		}
-
-		// 3. 合并新的 MatchRule
-		if !matcher.IsEmptyRule(rules.MatchRule) {
-			rootRule.Or = append(rootRule.Or, rules.MatchRule)
-		}
-
-		// 如果没有任何规则，跳过
-		if len(rootRule.Or) == 0 {
-			continue
-		}
-
-		// 执行匹配
-		matched, err := matcher.Match(matchContext, rootRule)
+		matched, err := matcher.Match(matchContext, rule)
 		if err != nil {
-			logger.LogWarn("Failed to execute skip match rule", "", 0, "", "checkSkipPolicy", "", map[string]interface{}{
-				"policy": policy.PolicyName,
+			logger.LogWarn("Failed to execute local skip match rule", "", 0, "", "checkLocalSkipPolicy", "", map[string]interface{}{
+				"target": target,
 				"error":  err.Error(),
 			})
 			continue
 		}
 
 		if matched {
-			return true, fmt.Sprintf("Matched skip policy: %s", policy.PolicyName), nil
+			return true, fmt.Sprintf("LocalCondition:%s %s %s", cond.ConditionField, cond.Operator, cond.Value), nil
+		}
+	}
+
+	return false, "", nil
+}
+
+// checkGlobalSkipPolicy 检查是否应该跳过任务 (全局策略跳过)
+// 1. 仅支持基于 Matcher 的复杂规则检查
+// 2. 忽略 BlockTimeWindows 和 BlockEnvTags (已按需求移除)
+func (p *policyEnforcer) checkGlobalSkipPolicy(ctx context.Context, target string) (bool, string, error) {
+	policies, err := p.policyRepo.GetEnabledSkipPolicies(ctx)
+	if err != nil {
+		return false, "", err
+	}
+
+	// 构建上下文数据
+	matchContext := map[string]interface{}{
+		"target": target,
+		"ip":     target,
+		"domain": target,
+		"host":   target,
+	}
+
+	for _, policy := range policies {
+		var rules SkipConditionRules
+		if err := json.Unmarshal([]byte(policy.ConditionRules), &rules); err != nil {
+			logger.LogWarn("Failed to parse global skip policy rules", "", 0, "", "checkGlobalSkipPolicy", "", map[string]interface{}{
+				"policy_id": policy.ID,
+				"error":     err.Error(),
+			})
+			continue // 忽略解析失败的规则
+		}
+
+		// 仅检查 MatchRule
+		if !matcher.IsEmptyRule(rules.MatchRule) {
+			matched, err := matcher.Match(matchContext, rules.MatchRule)
+			if err != nil {
+				logger.LogWarn("Failed to execute global skip match rule", "", 0, "", "checkGlobalSkipPolicy", "", map[string]interface{}{
+					"policy": policy.PolicyName,
+					"error":  err.Error(),
+				})
+				continue
+			}
+
+			if matched {
+				return true, fmt.Sprintf("GlobalPolicy:%s", policy.PolicyName), nil
+			}
 		}
 	}
 

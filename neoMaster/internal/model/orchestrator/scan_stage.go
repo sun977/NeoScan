@@ -176,8 +176,41 @@ type PerformanceSettings struct {
 //   }
 // }
 
-// OutputConfig 输出配置结构
+// OutputConfig 定义输出配置结构
 type OutputConfig struct {
+	OutputToNextStage OutputToNextStageConfig `json:"output_to_next_stage,omitempty"` // 输出到下一阶段
+	SaveToDatabase    SaveToDatabaseConfig    `json:"save_to_database,omitempty"`     // 保存到数据库
+	SaveToFile        SaveToFileConfig        `json:"save_to_file,omitempty"`         // 保存到文件
+}
+
+// OutputToNextStageConfig 定义输出到下一阶段的配置
+type OutputToNextStageConfig struct {
+	Enabled      bool     `json:"enabled"`       // 是否启用
+	OutputFields []string `json:"output_fields"` // 输出字段列表
+}
+
+// SaveToDatabaseConfig 定义保存到数据库的配置
+type SaveToDatabaseConfig struct {
+	Enabled       bool          `json:"enabled"`                  // 是否启用
+	SaveType      string        `json:"save_type"`                // 保存类型: stage_result/final_asset/extract_fields
+	TableName     string        `json:"table_name,omitempty"`     // 表名
+	ExtractFields ExtractFields `json:"extract_fields,omitempty"` // 提取字段配置
+	RetentionDays int           `json:"retention_days,omitempty"` // 保留天数
+}
+
+// ExtractFields 定义提取字段配置
+type ExtractFields struct {
+	Fields       []string          `json:"fields"`        // 字段列表
+	TargetTable  string            `json:"target_table"`  // 目标表
+	FieldMapping map[string]string `json:"field_mapping"` // 字段映射
+}
+
+// SaveToFileConfig 定义保存到文件的配置
+type SaveToFileConfig struct {
+	Enabled       bool   `json:"enabled"`                  // 是否启用
+	FilePath      string `json:"file_path"`                // 文件路径
+	FileFormat    string `json:"file_format"`              // 文件格式: json/xml/csv/html/markdown/text
+	RetentionDays int    `json:"retention_days,omitempty"` // 保留天数
 }
 
 // NotifyConfig 样例
@@ -188,6 +221,10 @@ type OutputConfig struct {
 //   "message_template": "Stage {stage_name} completed with {result_count} findings"  // 通知模板
 // }
 
-// NotifyConfig 通知配置结构
+// NotifyConfig 定义通知配置结构
 type NotifyConfig struct {
+	Enabled         bool     `json:"enabled"`          // 是否发送通知
+	NotifyMethods   []string `json:"notify_methods"`   // 通知方式：email/sec/wechat/websocket
+	Recipients      []string `json:"recipients"`       // 通知接收人
+	MessageTemplate string   `json:"message_template"` // 通知模板
 }

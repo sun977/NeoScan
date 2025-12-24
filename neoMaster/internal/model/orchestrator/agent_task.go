@@ -67,7 +67,7 @@ func (AgentTask) TableName() string {
 //     "whitelist_sources": [ // 白名单来源/数据库/文件/手动输入
 //       {
 //         "source_type": "file",
-//         "source_value": "/path/to/whitelist.txt" // file 对应文件路径, db 对应默认全局白名单表(相当于不设置局部白名单), manual 对应手动输入内容["192.168.1.0/24","10.0.0.0/16"]
+//         "source_value": "/path/to/whitelist.txt" // file 对应文件路径,删除源类型db(DB类型指数据库全局白名单), manual 对应手动输入内容["192.168.1.0/24","10.0.0.0/16"]
 //       }
 //     ],
 //     "skip_enabled": true,

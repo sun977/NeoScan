@@ -35,3 +35,13 @@ type ScanStage struct {
 func (ScanStage) TableName() string {
 	return "scan_stages"
 }
+
+// TargetPolicy 目标策略结构
+
+// ExecutionPolicy 执行策略结构
+
+// PerformanceSettings 性能设置结构
+
+// OutputConfig 输出配置结构
+
+// NotifyConfig 通知配置结构

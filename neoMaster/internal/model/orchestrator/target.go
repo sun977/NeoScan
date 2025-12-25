@@ -14,10 +14,51 @@ import (
 // AgentTask.PolicySnapshot.TargetPolicy.TargetSource.SourceValue 列表中也是 Target 结构体对象
 // TargetProvider 就是把不同的来源的目标，统一成 Target 结构体对象
 type Target struct {
-	Type   string            `json:"type"`   // 目标类型: ip, ip_range, domain, url
-	Value  string            `json:"value"`  // 目标值
-	Source string            `json:"source"` // 来源标识
-	Meta   map[string]string `json:"meta"`   // 元数据
+	Type   string     `json:"type"`   // 目标类型: ip, ip_range, domain 大网段切块, 小网段展开
+	Value  string     `json:"value"`  // 目标值
+	Source string     `json:"source"` // 来源标识
+	Meta   TargetMeta `json:"meta"`   // 结构化元数据
+}
+
+// TargetMeta 目标元数据
+// 对应设计文档: 运行时对象 (Target Object) 中的 Meta 字段
+// 负责存储目标的额外信息，用于在扫描过程中传递上下文
+type TargetMeta struct {
+	// --- 类型特定信息 (按需填充) ---
+	Network NetworkDetail `json:"network,omitempty"` // 适用于 ip_range / ip
+	Domain  DomainDetail  `json:"domain,omitempty"`  // 适用于 domain
+	Ports   []PortDetail  `json:"ports,omitempty"`   // 适用于 ip / domain (开放端口信息)
+
+}
+
+// NetworkDetail 网络/主机详情
+type NetworkDetail struct {
+	CIDR       string `json:"cidr,omitempty"`        // 网段 (e.g., "192.168.1.0/24")
+	Location   string `json:"location,omitempty"`    // 地理位置
+	SubnetMask string `json:"subnet_mask,omitempty"` // 子网掩码
+	Gateway    string `json:"gateway,omitempty"`     // 网关
+}
+
+// DomainDetail 域名详情
+type DomainDetail struct {
+	RootDomain  string   `json:"root_domain,omitempty"`  // 根域名
+	Subdomains  []string `json:"subdomains,omitempty"`   // 关联子域名
+	Registrar   string   `json:"registrar,omitempty"`    // 注册商
+	NameServers []string `json:"name_servers,omitempty"` // NS记录
+	ResolvedIPs []string `json:"resolved_ips,omitempty"` // 解析到的IP列表
+	IsWildcard  bool     `json:"is_wildcard,omitempty"`  // 是否泛解析
+}
+
+// PortDetail 端口详情
+type PortDetail struct {
+	Port     int               `json:"port"`
+	Protocol string            `json:"protocol"`          // tcp, udp
+	State    string            `json:"state"`             // open, closed, filtered
+	Service  string            `json:"service,omitempty"` // http, ssh, mysql
+	Version  string            `json:"version,omitempty"` // e.g., "8.0.23"
+	Product  string            `json:"product,omitempty"` // e.g., "MySQL"
+	Banner   string            `json:"banner,omitempty"`  // 原始Banner信息
+	Extra    map[string]string `json:"extra,omitempty"`   // 漏洞探测或其他脚本输出
 }
 
 // TargetPolicy 定义目标策略配置

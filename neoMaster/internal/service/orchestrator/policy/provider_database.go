@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"strings"
 
+	orcmodel "neomaster/internal/model/orchestrator"
+
 	"gorm.io/gorm"
 )
 
@@ -50,7 +52,7 @@ type DBParserConfig struct {
 
 func (d *DatabaseProvider) Name() string { return "database" }
 
-func (d *DatabaseProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+func (d *DatabaseProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error) {
 	// 暂时仅支持 MySQL 数据库
 	// TODO: 支持更多数据库类型
 	// 注意：目前设计为复用系统全局 DB，如果连接外部 DB 需在 AuthConfig 中配置连接信息并在此处建立临时连接

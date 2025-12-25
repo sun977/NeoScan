@@ -9,6 +9,8 @@ package policy
 
 import (
 	"context"
+
+	orcmodel "neomaster/internal/model/orchestrator"
 )
 
 // ProjectTargetProvider 项目种子目标
@@ -16,7 +18,7 @@ type ProjectTargetProvider struct{}
 
 func (p *ProjectTargetProvider) Name() string { return "project_target" }
 
-func (p *ProjectTargetProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+func (p *ProjectTargetProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error) {
 	targets := make([]Target, 0, len(seedTargets))
 	for _, t := range seedTargets {
 		targets = append(targets, Target{

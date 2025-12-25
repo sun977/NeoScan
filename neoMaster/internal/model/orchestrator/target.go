@@ -28,7 +28,6 @@ type TargetMeta struct {
 	Network NetworkDetail `json:"network,omitempty"` // 适用于 ip_range / ip
 	Domain  DomainDetail  `json:"domain,omitempty"`  // 适用于 domain
 	Ports   []PortDetail  `json:"ports,omitempty"`   // 适用于 ip / domain (开放端口信息)
-
 }
 
 // NetworkDetail 网络/主机详情

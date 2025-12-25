@@ -25,9 +25,10 @@ type Target struct {
 // 负责存储目标的额外信息，用于在扫描过程中传递上下文
 type TargetMeta struct {
 	// --- 类型特定信息 (按需填充) ---
-	Network NetworkDetail `json:"network,omitempty"` // 适用于 ip_range / ip
-	Domain  DomainDetail  `json:"domain,omitempty"`  // 适用于 domain
-	Ports   []PortDetail  `json:"ports,omitempty"`   // 适用于 ip / domain (开放端口信息)
+	Network NetworkDetail     `json:"network,omitempty"` // 适用于 ip_range / ip
+	Domain  DomainDetail      `json:"domain,omitempty"`  // 适用于 domain
+	Ports   []PortDetail      `json:"ports,omitempty"`   // 适用于 ip / domain (开放端口信息)
+	Custom  map[string]string `json:"custom,omitempty"`  // 自定义字段，用于存储额外的非结构化数据
 }
 
 // NetworkDetail 网络/主机详情
@@ -65,10 +66,8 @@ type PortDetail struct {
 type TargetPolicy struct {
 	TargetSources    []TargetSource    `json:"target_sources"`    // 目标来源配置
 	WhitelistEnabled bool              `json:"whitelist_enabled"` // 是否启用白名单
-	WhitelistSources []RuleSource      `json:"whitelist_sources"` // 白名单来源配置 (统一使用 TargetSource)  --- 负责从不同来源加载白名单
-	WhitelistRule    matcher.MatchRule `json:"whitelist_rule"`    // 白名单规则 (逻辑匹配，来自 TargetProvider)  --- 负责根据白名单规则判断是否跳过
+	WhitelistSources []WhitelistSource `json:"whitelist_sources"` // 白名单来源配置 (统一使用 TargetSource)  --- 负责从不同来源加载白名单
 	SkipEnabled      bool              `json:"skip_enabled"`      // 是否启用跳过条件
-	SkipSources      []RuleSource      `json:"skip_sources"`      // 跳过条件配置 (来自 ScanStage) --- 负责从不同来源加载跳过规则
 	SkipRule         matcher.MatchRule `json:"skip_rule"`         // 跳过规则 (逻辑匹配，来自 TargetProvider) --- 负责根据跳过规则判断是否跳过
 }
 
@@ -86,15 +85,7 @@ type TargetSource struct {
 }
 
 // RuleSource 定义规则来源(白名单规则和跳过规则)
-type RuleSource struct {
+type WhitelistSource struct {
 	SourceType  string `json:"source_type"`  // 来源类型：file/db/manual
 	SourceValue string `json:"source_value"` // 来源值
 }
-
-// // SkipCondition 定义跳过条件
-// // 来自 ScanStage 的定义
-// type SkipCondition struct {
-// 	ConditionField string `json:"condition_field"` // 条件字段
-// 	Operator       string `json:"operator"`        // 操作符
-// 	Value          string `json:"value"`           // 值
-// }

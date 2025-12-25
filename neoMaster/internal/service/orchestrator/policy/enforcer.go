@@ -1,6 +1,7 @@
 // PolicyEnforcer 策略执行器接口
 // 职责: 在任务下发前的最后一道防线，负责"安检"与合规。
 // 对应文档: 1.2 Policy Enforcer (策略执行器)
+// 检查输入目标 InputTarget 是否符合策略配置 PolicySnapshot
 package policy
 
 import (
@@ -59,17 +60,11 @@ func NewPolicyEnforcer(policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforc
 // 2. 移除 DB Project 查询，改为从 Snapshot 获取 Scope
 // 3. 实现 Local (ScanStage) 和 Global (DB) 策略的逻辑 OR
 func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask) error {
-	// 1. 解析 PolicySnapshot (使用结构体) --- 修改AgentTask.PolicySnapshot 结构体类型为 PolicySnapshot 是不是就不用解析一遍json了
-	var policySnapshot agentModel.PolicySnapshot
-	if task.PolicySnapshot != "" {
-		if err := json.Unmarshal([]byte(task.PolicySnapshot), &policySnapshot); err != nil {
-			logger.LogWarn("Failed to parse policy snapshot, fallback to empty", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-				"task_id": task.TaskID,
-				"error":   err.Error(),
-			})
-		}
-	}
-	// task.PolicySnapshot 包含 project.TargetScope(list) 和 scanStage.target_policy（JSON）
+	// 1. 解析 PolicySnapshot (使用结构体)
+	// AgentTask.PolicySnapshot 已经是结构体类型，直接使用
+	policySnapshot := task.PolicySnapshot
+
+	// task.PolicySnapshot 包含 project.TargetScope(list) 和 scanStage.target_policy（Struct）
 	// 项目 Scope 是一个 CIDR 列表，可以是一个网段，或者域名（如：["192.168.1.0/24", "10.0.0.0/16"]）
 	// 扫描阶段的 target_policy 是一个 JSON 字符串，包含白名单、跳过条件等策略配置
 	// task.PolicySnapshot 样例:
@@ -153,6 +148,20 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 			return fmt.Errorf("policy violation: target %s is whitelisted by local rule: %s", target, ruleName)
 		}
 
+		// 检查局部白名单规则 (MatchRule)
+		if !matcher.IsEmptyRule(tp.WhitelistRule) {
+			matchContext := map[string]interface{}{
+				"target": target,
+				"ip":     target,
+				"domain": target,
+				"host":   target,
+			}
+			matched, err := matcher.Match(matchContext, tp.WhitelistRule)
+			if err == nil && matched {
+				return fmt.Errorf("policy violation: target %s is whitelisted by local rule: whitelist_rule", target)
+			}
+		}
+
 		// 3.2 检查全局白名单 (DB) - 强制执行
 		isBlocked, ruleName, err2 := p.checkWhitelist(ctx, target)
 		if err2 != nil {
@@ -171,15 +180,13 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 
 	// 4. SkipLogicEvaluator: 动态跳过 (Local || Global)
 	// 执行 AssetSkipPolicy 逻辑
-	// 只进行 跳过策略 的检查，不做时间窗口和tag的检查
-	// 4.1 检查局部跳过策略 (Snapshot)
-	// 局部跳过逻辑
-	// 解析 Snapshot.TargetPolicy.target_policy 中的 skip_enabled 和 skip_conditions
-	// 如果 skip_enabled 为 true，则检查 targets 是否命中 skip_conditions 中的条件
-	// 如果命中，则跳过任务
+	// 局部跳过策略从Snapshot.TargetPolicy.target_policy中获取跳过策略和targets匹配
+	// 全局跳过策略从数据库中获取condition_rules跳过规则和targets匹配
+	// 命中就跳过，否则不跳过
 
 	for _, target := range targets {
 		// 4.1 检查局部跳过策略 (Snapshot)
+		// 从 Snapshot.TargetPolicy.target_policy 中获取跳过策略
 		tp := policySnapshot.TargetPolicy
 		if tp.SkipEnabled {
 			shouldSkip, ruleName, err := p.checkLocalSkipPolicy(ctx, target, tp.SkipConditions)
@@ -201,6 +208,7 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 		}
 
 		// 4.2 检查全局跳过策略 (DB)
+		// 从数据库中获取 condition_rules 跳过规则和 targets 匹配
 		shouldSkip, ruleName, err := p.checkGlobalSkipPolicy(ctx, target)
 		if err != nil {
 			logger.LogError(err, "global skip policy check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
@@ -380,8 +388,12 @@ type SkipConditionRules struct {
 }
 
 // checkLocalSkipPolicy 检查是否应该跳过任务(本地策略跳过)
-// 基于 Snapshot 中的 SkipConditions
-func (p *policyEnforcer) checkLocalSkipPolicy(ctx context.Context, target string, conditions []agentModel.SkipCondition) (bool, string, error) {
+// 基于 Snapshot 中的 SkipRule
+func (p *policyEnforcer) checkLocalSkipPolicy(ctx context.Context, target string, rule matcher.MatchRule) (bool, string, error) {
+	if matcher.IsEmptyRule(rule) {
+		return false, "", nil
+	}
+
 	// 构建匹配上下文
 	// 默认字段: target, ip, domain (简单起见，都设为 target，具体由 matcher 处理或提取)
 	matchContext := map[string]interface{}{
@@ -391,31 +403,17 @@ func (p *policyEnforcer) checkLocalSkipPolicy(ctx context.Context, target string
 		"host":   target,
 	}
 
-	for _, cond := range conditions {
-		// 将 SkipCondition 转换为 MatchRule
-		rule := matcher.MatchRule{
-			Field:    cond.ConditionField,
-			Operator: cond.Operator,
-			Value:    cond.Value,
-		}
+	matched, err := matcher.Match(matchContext, rule)
+	if err != nil {
+		logger.LogWarn("Failed to execute local skip match rule", "", 0, "", "checkLocalSkipPolicy", "", map[string]interface{}{
+			"target": target,
+			"error":  err.Error(),
+		})
+		return false, "", err
+	}
 
-		// 如果 Field 为空，默认为 "target"
-		if rule.Field == "" {
-			rule.Field = "target"
-		}
-
-		matched, err := matcher.Match(matchContext, rule)
-		if err != nil {
-			logger.LogWarn("Failed to execute local skip match rule", "", 0, "", "checkLocalSkipPolicy", "", map[string]interface{}{
-				"target": target,
-				"error":  err.Error(),
-			})
-			continue
-		}
-
-		if matched {
-			return true, fmt.Sprintf("LocalCondition:%s %s %s", cond.ConditionField, cond.Operator, cond.Value), nil
-		}
+	if matched {
+		return true, "LocalRule", nil
 	}
 
 	return false, "", nil
@@ -487,7 +485,7 @@ func parseTargets(input string) ([]string, error) {
 	}
 
 	// 2. 尝试解析为 Target 对象数组 (New format: [{"type":"ip", "value":"1.1.1.1", ...}])
-	var objTargets []Target
+	var objTargets []agentModel.Target
 	if err := json.Unmarshal([]byte(input), &objTargets); err == nil {
 		targets := make([]string, len(objTargets))
 		for i, t := range objTargets {

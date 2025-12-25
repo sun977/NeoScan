@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"neomaster/internal/pkg/logger"
+
+	orcmodel "neomaster/internal/model/orchestrator"
 )
 
 // ApiProvider API 来源提供者 (占位符)
@@ -12,7 +14,7 @@ type ApiProvider struct{}
 
 func (p *ApiProvider) Name() string { return "api" }
 
-func (p *ApiProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+func (p *ApiProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error) {
 	// TODO: 实现 API 调用逻辑
 	// 1. 解析 AuthConfig 获取 API 凭证
 	// 2. 发起 HTTP 请求

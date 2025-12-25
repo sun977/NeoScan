@@ -16,6 +16,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	orcmodel "neomaster/internal/model/orchestrator"
 )
 
 // FileProvider 文件导入
@@ -30,7 +32,7 @@ type FileParserConfig struct {
 
 func (f *FileProvider) Name() string { return "file" }
 
-func (f *FileProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+func (f *FileProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error) {
 	// 1. 验证文件路径
 	if config.SourceValue == "" {
 		return nil, fmt.Errorf("file path is empty")

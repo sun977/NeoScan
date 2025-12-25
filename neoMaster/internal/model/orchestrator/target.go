@@ -14,7 +14,7 @@ import (
 // AgentTask.PolicySnapshot.TargetPolicy.TargetSource.SourceValue 列表中也是 Target 结构体对象
 // TargetProvider 就是把不同的来源的目标，统一成 Target 结构体对象
 type Target struct {
-	Type   string            `json:"type"`   // 目标类型: ip, domain, url
+	Type   string            `json:"type"`   // 目标类型: ip, ip_range, domain, url
 	Value  string            `json:"value"`  // 目标值
 	Source string            `json:"source"` // 来源标识
 	Meta   map[string]string `json:"meta"`   // 元数据

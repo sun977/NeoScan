@@ -52,7 +52,7 @@ func NewPreviousStageProvider(db *gorm.DB) *PreviousStageProvider {
 
 func (p *PreviousStageProvider) Name() string { return "previous_stage" }
 
-func (p *PreviousStageProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+func (p *PreviousStageProvider) Provide(ctx context.Context, config orcModel.TargetSource, seedTargets []string) ([]Target, error) {
 	logger.LogInfo("[PreviousStageProvider] Provide called", "", 0, "", "Provide", "", nil)
 
 	// 事项：

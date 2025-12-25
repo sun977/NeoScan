@@ -12,6 +12,8 @@ package policy
 import (
 	"context"
 	"strings"
+
+	orcmodel "neomaster/internal/model/orchestrator"
 )
 
 // ManualProvider 人工输入
@@ -19,7 +21,7 @@ type ManualProvider struct{}
 
 func (m *ManualProvider) Name() string { return "manual" }
 
-func (m *ManualProvider) Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error) {
+func (m *ManualProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error) {
 	parts := strings.FieldsFunc(config.SourceValue, func(r rune) bool {
 		return r == ',' || r == '\n' || r == ';'
 	})

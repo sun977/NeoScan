@@ -26,20 +26,22 @@ package policy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
 	"sync"
 
+	orcmodel "neomaster/internal/model/orchestrator"
+
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/matcher"
 
 	"gorm.io/gorm"
+	// 定义 Context Key 类型以避免冲突
+	// 这些 Key 用于在 Context 中传递 Workflow 和 Stage 信息，供 Provider 使用
 )
 
-// 定义 Context Key 类型以避免冲突
-// 这些 Key 用于在 Context 中传递 Workflow 和 Stage 信息，供 Provider 使用
+// CtxKey ContextKey 类型
 type ContextKey string
 
 const (
@@ -54,10 +56,11 @@ const (
 )
 
 // TargetProvider 目标提供者服务接口
+// 对应设计文档中的 TargetProvider Interface
 type TargetProvider interface {
-	ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) // ResolveTargets 解析策略并返回目标列表
-	RegisterProvider(name string, provider SourceProvider)                                         // RegisterProvider 注册新的目标源提供者
-	CheckHealth(ctx context.Context) map[string]error                                              // CheckHealth 检查所有已注册 Provider 的健康状态
+	ResolveTargets(ctx context.Context, policy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) // ResolveTargets 解析策略并返回目标列表
+	RegisterProvider(name string, provider SourceProvider)                                                    // RegisterProvider 注册新的目标源提供者
+	CheckHealth(ctx context.Context) map[string]error                                                         // CheckHealth 检查所有已注册 Provider 的健康状态
 }
 
 // SourceProvider 单个目标源提供者接口
@@ -70,7 +73,7 @@ type SourceProvider interface {
 	// ctx: 上下文
 	// config: 目标源配置
 	// seedTargets: 种子目标(用于 project_target)
-	Provide(ctx context.Context, config TargetSourceConfig, seedTargets []string) ([]Target, error)
+	Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error)
 
 	// HealthCheck 检查 Provider 健康状态 (如数据库连接、文件访问权限)
 	HealthCheck(ctx context.Context) error
@@ -78,36 +81,7 @@ type SourceProvider interface {
 
 // Target 标准目标对象
 // 对应设计文档: 运行时对象 (Target Object)
-type Target struct {
-	Type   string            `json:"type"`   // 目标类型: ip, domain, url
-	Value  string            `json:"value"`  // 目标值
-	Source string            `json:"source"` // 来源标识
-	Meta   map[string]string `json:"meta"`   // 元数据
-}
-
-// TargetPolicyConfig 目标策略配置结构
-// 对应 ScanStage.target_policy
-type TargetPolicyConfig struct {
-	TargetSources    []TargetSourceConfig `json:"target_sources"`
-	WhitelistEnabled bool                 `json:"whitelist_enabled"` // 是否启用白名单
-	WhitelistSources []TargetSourceConfig `json:"whitelist_sources"` // 白名单来源 (值匹配)
-	WhitelistRule    matcher.MatchRule    `json:"whitelist_rule"`    // 白名单规则 (逻辑匹配)
-	SkipEnabled      bool                 `json:"skip_enabled"`      // 是否启用跳过
-	SkipRule         matcher.MatchRule    `json:"skip_rule"`         // 跳过规则 (逻辑匹配)
-}
-
-// TargetSourceConfig 目标源配置详细结构
-// 对应设计文档: 配置结构 (TargetSource Config)
-type TargetSourceConfig struct {
-	SourceType   string          `json:"source_type"`             // manual, project_target, file, database, api, previous_stage
-	QueryMode    string          `json:"query_mode,omitempty"`    // table, view, sql (仅用于数据库)
-	TargetType   string          `json:"target_type"`             // ip, ip_range, domain, url
-	SourceValue  string          `json:"source_value,omitempty"`  // 具体值
-	CustomSQL    string          `json:"custom_sql,omitempty"`    // custom_sql
-	FilterRules  json.RawMessage `json:"filter_rules,omitempty"`  // 过滤规则
-	AuthConfig   json.RawMessage `json:"auth_config,omitempty"`   // 认证配置
-	ParserConfig json.RawMessage `json:"parser_config,omitempty"` // 解析配置
-}
+type Target = orcmodel.Target
 
 // 定义目标提供者服务
 type targetProviderService struct {
@@ -189,35 +163,22 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 //	      ]
 //	  }
 //	}
-func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON string, seedTargets []string) ([]Target, error) {
-	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"policy": policyJSON})
+func (p *targetProviderService) ResolveTargets(ctx context.Context, policy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) {
+	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"policy_sources_count": len(policy.TargetSources)})
 
-	// 1. 如果策略为空，默认使用种子目标
-	if policyJSON == "" || policyJSON == "{}" {
-		return p.fallbackToSeed(seedTargets), nil
-	}
-
-	// 2. 解析策略配置
-	var config TargetPolicyConfig
-	if err := json.Unmarshal([]byte(policyJSON), &config); err != nil {
-		logger.LogError(err, "", 0, "", "ResolveTargets", "", nil)
-		return nil, fmt.Errorf("invalid policy json: %w", err)
-	}
-	logger.LogInfo("[TargetProvider] Sources count", "", 0, "", "ResolveTargets", "", map[string]interface{}{"count": len(config.TargetSources)})
-
-	// 3. 如果没有配置源，默认使用种子目标
-	if len(config.TargetSources) == 0 {
+	// 1. 如果没有配置源，默认使用种子目标
+	if len(policy.TargetSources) == 0 {
 		return p.fallbackToSeed(seedTargets), nil
 	}
 
 	// 3. 获取初始目标列表
-	allTargets := p.fetchTargetsFromSources(ctx, config.TargetSources, seedTargets)
+	allTargets := p.fetchTargetsFromSources(ctx, policy.TargetSources, seedTargets)
 
 	// 4. 白名单过滤 (如果启用)
-	if config.WhitelistEnabled {
+	if policy.WhitelistEnabled {
 		// 4.1 基于来源的白名单 (值匹配)
-		if len(config.WhitelistSources) > 0 {
-			whitelistTargets := p.fetchTargetsFromSources(ctx, config.WhitelistSources, seedTargets)
+		if len(policy.WhitelistSources) > 0 {
+			whitelistTargets := p.fetchTargetsFromSources(ctx, policy.WhitelistSources, seedTargets)
 			whitelistMap := make(map[string]struct{})
 			for _, t := range whitelistTargets {
 				whitelistMap[t.Value] = struct{}{} // 构建一个白名单列表
@@ -234,12 +195,12 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 
 		// 4.2 基于规则的白名单 (逻辑匹配)
 		// 如果定义了规则，只保留匹配规则的目标
-		if !matcher.IsEmptyRule(config.WhitelistRule) { // 如果规则不为空
+		if !matcher.IsEmptyRule(policy.WhitelistRule) { // 如果规则不为空
 			filtered := make([]Target, 0)
 			for _, t := range allTargets {
 				// 转换为 Map 以便 matcher 匹配 (支持 type, value 等小写字段)
 				targetMap := p.targetToMap(t)
-				matched, err := matcher.Match(targetMap, config.WhitelistRule) // 评估目标是否符合白名单规则
+				matched, err := matcher.Match(targetMap, policy.WhitelistRule) // 评估目标是否符合白名单规则
 				if err != nil {
 					logger.LogWarn("Failed to match whitelist rule", "", 0, "", "ResolveTargets", "", map[string]interface{}{
 						"error":  err.Error(),
@@ -257,11 +218,11 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 	}
 
 	// 5. 跳过条件过滤 (如果启用)
-	if config.SkipEnabled && !matcher.IsEmptyRule(config.SkipRule) {
+	if policy.SkipEnabled && !matcher.IsEmptyRule(policy.SkipRule) {
 		filtered := make([]Target, 0)
 		for _, t := range allTargets {
 			targetMap := p.targetToMap(t)
-			matched, err := matcher.Match(targetMap, config.SkipRule)
+			matched, err := matcher.Match(targetMap, policy.SkipRule)
 			if err != nil {
 				logger.LogWarn("Failed to match skip rule", "", 0, "", "ResolveTargets", "", map[string]interface{}{
 					"error":  err.Error(),
@@ -294,7 +255,7 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policyJSON s
 }
 
 // fetchTargetsFromSources 从指定源列表获取目标
-func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sources []TargetSourceConfig, seedTargets []string) []Target {
+func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sources []orcmodel.TargetSource, seedTargets []string) []Target {
 	allTargets := make([]Target, 0)
 	for _, sourceConfig := range sources {
 		fmt.Printf("[TargetProvider] Processing source type: %s\n", sourceConfig.SourceType)

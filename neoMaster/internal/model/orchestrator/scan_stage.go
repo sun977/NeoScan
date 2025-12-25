@@ -21,14 +21,14 @@ type ScanStage struct {
 	// UI/低代码 专用字段
 	UIConfig map[string]interface{} `json:"ui_config" gorm:"serializer:json;type:json;comment:前端UI布局配置(JSON),包含x,y坐标等"`
 
-	ToolName            string `json:"tool_name" gorm:"size:100;comment:使用的扫描工具名称"`
-	ToolParams          string `json:"tool_params" gorm:"type:text;comment:扫描工具参数"`
-	TargetPolicy        string `json:"target_policy" gorm:"type:json;comment:目标策略配置(JSON)"`        // 包含目标获取方式,白名单策略和跳过策略
-	ExecutionPolicy     string `json:"execution_policy" gorm:"type:json;comment:执行策略配置(JSON)"`     // 包含代理配置和优先级,决定任务的属性
-	PerformanceSettings string `json:"performance_settings" gorm:"type:json;comment:性能设置配置(JSON)"` // 包含并发数,超时时间等
-	OutputConfig        string `json:"output_config" gorm:"type:json;comment:输出配置(JSON)"`          // 包含结果输出方式,是否输出到下一阶段,是否输出到数据库,是否输出到文件
-	NotifyConfig        string `json:"notify_config" gorm:"type:json;comment:通知配置(JSON)"`
-	Enabled             bool   `json:"enabled" gorm:"default:true;comment:阶段是否启用"`
+	ToolName            string              `json:"tool_name" gorm:"size:100;comment:使用的扫描工具名称"`
+	ToolParams          string              `json:"tool_params" gorm:"type:text;comment:扫描工具参数"`
+	TargetPolicy        TargetPolicy        `json:"target_policy" gorm:"serializer:json;type:json;comment:目标策略配置(JSON)"`        // 包含目标获取方式,白名单策略和跳过策略
+	ExecutionPolicy     ExecutionPolicy     `json:"execution_policy" gorm:"serializer:json;type:json;comment:执行策略配置(JSON)"`     // 包含代理配置和优先级,决定任务的属性
+	PerformanceSettings PerformanceSettings `json:"performance_settings" gorm:"serializer:json;type:json;comment:性能设置配置(JSON)"` // 包含并发数,超时时间等
+	OutputConfig        OutputConfig        `json:"output_config" gorm:"serializer:json;type:json;comment:输出配置(JSON)"`          // 包含结果输出方式,是否输出到下一阶段,是否输出到数据库,是否输出到文件
+	NotifyConfig        NotifyConfig        `json:"notify_config" gorm:"serializer:json;type:json;comment:通知配置(JSON)"`
+	Enabled             bool                `json:"enabled" gorm:"default:true;comment:阶段是否启用"`
 }
 
 // TableName 定义数据库表名
@@ -42,7 +42,7 @@ func (ScanStage) TableName() string {
 //     "target_sources": [
 //       {
 //         "source_type": "file", // 来源类型：file/db/view/sql/manual/api/previous_stage【上一个阶段结果】
-//         "source_value": "/path/to/targets.txt",
+//         "source_value": "/path/to/targets.txt",  // [{},{},{}]  {}里面是 Target 结构体
 //         "target_type": "ip_range" // 目标类型：ip/ip_range/domain/url
 //       }
 //     ],
@@ -69,34 +69,34 @@ func (ScanStage) TableName() string {
 //   }
 // }
 
-// TargetPolicy 定义目标策略配置
-type TargetPolicy struct {
-	TargetSources    []TargetSource    `json:"target_sources"`    // 目标来源配置
-	WhitelistEnabled bool              `json:"whitelist_enabled"` // 是否启用白名单
-	WhitelistSources []WhitelistSource `json:"whitelist_sources"` // 白名单来源配置
-	SkipEnabled      bool              `json:"skip_enabled"`      // 是否启用跳过条件
-	SkipConditions   []SkipCondition   `json:"skip_conditions"`   // 跳过条件配置
-}
+// // TargetPolicy 定义目标策略配置
+// type TargetPolicy struct {
+// 	TargetSources    []TargetSource    `json:"target_sources"`    // 目标来源配置
+// 	WhitelistEnabled bool              `json:"whitelist_enabled"` // 是否启用白名单
+// 	WhitelistSources []WhitelistSource `json:"whitelist_sources"` // 白名单来源配置
+// 	SkipEnabled      bool              `json:"skip_enabled"`      // 是否启用跳过条件
+// 	SkipConditions   []SkipCondition   `json:"skip_conditions"`   // 跳过条件配置
+// }
 
-// TargetSource 定义目标来源
-type TargetSource struct {
-	SourceType  string `json:"source_type"`  // 来源类型：file/db/view/sql/manual/api/previous_stage
-	SourceValue string `json:"source_value"` // 来源值
-	TargetType  string `json:"target_type"`  // 目标类型：ip/ip_range/domain/url
-}
+// // TargetSource 定义目标来源
+// type TargetSource struct {
+// 	SourceType  string `json:"source_type"`  // 来源类型：file/db/view/sql/manual/api/previous_stage
+// 	SourceValue string `json:"source_value"` // 来源值
+// 	TargetType  string `json:"target_type"`  // 目标类型：ip/ip_range/domain/url
+// }
 
-// WhitelistSource 定义白名单来源
-type WhitelistSource struct {
-	SourceType  string `json:"source_type"`  // 来源类型：file/db/manual
-	SourceValue string `json:"source_value"` // 来源值
-}
+// // WhitelistSource 定义白名单来源
+// type WhitelistSource struct {
+// 	SourceType  string `json:"source_type"`  // 来源类型：file/db/manual
+// 	SourceValue string `json:"source_value"` // 来源值
+// }
 
-// SkipCondition 定义跳过条件
-type SkipCondition struct {
-	ConditionField string `json:"condition_field"` // 条件字段
-	Operator       string `json:"operator"`        // 操作符
-	Value          string `json:"value"`           // 值
-}
+// // SkipCondition 定义跳过条件
+// type SkipCondition struct {
+// 	ConditionField string `json:"condition_field"` // 条件字段
+// 	Operator       string `json:"operator"`        // 操作符
+// 	Value          string `json:"value"`           // 值
+// }
 
 // ExecutionPolicy 样例
 // 	{

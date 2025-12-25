@@ -27,7 +27,7 @@ type TargetMeta struct {
 	// --- 类型特定信息 (按需填充) ---
 	Network NetworkDetail     `json:"network,omitempty"` // 适用于 ip_range / ip
 	Domain  DomainDetail      `json:"domain,omitempty"`  // 适用于 domain
-	Ports   []PortDetail      `json:"ports,omitempty"`   // 适用于 ip / domain (开放端口信息)
+	Ports   []PortDetail      `json:"ports,omitempty"`   // 适用于 ip / domain (开放端口信息-扫描域名的端口,非子域名端口)
 	Custom  map[string]string `json:"custom,omitempty"`  // 自定义字段，用于存储额外的非结构化数据
 }
 
@@ -75,7 +75,7 @@ type TargetPolicy struct {
 // 融合了 ScanStage.TargetSource 和 TargetProvider.TargetSourceConfig 的所有字段
 type TargetSource struct {
 	SourceType   string          `json:"source_type"`             // 来源类型：file/db/view/sql/manual/api/previous_stage
-	SourceValue  string          `json:"source_value,omitempty"`  // 来源值
+	SourceValue  interface{}     `json:"source_value,omitempty"`  // 来源值 - 根据SourceType不同，可能是路径、语句或Target对象列表
 	TargetType   string          `json:"target_type"`             // 目标类型：ip/ip_range/domain/url
 	QueryMode    string          `json:"query_mode,omitempty"`    // table, view, sql (仅用于数据库)
 	CustomSQL    string          `json:"custom_sql,omitempty"`    // custom_sql 当 query_mode 为 sql 时使用
@@ -86,6 +86,6 @@ type TargetSource struct {
 
 // WhitelistSource 定义白名单来源
 type WhitelistSource struct {
-	SourceType  string `json:"source_type"`  // 来源类型：file/db/manual
-	SourceValue string `json:"source_value"` // 来源值
+	SourceType  string      `json:"source_type"`  // 来源类型：file/manual
+	SourceValue interface{} `json:"source_value"` // 来源值 file -> 文件路径 manual - > ["",""]
 }

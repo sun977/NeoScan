@@ -1,0 +1,197 @@
+// 来源类型 source_type：file/db/sql/manual/api/previous_stage
+// 对应 source_value：文件路径/数据库表名,视图名/SQL语句/手动输入列表["",""]/API地址/Target对象列表
+// query_mode：table, view, sql (仅用于数据库)
+{
+  "target_sources": [
+    {
+      "source_type": "file",
+      "source_value": "/path/to/targets.txt",
+      "target_type": "ip",
+      "query_mode": null,
+      "custom_sql": null,
+      "filter_rules": null,
+      "auth_config": null,
+      "parser_config": null
+    },
+    {
+      "source_type": "db",
+      "source_value": "assets",
+      "target_type": "ip",
+      "query_mode": "table",
+      "custom_sql": null,
+      "filter_rules": {
+        "status": "active",
+        "environment": "prod"
+      },
+      "auth_config": {
+        "type": "basic",
+        "username": "db_user",
+        "password": "db_password"
+      },
+      "parser_config": {
+        "table": "assets",
+        "columns": [
+          "ip_address",
+          "hostname"
+        ]
+      }
+    },
+    {
+      "source_type": "db",
+      "source_value": "vw_active_assets",
+      "target_type": "domain",
+      "query_mode": "view",
+      "custom_sql": null,
+      "filter_rules": {
+        "status": "active"
+      },
+      "auth_config": null,
+      "parser_config": {
+        "columns": [
+          "domain_name",
+          "ip_address"
+        ]
+      }
+    },
+    {
+      "source_type": "sql",
+      "source_value": "SELECT ip_address, hostname FROM assets WHERE status = 'active' AND environment = 'prod'",
+      "target_type": "ip",
+      "query_mode": "sql",
+      "filter_rules": null,
+      "auth_config": {
+        "type": "basic",
+        "username": "db_user",
+        "password": "db_password"
+      },
+      "parser_config": null
+    },
+    {
+      "source_type": "manual",
+      "source_value": ["192.168.1.1","192.168.1.2","192.168.1.3"],
+      "target_type": "ip",
+      "query_mode": null,
+      "custom_sql": null,
+      "filter_rules": null,
+      "auth_config": null,
+      "parser_config": null
+    },
+    {
+      "source_type": "manual",
+      "source_value": ["example.com","subdomain.example2.com","example3.com"],
+      "target_type": "domain",
+      "query_mode": null,
+      "custom_sql": null,
+      "filter_rules": null,
+      "auth_config": null,
+      "parser_config": null
+    },
+    {
+      "source_type": "manual",
+      "source_value": ["10.0.0.0/8","192.168.0.0/16","172.16.0.1-172.16.0.255"],
+      "target_type": "ip_range",
+      "query_mode": null,
+      "custom_sql": null,
+      "filter_rules": null,
+      "auth_config": null,
+      "parser_config": null
+    },
+    {
+      "source_type": "api",
+      "source_value": "https://api.example.com/assets",
+      "target_type": "ip",
+      "query_mode": null,
+      "custom_sql": null,
+      "filter_rules": null,
+      "auth_config": {
+        "type": "bearer",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "parser_config": {
+        "response_path": "$.data[*]",
+        "value_field": "ip_address",
+        "type_field": "asset_type"
+      }
+    },
+    {
+      "source_type": "previous_stage",
+      "source_value": [
+        {
+          "type": "ip",
+          "value": "10.0.1.50",
+          "source": "previous_stage_result",
+          "meta": {
+            "network": {
+              "location": "Internal",
+              "subnet_mask": "255.255.0.0",
+              "gateway": "10.0.0.1"
+            },
+            "custom": {
+              "department": "IT",
+              "criticality": "high"
+            }
+          }
+        },
+        {
+          "type": "ip",
+          "value": "10.0.1.51",
+          "source": "previous_stage_result",
+          "meta": {
+            "network": {
+              "location": "Internal",
+              "subnet_mask": "255.255.0.0",
+              "gateway": "10.0.0.1"
+            },
+            "custom": {
+              "department": "IT",
+              "criticality": "medium"
+            }
+          }
+        }
+      ],
+      "target_type": "ip",
+      "query_mode": null,
+      "custom_sql": null,
+      "filter_rules": null,
+      "auth_config": null,
+      "parser_config": null
+    }
+  ],
+  "whitelist_enabled": true,
+  "whitelist_sources": [
+    {
+      "source_type": "file",
+      "source_value": "/etc/neoscan/whitelist.txt"
+    },
+    {
+      "source_type": "manual",
+      "source_value": [
+        "10.0.0.0/8",
+        "192.168.0.0/16",
+        "172.16.0.0/12",
+        "127.0.0.1",
+        "172.16.0.1-172.16.0.255"
+      ]
+    }
+  ],
+  "skip_enabled": true,
+  "skip_rule": {
+    "or": [
+      {
+        "field": "meta.custom.tags",
+        "operator": "contains",
+        "value": "honeypot"
+      },
+      {
+        "field": "meta.domain.is_wildcard",
+        "operator": "equals",
+        "value": "true"
+      },
+      {
+        "field": "meta.custom.department",
+        "operator": "equals",
+        "value": "critical_infrastructure"
+      }
+    ]
+  }
+}

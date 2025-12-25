@@ -76,9 +76,8 @@ type TargetPolicy struct {
 type TargetSource struct {
 	SourceType   string          `json:"source_type"`             // 来源类型：file/db/view/sql/manual/api/previous_stage
 	SourceValue  interface{}     `json:"source_value,omitempty"`  // 来源值 - 根据SourceType不同，可能是路径、语句或Target对象列表
-	TargetType   string          `json:"target_type"`             // 目标类型：ip/ip_range/domain/url
-	QueryMode    string          `json:"query_mode,omitempty"`    // table, view, sql (仅用于数据库)
-	CustomSQL    string          `json:"custom_sql,omitempty"`    // custom_sql 当 query_mode 为 sql 时使用
+	TargetType   string          `json:"target_type"`             // 目标类型：ip/ip_range(包含cidr)/domain
+	QueryMode    string          `json:"query_mode,omitempty"`    // table, view, sql (仅用于数据库 --- 对应 source_value 为 SQL 语句)
 	FilterRules  json.RawMessage `json:"filter_rules,omitempty"`  // 过滤规则【暂时json，后续考虑使用结构体】
 	AuthConfig   json.RawMessage `json:"auth_config,omitempty"`   // 认证配置【暂时json，后续考虑使用结构体】
 	ParserConfig json.RawMessage `json:"parser_config,omitempty"` // 解析配置【暂时json，后续考虑使用结构体】

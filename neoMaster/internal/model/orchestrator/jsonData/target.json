@@ -1,0 +1,98 @@
+// IP 类型的 Target
+{
+  "type": "ip",
+  "value": "192.168.1.100",
+  "source": "nmap_scan_result",
+  "meta": {
+    "network": {
+      "location": "Beijing",
+      "subnet_mask": "255.255.255.0",
+      "gateway": "192.168.1.1"
+    },
+    "ports": [
+      {
+        "port": 22,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "ssh",
+        "version": "OpenSSH_7.4",
+        "product": "OpenSSH",
+        "banner": "SSH-2.0-OpenSSH_7.4",
+        "extra": {
+          "os": "Linux",
+          "vuln": "CVE-2016-XXXX"
+        }
+      },
+      {
+        "port": 80,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "http",
+        "version": "1.1",
+        "product": "Apache",
+        "banner": "Apache/2.4.41",
+        "extra": {
+          "vuln": "CVE-2021-XXXX"
+        }
+      }
+    ]
+  }
+}
+
+// IP 范围类型的 Target
+{
+  "type": "ip_range",
+  "value": "192.168.1.0/24",
+  "source": "file:/path/to/targets.txt",
+  "meta": {
+    "network": {
+      "cidr": "192.168.1.0/24",
+      "location": "Beijing",
+      "subnet_mask": "255.255.255.0",
+      "gateway": "192.168.1.1"
+    }
+  }
+}
+
+// domain 类型的 Target (这里的port是扫描域名的开放端口,不是子域名的端口)
+{
+  "type": "domain",
+  "value": "example.com",
+  "source": "dns_discovery",
+  "meta": {
+    "domain": {
+      "root_domain": "example.com",
+      "subdomains": [
+        "www.example.com",
+        "mail.example.com",
+        "api.example.com"
+      ],
+      "registrar": "GoDaddy",
+      "name_servers": [
+        "ns1.example.com",
+        "ns2.example.com"
+      ],
+      "resolved_ips": [
+        "93.184.216.34",
+        "2606:2800:220:1:248:1893:1c27:937a"
+      ],
+      "is_wildcard": false
+    },
+    "ports": [
+      {
+        "port": 443,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "https",
+        "version": "TLSv1.3",
+        "product": "nginx",
+        "banner": "nginx/1.18.0",
+        "extra": {
+          "ssl_cert": "SHA256:xxx",
+          "tech_stack": "nginx,php"
+        }
+      }
+    ]
+  }
+}
+

@@ -186,7 +186,9 @@ func (p *PreviousStageProvider) processResult(result orcModel.StageResult, unwin
 			Type:   result.TargetType,
 			Value:  result.TargetValue,
 			Source: fmt.Sprintf("stage:%d", result.StageID),
-			Meta:   map[string]string{"result_type": result.ResultType},
+			Meta: orcModel.TargetMeta{
+				Custom: map[string]string{"result_type": result.ResultType},
+			},
 		}}
 	}
 
@@ -242,11 +244,13 @@ func (p *PreviousStageProvider) processResult(result orcModel.StageResult, unwin
 			Type:   generate.Type,
 			Value:  targetValue,
 			Source: fmt.Sprintf("stage:%d", result.StageID),
-			Meta:   make(map[string]string),
+			Meta: orcModel.TargetMeta{
+				Custom: make(map[string]string),
+			},
 		}
 		// 复制 Meta
 		for k, v := range generate.MetaMap {
-			t.Meta[k] = v
+			t.Meta.Custom[k] = v
 		}
 
 		// 6. 加入结果列表

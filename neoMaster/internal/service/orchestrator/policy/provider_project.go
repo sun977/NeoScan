@@ -25,7 +25,7 @@ func (p *ProjectTargetProvider) Provide(ctx context.Context, config orcmodel.Tar
 			Type:   config.TargetType, // 假设种子目标类型与配置一致，或者需要自动检测
 			Value:  t,
 			Source: "project_target",
-			Meta:   nil,
+			Meta:   orcmodel.TargetMeta{},
 		})
 	}
 	return targets, nil

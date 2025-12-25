@@ -84,7 +84,7 @@ type TargetSource struct {
 	ParserConfig json.RawMessage `json:"parser_config,omitempty"` // 解析配置【暂时json，后续考虑使用结构体】
 }
 
-// RuleSource 定义规则来源(白名单规则和跳过规则)
+// WhitelistSource 定义白名单来源
 type WhitelistSource struct {
 	SourceType  string `json:"source_type"`  // 来源类型：file/db/manual
 	SourceValue string `json:"source_value"` // 来源值

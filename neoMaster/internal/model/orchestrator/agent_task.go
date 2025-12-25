@@ -28,9 +28,9 @@ type AgentTask struct {
 	// 任务参数
 	ToolName       string `json:"tool_name" gorm:"size:100;comment:工具名称"`
 	ToolParams     string `json:"tool_params" gorm:"type:text;comment:工具参数"`
-	InputTarget    string `json:"input_target" gorm:"type:json;comment:输入目标(JSON)"`
-	RequiredTags   string `json:"required_tags" gorm:"type:json;comment:执行所需标签(JSON)"`
-	PolicySnapshot string `json:"policy_snapshot" gorm:"type:json;comment:策略快照(JSON) - 包含TargetScope和ScanStage的策略配置"` // 任务执行时的策略配置快照
+	InputTarget    string         `json:"input_target" gorm:"type:json;comment:输入目标(JSON)"`
+	RequiredTags   string         `json:"required_tags" gorm:"type:json;comment:执行所需标签(JSON)"`
+	PolicySnapshot PolicySnapshot `json:"policy_snapshot" gorm:"serializer:json;type:json;comment:策略快照(JSON) - 包含TargetScope和ScanStage的策略配置"` // 任务执行时的策略配置快照
 
 	// 执行结果
 	OutputResult string `json:"output_result" gorm:"type:json;comment:输出结果摘要(JSON)"` // 任务执行结果摘要 (JSON 格式) 详细结果存储在 StageResult 中

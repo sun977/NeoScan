@@ -120,33 +120,10 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 		return err1
 	}
 
-	// 3. WhitelistChecker: 白名单检查 (Local || Global)
+	// 3. WhitelistChecker: 白名单检查 (Global only)
 	// 检查目标是否命中白名单
 	for _, target := range targets {
-		// 3.1 检查局部白名单 (从 Snapshot.TargetPolicy 解析)
-		tp := policySnapshot.TargetPolicy
-		isLocalWhitelisted, ruleName, err2 := p.checkLocalWhiteList(ctx, target, tp.WhitelistSources)
-		if err2 != nil {
-			logger.LogWarn("Failed to check local whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-				"task_id": task.TaskID,
-				"target":  target,
-				"error":   err.Error(),
-			})
-			// 局部检查失败不应阻断流程，除非是严重的逻辑错误。
-			// 但这里作为白名单，如果检查出错，默认不放行（fail closed）或 忽略错误继续？
-			// 安全起见，忽略错误继续（即认为未命中白名单）
-		}
-
-		if isLocalWhitelisted {
-			logger.LogInfo("Task blocked by local whitelist", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-				"task_id":   task.TaskID,
-				"target":    target,
-				"rule_name": ruleName,
-			})
-			return fmt.Errorf("policy violation: target %s is whitelisted by local rule: %s", target, ruleName)
-		}
-
-		// 3.2 检查全局白名单 (DB) - 强制执行
+		// 3.1 检查全局白名单 (DB) - 强制执行
 		isBlocked, ruleName, err2 := p.checkWhitelist(ctx, target)
 		if err2 != nil {
 			logger.LogError(err2, "whitelist check error", 0, "", "service.orchestrator.policy.Enforce", "REPO", nil)
@@ -162,36 +139,13 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 		}
 	}
 
-	// 4. SkipLogicEvaluator: 动态跳过 (Local || Global)
+	// 4. SkipLogicEvaluator: 动态跳过 (Global only)
 	// 执行 AssetSkipPolicy 逻辑
-	// 局部跳过策略从Snapshot.TargetPolicy.target_policy中获取跳过策略和targets匹配
 	// 全局跳过策略从数据库中获取condition_rules跳过规则和targets匹配
 	// 命中就跳过，否则不跳过
 
 	for _, target := range targets {
-		// 4.1 检查局部跳过策略 (Snapshot)
-		// 从 Snapshot.TargetPolicy.target_policy 中获取跳过策略
-		tp := policySnapshot.TargetPolicy
-		if tp.SkipEnabled {
-			shouldSkip, ruleName, err := p.checkLocalSkipPolicy(ctx, target, tp.SkipRule)
-			if err != nil {
-				logger.LogWarn("Failed to check local skip policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-					"task_id": task.TaskID,
-					"target":  target,
-					"error":   err.Error(),
-				})
-			}
-			if shouldSkip {
-				logger.LogInfo("Task skipped by local policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
-					"task_id":   task.TaskID,
-					"target":    target,
-					"rule_name": ruleName,
-				})
-				return fmt.Errorf("policy violation: target %s skipped by local policy: %s", target, ruleName)
-			}
-		}
-
-		// 4.2 检查全局跳过策略 (DB)
+		// 4.1 检查全局跳过策略 (DB)
 		// 从数据库中获取 condition_rules 跳过规则和 targets 匹配
 		shouldSkip, ruleName, err := p.checkGlobalSkipPolicy(ctx, target)
 		if err != nil {
@@ -209,103 +163,6 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 	}
 
 	return nil
-}
-
-// checkLocalWhiteList 检查目标是否在白名单中(局部策略白名单)
-func (p *policyEnforcer) checkLocalWhiteList(ctx context.Context, target string, whitelistSources []agentModel.WhitelistSource) (bool, string, error) {
-	// 预处理目标 (Host提取逻辑复用 checkWhitelist 中的逻辑，或者最好提取公共函数)
-	// 这里为了简单，先复制逻辑，后续建议提取 utils.ExtractHost(target)
-
-	targetHost := target
-	// 只有当看起来像 URL 时才尝试解析 Host
-	if strings.Contains(target, "://") {
-		if u, err := url.Parse(target); err == nil && u.Host != "" {
-			targetHost = u.Host
-		}
-	}
-	// 去掉端口号
-	if h, _, err := net.SplitHostPort(targetHost); err == nil {
-		targetHost = h
-	}
-
-	for _, source := range whitelistSources {
-		// 根据 SourceType 解析白名单内容
-		var whitelistItems []string
-
-		switch source.SourceType {
-		case "manual":
-			// manual 类型，SourceValue 是 JSON 数组字符串，例如 `["1.1.1.1", "google.com"]`
-			srcStr, ok := source.SourceValue.(string)
-			if !ok {
-				logger.LogWarn("Invalid manual whitelist source value type (expected string)", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
-					"source_value": source.SourceValue,
-				})
-				continue
-			}
-			if err := json.Unmarshal([]byte(srcStr), &whitelistItems); err != nil {
-				logger.LogWarn("Failed to parse manual whitelist source", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
-					"source_value": source.SourceValue,
-					"error":        err.Error(),
-				})
-				continue
-			}
-		case "file":
-			// file 类型，SourceValue 是文件路径
-			srcPath, ok := source.SourceValue.(string)
-			if !ok {
-				logger.LogWarn("Invalid file whitelist source value type (expected string path)", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
-					"source_value": source.SourceValue,
-				})
-				continue
-			}
-			// 使用 utils.ReadFileLines 读取文件内容
-			lines, err := utils.ReadFileLines(srcPath)
-			if err != nil {
-				logger.LogWarn("Failed to read whitelist file", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
-					"file_path": srcPath,
-					"error":     err.Error(),
-				})
-				continue
-			}
-			whitelistItems = lines
-		default:
-			// 忽略不支持的类型 (如 db 已移除支持)
-			continue
-		}
-
-		// 检查目标是否在白名单项中
-		for _, item := range whitelistItems {
-			// 支持 CIDR, IP, Domain, URL 等匹配
-			// 复用 checkWhitelist 的核心匹配逻辑
-			// 1. CIDR / IP Range
-			if isMatch, err := utils.CheckIPInRange(targetHost, item); err == nil && isMatch {
-				return true, fmt.Sprintf("LocalManual:%s", item), nil
-			}
-
-			// 2. Domain / Host
-			if targetHost == item {
-				return true, fmt.Sprintf("LocalManual:%s", item), nil
-			} else if strings.HasPrefix(item, ".") && strings.HasSuffix(targetHost, item) {
-				return true, fmt.Sprintf("LocalManual:%s", item), nil
-			} else if strings.HasPrefix(item, "*.") && strings.HasSuffix(targetHost, item[1:]) {
-				return true, fmt.Sprintf("LocalManual:%s", item), nil
-			}
-
-			// 3. URL Prefix
-			if strings.HasPrefix(target, item) {
-				return true, fmt.Sprintf("LocalManual:%s", item), nil
-			}
-
-			// 4. Keyword
-			// 只有当 item 不是 IP/Domain 格式时才当作关键字? 或者总是?
-			// 简单起见，如果包含则匹配 (宽松模式)
-			// if strings.Contains(target, item) {
-			// 	 return true, fmt.Sprintf("LocalManual:%s", item), nil
-			// }
-		}
-	}
-
-	return false, "", nil
 }
 
 // checkWhitelist 检查目标是否在白名单中(全局策略白名单)
@@ -383,38 +240,6 @@ type SkipConditionRules struct {
 	BlockTimeWindows []string          `json:"block_time_windows"` // e.g. ["00:00-06:00", "22:00-23:59"]
 	BlockEnvTags     []string          `json:"block_env_tags"`     // e.g. ["production", "sensitive"]
 	MatchRule        matcher.MatchRule `json:"match_rule"`         // 复杂匹配规则 (New)
-}
-
-// checkLocalSkipPolicy 检查是否应该跳过任务(本地策略跳过)
-// 基于 Snapshot 中的 SkipRule
-func (p *policyEnforcer) checkLocalSkipPolicy(ctx context.Context, target string, rule matcher.MatchRule) (bool, string, error) {
-	if matcher.IsEmptyRule(rule) {
-		return false, "", nil
-	}
-
-	// 构建匹配上下文
-	// 默认字段: target, ip, domain (简单起见，都设为 target，具体由 matcher 处理或提取)
-	matchContext := map[string]interface{}{
-		"target": target,
-		"ip":     target, // 假设 target 可能是 IP
-		"domain": target, // 假设 target 可能是域名
-		"host":   target,
-	}
-
-	matched, err := matcher.Match(matchContext, rule)
-	if err != nil {
-		logger.LogWarn("Failed to execute local skip match rule", "", 0, "", "checkLocalSkipPolicy", "", map[string]interface{}{
-			"target": target,
-			"error":  err.Error(),
-		})
-		return false, "", err
-	}
-
-	if matched {
-		return true, "LocalRule", nil
-	}
-
-	return false, "", nil
 }
 
 // checkGlobalSkipPolicy 检查是否应该跳过任务 (全局策略跳过)

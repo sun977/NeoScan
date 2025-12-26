@@ -132,37 +132,6 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 // 4. 白名单过滤 (如果启用)
 // 5. 跳过条件过滤 (如果启用)
 // 6. 去重 (基于 Value)
-// 策略样例：
-//
-//	{
-//	  "target_sources": [
-//	    {
-//	      "source_type": "file",           // 来源类型：file/db/view/sql/manual/api/previous_stage
-//	      "source_value": "/path/to/targets.txt",
-//	      "target_type": "ip_range"
-//	    }
-//	  ],
-//	  "whitelist_enabled": true,           // 是否启用白名单
-//	  "whitelist_sources": [               // 1. 基于来源的白名单 (值匹配)
-//	    {
-//	      "source_type": "file",
-//	      "source_value": "/path/to/whitelist.txt"
-//	    }
-//	  ],
-//	  "whitelist_rule": {                  // 2. 基于规则的白名单 (逻辑匹配)
-//	      "field": "value",
-//	      "operator": "cidr",
-//	      "value": "10.0.0.0/8",
-//	      "ignore_case": true // 可选：忽略大小写
-//	  },
-//	  "skip_enabled": true,                // 是否启用跳过条件
-//	  "skip_rule": {                       // 跳过规则 (逻辑匹配，支持 AND/OR/NOT 嵌套)
-//	      "or": [
-//	          { "field": "device_type", "operator": "equals", "value": "honeypot", "ignore_case": true }, // 可选：忽略大小写
-//	          { "field": "type", "operator": "equals", "value": "url" }
-//	      ]
-//	  }
-//	}
 func (p *targetProviderService) ResolveTargets(ctx context.Context, policy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) {
 	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"policy_sources_count": len(policy.TargetSources)})
 
@@ -171,115 +140,149 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policy orcmo
 		return p.fallbackToSeed(seedTargets), nil
 	}
 
-	// 3. 获取初始目标列表
+	// 3. 获取初始目标列表 (并发)
 	allTargets := p.fetchTargetsFromSources(ctx, policy.TargetSources, seedTargets)
 
 	// 4. 白名单过滤 (如果启用)
 	if policy.WhitelistEnabled {
-		// 4.1 基于来源的白名单 (值匹配)
-		if len(policy.WhitelistSources) > 0 {
-			whitelistTargets := p.fetchTargetsFromSources(ctx, policy.WhitelistSources, seedTargets)
-			whitelistMap := make(map[string]struct{})
-			for _, t := range whitelistTargets {
-				whitelistMap[t.Value] = struct{}{} // 构建一个白名单列表
-			}
-
-			filtered := make([]Target, 0)
-			for _, t := range allTargets { // 基于值的白名单过滤
-				if _, ok := whitelistMap[t.Value]; ok { // 如果目标值在白名单中
-					filtered = append(filtered, t) // 加入过滤后的列表
-				}
-			}
-			allTargets = filtered
-		}
-
-		// 4.2 基于规则的白名单 (逻辑匹配)
-		// 如果定义了规则，只保留匹配规则的目标
-		if !matcher.IsEmptyRule(policy.WhitelistRule) { // 如果规则不为空
-			filtered := make([]Target, 0)
-			for _, t := range allTargets {
-				// 转换为 Map 以便 matcher 匹配 (支持 type, value 等小写字段)
-				targetMap := p.targetToMap(t)
-				matched, err := matcher.Match(targetMap, policy.WhitelistRule) // 评估目标是否符合白名单规则
-				if err != nil {
-					logger.LogWarn("Failed to match whitelist rule", "", 0, "", "ResolveTargets", "", map[string]interface{}{
-						"error":  err.Error(),
-						"target": t.Value,
-					})
-					// 策略：出错时默认为不匹配（安全起见）
-					continue
-				}
-				if matched {
-					filtered = append(filtered, t)
-				}
-			}
-			allTargets = filtered
-		}
+		allTargets = p.applyWhitelist(ctx, allTargets, policy, seedTargets)
 	}
 
 	// 5. 跳过条件过滤 (如果启用)
 	if policy.SkipEnabled && !matcher.IsEmptyRule(policy.SkipRule) {
-		filtered := make([]Target, 0)
-		for _, t := range allTargets {
-			targetMap := p.targetToMap(t)
-			matched, err := matcher.Match(targetMap, policy.SkipRule)
-			if err != nil {
-				logger.LogWarn("Failed to match skip rule", "", 0, "", "ResolveTargets", "", map[string]interface{}{
-					"error":  err.Error(),
-					"target": t.Value,
-				})
-				// 策略：出错时不跳过（保留目标）
-				filtered = append(filtered, t)
-				continue
-			}
-
-			// 如果匹配规则，则跳过 (不加入 filtered)
-			if !matched {
-				filtered = append(filtered, t)
-			}
-		}
-		allTargets = filtered
+		allTargets = p.applySkipRule(allTargets, policy.SkipRule)
 	}
 
 	// 6. 去重 (基于 Value)
+	result := p.deduplicateTargets(allTargets)
+
+	return result, nil
+}
+
+// applyWhitelist 应用白名单过滤
+// 白名单中的资产不会进入扫描流程，因此在白名单中的资产应该被忽略或者从目标列表中移除。
+// 白名单有两种类型：
+// 1. SourceType = file 文件白名单：从文件中读取资产列表，格式为每行一个资产值。要转换成["192.168.1.1","192.168.1.2"]
+// 2. SourceType =manual 手动白名单：用户手动输入资产列表，格式为["192.168.1.1","192.168.1.2"]。
+// target.Value 是资产值，需要与白名单中的值进行比较。
+func (p *targetProviderService) applyWhitelist(ctx context.Context, targets []Target, policy orcmodel.TargetPolicy, seedTargets []string) []Target {
+	if len(policy.WhitelistSources) == 0 {
+		return targets
+	}
+
+	// 转换 WhitelistSource 为 TargetSource 以复用 Provider
+	whitelistTargetSources := make([]orcmodel.TargetSource, len(policy.WhitelistSources))
+	for i, ws := range policy.WhitelistSources {
+		whitelistTargetSources[i] = orcmodel.TargetSource{
+			SourceType:  ws.SourceType,
+			SourceValue: ws.SourceValue,
+			TargetType:  "whitelist", // 标记类型，Provider 可按需使用
+		}
+	}
+
+	// 复用 fetchTargetsFromSources 获取白名单目标列表
+	whitelistTargets := p.fetchTargetsFromSources(ctx, whitelistTargetSources, seedTargets)
+
+	// 构建白名单 Map
+	whitelistMap := make(map[string]struct{})
+	for _, t := range whitelistTargets {
+		whitelistMap[t.Value] = struct{}{}
+	}
+
+	// 基于值的白名单过滤 (黑名单行为：命中则移除)
+	filtered := make([]Target, 0)
+	for _, t := range targets {
+		if _, ok := whitelistMap[t.Value]; !ok { // 只有不在白名单中的目标才保留
+			filtered = append(filtered, t)
+		}
+	}
+
+	// 注意：根据用户要求，移除了基于规则的白名单逻辑 (policy.WhitelistRule)
+
+	return filtered
+}
+
+// applySkipRule 应用跳过规则过滤
+func (p *targetProviderService) applySkipRule(targets []Target, rule matcher.MatchRule) []Target {
+	filtered := make([]Target, 0)
+	for _, t := range targets {
+		targetMap := p.targetToMap(t)
+		matched, err := matcher.Match(targetMap, rule)
+		if err != nil {
+			logger.LogWarn("Failed to match skip rule", "", 0, "", "applySkipRule", "", map[string]interface{}{
+				"error":  err.Error(),
+				"target": t.Value,
+			})
+			// 策略：出错时不跳过（保留目标）
+			filtered = append(filtered, t)
+			continue
+		}
+
+		// 如果匹配规则，则跳过 (不加入 filtered)
+		if !matched {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
+}
+
+// deduplicateTargets 去重 (基于 Value)
+func (p *targetProviderService) deduplicateTargets(targets []Target) []Target {
 	targetSet := make(map[string]struct{})
-	result := make([]Target, 0, len(allTargets))
-	for _, t := range allTargets {
+	result := make([]Target, 0, len(targets))
+	for _, t := range targets {
 		if _, ok := targetSet[t.Value]; !ok {
 			targetSet[t.Value] = struct{}{}
 			result = append(result, t)
 		}
 	}
-
-	return result, nil
+	return result
 }
 
-// fetchTargetsFromSources 从指定源列表获取目标
+// fetchTargetsFromSources 从指定源列表获取目标 (并发优化)
 func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sources []orcmodel.TargetSource, seedTargets []string) []Target {
-	allTargets := make([]Target, 0)
+	var wg sync.WaitGroup
+	// 避免过大的缓冲，但足够容纳所有 sources
+	targetChan := make(chan []Target, len(sources))
+
 	for _, sourceConfig := range sources {
-		fmt.Printf("[TargetProvider] Processing source type: %s\n", sourceConfig.SourceType)
-		p.mu.RLock()
-		provider, exists := p.providers[sourceConfig.SourceType]
-		p.mu.RUnlock()
+		wg.Add(1)
+		go func(cfg orcmodel.TargetSource) {
+			defer wg.Done()
+			fmt.Printf("[TargetProvider] Processing source type: %s\n", cfg.SourceType)
+			p.mu.RLock()
+			provider, exists := p.providers[cfg.SourceType]
+			p.mu.RUnlock()
 
-		if !exists {
-			fmt.Printf("[TargetProvider] Provider not found: %s\n", sourceConfig.SourceType)
-			logger.LogWarn("Unknown target source type", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
-				"type": sourceConfig.SourceType,
-			})
-			continue
-		}
+			if !exists {
+				fmt.Printf("[TargetProvider] Provider not found: %s\n", cfg.SourceType)
+				logger.LogWarn("Unknown target source type", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
+					"type": cfg.SourceType,
+				})
+				return
+			}
 
-		targets, err := provider.Provide(ctx, sourceConfig, seedTargets)
-		if err != nil {
-			fmt.Printf("[TargetProvider] Provider error: %v\n", err)
-			logger.LogError(err, "", 0, "", "fetchTargetsFromSources", "PROVIDER_ERROR", map[string]interface{}{
-				"type": sourceConfig.SourceType,
-			})
-			continue
-		}
-		fmt.Printf("[TargetProvider] Provider returned %d targets\n", len(targets))
+			targets, err := provider.Provide(ctx, cfg, seedTargets)
+			if err != nil {
+				fmt.Printf("[TargetProvider] Provider error: %v\n", err)
+				logger.LogError(err, "", 0, "", "fetchTargetsFromSources", "PROVIDER_ERROR", map[string]interface{}{
+					"type": cfg.SourceType,
+				})
+				return
+			}
+			fmt.Printf("[TargetProvider] Provider returned %d targets\n", len(targets))
+			targetChan <- targets
+		}(sourceConfig)
+	}
+
+	// 等待所有 goroutine 完成后关闭 channel
+	go func() {
+		wg.Wait()
+		close(targetChan)
+	}()
+
+	allTargets := make([]Target, 0)
+	for targets := range targetChan {
 		allTargets = append(allTargets, targets...)
 	}
 	return allTargets
@@ -293,9 +296,9 @@ func (p *targetProviderService) targetToMap(t Target) map[string]interface{} {
 		"source": t.Source,
 		"meta":   t.Meta,
 	}
-	// 将 meta 字段提升到顶层，方便规则直接访问 (如 device_type 而不是 meta.device_type)
+	// 将 meta.Custom 字段提升到顶层，方便规则直接访问 (如 device_type 而不是 meta.custom.device_type)
 	// 如果有冲突，优先使用 meta 中的值 (或者反过来，这里选择优先保留 type/value/source)
-	for k, v := range t.Meta {
+	for k, v := range t.Meta.Custom {
 		if _, exists := m[k]; !exists {
 			m[k] = v
 		}
@@ -322,7 +325,7 @@ func (p *targetProviderService) fallbackToSeed(seedTargets []string) []Target {
 			Type:   targetType,
 			Value:  t,
 			Source: "seed",
-			Meta:   make(map[string]string),
+			Meta:   orcmodel.TargetMeta{},
 		})
 	}
 	return targets

@@ -66,7 +66,7 @@ type PortDetail struct {
 type TargetPolicy struct {
 	TargetSources    []TargetSource    `json:"target_sources"`    // 目标来源配置
 	WhitelistEnabled bool              `json:"whitelist_enabled"` // 是否启用白名单
-	WhitelistSources []WhitelistSource `json:"whitelist_sources"` // 白名单来源配置 (统一使用 TargetSource)  --- 负责从不同来源加载白名单
+	WhitelistSources []WhitelistSource `json:"whitelist_sources"` // 白名单来源配置  --- 负责从不同来源加载白名单
 	SkipEnabled      bool              `json:"skip_enabled"`      // 是否启用跳过条件
 	SkipRule         matcher.MatchRule `json:"skip_rule"`         // 跳过规则 (逻辑匹配，来自 TargetProvider) --- 负责根据跳过规则判断是否跳过
 }

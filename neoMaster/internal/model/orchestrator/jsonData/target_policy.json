@@ -190,7 +190,17 @@
       {
         "field": "meta.custom.department",
         "operator": "equals",
-        "value": "critical_infrastructure"
+        "value": "OPS"
+      },
+      {
+        "field": "source",
+        "operator": "equals",
+        "value": "previous_stage_result"
+      },
+      {
+        "field": "value",
+        "operator": "starts_with",
+        "value": "192.168."
       }
     ]
   }

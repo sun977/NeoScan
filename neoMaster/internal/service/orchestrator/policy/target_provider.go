@@ -19,8 +19,8 @@
 // - 所有提供者都遵循愚蠢哲学，即所有输入都会原样封装给 Target 对象
 // - 提供者不负责校验输入的有效性，也不负责解析输入的格式
 // targetProvider 和 policyProvider 模块都具有白名单和跳过策略的功能，但是区别如下：
-// - targetProvider 模块的白名单和跳过策略来源有多重，可以是file,API,DB,用户指定或者是上一个阶段的输出,更灵活
-// - policyProvider 模块的白名单和跳过策略来源只有一种，即DB,而且他是强制全局阻断的，更像合规最后一道检测
+// - targetProvider 模块的白名单和跳过策略来源有多重，可以是file,API,DB,用户指定或者是上一个阶段的输出,更灵活,作用在生成AgentTask之前(局部规则)
+// - policyProvider 模块的白名单和跳过策略来源只有一种，即DB,而且他是强制全局阻断的，更像合规最后一道检测,作用在AgentTask下发执行之前(全局规则)
 
 package policy
 
@@ -129,21 +129,25 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 // 1. 如果策略为空，默认使用种子目标
 // 2. 不为空解析 json 策略
 // 3. 并发/顺序获取所有目标
-// 4. 白名单过滤 (如果启用)
-// 5. 跳过条件过滤 (如果启用)
+// 4. 白名单过滤 (如果启用) --- 命中白名单资产不会进入后续扫描流程(简单值匹配)
+// 5. 跳过条件过滤 (如果启用) --- 命中跳过条件资产不会进入后续扫描流程(复杂逻辑匹配)
 // 6. 去重 (基于 Value)
 func (p *targetProviderService) ResolveTargets(ctx context.Context, targetPolicy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) {
 	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"targetPolicy_sources_count": len(targetPolicy.TargetSources)})
 
 	// 1. 如果没有配置源，默认使用种子目标
 	if len(targetPolicy.TargetSources) == 0 {
+		// 没有配置源，直接返回种子目标列表 []Target
 		return p.fallbackToSeed(seedTargets), nil
 	}
 
 	// 3. 获取初始目标列表 (并发)
+	// 会根据目标源类型调用对应的 Provider.Provide 方法获取目标列表
+	// 并将所有结果合并到 allTargets 中
 	allTargets := p.fetchTargetsFromSources(ctx, targetPolicy.TargetSources, seedTargets)
 
-	// 4. 白名单过滤 (如果启用)
+	// 4. 白名单过滤 (如果启用) --- 配置中的局部白名单,仅依赖于目标策略配置结构中的白名单配置项。
+	// 白名单中的资产不会进入扫描流程。
 	if targetPolicy.WhitelistEnabled {
 		allTargets = p.applyWhitelist(ctx, allTargets, targetPolicy, seedTargets)
 	}
@@ -166,10 +170,12 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, targetPolicy
 // 2. SourceType =manual 手动白名单：用户手动输入资产列表，格式为["192.168.1.1","192.168.1.2"]。
 // target.Value 是资产值，需要与白名单中的值进行比较。
 func (p *targetProviderService) applyWhitelist(ctx context.Context, targets []Target, targetPolicy orcmodel.TargetPolicy, seedTargets []string) []Target {
+	// 白名单为空，直接返回所有目标列表，无需过滤
 	if len(targetPolicy.WhitelistSources) == 0 {
 		return targets
 	}
 
+	// 白名单不为空，开始处理
 	// 转换 WhitelistSource 为 TargetSource 以复用 Provider
 	whitelistTargetSources := make([]orcmodel.TargetSource, len(targetPolicy.WhitelistSources))
 	for i, ws := range targetPolicy.WhitelistSources {
@@ -226,7 +232,7 @@ func (p *targetProviderService) applySkipRule(targets []Target, rule matcher.Mat
 	return filtered
 }
 
-// deduplicateTargets 去重 (基于 Value)
+// deduplicateTargets 去重 (基于 Value 字段)
 func (p *targetProviderService) deduplicateTargets(targets []Target) []Target {
 	targetSet := make(map[string]struct{})
 	result := make([]Target, 0, len(targets))
@@ -240,20 +246,23 @@ func (p *targetProviderService) deduplicateTargets(targets []Target) []Target {
 }
 
 // fetchTargetsFromSources 从指定源列表获取目标 (并发优化)
-func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sources []orcmodel.TargetSource, seedTargets []string) []Target {
+// 参数：上下文 ctx、目标源列表 targetSources、种子目标列表 seedTargets
+func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, targetSources []orcmodel.TargetSource, seedTargets []string) []Target {
 	var wg sync.WaitGroup
-	// 避免过大的缓冲，但足够容纳所有 sources
-	targetChan := make(chan []Target, len(sources))
+	// 避免过大的缓冲，但足够容纳所有 targetSources
+	targetChan := make(chan []Target, len(targetSources))
 
-	for _, sourceConfig := range sources {
+	// 并发获取每个源的目标
+	for _, sourceConfig := range targetSources {
 		wg.Add(1)
 		go func(cfg orcmodel.TargetSource) {
 			defer wg.Done()
 			fmt.Printf("[TargetProvider] Processing source type: %s\n", cfg.SourceType)
 			p.mu.RLock()
-			provider, exists := p.providers[cfg.SourceType]
+			provider, exists := p.providers[cfg.SourceType] // 获取源对应的 Provider
 			p.mu.RUnlock()
 
+			// 如果源提供者 Provider 不存在，记录警告并跳过
 			if !exists {
 				fmt.Printf("[TargetProvider] Provider not found: %s\n", cfg.SourceType)
 				logger.LogWarn("Unknown target source type", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
@@ -262,6 +271,9 @@ func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sou
 				return
 			}
 
+			// 源提供者 Provider 存在，调用 Provide 方法获取目标列表
+			// 参数：上下文、源配置 cfg 、种子目标列表 seedTargets
+			// 多种源类型提供者 (如 database、file、manual) 都实现了 TargetProvider 接口
 			targets, err := provider.Provide(ctx, cfg, seedTargets)
 			if err != nil {
 				fmt.Printf("[TargetProvider] Provider error: %v\n", err)
@@ -281,10 +293,14 @@ func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, sou
 		close(targetChan)
 	}()
 
+	// 从 channel 收集所有目标
 	allTargets := make([]Target, 0)
 	for targets := range targetChan {
+		// 合并所有目标
 		allTargets = append(allTargets, targets...)
 	}
+
+	// 返回目标对象列表
 	return allTargets
 }
 

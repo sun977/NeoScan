@@ -22,9 +22,23 @@ type ManualProvider struct{}
 func (m *ManualProvider) Name() string { return "manual" }
 
 func (m *ManualProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error) {
-	parts := strings.FieldsFunc(config.SourceValue, func(r rune) bool {
-		return r == ',' || r == '\n' || r == ';'
-	})
+	// 检查 SourceValue 的类型
+	var parts []string
+	switch v := config.SourceValue.(type) {
+	case string:
+		parts = strings.FieldsFunc(v, func(r rune) bool {
+			return r == ',' || r == '\n' || r == ';'
+		})
+	case []interface{}: // JSON 解析后的数组可能是 []interface{}
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				parts = append(parts, s)
+			}
+		}
+	case []string:
+		parts = v
+	}
+
 	targets := make([]Target, 0, len(parts))
 	for _, part := range parts {
 		t := strings.TrimSpace(part)
@@ -33,7 +47,7 @@ func (m *ManualProvider) Provide(ctx context.Context, config orcmodel.TargetSour
 				Type:   config.TargetType, // 使用配置中的类型
 				Value:  t,
 				Source: "manual",
-				Meta:   nil,
+				Meta:   orcmodel.TargetMeta{},
 			})
 		}
 	}

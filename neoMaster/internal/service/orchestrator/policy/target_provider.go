@@ -26,7 +26,6 @@ package policy
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -148,9 +147,7 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, targetPolicy
 	// 4. 白名单过滤 (如果启用) --- 配置中的局部白名单,仅依赖于目标策略配置结构中的白名单配置项。
 	// 白名单中的资产不会进入扫描流程。
 	if targetPolicy.WhitelistEnabled {
-		fmt.Printf("[DEBUG] Whitelist enabled, sources count: %d\n", len(targetPolicy.WhitelistSources))
 		allTargets = p.applyWhitelist(ctx, allTargets, targetPolicy, seedTargets)
-		fmt.Printf("[DEBUG] After whitelist: %d targets\n", len(allTargets))
 	}
 
 	// 5. 跳过条件过滤 (如果启用)
@@ -258,14 +255,12 @@ func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, tar
 		wg.Add(1)
 		go func(cfg orcmodel.TargetSource) {
 			defer wg.Done()
-			fmt.Printf("[TargetProvider] Processing source type: %s\n", cfg.SourceType)
 			p.mu.RLock()
 			provider, exists := p.providers[cfg.SourceType] // 获取源对应的 Provider
 			p.mu.RUnlock()
 
 			// 如果源提供者 Provider 不存在，记录警告并跳过
 			if !exists {
-				fmt.Printf("[TargetProvider] Provider not found: %s\n", cfg.SourceType)
 				logger.LogWarn("Unknown target source type", "", 0, "", "fetchTargetsFromSources", "", map[string]interface{}{
 					"type": cfg.SourceType,
 				})
@@ -277,13 +272,11 @@ func (p *targetProviderService) fetchTargetsFromSources(ctx context.Context, tar
 			// 多种源类型提供者 (如 database、file、manual) 都实现了 TargetProvider 接口
 			targets, err := provider.Provide(ctx, cfg, seedTargets)
 			if err != nil {
-				fmt.Printf("[TargetProvider] Provider error: %v\n", err)
 				logger.LogError(err, "", 0, "", "fetchTargetsFromSources", "PROVIDER_ERROR", map[string]interface{}{
 					"type": cfg.SourceType,
 				})
 				return
 			}
-			fmt.Printf("[TargetProvider] Provider returned %d targets\n", len(targets))
 			targetChan <- targets
 		}(sourceConfig)
 	}

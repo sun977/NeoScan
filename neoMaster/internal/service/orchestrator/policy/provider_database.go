@@ -92,28 +92,30 @@ func (d *DatabaseProvider) Provide(ctx context.Context, config orcmodel.TargetSo
 	// 分支处理：SQL模式 vs Table/View模式
 	if config.QueryMode == "sql" {
 		// --- SQL 模式 ---
-		if config.CustomSQL == "" {
-			return nil, fmt.Errorf("custom_sql is required when query_mode is sql")
+		sqlStr, ok := config.SourceValue.(string)
+		if !ok || sqlStr == "" {
+			return nil, fmt.Errorf("source_value (sql) is required and must be string when query_mode is sql")
 		}
 
 		// 安全检查：仅允许 SELECT 语句
 		// 简单的字符串前缀检查，忽略大小写和空格
-		trimmedSQL := strings.TrimSpace(config.CustomSQL)
+		trimmedSQL := strings.TrimSpace(sqlStr)
 		if len(trimmedSQL) < 6 || !strings.EqualFold(trimmedSQL[:6], "SELECT") {
 			return nil, fmt.Errorf("security violation: only SELECT statements are allowed in custom_sql")
 		}
 
 		// 使用 Raw SQL
-		tx = db.Raw(config.CustomSQL)
+		tx = db.Raw(sqlStr)
 
 	} else {
 		// --- Table/View 模式 ---
-		if config.SourceValue == "" {
-			return nil, fmt.Errorf("source_value (table/view name) is required")
+		tableName, ok := config.SourceValue.(string)
+		if !ok || tableName == "" {
+			return nil, fmt.Errorf("source_value (table/view name) is required and must be string")
 		}
 		// 简单校验表名防止注入 (只允许字母数字下划线)
-		if !isValidTableName(config.SourceValue) {
-			return nil, fmt.Errorf("invalid table name: %s", config.SourceValue)
+		if !isValidTableName(tableName) {
+			return nil, fmt.Errorf("invalid table name: %s", tableName)
 		}
 
 		var queryConfig DBQueryConfig
@@ -124,7 +126,7 @@ func (d *DatabaseProvider) Provide(ctx context.Context, config orcmodel.TargetSo
 		}
 
 		// 构建查询
-		tx = db.Table(config.SourceValue)
+		tx = db.Table(tableName)
 
 		// 应用 Where 条件
 		for _, rule := range queryConfig.Where {
@@ -175,8 +177,10 @@ func (d *DatabaseProvider) Provide(ctx context.Context, config orcmodel.TargetSo
 		targets = append(targets, Target{
 			Type:   config.TargetType,
 			Value:  valStr,
-			Source: "database:" + config.SourceValue,
-			Meta:   meta,
+			Source: fmt.Sprintf("database:%v", config.SourceValue),
+			Meta: orcmodel.TargetMeta{
+				Custom: meta,
+			},
 		})
 	}
 

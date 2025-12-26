@@ -34,8 +34,9 @@ func (f *FileProvider) Name() string { return "file" }
 
 func (f *FileProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error) {
 	// 1. 验证文件路径
-	if config.SourceValue == "" {
-		return nil, fmt.Errorf("file path is empty")
+	filePath, ok := config.SourceValue.(string)
+	if !ok || filePath == "" {
+		return nil, fmt.Errorf("file path is empty or invalid type (expected string)")
 	}
 
 	// 2. 解析配置
@@ -51,9 +52,9 @@ func (f *FileProvider) Provide(ctx context.Context, config orcmodel.TargetSource
 	}
 
 	// 3. 读取文件
-	file, err := os.Open(config.SourceValue)
+	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file %s: %w", config.SourceValue, err)
+		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
 	defer file.Close()
 
@@ -81,8 +82,8 @@ func (f *FileProvider) Provide(ctx context.Context, config orcmodel.TargetSource
 			targets = append(targets, Target{
 				Type:   config.TargetType,
 				Value:  v,
-				Source: "file:" + config.SourceValue,
-				Meta:   nil,
+				Source: "file:" + filePath,
+				Meta:   orcmodel.TargetMeta{},
 			})
 		}
 	}

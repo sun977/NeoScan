@@ -58,9 +58,9 @@ const (
 // TargetProvider 目标提供者服务接口
 // 对应设计文档中的 TargetProvider Interface
 type TargetProvider interface {
-	ResolveTargets(ctx context.Context, policy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) // ResolveTargets 解析策略并返回目标列表
-	RegisterProvider(name string, provider SourceProvider)                                                    // RegisterProvider 注册新的目标源提供者
-	CheckHealth(ctx context.Context) map[string]error                                                         // CheckHealth 检查所有已注册 Provider 的健康状态
+	ResolveTargets(ctx context.Context, targetPolicy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) // ResolveTargets 解析策略并返回目标列表
+	RegisterProvider(name string, provider SourceProvider)                                                          // RegisterProvider 注册新的目标源提供者
+	CheckHealth(ctx context.Context) map[string]error                                                               // CheckHealth 检查所有已注册 Provider 的健康状态
 }
 
 // SourceProvider 单个目标源提供者接口
@@ -71,7 +71,7 @@ type SourceProvider interface {
 
 	// Provide 执行获取逻辑
 	// ctx: 上下文
-	// config: 目标源配置
+	// config: 目标源配置 TargetSource 包含源类型、源值、元数据等信息
 	// seedTargets: 种子目标(用于 project_target)
 	Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]Target, error)
 
@@ -132,25 +132,25 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 // 4. 白名单过滤 (如果启用)
 // 5. 跳过条件过滤 (如果启用)
 // 6. 去重 (基于 Value)
-func (p *targetProviderService) ResolveTargets(ctx context.Context, policy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) {
-	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"policy_sources_count": len(policy.TargetSources)})
+func (p *targetProviderService) ResolveTargets(ctx context.Context, targetPolicy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) {
+	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"targetPolicy_sources_count": len(targetPolicy.TargetSources)})
 
 	// 1. 如果没有配置源，默认使用种子目标
-	if len(policy.TargetSources) == 0 {
+	if len(targetPolicy.TargetSources) == 0 {
 		return p.fallbackToSeed(seedTargets), nil
 	}
 
 	// 3. 获取初始目标列表 (并发)
-	allTargets := p.fetchTargetsFromSources(ctx, policy.TargetSources, seedTargets)
+	allTargets := p.fetchTargetsFromSources(ctx, targetPolicy.TargetSources, seedTargets)
 
 	// 4. 白名单过滤 (如果启用)
-	if policy.WhitelistEnabled {
-		allTargets = p.applyWhitelist(ctx, allTargets, policy, seedTargets)
+	if targetPolicy.WhitelistEnabled {
+		allTargets = p.applyWhitelist(ctx, allTargets, targetPolicy, seedTargets)
 	}
 
 	// 5. 跳过条件过滤 (如果启用)
-	if policy.SkipEnabled && !matcher.IsEmptyRule(policy.SkipRule) {
-		allTargets = p.applySkipRule(allTargets, policy.SkipRule)
+	if targetPolicy.SkipEnabled && !matcher.IsEmptyRule(targetPolicy.SkipRule) {
+		allTargets = p.applySkipRule(allTargets, targetPolicy.SkipRule)
 	}
 
 	// 6. 去重 (基于 Value)
@@ -165,14 +165,14 @@ func (p *targetProviderService) ResolveTargets(ctx context.Context, policy orcmo
 // 1. SourceType = file 文件白名单：从文件中读取资产列表，格式为每行一个资产值。要转换成["192.168.1.1","192.168.1.2"]
 // 2. SourceType =manual 手动白名单：用户手动输入资产列表，格式为["192.168.1.1","192.168.1.2"]。
 // target.Value 是资产值，需要与白名单中的值进行比较。
-func (p *targetProviderService) applyWhitelist(ctx context.Context, targets []Target, policy orcmodel.TargetPolicy, seedTargets []string) []Target {
-	if len(policy.WhitelistSources) == 0 {
+func (p *targetProviderService) applyWhitelist(ctx context.Context, targets []Target, targetPolicy orcmodel.TargetPolicy, seedTargets []string) []Target {
+	if len(targetPolicy.WhitelistSources) == 0 {
 		return targets
 	}
 
 	// 转换 WhitelistSource 为 TargetSource 以复用 Provider
-	whitelistTargetSources := make([]orcmodel.TargetSource, len(policy.WhitelistSources))
-	for i, ws := range policy.WhitelistSources {
+	whitelistTargetSources := make([]orcmodel.TargetSource, len(targetPolicy.WhitelistSources))
+	for i, ws := range targetPolicy.WhitelistSources {
 		whitelistTargetSources[i] = orcmodel.TargetSource{
 			SourceType:  ws.SourceType,
 			SourceValue: ws.SourceValue,
@@ -197,7 +197,7 @@ func (p *targetProviderService) applyWhitelist(ctx context.Context, targets []Ta
 		}
 	}
 
-	// 注意：根据用户要求，移除了基于规则的白名单逻辑 (policy.WhitelistRule)
+	// 注意：根据用户要求，移除了基于规则的白名单逻辑 (targetPolicy.WhitelistRule)
 
 	return filtered
 }

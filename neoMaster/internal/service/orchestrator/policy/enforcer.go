@@ -35,16 +35,14 @@ type policyEnforcer struct {
 }
 
 // NewPolicyEnforcer 创建策略执行器
-// 策略执行器执行对象是 ScanStage 生成的还没下发的 agenttask
-// 局部策略：字段中的限制策略，全局策略：数据库中的策略，全局策略默认全执行，局部策略可以开启或者关闭，两种策略组合是 OR 的关系
+// 策略执行器执行对象是 ScanStage 生成的还没下发的 agentTask
+// 上游的 TargetProvider 会根据 ScanStage.target_policy 的配置进行白名单和条件逻辑跳过过滤，这是局部策略 --- 处理结果:剔除不合格的target
+// 下游的 PolicyEnforcer 不用再根据局部策略再来一遍，仅需要检查全局策略，即从数据库加载全局白名单和全局跳过策略处理就好 --- 处理结果:阻止不合格的AgentTask下发
 // 作用域检验: 确保扫描目标严格限制在 Project.TargetScope 内，只不过这里的 Project.TargetScope 已经镜像到了 AgentTask.PolicySnapshot 中
 // - 等于校验：agentTask.InputTarget 必须在 AgentTask.PolicySnapshot["target_scope"] (Project.TargetScope) 中
 // ScanStage.target_policy JSON 中定义了目标策略，同时数据库中也存储了一套策略，这两套策略都需要满足
-// 白名单检验：scanStage.target_policy.whitelist_enabled 为 true 时，需要检查任务目标是否在白名单中(whitelist_sources + 数据库中存储的白名单)
-// - ScanStage.target_policy.whitelist_sources 中的默认只执行跳过动作，如果是db类型，使用白名单的时候需要注意白名单的作用域Scope，白名单中的目标只能在当前作用域中生效
-// 跳过条件检验：scanStage.target_policy.skip_enabled 为 true 时，需要检查任务目标是否符合跳过条件(skip_conditions + 数据库中存储的跳过条件)
-// - ScanStage.target_policy.skip_conditions 中的跳过策略默认只执行跳过扫描动作(skip)，数据库中的跳过策略支持命中后执行动作配置(如：skip,tag,log,alert 动作)
-//
+// 白名单检验：从数据库中加载白名单，使用白名单的时候需要注意白名单的作用域Scope，白名单中的目标只能在当前作用域中生效
+// 跳过条件检验：从数据库中的跳过策略支持命中后执行动作配置(如：skip,tag,log,alert 动作)
 // 核心变更: 移除 ProjectRepository 依赖，Enforcer 只对 AgentTask 和 ScanStage 快照负责
 // PolicyEnforcer 不应该知道 Project 的存在，它只关心 Scope 和 PolicySnapshot
 func NewPolicyEnforcer(policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforcer {
@@ -148,20 +146,6 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 			return fmt.Errorf("policy violation: target %s is whitelisted by local rule: %s", target, ruleName)
 		}
 
-		// 检查局部白名单规则 (MatchRule)
-		if !matcher.IsEmptyRule(tp.WhitelistRule) {
-			matchContext := map[string]interface{}{
-				"target": target,
-				"ip":     target,
-				"domain": target,
-				"host":   target,
-			}
-			matched, err := matcher.Match(matchContext, tp.WhitelistRule)
-			if err == nil && matched {
-				return fmt.Errorf("policy violation: target %s is whitelisted by local rule: whitelist_rule", target)
-			}
-		}
-
 		// 3.2 检查全局白名单 (DB) - 强制执行
 		isBlocked, ruleName, err2 := p.checkWhitelist(ctx, target)
 		if err2 != nil {
@@ -189,7 +173,7 @@ func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask
 		// 从 Snapshot.TargetPolicy.target_policy 中获取跳过策略
 		tp := policySnapshot.TargetPolicy
 		if tp.SkipEnabled {
-			shouldSkip, ruleName, err := p.checkLocalSkipPolicy(ctx, target, tp.SkipConditions)
+			shouldSkip, ruleName, err := p.checkLocalSkipPolicy(ctx, target, tp.SkipRule)
 			if err != nil {
 				logger.LogWarn("Failed to check local skip policy", "", 0, "", "service.orchestrator.policy.Enforce", "", map[string]interface{}{
 					"task_id": task.TaskID,
@@ -251,7 +235,14 @@ func (p *policyEnforcer) checkLocalWhiteList(ctx context.Context, target string,
 		switch source.SourceType {
 		case "manual":
 			// manual 类型，SourceValue 是 JSON 数组字符串，例如 `["1.1.1.1", "google.com"]`
-			if err := json.Unmarshal([]byte(source.SourceValue), &whitelistItems); err != nil {
+			srcStr, ok := source.SourceValue.(string)
+			if !ok {
+				logger.LogWarn("Invalid manual whitelist source value type (expected string)", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
+					"source_value": source.SourceValue,
+				})
+				continue
+			}
+			if err := json.Unmarshal([]byte(srcStr), &whitelistItems); err != nil {
 				logger.LogWarn("Failed to parse manual whitelist source", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
 					"source_value": source.SourceValue,
 					"error":        err.Error(),
@@ -260,11 +251,18 @@ func (p *policyEnforcer) checkLocalWhiteList(ctx context.Context, target string,
 			}
 		case "file":
 			// file 类型，SourceValue 是文件路径
+			srcPath, ok := source.SourceValue.(string)
+			if !ok {
+				logger.LogWarn("Invalid file whitelist source value type (expected string path)", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
+					"source_value": source.SourceValue,
+				})
+				continue
+			}
 			// 使用 utils.ReadFileLines 读取文件内容
-			lines, err := utils.ReadFileLines(source.SourceValue)
+			lines, err := utils.ReadFileLines(srcPath)
 			if err != nil {
 				logger.LogWarn("Failed to read whitelist file", "", 0, "", "checkLocalWhiteList", "", map[string]interface{}{
-					"file_path": source.SourceValue,
+					"file_path": srcPath,
 					"error":     err.Error(),
 				})
 				continue

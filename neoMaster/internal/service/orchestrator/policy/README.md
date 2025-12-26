@@ -31,7 +31,7 @@ Policy Enforcer (策略执行器)
     - 前一阶段结果（previous_stage）
     - 项目种子目标（project_target）
 
-#### 2. 目标过滤（局部策略）
+#### 2. 目标过滤（局部策略）--- 基于 ScanStage.target_policy 配置
 - **白名单过滤**：
     - 基于值的白名单（通过 `whitelist_sources` 配置）
     - 只保留白名单中的目标
@@ -62,7 +62,7 @@ Policy Enforcer (策略执行器)
 - 防止意外扫描互联网或其他非授权范围
 - 确保扫描活动符合项目边界
 
-#### 2. 全局策略校验
+#### 2. 全局策略校验 --- 基于数据库中的 AssetWhitelist 和 AssetSkipPolicy
 - **全局白名单校验**（WhitelistChecker）：
     - 检查目标是否命中 [AssetWhitelist](NeoScan\neoMaster\internal\model\asset\asset_policy.go#L9-L24)
     - 强制阻断命中白名单的目标

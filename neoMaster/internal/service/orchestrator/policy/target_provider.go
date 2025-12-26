@@ -135,21 +135,22 @@ func (p *targetProviderService) CheckHealth(ctx context.Context) map[string]erro
 func (p *targetProviderService) ResolveTargets(ctx context.Context, targetPolicy orcmodel.TargetPolicy, seedTargets []string) ([]Target, error) {
 	logger.LogInfo("[TargetProvider] ResolveTargets called", "", 0, "", "ResolveTargets", "", map[string]interface{}{"targetPolicy_sources_count": len(targetPolicy.TargetSources)})
 
-	// 1. 如果没有配置源，默认使用种子目标
+	// 3. 获取初始目标列表
+	var allTargets []Target
 	if len(targetPolicy.TargetSources) == 0 {
-		// 没有配置源，直接返回种子目标列表 []Target
-		return p.fallbackToSeed(seedTargets), nil
+		// 没有配置源，默认使用种子目标
+		allTargets = p.fallbackToSeed(seedTargets)
+	} else {
+		// 并发获取每个源的目标
+		allTargets = p.fetchTargetsFromSources(ctx, targetPolicy.TargetSources, seedTargets)
 	}
-
-	// 3. 获取初始目标列表 (并发)
-	// 会根据目标源类型调用对应的 Provider.Provide 方法获取目标列表
-	// 并将所有结果合并到 allTargets 中
-	allTargets := p.fetchTargetsFromSources(ctx, targetPolicy.TargetSources, seedTargets)
 
 	// 4. 白名单过滤 (如果启用) --- 配置中的局部白名单,仅依赖于目标策略配置结构中的白名单配置项。
 	// 白名单中的资产不会进入扫描流程。
 	if targetPolicy.WhitelistEnabled {
+		fmt.Printf("[DEBUG] Whitelist enabled, sources count: %d\n", len(targetPolicy.WhitelistSources))
 		allTargets = p.applyWhitelist(ctx, allTargets, targetPolicy, seedTargets)
+		fmt.Printf("[DEBUG] After whitelist: %d targets\n", len(allTargets))
 	}
 
 	// 5. 跳过条件过滤 (如果启用)

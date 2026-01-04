@@ -56,7 +56,7 @@ func NewPolicyEnforcer(policyRepo *assetrepo.AssetPolicyRepository) PolicyEnforc
 // 变更说明:
 // 1. 优先使用 PolicySnapshot (任务生成时的快照)，保证原子性
 // 2. 移除 DB Project 查询，改为从 Snapshot 获取 Scope
-// 3. 实现 Local (ScanStage) 和 Global (DB) 策略的逻辑 OR
+// 3. 实现 白名单检验、跳过条件检验、作用域检验
 func (p *policyEnforcer) Enforce(ctx context.Context, task *agentModel.AgentTask) error {
 	// 1. 解析 PolicySnapshot (使用结构体)
 	// AgentTask.PolicySnapshot 已经是结构体类型，直接使用

@@ -34,7 +34,7 @@ Policy Enforcer (策略执行器)
 #### 2. 目标过滤（局部策略）--- 基于 ScanStage.target_policy 配置
 - **白名单过滤**：
     - 基于值的白名单（通过 `whitelist_sources` 配置）
-    - 只保留白名单中的目标
+    - 只保留不在白名单中的目标
 - **规则过滤**：
     - 基于 `skip_rule` 的条件过滤
     - 跳过不符合规则的目标

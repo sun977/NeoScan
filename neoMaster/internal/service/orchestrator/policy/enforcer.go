@@ -289,16 +289,6 @@ func (p *policyEnforcer) checkGlobalSkipPolicy(ctx context.Context, target strin
 	return false, "", nil
 }
 
-func parseTags(tagsStr string) []string {
-	// 尝试解析 JSON
-	var tags []string
-	if err := json.Unmarshal([]byte(tagsStr), &tags); err == nil {
-		return tags
-	}
-	// 尝试逗号分隔
-	return strings.Split(tagsStr, ",")
-}
-
 // parseTargets 解析目标
 func parseTargets(input string) ([]string, error) {
 	// 1. 尝试解析为字符串数组 (Legacy format: ["1.1.1.1", "2.2.2.2"])

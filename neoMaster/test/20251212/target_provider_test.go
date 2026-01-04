@@ -7,7 +7,6 @@ import (
 
 	"neomaster/internal/pkg/matcher"
 	"neomaster/internal/service/orchestrator/policy"
-	orcmodel "neomaster/internal/model/orchestrator"
 )
 
 // MockSourceProvider 模拟源提供者
@@ -16,7 +15,7 @@ type MockSourceProvider struct {
 }
 
 func (m *MockSourceProvider) Name() string { return "mock" }
-func (m *MockSourceProvider) Provide(ctx context.Context, config orcmodel.TargetSource, seedTargets []string) ([]policy.Target, error) {
+func (m *MockSourceProvider) Provide(ctx context.Context, config policy.TargetSourceConfig, seedTargets []string) ([]policy.Target, error) {
 	return m.Targets, nil
 }
 func (m *MockSourceProvider) HealthCheck(ctx context.Context) error { return nil }
@@ -27,10 +26,10 @@ func TestTargetProvider_Rules(t *testing.T) {
 
 	// 注册 Mock Provider
 	mockTargets := []policy.Target{
-		{Type: "ip", Value: "192.168.1.1", Source: "mock", Meta: orcmodel.TargetMeta{Custom: map[string]string{"os": "linux", "device": "server"}}},
-		{Type: "ip", Value: "10.0.0.1", Source: "mock", Meta: orcmodel.TargetMeta{Custom: map[string]string{"os": "windows", "device": "workstation"}}},
-		{Type: "domain", Value: "example.com", Source: "mock", Meta: orcmodel.TargetMeta{Custom: map[string]string{"os": "linux", "device": "web"}}},
-		{Type: "url", Value: "http://test.com", Source: "mock", Meta: orcmodel.TargetMeta{}},
+		{Type: "ip", Value: "192.168.1.1", Source: "mock", Meta: map[string]string{"os": "linux", "device": "server"}},
+		{Type: "ip", Value: "10.0.0.1", Source: "mock", Meta: map[string]string{"os": "windows", "device": "workstation"}},
+		{Type: "domain", Value: "example.com", Source: "mock", Meta: map[string]string{"os": "linux", "device": "web"}},
+		{Type: "url", Value: "http://test.com", Source: "mock", Meta: nil},
 	}
 	targetProvider.RegisterProvider("mock", &MockSourceProvider{Targets: mockTargets})
 

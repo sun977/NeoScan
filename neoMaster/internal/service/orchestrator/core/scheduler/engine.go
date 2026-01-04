@@ -87,7 +87,7 @@ func NewSchedulerService(
 		agentRepo:      agentRepo,
 		taskGenerator:  NewTaskGenerator(cfg),
 		targetProvider: policy.NewTargetProvider(db),
-		policyEnforcer: policy.NewPolicyEnforcer(projectRepo, policyRepo),
+		policyEnforcer: policy.NewPolicyEnforcer(policyRepo),
 		stopChan:       make(chan struct{}),
 		interval:       interval,
 	}
@@ -415,7 +415,14 @@ func (s *schedulerService) generateTasksForStage(ctx context.Context, project *o
 
 	// 传递完整的 []policy.Target 对象给 Generator
 	// 注意：这里不再进行降级转换 (Stringification)
-	newTasks, err := s.taskGenerator.GenerateTasks(nextStage, uint64(project.ID), resolvedTargetObjs)
+	// Project.TargetScope 传递给 TaskGenerator 用于注入 PolicySnapshot
+	// 假设 project.TargetScope 是一个 JSON 数组字符串，需要传递其中一个值或者整个字符串
+	// 这里的 GenerateTasks 签名已经修改为接收 projectTargetScope string
+	// 我们暂时传递 project.TargetScope 的第一个值，或者直接传递整个字符串让 Generator 处理
+	// 实际上 Generator.GenerateTasks 接收的是 string，我们在 Project 中 TargetScope 定义为 string (JSON array)
+	// 但 Task.PolicySnapshot.TargetScope 是 []string
+	// 这里直接传递 project.TargetScope 即可
+	newTasks, err := s.taskGenerator.GenerateTasks(nextStage, uint64(project.ID), resolvedTargetObjs, project.TargetScope)
 	if err != nil {
 		logger.LogError(err, "", 0, "", "service.scheduler.processProject", "INTERNAL", loggerFields)
 		return

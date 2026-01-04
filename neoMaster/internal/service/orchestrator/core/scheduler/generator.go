@@ -16,7 +16,6 @@ package scheduler
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"neomaster/internal/config"
 	orcModel "neomaster/internal/model/orchestrator"
@@ -58,30 +57,6 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 		return nil, nil
 	}
 
-	// 构造 PolicySnapshot (策略快照)
-	// 包含:
-	// 1. TargetScope: 项目定义的授权范围 (Project.TargetScope)
-	// 2. ScanStage.TargetPolicy: 阶段定义的局部策略 (ScanStage.TargetPolicy)
-	policySnapshot := map[string]interface{}{
-		"target_scope":  projectTargetScope,
-		"target_policy": nil,
-	}
-
-	if stage.TargetPolicy != "" {
-		var tp interface{}
-		if err := json.Unmarshal([]byte(stage.TargetPolicy), &tp); err == nil {
-			policySnapshot["target_policy"] = tp
-		} else {
-			// 如果解析失败，为了安全起见，记录错误或者置空，这里选择保留原始字符串或置空
-			// 也可以选择报错，但为了不阻塞任务生成，暂时置空
-		}
-	}
-
-	policySnapshotJSON, err := json.Marshal(policySnapshot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal policy snapshot: %v", err)
-	}
-
 	// 解析 PerformanceSettings 参数
 	// 	{
 	//   "scan_rate": 50,        // 扫描速率（每秒发包数）
@@ -112,19 +87,16 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 	// 为了安全起见，如果配置文件里也没配（比如旧配置），我们可以给个默认值。
 	// 但这里我们信任 Config 对象的值（通常由 viper 设置默认值或 yaml 读取）。
 
-	if stage.PerformanceSettings != "" {
-		var perf map[string]interface{}
-		if err := json.Unmarshal([]byte(stage.PerformanceSettings), &perf); err == nil {
-			if cs, ok := perf["chunk_size"].(float64); ok && cs > 0 {
-				chunkSize = int(cs)
-			}
-			if to, ok := perf["timeout"].(float64); ok && to > 0 {
-				timeout = int(to)
-			}
-			if mr, ok := perf["retry_count"].(float64); ok && mr >= 0 {
-				maxRetries = int(mr)
-			}
-		}
+	// PerformanceSettings 已经是结构体
+	perf := stage.PerformanceSettings
+	if perf.ChunkSize > 0 {
+		chunkSize = perf.ChunkSize
+	}
+	if perf.Timeout > 0 {
+		timeout = perf.Timeout
+	}
+	if perf.RetryCount >= 0 {
+		maxRetries = perf.RetryCount
 	}
 
 	// 解析 ExecutionPolicy 参数
@@ -140,13 +112,9 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 	//   "priority": 1,                       // 任务优先级（1-10，默认5） 优先级越高，越先被执行
 	// }
 	priority := 0
-	if stage.ExecutionPolicy != "" {
-		var exec map[string]interface{}
-		if err := json.Unmarshal([]byte(stage.ExecutionPolicy), &exec); err == nil {
-			if p, ok := exec["priority"].(float64); ok {
-				priority = int(p)
-			}
-		}
+	// ExecutionPolicy 已经是结构体
+	if stage.ExecutionPolicy.Priority > 0 {
+		priority = stage.ExecutionPolicy.Priority
 	}
 
 	// 初始化任务列表并分批处理目标
@@ -167,40 +135,30 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			return nil, fmt.Errorf("failed to marshal targets: %v", err)
 		}
 
-		// 生成任务ID
+		// 2.创建任务
+		// 生成唯一任务ID (UUID)
 		taskID, err := utils.GenerateUUID()
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate task ID: %v", err)
 		}
 
-		// 判断任务分类
-		// 默认为 agent 任务
-		// 如果想指定为 system 任务，需要在 ToolName 前添加 sys_ 前缀
-		// 因为 scanStage 不知道任务实在本地执行还是在远程执行器执行,他也不需要知道
-		taskCategory := "agent"
-		if strings.HasPrefix(stage.ToolName, "sys_") {
-			taskCategory = "system"
-		}
-
-		// 2.创建任务对象并添加到任务列表中
 		task := &orcModel.AgentTask{
-			TaskID:         taskID,                     // 任务ID
-			ProjectID:      projectID,                  // 项目ID
-			WorkflowID:     stage.WorkflowID,           // 工作流ID
-			StageID:        uint64(stage.ID),           // 阶段ID
-			Status:         "pending",                  // 任务状态 (pending, running, completed, failed)
-			Priority:       priority,                   // 任务优先级
-			TaskType:       "tool",                     // Explicitly set default
-			TaskCategory:   taskCategory,               // 任务分类
-			ToolName:       stage.ToolName,             // 工具名称
-			ToolParams:     stage.ToolParams,           // 工具参数
-			InputTarget:    string(targetsJSON),        // 当前批次的目标列表（JSON 字符串，包含 Meta）
-			RequiredTags:   "[]",                       // Default empty JSON array 执行所需标签(JSON)
-			OutputResult:   "{}",                       // Default empty JSON object 输出结果摘要(JSON)
-			Timeout:        timeout,                    // 任务超时时间（秒）--- stage.PerformanceSettings["timeout"]
-			MaxRetries:     maxRetries,                 // 最大重试次数
-			RetryCount:     0,                          // 初始重试次数
-			PolicySnapshot: string(policySnapshotJSON), // 策略快照(JSON)
+			TaskID:      taskID,
+			ProjectID:   projectID,
+			WorkflowID:  stage.WorkflowID,
+			StageID:     uint64(stage.ID),
+			ToolName:    stage.ToolName,
+			ToolParams:  stage.ToolParams,
+			InputTarget: string(targetsJSON),
+			Status:      "pending", // 初始状态
+			Priority:    priority,
+			Timeout:     timeout,
+			RetryCount:  0,          // 当前重试次数
+			MaxRetries:  maxRetries, // 最大重试次数
+			PolicySnapshot: orcModel.PolicySnapshot{
+				TargetScope:  []string{projectTargetScope}, // 简化处理，暂时只支持单个 Scope，后续扩展为列表
+				TargetPolicy: stage.TargetPolicy,
+			},
 		}
 		tasks = append(tasks, task)
 	}

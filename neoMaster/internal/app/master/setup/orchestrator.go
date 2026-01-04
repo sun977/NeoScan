@@ -48,7 +48,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	assetPolicyRepo := assetRepo.NewAssetPolicyRepository(db)
 
 	// 2. Core Components 初始化 (Policy Enforcer, Resource Allocator, Task Dispatcher, Scheduler)
-	policyEnforcer := policy.NewPolicyEnforcer(projectRepo, assetPolicyRepo)
+	policyEnforcer := policy.NewPolicyEnforcer(assetPolicyRepo)
 	resourceAllocator := allocator.NewResourceAllocator(tagService)
 	dispatcher := task_dispatcher.NewTaskDispatcher(taskRepo, policyEnforcer, resourceAllocator)
 	schedulerService := scheduler.NewSchedulerService(

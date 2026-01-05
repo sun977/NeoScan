@@ -3,20 +3,28 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"strconv"
+
 	orcmodel "neomaster/internal/model/orchestrator"
+	tagmodel "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	orcrepo "neomaster/internal/repo/mysql/orchestrator"
+	"neomaster/internal/service/tag_system"
 )
 
 // ScanStageService 扫描阶段服务
 // 负责处理扫描阶段的业务逻辑
 type ScanStageService struct {
-	repo *orcrepo.ScanStageRepository
+	repo       *orcrepo.ScanStageRepository
+	tagService tag_system.TagService
 }
 
 // NewScanStageService 创建 ScanStageService 实例
-func NewScanStageService(repo *orcrepo.ScanStageRepository) *ScanStageService {
-	return &ScanStageService{repo: repo}
+func NewScanStageService(repo *orcrepo.ScanStageRepository, tagService tag_system.TagService) *ScanStageService {
+	return &ScanStageService{
+		repo:       repo,
+		tagService: tagService,
+	}
 }
 
 // CreateStage 创建扫描阶段
@@ -125,4 +133,78 @@ func (s *ScanStageService) ListStagesByWorkflowID(ctx context.Context, workflowI
 		return nil, err
 	}
 	return stages, nil
+}
+
+// AddTagToStage 为扫描阶段添加标签
+func (s *ScanStageService) AddTagToStage(ctx context.Context, stageID uint64, tagID uint64) error {
+	// 1. 检查阶段是否存在
+	stage, err := s.repo.GetStageByID(ctx, stageID)
+	if err != nil {
+		return err
+	}
+	if stage == nil {
+		return errors.New("stage not found")
+	}
+
+	// 2. 调用 TagService 添加标签
+	entityIDStr := strconv.FormatUint(stageID, 10)
+	err = s.tagService.AddEntityTag(ctx, "scan_stage", entityIDStr, tagID, "manual", 0)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_tag_to_stage", "SERVICE", map[string]interface{}{
+			"operation": "add_tag_to_stage",
+			"stage_id":  stageID,
+			"tag_id":    tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveTagFromStage 从扫描阶段移除标签
+func (s *ScanStageService) RemoveTagFromStage(ctx context.Context, stageID uint64, tagID uint64) error {
+	// 1. 检查阶段是否存在
+	stage, err := s.repo.GetStageByID(ctx, stageID)
+	if err != nil {
+		return err
+	}
+	if stage == nil {
+		return errors.New("stage not found")
+	}
+
+	// 2. 调用 TagService 移除标签
+	entityIDStr := strconv.FormatUint(stageID, 10)
+	err = s.tagService.RemoveEntityTag(ctx, "scan_stage", entityIDStr, tagID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_tag_from_stage", "SERVICE", map[string]interface{}{
+			"operation": "remove_tag_from_stage",
+			"stage_id":  stageID,
+			"tag_id":    tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetStageTags 获取扫描阶段的所有标签
+func (s *ScanStageService) GetStageTags(ctx context.Context, stageID uint64) ([]tagmodel.SysEntityTag, error) {
+	// 1. 检查阶段是否存在
+	stage, err := s.repo.GetStageByID(ctx, stageID)
+	if err != nil {
+		return nil, err
+	}
+	if stage == nil {
+		return nil, errors.New("stage not found")
+	}
+
+	// 2. 调用 TagService 获取标签
+	entityIDStr := strconv.FormatUint(stageID, 10)
+	tags, err := s.tagService.GetEntityTags(ctx, "scan_stage", entityIDStr)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_stage_tags", "SERVICE", map[string]interface{}{
+			"operation": "get_stage_tags",
+			"stage_id":  stageID,
+		})
+		return nil, err
+	}
+	return tags, nil
 }

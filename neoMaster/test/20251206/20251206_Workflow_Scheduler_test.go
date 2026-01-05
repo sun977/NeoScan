@@ -157,11 +157,11 @@ func TestWorkflowScheduler(t *testing.T) {
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "Test Stage 1",
 		ToolName:            "nmap",
-		TargetPolicy:        "{}",
-		ExecutionPolicy:     "{}",
-		PerformanceSettings: "{}",
-		OutputConfig:        "{}",
-		NotifyConfig:        "{}",
+		TargetPolicy:        orcModel.TargetPolicy{},
+		ExecutionPolicy:     orcModel.ExecutionPolicy{},
+		PerformanceSettings: orcModel.PerformanceSettings{},
+		OutputConfig:        orcModel.OutputConfig{},
+		NotifyConfig:        orcModel.NotifyConfig{},
 	}
 	err = db.Create(&stage).Error
 	assert.NoError(t, err)

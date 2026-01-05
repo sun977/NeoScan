@@ -233,10 +233,11 @@ type MasterConfig struct {
 
 // TaskConfig 任务配置
 type TaskConfig struct {
-	ChunkSize     int `yaml:"chunk_size" mapstructure:"chunk_size"`         // 每个任务分块大小
-	Timeout       int `yaml:"timeout" mapstructure:"timeout"`               // 任务超时时间(秒)
-	MaxRetries    int `yaml:"max_retries" mapstructure:"max_retries"`       // 任务最大重试次数
-	RetryInterval int `yaml:"retry_interval" mapstructure:"retry_interval"` // 任务重试间隔(秒)
+	ChunkSize      int `yaml:"chunk_size" mapstructure:"chunk_size"`           // 每个任务分块大小
+	Timeout        int `yaml:"timeout" mapstructure:"timeout"`                 // 任务超时时间(秒)
+	MaxRetries     int `yaml:"max_retries" mapstructure:"max_retries"`         // 任务最大重试次数
+	RetryInterval  int `yaml:"retry_interval" mapstructure:"retry_interval"`   // 任务重试间隔(秒)
+	MaxConcurrency int `yaml:"max_concurrency" mapstructure:"max_concurrency"` // 单个Agent最大并发任务数
 }
 
 // FeaturesConfig 功能开关配置

@@ -18,6 +18,7 @@ app:
       timeout: 3600         # 任务超时时间(秒)
       max_retries: 3        # 任务最大重试次数
       retry_interval: 10    # 任务重试间隔(秒)
+      max_concurrency: 5    # 单个Agent最大并发任务数
 
   # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:

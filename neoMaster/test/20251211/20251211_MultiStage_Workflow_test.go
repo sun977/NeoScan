@@ -165,11 +165,11 @@ func TestMultiStageWorkflow(t *testing.T) {
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "PortScan",
 		ToolName:            "nmap",
-		TargetPolicy:        "{}", // 默认使用 Project 种子
-		ExecutionPolicy:     "{}",
-		OutputConfig:        "{}",
-		PerformanceSettings: "{}",
-		NotifyConfig:        "{}",
+		TargetPolicy:        orcModel.TargetPolicy{}, // 默认使用 Project 种子
+		ExecutionPolicy:     orcModel.ExecutionPolicy{},
+		OutputConfig:        orcModel.OutputConfig{},
+		PerformanceSettings: orcModel.PerformanceSettings{},
+		NotifyConfig:        orcModel.NotifyConfig{},
 	}
 	err = db.Create(&stage1).Error
 	assert.NoError(t, err)
@@ -194,28 +194,27 @@ func TestMultiStageWorkflow(t *testing.T) {
 	}
 	filterRulesJSON, _ := json.Marshal(filterRules)
 
-	targetPolicy := map[string]interface{}{
-		"target_sources": []map[string]interface{}{
+	targetPolicyStruct := orcModel.TargetPolicy{
+		TargetSources: []orcModel.TargetSource{
 			{
-				"source_type":   "previous_stage",
-				"target_type":   "ip_port",
-				"parser_config": json.RawMessage(parserConfigJSON),
-				"filter_rules":  json.RawMessage(filterRulesJSON),
+				SourceType:   "previous_stage",
+				TargetType:   "ip_port",
+				ParserConfig: json.RawMessage(parserConfigJSON),
+				FilterRules:  json.RawMessage(filterRulesJSON),
 			},
 		},
 	}
-	targetPolicyJSON, _ := json.Marshal(targetPolicy)
 
 	stage2 := orcModel.ScanStage{
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "ServiceScan",
 		Predecessors:        []uint64{uint64(stage1.ID)},
 		ToolName:            "nuclei",
-		TargetPolicy:        string(targetPolicyJSON),
-		ExecutionPolicy:     "{}",
-		OutputConfig:        "{}",
-		PerformanceSettings: "{}",
-		NotifyConfig:        "{}",
+		TargetPolicy:        targetPolicyStruct,
+		ExecutionPolicy:     orcModel.ExecutionPolicy{},
+		OutputConfig:        orcModel.OutputConfig{},
+		PerformanceSettings: orcModel.PerformanceSettings{},
+		NotifyConfig:        orcModel.NotifyConfig{},
 	}
 	err = db.Create(&stage2).Error
 	assert.NoError(t, err)
@@ -336,7 +335,7 @@ func TestMultiStageWorkflow(t *testing.T) {
 		// Print Target Policy for debugging
 		var stage2DB orcModel.ScanStage
 		db.First(&stage2DB, stage2.ID)
-		fmt.Printf("Debug: Stage 2 Target Policy: %s\n", stage2DB.TargetPolicy)
+		fmt.Printf("Debug: Stage 2 Target Policy: %+v\n", stage2DB.TargetPolicy)
 	}
 	assert.Equal(t, "pending", task2.Status)
 
@@ -344,14 +343,19 @@ func TestMultiStageWorkflow(t *testing.T) {
 	// 预期目标: 192.168.1.1:80, 192.168.1.1:443
 	fmt.Printf("Stage 2 Targets: %s\n", task2.InputTarget)
 
-	// Task.InputTarget 是 []string 的 JSON
-	var targets []string
-	err = json.Unmarshal([]byte(task2.InputTarget), &targets)
+	// Task.InputTarget 是 []Target 的 JSON
+	var targetObjs []orcModel.Target
+	err = json.Unmarshal([]byte(task2.InputTarget), &targetObjs)
 	assert.NoError(t, err)
 
-	assert.Contains(t, targets, "192.168.1.1:80")
-	assert.Contains(t, targets, "192.168.1.1:443")
-	assert.Len(t, targets, 2)
+	var targetValues []string
+	for _, tObj := range targetObjs {
+		targetValues = append(targetValues, tObj.Value)
+	}
+
+	assert.Contains(t, targetValues, "192.168.1.1:80")
+	assert.Contains(t, targetValues, "192.168.1.1:443")
+	assert.Len(t, targetValues, 2)
 
 	fmt.Println("Multi-stage workflow test passed!")
 }

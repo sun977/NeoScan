@@ -530,3 +530,66 @@ func CheckIPInRange(targetIPStr, rangeStr string) (bool, error) {
 	}
 	return targetIP.Equal(checkIP), nil
 }
+
+// CheckDomainMatch 检查域名是否匹配规则
+// 支持规则:
+// - 精确匹配: example.com
+// - 通配符前缀: *.example.com (匹配 a.example.com, example.com)
+// - 点号前缀: .example.com (匹配 a.example.com)
+func CheckDomainMatch(target, rule string) bool {
+	target = strings.ToLower(target)
+	rule = strings.ToLower(rule)
+
+	if target == rule {
+		return true
+	}
+
+	if strings.HasPrefix(rule, "*.") {
+		// *.example.com matches example.com and api.example.com
+		root := rule[2:]
+		if target == root {
+			return true
+		}
+		return strings.HasSuffix(target, "."+root)
+	}
+
+	if strings.HasPrefix(rule, ".") {
+		// .example.com matches api.example.com
+		return strings.HasSuffix(target, rule)
+	}
+
+	return false
+}
+
+// CheckTargetInScope 检查目标是否在范围内
+// 自动识别范围类型 (IP/CIDR/Range/Domain)
+func CheckTargetInScope(target, scope string) (bool, error) {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return false, nil
+	}
+
+	// 预处理目标：去掉端口
+	targetHost := target
+	if h, _, err := net.SplitHostPort(target); err == nil {
+		targetHost = h
+	}
+
+	// 1. 判断 Scope 类型是否为 IP 相关 (IP, CIDR, Range)
+	if IsIP(scope) || IsCIDR(scope) || IsIPRange(scope) {
+		// 如果 Scope 是 IP 类型，则 Target 必须是 IP 才能匹配
+		// CheckIPInRange 内部会解析 Target IP，如果解析失败返回 error
+		match, err := CheckIPInRange(targetHost, scope)
+		if err != nil {
+			// 如果错误是因为 Target 不是有效 IP，则视为不匹配，不返回错误
+			if strings.Contains(err.Error(), "invalid target IP") {
+				return false, nil
+			}
+			return false, err
+		}
+		return match, nil
+	}
+
+	// 2. 否则视为域名规则
+	return CheckDomainMatch(targetHost, scope), nil
+}

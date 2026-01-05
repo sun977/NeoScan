@@ -324,55 +324,23 @@ func validateScope(targets []string, allowedScopes []string) error {
 		return nil
 	}
 
-	// 简单的包含检查或 CIDR 检查
-	// TODO: 实现更强大的 CIDR / Domain 匹配
+	// 使用 utils.CheckTargetInScope 进行更强大的 CIDR / Domain 匹配
 	for _, target := range targets {
 		inScope := false
 		for _, s := range allowedScopes {
-			s = strings.TrimSpace(s)
-			if s == "" {
+			match, err := utils.CheckTargetInScope(target, s)
+			if err != nil {
+				// 记录错误 (作为警告)
+				logger.LogWarn("Scope check warning", "", 0, "", "validateScope", "", map[string]interface{}{
+					"target": target,
+					"scope":  s,
+					"error":  err.Error(),
+				})
 				continue
 			}
-			// 1. 精确匹配
-			if target == s {
+			if match {
 				inScope = true
 				break
-			}
-			// 2. 简单的后缀匹配 (Domain)
-			if strings.HasPrefix(s, ".") && strings.HasSuffix(target, s) {
-				inScope = true
-				break
-			}
-			// 3. CIDR 匹配 (IP)
-			if _, ipNet, err := net.ParseCIDR(s); err == nil {
-				// 尝试分离 Host 和 Port (处理 ip:port 情况)
-				targetIPStr := target
-				if h, _, err := net.SplitHostPort(target); err == nil {
-					targetIPStr = h
-				}
-
-				if ip := net.ParseIP(targetIPStr); ip != nil {
-					if ipNet.Contains(ip) {
-						inScope = true
-						break
-					}
-				}
-			} else {
-				// 4. 单个 IP 匹配 (支持 ip:port)
-				// 如果 scope 是单个 IP (例如 192.168.1.1)，ParseCIDR 会失败
-				// 我们需要处理这种情况
-				scopeIP := net.ParseIP(s)
-				if scopeIP != nil {
-					targetIPStr := target
-					if h, _, err := net.SplitHostPort(target); err == nil {
-						targetIPStr = h
-					}
-					targetIP := net.ParseIP(targetIPStr)
-					if targetIP != nil && targetIP.Equal(scopeIP) {
-						inScope = true
-						break
-					}
-				}
 			}
 		}
 

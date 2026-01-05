@@ -30,6 +30,11 @@ func (r *Router) setupOrchestratorRoutes(v1 *gin.RouterGroup) {
 		projects.POST("/:id/workflows", r.projectHandler.AddWorkflow)
 		projects.DELETE("/:id/workflows/:workflow_id", r.projectHandler.RemoveWorkflow)
 		projects.GET("/:id/workflows", r.projectHandler.GetProjectWorkflows)
+
+		// 项目标签管理
+		projects.POST("/:id/tags", r.projectHandler.AddProjectTag)
+		projects.DELETE("/:id/tags/:tag_id", r.projectHandler.RemoveProjectTag)
+		projects.GET("/:id/tags", r.projectHandler.GetProjectTags)
 	}
 
 	// 2. 工作流管理 (Workflow Management)

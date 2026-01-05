@@ -112,8 +112,8 @@ func (r *ProjectRepository) DeleteProject(ctx context.Context, id uint64) error 
 	return nil
 }
 
-// ListProjects 获取项目列表 (分页 + 筛选)
-func (r *ProjectRepository) ListProjects(ctx context.Context, page, pageSize int, status string, name string) ([]*orcmodel.Project, int64, error) {
+// ListProjects 获取项目列表 (分页 + 筛选 + 标签)
+func (r *ProjectRepository) ListProjects(ctx context.Context, page, pageSize int, status string, name string, tagID uint64) ([]*orcmodel.Project, int64, error) {
 	var projects []*orcmodel.Project
 	var total int64
 
@@ -125,6 +125,12 @@ func (r *ProjectRepository) ListProjects(ctx context.Context, page, pageSize int
 	if name != "" {
 		query = query.Where("name LIKE ?", "%"+name+"%")
 	}
+	if tagID > 0 {
+		// 联表查询 sys_entity_tags 表来筛选具有特定标签的项目
+		// 注意：entity_type = 'project'
+		query = query.Joins("JOIN sys_entity_tags ON projects.id = sys_entity_tags.entity_id").
+			Where("sys_entity_tags.entity_type = ? AND sys_entity_tags.tag_id = ?", "project", tagID)
+	}
 
 	err := query.Count(&total).Error
 	if err != nil {
@@ -135,7 +141,10 @@ func (r *ProjectRepository) ListProjects(ctx context.Context, page, pageSize int
 	}
 
 	offset := (page - 1) * pageSize
-	err = query.Offset(offset).Limit(pageSize).Order("id desc").Find(&projects).Error
+	// 注意：如果使用了 Joins，可能会有重复记录（一个项目多个标签），这里因为限定了 tag_id，一般不会重复。
+	// 但如果后续有多个 tag 筛选，可能需要 Distinct。
+	// 这里加上 Distinct 以防万一。
+	err = query.Distinct("projects.*").Offset(offset).Limit(pageSize).Order("projects.id desc").Find(&projects).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "list_projects_find", "REPO", map[string]interface{}{
 			"operation": "list_projects_find",

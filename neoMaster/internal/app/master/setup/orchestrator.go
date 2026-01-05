@@ -66,7 +66,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	// 3. Service 初始化
 	projectService := orchestratorService.NewProjectService(projectRepo, tagService)
 	workflowService := orchestratorService.NewWorkflowService(workflowRepo, tagService)
-	scanStageService := orchestratorService.NewScanStageService(scanStageRepo)
+	scanStageService := orchestratorService.NewScanStageService(scanStageRepo, tagService)
 	scanToolTemplateService := orchestratorService.NewScanToolTemplateService(scanToolTemplateRepo)
 	// agentTaskService := orchestratorService.NewAgentTaskService(agentRepository, taskRepo, dispatcher)
 	agentTaskService := task_dispatcher.NewAgentTaskService(agentRepository, taskRepo, dispatcher)

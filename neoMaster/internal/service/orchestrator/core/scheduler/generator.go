@@ -162,6 +162,8 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			RetryCount:   0,          // 当前重试次数
 			MaxRetries:   maxRetries, // 最大重试次数
 			TaskCategory: taskCategory,
+			RequiredTags: "[]",
+			OutputResult: "{}",
 			PolicySnapshot: orcModel.PolicySnapshot{
 				TargetScope:  []string{projectTargetScope}, // 简化处理，暂时只支持单个 Scope，后续扩展为列表
 				TargetPolicy: stage.TargetPolicy,

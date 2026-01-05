@@ -3,20 +3,28 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"strconv"
+
 	orcmodel "neomaster/internal/model/orchestrator"
+	tagmodel "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	orcrepo "neomaster/internal/repo/mysql/orchestrator"
+	"neomaster/internal/service/tag_system"
 )
 
 // ProjectService 项目服务
 // 负责处理项目的业务逻辑
 type ProjectService struct {
-	repo *orcrepo.ProjectRepository
+	repo       *orcrepo.ProjectRepository
+	tagService tag_system.TagService
 }
 
 // NewProjectService 创建 ProjectService 实例
-func NewProjectService(repo *orcrepo.ProjectRepository) *ProjectService {
-	return &ProjectService{repo: repo}
+func NewProjectService(repo *orcrepo.ProjectRepository, tagService tag_system.TagService) *ProjectService {
+	return &ProjectService{
+		repo:       repo,
+		tagService: tagService,
+	}
 }
 
 // CreateProject 创建项目
@@ -100,14 +108,14 @@ func (s *ProjectService) DeleteProject(ctx context.Context, id uint64) error {
 }
 
 // ListProjects 获取项目列表
-func (s *ProjectService) ListProjects(ctx context.Context, page, pageSize int, status string, name string) ([]*orcmodel.Project, int64, error) {
+func (s *ProjectService) ListProjects(ctx context.Context, page, pageSize int, status string, name string, tagID uint64) ([]*orcmodel.Project, int64, error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = 10
 	}
-	projects, total, err := s.repo.ListProjects(ctx, page, pageSize, status, name)
+	projects, total, err := s.repo.ListProjects(ctx, page, pageSize, status, name, tagID)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "list_projects", "SERVICE", map[string]interface{}{
 			"operation": "list_projects",
@@ -171,4 +179,79 @@ func (s *ProjectService) GetProjectWorkflows(ctx context.Context, projectID uint
 		return nil, err
 	}
 	return workflows, nil
+}
+
+// AddTagToProject 为项目添加标签
+func (s *ProjectService) AddTagToProject(ctx context.Context, projectID uint64, tagID uint64) error {
+	// 1. 检查项目是否存在
+	project, err := s.repo.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if project == nil {
+		return errors.New("project not found")
+	}
+
+	// 2. 调用 TagService 添加标签
+	// entityType="project", source="manual" (假设手动添加), ruleID=0 (非规则自动添加)
+	entityIDStr := strconv.FormatUint(projectID, 10)
+	err = s.tagService.AddEntityTag(ctx, "project", entityIDStr, tagID, "manual", 0)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_tag_to_project", "SERVICE", map[string]interface{}{
+			"operation":  "add_tag_to_project",
+			"project_id": projectID,
+			"tag_id":     tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveTagFromProject 从项目移除标签
+func (s *ProjectService) RemoveTagFromProject(ctx context.Context, projectID uint64, tagID uint64) error {
+	// 1. 检查项目是否存在
+	project, err := s.repo.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if project == nil {
+		return errors.New("project not found")
+	}
+
+	// 2. 调用 TagService 移除标签
+	entityIDStr := strconv.FormatUint(projectID, 10)
+	err = s.tagService.RemoveEntityTag(ctx, "project", entityIDStr, tagID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_tag_from_project", "SERVICE", map[string]interface{}{
+			"operation":  "remove_tag_from_project",
+			"project_id": projectID,
+			"tag_id":     tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetProjectTags 获取项目的所有标签
+func (s *ProjectService) GetProjectTags(ctx context.Context, projectID uint64) ([]tagmodel.SysEntityTag, error) {
+	// 1. 检查项目是否存在
+	project, err := s.repo.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if project == nil {
+		return nil, errors.New("project not found")
+	}
+
+	// 2. 调用 TagService 获取标签
+	entityIDStr := strconv.FormatUint(projectID, 10)
+	tags, err := s.tagService.GetEntityTags(ctx, "project", entityIDStr)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_project_tags", "SERVICE", map[string]interface{}{
+			"operation":  "get_project_tags",
+			"project_id": projectID,
+		})
+		return nil, err
+	}
+	return tags, nil
 }

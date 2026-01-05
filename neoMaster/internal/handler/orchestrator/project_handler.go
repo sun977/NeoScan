@@ -200,12 +200,17 @@ func (h *ProjectHandler) ListProjects(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
 	name := c.Query("name")
 	status := c.Query("status")
+	tagIDStr := c.Query("tag_id")
+	var tagID uint64
+	if tagIDStr != "" {
+		tagID, _ = strconv.ParseUint(tagIDStr, 10, 64)
+	}
 
 	// 获取当前用户ID，用于过滤项目（如果是普通用户）
 	// 暂时不做权限过滤，后续可以加上
 	// userID := c.GetUint("user_id")
 
-	projects, total, err := h.service.ListProjects(c.Request.Context(), page, pageSize, name, status)
+	projects, total, err := h.service.ListProjects(c.Request.Context(), page, pageSize, status, name, tagID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,

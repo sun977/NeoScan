@@ -561,7 +561,7 @@ func CheckDomainMatch(target, rule string) bool {
 	return false
 }
 
-// CheckTargetInScope 检查目标是否在范围内
+// CheckTargetInScope 检查目标是否在范围内 --- 执行器 enforcer 调用
 // 自动识别范围类型 (IP/CIDR/Range/Domain)
 func CheckTargetInScope(target, scope string) (bool, error) {
 	scope = strings.TrimSpace(scope)

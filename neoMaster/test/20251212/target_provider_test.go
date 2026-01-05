@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/matcher"
 	"neomaster/internal/service/orchestrator/policy"
 )
@@ -15,7 +16,7 @@ type MockSourceProvider struct {
 }
 
 func (m *MockSourceProvider) Name() string { return "mock" }
-func (m *MockSourceProvider) Provide(ctx context.Context, config policy.TargetSourceConfig, seedTargets []string) ([]policy.Target, error) {
+func (m *MockSourceProvider) Provide(ctx context.Context, config orchestrator.TargetSource, seedTargets []string) ([]policy.Target, error) {
 	return m.Targets, nil
 }
 func (m *MockSourceProvider) HealthCheck(ctx context.Context) error { return nil }
@@ -26,10 +27,10 @@ func TestTargetProvider_Rules(t *testing.T) {
 
 	// 注册 Mock Provider
 	mockTargets := []policy.Target{
-		{Type: "ip", Value: "192.168.1.1", Source: "mock", Meta: map[string]string{"os": "linux", "device": "server"}},
-		{Type: "ip", Value: "10.0.0.1", Source: "mock", Meta: map[string]string{"os": "windows", "device": "workstation"}},
-		{Type: "domain", Value: "example.com", Source: "mock", Meta: map[string]string{"os": "linux", "device": "web"}},
-		{Type: "url", Value: "http://test.com", Source: "mock", Meta: nil},
+		{Type: "ip", Value: "192.168.1.1", Source: "mock", Meta: orchestrator.TargetMeta{Custom: map[string]string{"os": "linux", "device": "server"}}},
+		{Type: "ip", Value: "10.0.0.1", Source: "mock", Meta: orchestrator.TargetMeta{Custom: map[string]string{"os": "windows", "device": "workstation"}}},
+		{Type: "domain", Value: "example.com", Source: "mock", Meta: orchestrator.TargetMeta{Custom: map[string]string{"os": "linux", "device": "web"}}},
+		{Type: "url", Value: "http://test.com", Source: "mock", Meta: orchestrator.TargetMeta{}},
 	}
 	targetProvider.RegisterProvider("mock", &MockSourceProvider{Targets: mockTargets})
 
@@ -53,7 +54,12 @@ func TestTargetProvider_Rules(t *testing.T) {
 		"skip_rule": ` + string(skipRuleJSON) + `
 	}`
 
-	targets, err := targetProvider.ResolveTargets(ctx, policyJSON, nil)
+	var targetPolicy orchestrator.TargetPolicy
+	if err := json.Unmarshal([]byte(policyJSON), &targetPolicy); err != nil {
+		t.Fatalf("Unmarshal policy failed: %v", err)
+	}
+
+	targets, err := targetProvider.ResolveTargets(ctx, targetPolicy, nil)
 	if err != nil {
 		t.Fatalf("ResolveTargets failed: %v", err)
 	}
@@ -86,7 +92,12 @@ func TestTargetProvider_Rules(t *testing.T) {
 		"whitelist_rule": ` + string(whitelistRuleJSON) + `
 	}`
 
-	targets2, err := targetProvider.ResolveTargets(ctx, policyJSON2, nil)
+	var targetPolicy2 orchestrator.TargetPolicy
+	if err := json.Unmarshal([]byte(policyJSON2), &targetPolicy2); err != nil {
+		t.Fatalf("Unmarshal policy2 failed: %v", err)
+	}
+
+	targets2, err := targetProvider.ResolveTargets(ctx, targetPolicy2, nil)
 	if err != nil {
 		t.Fatalf("ResolveTargets failed: %v", err)
 	}

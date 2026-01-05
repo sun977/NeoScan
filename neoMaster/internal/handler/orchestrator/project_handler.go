@@ -376,3 +376,142 @@ func (h *ProjectHandler) GetProjectWorkflows(c *gin.Context) {
 		Data:    workflows,
 	})
 }
+
+// AddProjectTagRequest 添加项目标签请求
+type AddProjectTagRequest struct {
+	TagID uint64 `json:"tag_id" binding:"required"`
+}
+
+// AddProjectTag 为项目添加标签
+func (h *ProjectHandler) AddProjectTag(c *gin.Context) {
+	idStr := c.Param("id")
+	projectID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid project ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req AddProjectTagRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToProject(c.Request.Context(), projectID, req.TagID); err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to add tag to project",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"path":       c.Request.URL.String(),
+		"operation":  "add_tag_to_project",
+		"project_id": projectID,
+		"tag_id":     req.TagID,
+		"func_name":  "handler.orchestrator.project.AddProjectTag",
+	}).Info("项目标签添加成功")
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to project successfully",
+	})
+}
+
+// RemoveProjectTag 从项目移除标签
+func (h *ProjectHandler) RemoveProjectTag(c *gin.Context) {
+	idStr := c.Param("id")
+	projectID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid project ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromProject(c.Request.Context(), projectID, tagID); err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to remove tag from project",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"path":       c.Request.URL.String(),
+		"operation":  "remove_tag_from_project",
+		"project_id": projectID,
+		"tag_id":     tagID,
+		"func_name":  "handler.orchestrator.project.RemoveProjectTag",
+	}).Info("项目标签移除成功")
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from project successfully",
+	})
+}
+
+// GetProjectTags 获取项目标签列表
+func (h *ProjectHandler) GetProjectTags(c *gin.Context) {
+	idStr := c.Param("id")
+	projectID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid project ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetProjectTags(c.Request.Context(), projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to get project tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Success",
+		Data:    tags,
+	})
+}

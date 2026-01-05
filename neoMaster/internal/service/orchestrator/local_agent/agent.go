@@ -461,7 +461,8 @@ func (w *LocalAgent) syncEntityTags(ctx context.Context, entityType string, enti
 		return
 	}
 
-	if payload.Action == "add" {
+	switch payload.Action {
+	case "add":
 		for _, tagID := range payload.TagIDs {
 			entityTag := tag_system.SysEntityTag{
 				EntityType: entityType,
@@ -476,7 +477,7 @@ func (w *LocalAgent) syncEntityTags(ctx context.Context, entityType string, enti
 				DoUpdates: clause.AssignmentColumns([]string{"source", "rule_id"}),
 			}).Create(&entityTag)
 		}
-	} else if payload.Action == "remove" {
+	case "remove":
 		w.db.WithContext(ctx).Where("entity_type = ? AND entity_id = ? AND tag_id IN ?",
 			entityType, entityID, payload.TagIDs).
 			Delete(&tag_system.SysEntityTag{})

@@ -94,13 +94,13 @@ func (a *resourceAllocator) CanExecute(ctx context.Context, agent *agentModel.Ag
 
 // hasTaskSupport 检查 Agent 是否拥有支持的 TaskSupport
 func hasTaskSupport(agent *agentModel.Agent, toolName string) bool {
-	// TODO: 将 toolName 映射为 ScanType ID，或者 Agent 直接上报支持的 ToolName 列表
-	// 目前 Agent.TaskSupport 存储的是 ID 列表 (["ipAliveScan", "pocScan"])
-	// 这里暂时做一个简单的模拟，或者假设所有 Online Agent 都有基础能力
+	// Agent.TaskSupport 存储的是支持的工具名称列表 (例如 ["ipAliveScan", "pocScan"])
+	// 直接检查 toolName 是否在列表中
 	if len(agent.TaskSupport) == 0 {
-		// 如果没有上报能力，默认认为没有能力，或者根据配置决定
-		// 为了开发方便，暂时返回 true，待 Capability 系统完善后改为 false
-		return true
+		// 如果没有上报能力，默认认为没有能力
+		// 为了开发方便，暂时返回 true，待 TaskSupport 系统完善后改为 false
+		// return true
+		return false
 	}
 
 	// 使用 Matcher 引擎进行检查

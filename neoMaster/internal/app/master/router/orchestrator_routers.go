@@ -45,6 +45,11 @@ func (r *Router) setupOrchestratorRoutes(v1 *gin.RouterGroup) {
 		workflows.GET("/:id", r.workflowHandler.GetWorkflow)
 		workflows.PUT("/:id", r.workflowHandler.UpdateWorkflow)
 		workflows.DELETE("/:id", r.workflowHandler.DeleteWorkflow)
+
+		// 工作流标签管理
+		workflows.POST("/:id/tags", r.workflowHandler.AddWorkflowTag)
+		workflows.DELETE("/:id/tags/:tag_id", r.workflowHandler.RemoveWorkflowTag)
+		workflows.GET("/:id/tags", r.workflowHandler.GetWorkflowTags)
 	}
 
 	// 3. 扫描阶段管理 (Scan Stage Management)

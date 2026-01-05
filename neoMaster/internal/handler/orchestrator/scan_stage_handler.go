@@ -225,3 +225,142 @@ func (h *ScanStageHandler) ListStages(c *gin.Context) {
 		Data:    stages,
 	})
 }
+
+// AddStageTagRequest 添加阶段标签请求
+type AddStageTagRequest struct {
+	TagID uint64 `json:"tag_id" binding:"required"`
+}
+
+// AddStageTag 为扫描阶段添加标签
+func (h *ScanStageHandler) AddStageTag(c *gin.Context) {
+	idStr := c.Param("id")
+	stageID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid stage ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req AddStageTagRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToStage(c.Request.Context(), stageID, req.TagID); err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to add tag to stage",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"path":      c.Request.URL.String(),
+		"operation": "add_tag_to_stage",
+		"stage_id":  stageID,
+		"tag_id":    req.TagID,
+		"func_name": "handler.orchestrator.scan_stage.AddStageTag",
+	}).Info("扫描阶段标签添加成功")
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to stage successfully",
+	})
+}
+
+// RemoveStageTag 从扫描阶段移除标签
+func (h *ScanStageHandler) RemoveStageTag(c *gin.Context) {
+	idStr := c.Param("id")
+	stageID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid stage ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromStage(c.Request.Context(), stageID, tagID); err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to remove tag from stage",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"path":      c.Request.URL.String(),
+		"operation": "remove_tag_from_stage",
+		"stage_id":  stageID,
+		"tag_id":    tagID,
+		"func_name": "handler.orchestrator.scan_stage.RemoveStageTag",
+	}).Info("扫描阶段标签移除成功")
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from stage successfully",
+	})
+}
+
+// GetStageTags 获取扫描阶段标签列表
+func (h *ScanStageHandler) GetStageTags(c *gin.Context) {
+	idStr := c.Param("id")
+	stageID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid stage ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetStageTags(c.Request.Context(), stageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to get stage tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Success",
+		Data:    tags,
+	})
+}

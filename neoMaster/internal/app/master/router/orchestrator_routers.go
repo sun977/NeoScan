@@ -60,6 +60,11 @@ func (r *Router) setupOrchestratorRoutes(v1 *gin.RouterGroup) {
 		stages.GET("/:id", r.scanStageHandler.GetStage)
 		stages.PUT("/:id", r.scanStageHandler.UpdateStage)
 		stages.DELETE("/:id", r.scanStageHandler.DeleteStage)
+
+		// 扫描阶段标签管理
+		stages.POST("/:id/tags", r.scanStageHandler.AddStageTag)
+		stages.DELETE("/:id/tags/:tag_id", r.scanStageHandler.RemoveStageTag)
+		stages.GET("/:id/tags", r.scanStageHandler.GetStageTags)
 	}
 
 	// 4. 工具模板管理 (Tool Template Management)

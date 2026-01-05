@@ -93,8 +93,8 @@ func TestTargetProvider_Rules(t *testing.T) {
 	}`
 
 	var targetPolicy2 orchestrator.TargetPolicy
-	if err := json.Unmarshal([]byte(policyJSON2), &targetPolicy2); err != nil {
-		t.Fatalf("Unmarshal policy2 failed: %v", err)
+	if err1 := json.Unmarshal([]byte(policyJSON2), &targetPolicy2); err1 != nil {
+		t.Fatalf("Unmarshal policy2 failed: %v", err1)
 	}
 
 	targets2, err := targetProvider.ResolveTargets(ctx, targetPolicy2, nil)

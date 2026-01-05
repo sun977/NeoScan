@@ -11,8 +11,8 @@ import (
 	"neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/matcher"
 	assetRepo "neomaster/internal/repo/mysql/asset"
-	orcRepo "neomaster/internal/repo/mysql/orchestrator"
 	"neomaster/internal/service/orchestrator/policy"
 
 	"github.com/stretchr/testify/assert"
@@ -53,11 +53,11 @@ func SetupPolicyTestEnv() (*gorm.DB, policy.PolicyEnforcer, error) {
 	db.Exec("TRUNCATE TABLE projects")
 
 	// 初始化 Repo
-	pRepo := orcRepo.NewProjectRepository(db)
+	// pRepo := orcRepo.NewProjectRepository(db)
 	aRepo := assetRepo.NewAssetPolicyRepository(db)
 
 	// 初始化 Enforcer
-	enforcer := policy.NewPolicyEnforcer(pRepo, aRepo)
+	enforcer := policy.NewPolicyEnforcer(aRepo)
 
 	return db, enforcer, nil
 }
@@ -153,48 +153,32 @@ func TestPolicyEnforcer_SkipLogic(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. 插入跳过策略
-	// 阻止带有 "prod" 标签的项目
-	rulesEnv := map[string][]string{
-		"block_env_tags": {"prod"},
+	// 阻止 IP 为 1.1.1.1
+	matchRule := matcher.MatchRule{
+		Field:    "ip",
+		Operator: "equals",
+		Value:    "1.1.1.1",
 	}
-	rulesEnvJson, _ := json.Marshal(rulesEnv)
+	rules := policy.SkipConditionRules{
+		MatchRule: matchRule,
+	}
+	rulesJson, _ := json.Marshal(rules)
 
 	db.Create(&asset.AssetSkipPolicy{
-		PolicyName:     "Block Prod Env",
-		ConditionRules: string(rulesEnvJson),
+		PolicyName:     "Block Specific IP",
+		ConditionRules: string(rulesJson),
 		Enabled:        true,
 		ActionConfig:   "{}",
 		Scope:          "{}",
 		Tags:           "[]",
 	})
 
-	// 2. 创建项目
-	projProd := &orchestrator.Project{
-		Name:         "Prod Project",
-		TargetScope:  "1.1.1.1",
-		Tags:         `["prod", "web"]`,
-		NotifyConfig: "{}",
-		ExportConfig: "{}",
-		ExtendedData: "{}",
-	}
-	db.Create(projProd)
-
-	projDev := &orchestrator.Project{
-		Name:         "Dev Project",
-		TargetScope:  "1.1.1.1",
-		Tags:         `["dev"]`,
-		NotifyConfig: "{}",
-		ExportConfig: "{}",
-		ExtendedData: "{}",
-	}
-	db.Create(projDev)
-
-	// 测试 Prod 项目应被跳过
-	err = enforcer.Enforce(ctx, &orchestrator.AgentTask{ProjectID: projProd.ID, InputTarget: "1.1.1.1"})
+	// 2. 测试 1.1.1.1 应被跳过
+	err = enforcer.Enforce(ctx, &orchestrator.AgentTask{ProjectID: 1, InputTarget: "1.1.1.1"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "skipped")
 
-	// 测试 Dev 项目应通过
-	err = enforcer.Enforce(ctx, &orchestrator.AgentTask{ProjectID: projDev.ID, InputTarget: "1.1.1.1"})
+	// 3. 测试 2.2.2.2 应通过
+	err = enforcer.Enforce(ctx, &orchestrator.AgentTask{ProjectID: 1, InputTarget: "2.2.2.2"})
 	assert.NoError(t, err)
 }

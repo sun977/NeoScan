@@ -4,6 +4,7 @@ package task_dispatcher
 
 import (
 	"context"
+	"neomaster/internal/config"
 	"neomaster/internal/model/orchestrator"
 	agentRepo "neomaster/internal/repo/mysql/orchestrator"
 
@@ -24,6 +25,7 @@ type TaskDispatcher interface {
 }
 
 type taskDispatcher struct {
+	cfg       *config.Config // 配置注入
 	taskRepo  agentRepo.TaskRepository
 	policy    policy.PolicyEnforcer       // 策略执行器注入
 	allocator allocator.ResourceAllocator // 资源分配器注入
@@ -31,11 +33,13 @@ type taskDispatcher struct {
 
 // NewTaskDispatcher 创建任务分发器实例
 func NewTaskDispatcher(
+	cfg *config.Config,
 	taskRepo agentRepo.TaskRepository,
 	policy policy.PolicyEnforcer,
 	allocator allocator.ResourceAllocator,
 ) TaskDispatcher {
 	return &taskDispatcher{
+		cfg:       cfg,
 		taskRepo:  taskRepo,
 		policy:    policy,
 		allocator: allocator,
@@ -50,8 +54,11 @@ func (d *taskDispatcher) Dispatch(ctx context.Context, agent *agentModel.Agent, 
 		return nil, nil
 	}
 
-	// TODO: 从配置中获取最大并发任务数 (PerformanceSettings)
-	maxTasks := 5
+	// 从配置中获取最大并发任务数
+	maxTasks := d.cfg.App.Master.Task.MaxConcurrency
+	if maxTasks <= 0 {
+		maxTasks = 5 // 默认兜底值
+	}
 
 	if currentLoad >= maxTasks {
 		return nil, nil // 负载已满，不分配新任务

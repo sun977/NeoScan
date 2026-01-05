@@ -12,7 +12,6 @@ import (
 	agentModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/matcher"
 	assetrepo "neomaster/internal/repo/mysql/asset"
-	orcrepo "neomaster/internal/repo/mysql/orchestrator"
 	"neomaster/internal/service/orchestrator/policy"
 )
 
@@ -72,9 +71,9 @@ func TestPolicyEnforcer_SkipRule_Matcher(t *testing.T) {
 	}
 
 	// 4. Initialize Repos and Enforcer
-	projRepo := orcrepo.NewProjectRepository(db)
+	// projRepo := orcrepo.NewProjectRepository(db)
 	policyRepo := assetrepo.NewAssetPolicyRepository(db)
-	enforcer := policy.NewPolicyEnforcer(projRepo, policyRepo)
+	enforcer := policy.NewPolicyEnforcer(policyRepo)
 
 	// 5. Test Enforce (Should Skip)
 	task := &agentModel.AgentTask{
@@ -131,7 +130,7 @@ func TestPolicyEnforcer_SkipRule_Legacy(t *testing.T) {
 	})
 
 	// 3. Init
-	enforcer := policy.NewPolicyEnforcer(orcrepo.NewProjectRepository(db), assetrepo.NewAssetPolicyRepository(db))
+	enforcer := policy.NewPolicyEnforcer(assetrepo.NewAssetPolicyRepository(db))
 
 	// 4. Test
 	task := &agentModel.AgentTask{

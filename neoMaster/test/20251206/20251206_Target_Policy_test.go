@@ -191,22 +191,22 @@ Check:
 
 	task := tasks[0]
 	// 检查 InputTarget 字段 (JSON)
-	var inputTarget []string
-	if err := json.Unmarshal([]byte(task.InputTarget), &inputTarget); err != nil {
+	var inputTargets []orcModel.Target
+	if err := json.Unmarshal([]byte(task.InputTarget), &inputTargets); err != nil {
 		t.Fatalf("Failed to unmarshal InputTarget: %v. Raw: %s", err, task.InputTarget)
 	}
 
-	if len(inputTarget) != 2 {
-		t.Fatalf("Expected 2 targets in InputTarget, got %d", len(inputTarget))
+	if len(inputTargets) != 2 {
+		t.Fatalf("Expected 2 targets in InputTarget, got %d", len(inputTargets))
 	}
 
 	targetMap := make(map[string]bool)
-	for _, t := range inputTarget {
-		targetMap[t] = true
+	for _, t := range inputTargets {
+		targetMap[t.Value] = true
 	}
 
 	if !targetMap["1.1.1.1"] || !targetMap["2.2.2.2"] {
-		t.Fatalf("Targets mismatch. Got: %v", inputTarget)
+		t.Fatalf("Targets mismatch. Got: %v", inputTargets)
 	}
 
 	fmt.Println("Test Passed: Target Policy resolved correctly!")

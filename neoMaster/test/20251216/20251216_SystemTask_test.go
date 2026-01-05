@@ -100,12 +100,12 @@ func TestSystemTaskCategorization(t *testing.T) {
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "Agent Stage",
 		ToolName:            "nmap",
-		TargetPolicy:        "{}",
+		TargetPolicy:        orcModel.TargetPolicy{},
 		Enabled:             true,
-		ExecutionPolicy:     "{}",
-		PerformanceSettings: "{}",
-		OutputConfig:        "{}",
-		NotifyConfig:        "{}",
+		ExecutionPolicy:     orcModel.ExecutionPolicy{},
+		PerformanceSettings: orcModel.PerformanceSettings{},
+		OutputConfig:        orcModel.OutputConfig{},
+		NotifyConfig:        orcModel.NotifyConfig{},
 	}
 	db.Create(stageAgent)
 
@@ -114,12 +114,12 @@ func TestSystemTaskCategorization(t *testing.T) {
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "System Stage",
 		ToolName:            "sys_tag_propagation",
-		TargetPolicy:        "{}",
+		TargetPolicy:        orcModel.TargetPolicy{},
 		Enabled:             true,
-		ExecutionPolicy:     "{}",
-		PerformanceSettings: "{}",
-		OutputConfig:        "{}",
-		NotifyConfig:        "{}",
+		ExecutionPolicy:     orcModel.ExecutionPolicy{},
+		PerformanceSettings: orcModel.PerformanceSettings{},
+		OutputConfig:        orcModel.OutputConfig{},
+		NotifyConfig:        orcModel.NotifyConfig{},
 	}
 	db.Create(stageSystem)
 

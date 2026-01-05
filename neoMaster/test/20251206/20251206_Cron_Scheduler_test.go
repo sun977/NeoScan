@@ -161,11 +161,11 @@ func TestCronScheduler(t *testing.T) {
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "Cron Stage",
 		ToolName:            "ping",
-		TargetPolicy:        "{}",
-		ExecutionPolicy:     "{}",
-		PerformanceSettings: "{}",
-		OutputConfig:        "{}",
-		NotifyConfig:        "{}",
+		TargetPolicy:        orcModel.TargetPolicy{},
+		ExecutionPolicy:     orcModel.ExecutionPolicy{},
+		PerformanceSettings: orcModel.PerformanceSettings{},
+		OutputConfig:        orcModel.OutputConfig{},
+		NotifyConfig:        orcModel.NotifyConfig{},
 		Enabled:             true,
 	}
 	db.Create(&stage)

@@ -106,8 +106,8 @@ func (r *WorkflowRepository) DeleteWorkflow(ctx context.Context, id uint64) erro
 	return nil
 }
 
-// ListWorkflows 获取工作流列表 (分页 + 筛选)
-func (r *WorkflowRepository) ListWorkflows(ctx context.Context, page, pageSize int, name string, enabled *bool) ([]*orcmodel.Workflow, int64, error) {
+// ListWorkflows 获取工作流列表 (分页 + 筛选 + 标签)
+func (r *WorkflowRepository) ListWorkflows(ctx context.Context, page, pageSize int, name string, enabled *bool, tagID uint64) ([]*orcmodel.Workflow, int64, error) {
 	var workflows []*orcmodel.Workflow
 	var total int64
 
@@ -119,6 +119,12 @@ func (r *WorkflowRepository) ListWorkflows(ctx context.Context, page, pageSize i
 	if enabled != nil {
 		query = query.Where("enabled = ?", *enabled)
 	}
+	if tagID > 0 {
+		// 联表查询 sys_entity_tags 表来筛选具有特定标签的工作流
+		// 注意：entity_type = 'workflow'
+		query = query.Joins("JOIN sys_entity_tags ON workflows.id = sys_entity_tags.entity_id").
+			Where("sys_entity_tags.entity_type = ? AND sys_entity_tags.tag_id = ?", "workflow", tagID)
+	}
 
 	err := query.Count(&total).Error
 	if err != nil {
@@ -129,7 +135,7 @@ func (r *WorkflowRepository) ListWorkflows(ctx context.Context, page, pageSize i
 	}
 
 	offset := (page - 1) * pageSize
-	err = query.Offset(offset).Limit(pageSize).Order("id desc").Find(&workflows).Error
+	err = query.Distinct("workflows.*").Offset(offset).Limit(pageSize).Order("workflows.id desc").Find(&workflows).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "list_workflows_find", "REPO", map[string]interface{}{
 			"operation": "list_workflows_find",

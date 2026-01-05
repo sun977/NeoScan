@@ -199,7 +199,13 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 		}
 	}
 
-	workflows, total, err := h.service.ListWorkflows(c.Request.Context(), page, pageSize, name, enabled)
+	tagIDStr := c.Query("tag_id")
+	var tagID uint64
+	if tagIDStr != "" {
+		tagID, _ = strconv.ParseUint(tagIDStr, 10, 64)
+	}
+
+	workflows, total, err := h.service.ListWorkflows(c.Request.Context(), page, pageSize, name, enabled, tagID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
@@ -223,5 +229,144 @@ func (h *WorkflowHandler) ListWorkflows(c *gin.Context) {
 			PageSize:   pageSize,
 			TotalPages: totalPages,
 		},
+	})
+}
+
+// AddWorkflowTagRequest 添加工作流标签请求
+type AddWorkflowTagRequest struct {
+	TagID uint64 `json:"tag_id" binding:"required"`
+}
+
+// AddWorkflowTag 为工作流添加标签
+func (h *WorkflowHandler) AddWorkflowTag(c *gin.Context) {
+	idStr := c.Param("id")
+	workflowID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid workflow ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req AddWorkflowTagRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToWorkflow(c.Request.Context(), workflowID, req.TagID); err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to add tag to workflow",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"path":        c.Request.URL.String(),
+		"operation":   "add_tag_to_workflow",
+		"workflow_id": workflowID,
+		"tag_id":      req.TagID,
+		"func_name":   "handler.orchestrator.workflow.AddWorkflowTag",
+	}).Info("工作流标签添加成功")
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to workflow successfully",
+	})
+}
+
+// RemoveWorkflowTag 从工作流移除标签
+func (h *WorkflowHandler) RemoveWorkflowTag(c *gin.Context) {
+	idStr := c.Param("id")
+	workflowID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid workflow ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromWorkflow(c.Request.Context(), workflowID, tagID); err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to remove tag from workflow",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.WithFields(map[string]interface{}{
+		"path":        c.Request.URL.String(),
+		"operation":   "remove_tag_from_workflow",
+		"workflow_id": workflowID,
+		"tag_id":      tagID,
+		"func_name":   "handler.orchestrator.workflow.RemoveWorkflowTag",
+	}).Info("工作流标签移除成功")
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from workflow successfully",
+	})
+}
+
+// GetWorkflowTags 获取工作流标签列表
+func (h *WorkflowHandler) GetWorkflowTags(c *gin.Context) {
+	idStr := c.Param("id")
+	workflowID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "error",
+			Message: "Invalid workflow ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetWorkflowTags(c.Request.Context(), workflowID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "error",
+			Message: "Failed to get workflow tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Success",
+		Data:    tags,
 	})
 }

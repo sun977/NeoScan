@@ -142,19 +142,26 @@ func (g *taskGenerator) GenerateTasks(stage *orcModel.ScanStage, projectID uint6
 			return nil, fmt.Errorf("failed to generate task ID: %v", err)
 		}
 
+		// Determine TaskCategory
+		taskCategory := "agent"
+		if stage.ToolName == "sys_tag_propagation" {
+			taskCategory = "system"
+		}
+
 		task := &orcModel.AgentTask{
-			TaskID:      taskID,
-			ProjectID:   projectID,
-			WorkflowID:  stage.WorkflowID,
-			StageID:     uint64(stage.ID),
-			ToolName:    stage.ToolName,
-			ToolParams:  stage.ToolParams,
-			InputTarget: string(targetsJSON),
-			Status:      "pending", // 初始状态
-			Priority:    priority,
-			Timeout:     timeout,
-			RetryCount:  0,          // 当前重试次数
-			MaxRetries:  maxRetries, // 最大重试次数
+			TaskID:       taskID,
+			ProjectID:    projectID,
+			WorkflowID:   stage.WorkflowID,
+			StageID:      uint64(stage.ID),
+			ToolName:     stage.ToolName,
+			ToolParams:   stage.ToolParams,
+			InputTarget:  string(targetsJSON),
+			Status:       "pending", // 初始状态
+			Priority:     priority,
+			Timeout:      timeout,
+			RetryCount:   0,          // 当前重试次数
+			MaxRetries:   maxRetries, // 最大重试次数
+			TaskCategory: taskCategory,
 			PolicySnapshot: orcModel.PolicySnapshot{
 				TargetScope:  []string{projectTargetScope}, // 简化处理，暂时只支持单个 Scope，后续扩展为列表
 				TargetPolicy: stage.TargetPolicy,

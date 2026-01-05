@@ -96,3 +96,182 @@
   }
 }
 
+// 混合类型的 Target
+{
+  "targets": [
+    {
+      "type": "ip",
+      "value": "192.168.1.100",
+      "source": "manual_input",
+      "meta": {
+        "network": {
+          "cidr": "192.168.1.0/24",
+          "location": "Internal Network",
+          "subnet_mask": "255.255.255.0",
+          "gateway": "192.168.1.1"
+        },
+        "ports": [
+          {
+            "port": 80,
+            "protocol": "tcp",
+            "state": "open",
+            "service": "http",
+            "version": "1.1",
+            "product": "Apache",
+            "banner": "Apache/2.4.41 (Ubuntu)",
+            "extra": {
+              "vulnerability": "CVE-2021-XXXX"
+            }
+          },
+          {
+            "port": 443,
+            "protocol": "tcp",
+            "state": "open",
+            "service": "https",
+            "version": "1.1",
+            "product": "Apache",
+            "banner": "Apache/2.4.41 (Ubuntu)",
+            "extra": {
+              "ssl_version": "TLSv1.2"
+            }
+          }
+        ],
+        "custom": {
+          "environment": "production",
+          "criticality": "high"
+        }
+      }
+    },
+    {
+      "type": "ip_range",
+      "value": "10.0.0.0/16",
+      "source": "network_scan",
+      "meta": {
+        "network": {
+          "cidr": "10.0.0.0/16",
+          "location": "Corporate Network",
+          "subnet_mask": "255.255.0.0",
+          "gateway": "10.0.0.1"
+        },
+        "custom": {
+          "department": "IT",
+          "region": "east"
+        }
+      }
+    },
+    {
+      "type": "domain",
+      "value": "example.com",
+      "source": "dns_discovery",
+      "meta": {
+        "domain": {
+          "root_domain": "example.com",
+          "subdomains": [
+            "www.example.com",
+            "mail.example.com",
+            "ftp.example.com"
+          ],
+          "registrar": "GoDaddy",
+          "name_servers": [
+            "ns1.example.com",
+            "ns2.example.com"
+          ],
+          "resolved_ips": [
+            "93.184.216.34",
+            "2606:2800:220:1:248:1893:1c87:91a2"
+          ],
+          "is_wildcard": false
+        },
+        "ports": [
+          {
+            "port": 80,
+            "protocol": "tcp",
+            "state": "open",
+            "service": "http",
+            "version": "1.1",
+            "product": "nginx",
+            "banner": "nginx/1.18.0",
+            "extra": {}
+          },
+          {
+            "port": 443,
+            "protocol": "tcp",
+            "state": "open",
+            "service": "https",
+            "version": "1.1",
+            "product": "nginx",
+            "banner": "nginx/1.18.0",
+            "extra": {
+              "tls_version": "TLSv1.3"
+            }
+          }
+        ],
+        "custom": {
+          "business_unit": "marketing",
+          "asset_owner": "marketing-team"
+        }
+      }
+    }
+  ],
+  "target_policy": {
+    "target_sources": [
+      {
+        "source_type": "file",
+        "source_value": "/path/to/targets.txt",
+        "target_type": "ip",
+        "query_mode": "",
+        "filter_rules": "{\"ports\": [80, 443, 22]}",
+        "auth_config": "{}",
+        "parser_config": "{}"
+      },
+      {
+        "source_type": "db",
+        "source_value": "SELECT ip FROM assets WHERE active = 1",
+        "target_type": "ip",
+        "query_mode": "sql",
+        "filter_rules": "{\"status\": \"active\"}",
+        "auth_config": "{\"username\": \"admin\", \"password\": \"secret\"}",
+        "parser_config": "{\"table\": \"assets\", \"column\": \"ip\"}"
+      },
+      {
+        "source_type": "previous_stage",
+        "source_value": [
+          {
+            "type": "ip",
+            "value": "192.168.1.101",
+            "source": "previous_scan",
+            "meta": {}
+          }
+        ],
+        "target_type": "ip",
+        "query_mode": "",
+        "filter_rules": "{}",
+        "auth_config": "{}",
+        "parser_config": "{}"
+      }
+    ],
+    "whitelist_enabled": true,
+    "whitelist_sources": [
+      {
+        "source_type": "file",
+        "source_value": [
+          "192.168.1.1",
+          "10.0.0.1"
+        ]
+      },
+      {
+        "source_type": "manual",
+        "source_value": [
+          "172.16.0.1",
+          "gateway.example.com"
+        ]
+      }
+    ],
+    "skip_enabled": true,
+    "skip_rule": {
+      "field": "meta.network.location",
+      "operator": "equals",
+      "value": "Internal Network"
+    }
+  }
+}

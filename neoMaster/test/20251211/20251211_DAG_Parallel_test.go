@@ -93,28 +93,49 @@ func TestDAGParallelExecution(t *testing.T) {
 
 	// Stage A (Initial, Fast)
 	stageA := agentModel.ScanStage{
-		WorkflowID:   workflow.ID,
-		StageName:    "Stage A",
-		ToolName:     "echo", // Dummy tool
-		TargetPolicy: `{"provider": "manual", "manual_targets": ["1.1.1.1"]}`,
+		WorkflowID: workflow.ID,
+		StageName:  "Stage A",
+		ToolName:   "echo", // Dummy tool
+		TargetPolicy: agentModel.TargetPolicy{
+			TargetSources: []agentModel.TargetSource{
+				{
+					SourceType:  "manual",
+					SourceValue: "1.1.1.1",
+				},
+			},
+		},
 	}
 	db.Create(&stageA)
 
 	// Stage C (Initial, Slow)
 	stageC := agentModel.ScanStage{
-		WorkflowID:   workflow.ID,
-		StageName:    "Stage C",
-		ToolName:     "sleep", // Dummy tool
-		TargetPolicy: `{"provider": "manual", "manual_targets": ["2.2.2.2"]}`,
+		WorkflowID: workflow.ID,
+		StageName:  "Stage C",
+		ToolName:   "sleep", // Dummy tool
+		TargetPolicy: agentModel.TargetPolicy{
+			TargetSources: []agentModel.TargetSource{
+				{
+					SourceType:  "manual",
+					SourceValue: "2.2.2.2",
+				},
+			},
+		},
 	}
 	db.Create(&stageC)
 
 	// Stage B (Depends on A)
 	stageB := agentModel.ScanStage{
-		WorkflowID:   workflow.ID,
-		StageName:    "Stage B",
-		ToolName:     "echo",
-		TargetPolicy: `{"provider": "manual", "manual_targets": ["3.3.3.3"]}`,
+		WorkflowID: workflow.ID,
+		StageName:  "Stage B",
+		ToolName:   "echo",
+		TargetPolicy: agentModel.TargetPolicy{
+			TargetSources: []agentModel.TargetSource{
+				{
+					SourceType:  "manual",
+					SourceValue: "3.3.3.3",
+				},
+			},
+		},
 		Predecessors: []uint64{uint64(stageA.ID)},
 	}
 	db.Create(&stageB)

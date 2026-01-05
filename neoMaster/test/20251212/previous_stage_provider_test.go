@@ -108,8 +108,8 @@ func TestPreviousStageProvider_StageStatus(t *testing.T) {
 	ctx = context.WithValue(ctx, policy.CtxKeyStageID, uint64(stage3.ID))
 
 	filterRules1 := `{"stage_name": "stage_completed", "stage_status": ["completed"]}`
-	config1 := policy.TargetSourceConfig{
-		FilterRules: []byte(filterRules1),
+	config1 := orchestrator.TargetSource{
+		FilterRules: json.RawMessage(filterRules1),
 	}
 
 	targets1, err := provider.Provide(ctx, config1, nil)
@@ -122,8 +122,8 @@ func TestPreviousStageProvider_StageStatus(t *testing.T) {
 
 	// 3. Test Case 2: Filter "running"
 	filterRules2 := `{"stage_name": "stage_running", "stage_status": ["running"]}`
-	config2 := policy.TargetSourceConfig{
-		FilterRules: []byte(filterRules2),
+	config2 := orchestrator.TargetSource{
+		FilterRules: json.RawMessage(filterRules2),
 	}
 	targets2, err := provider.Provide(ctx, config2, nil)
 	if err != nil {
@@ -135,8 +135,8 @@ func TestPreviousStageProvider_StageStatus(t *testing.T) {
 
 	// 4. Test Case 3: Filter "completed" on running stage (should fail)
 	filterRules3 := `{"stage_name": "stage_running", "stage_status": ["completed"]}`
-	config3 := policy.TargetSourceConfig{
-		FilterRules: []byte(filterRules3),
+	config3 := orchestrator.TargetSource{
+		FilterRules: json.RawMessage(filterRules3),
 	}
 	targets3, err := provider.Provide(ctx, config3, nil)
 	if err != nil {
@@ -221,9 +221,9 @@ func TestPreviousStageProvider_ComplexFilter(t *testing.T) {
 		}
 	}`, string(ruleBytes))
 
-	config := policy.TargetSourceConfig{
-		FilterRules:  []byte(filterRules),
-		ParserConfig: []byte(parserConfig),
+	config := orchestrator.TargetSource{
+		FilterRules:  json.RawMessage(filterRules),
+		ParserConfig: json.RawMessage(parserConfig),
 	}
 
 	targets, err := provider.Provide(ctx, config, nil)

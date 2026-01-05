@@ -94,26 +94,25 @@ func TestTargetPolicyResolution(t *testing.T) {
 
 	// 2. 创建 Stage，配置 TargetPolicy
 	// 使用 Manual 策略，指定 1.1.1.1 和 2.2.2.2
-	targetPolicy := map[string]interface{}{
-		"target_sources": []map[string]interface{}{
+	targetPolicy := orcModel.TargetPolicy{
+		TargetSources: []orcModel.TargetSource{
 			{
-				"source_type":  "manual",
-				"source_value": "1.1.1.1,2.2.2.2",
+				SourceType:  "manual",
+				SourceValue: "1.1.1.1,2.2.2.2",
 			},
 		},
 	}
-	policyJSON, _ := json.Marshal(targetPolicy)
 
 	stage := &orcModel.ScanStage{
 		WorkflowID:          uint64(workflow.ID),
 		StageName:           "Manual Target Stage",
 		StageType:           "port_scan",
-		TargetPolicy:        string(policyJSON),
+		TargetPolicy:        targetPolicy,
 		Enabled:             true,
-		OutputConfig:        "{}",
-		NotifyConfig:        "{}",
-		ExecutionPolicy:     "{}",
-		PerformanceSettings: "{}",
+		OutputConfig:        orcModel.OutputConfig{},
+		NotifyConfig:        orcModel.NotifyConfig{},
+		ExecutionPolicy:     orcModel.ExecutionPolicy{},
+		PerformanceSettings: orcModel.PerformanceSettings{},
 		ToolName:            "nmap",
 	}
 	if err := db.Create(stage).Error; err != nil {

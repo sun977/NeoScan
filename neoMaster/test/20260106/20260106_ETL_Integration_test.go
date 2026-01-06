@@ -60,7 +60,8 @@ func SetupETLTestEnv() (*gorm.DB, etl.ResultProcessor, ingestor.ResultQueue, err
 	merger := etl.NewAssetMerger(hostRepo, webRepo)
 
 	queue := ingestor.NewMemoryQueue(100)
-	processor := etl.NewResultProcessor(queue, merger, 2) // 2 workers
+	// 在测试中暂时不注入 FingerprintService (nil)
+	processor := etl.NewResultProcessor(queue, merger, nil, 2) // 2 workers
 
 	return db, processor, queue, nil
 }

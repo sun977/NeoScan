@@ -2,7 +2,6 @@
   "name": "CMS Sample",
   "version": "2.0.0",
   "author": "sunhaobo 20230222",
-  "type": "http",
   "samples": [
     {
       "id": 1,

@@ -14,7 +14,8 @@ import (
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/orchestrator/core/scheduler"
-	"neomaster/internal/service/orchestrator/core/task_dispatcher"
+	"neomaster/internal/service/orchestrator/core/task_dispatcher" // 引入ingestor
+	"neomaster/internal/service/orchestrator/ingestor"
 	"neomaster/internal/service/orchestrator/local_agent" // 本地Agent，用于master模块执行系统任务
 
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
@@ -63,6 +64,20 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	)
 	localAgent := local_agent.NewLocalAgent(db, taskRepo)
 
+	// Ingestor Components 初始化
+	// 读取队列配置
+	queueCapacity := cfg.App.Master.Queue.Capacity
+	resultQueue := ingestor.NewMemoryQueue(queueCapacity)
+
+	resultValidator := ingestor.NewResultValidator(taskRepo)
+	// 使用配置中的路径初始化归档器
+	archivePath := cfg.App.Master.Archive.Path
+	if archivePath == "" {
+		archivePath = "data/evidence" // 默认值
+	}
+	evidenceArchiver := ingestor.NewFileArchiver(archivePath)
+	resultIngestor := ingestor.NewResultIngestor(resultQueue, resultValidator, evidenceArchiver)
+
 	// 3. Service 初始化
 	projectService := orchestratorService.NewProjectService(projectRepo, tagService)
 	workflowService := orchestratorService.NewWorkflowService(workflowRepo, tagService)
@@ -101,5 +116,6 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 		TaskDispatcher:   dispatcher,
 		SchedulerService: schedulerService,
 		LocalAgent:       localAgent,
+		ResultIngestor:   resultIngestor,
 	}
 }

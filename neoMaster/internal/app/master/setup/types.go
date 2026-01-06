@@ -19,6 +19,7 @@ import (
 	authService "neomaster/internal/service/auth"
 	orchestratorService "neomaster/internal/service/orchestrator"
 	"neomaster/internal/service/orchestrator/core/scheduler"
+	"neomaster/internal/service/orchestrator/ingestor" // 引入ingestor
 	"neomaster/internal/service/orchestrator/local_agent"
 	tagService "neomaster/internal/service/tag_system"
 )
@@ -123,6 +124,7 @@ type OrchestratorModule struct {
 	TaskDispatcher   orchestratorService.TaskDispatcher
 	SchedulerService scheduler.SchedulerService
 	LocalAgent       *local_agent.LocalAgent // 本地Agent (原系统任务执行器)
+	ResultIngestor   ingestor.ResultIngestor // 结果摄入服务
 }
 
 // AssetModule 是资产管理模块的聚合输出

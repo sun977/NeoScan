@@ -228,7 +228,20 @@ type AppConfig struct {
 
 // MasterConfig Master节点配置
 type MasterConfig struct {
-	Task TaskConfig `yaml:"task" mapstructure:"task"` // 任务配置
+	Task    TaskConfig    `yaml:"task" mapstructure:"task"`       // 任务配置
+	Queue   QueueConfig   `yaml:"queue" mapstructure:"queue"`     // 队列配置
+	Archive ArchiveConfig `yaml:"archive" mapstructure:"archive"` // 归档配置
+}
+
+// QueueConfig 队列配置
+type QueueConfig struct {
+	Capacity int `yaml:"capacity" mapstructure:"capacity"` // 队列容量
+}
+
+// ArchiveConfig 归档配置
+type ArchiveConfig struct {
+	Type string `yaml:"type" mapstructure:"type"` // 归档类型: file, s3
+	Path string `yaml:"path" mapstructure:"path"` // 存储路径
 }
 
 // TaskConfig 任务配置

@@ -181,6 +181,28 @@ func (r *AssetHostRepository) GetServiceByID(ctx context.Context, id uint64) (*a
 	return &service, nil
 }
 
+// GetServiceByHostIDAndPort 根据HostID和端口获取服务
+func (r *AssetHostRepository) GetServiceByHostIDAndPort(ctx context.Context, hostID uint64, port int, proto string) (*asset.AssetService, error) {
+	var service asset.AssetService
+	query := r.db.WithContext(ctx).Where("host_id = ? AND port = ?", hostID, port)
+	if proto != "" {
+		query = query.Where("proto = ?", proto)
+	}
+	err := query.First(&service).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		logger.LogError(err, "", 0, "", "get_service_by_host_port", "REPO", map[string]interface{}{
+			"operation": "get_service_by_host_port",
+			"host_id":   hostID,
+			"port":      port,
+		})
+		return nil, err
+	}
+	return &service, nil
+}
+
 // UpdateService 更新服务
 func (r *AssetHostRepository) UpdateService(ctx context.Context, service *asset.AssetService) error {
 	if service == nil || service.ID == 0 {

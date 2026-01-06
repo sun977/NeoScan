@@ -33,6 +33,10 @@ app:
       type: "file"             # 归档存储类型: file (本地文件), s3 (对象存储)
       path: "data/evidence"    # 本地存储路径 (相对项目根目录或绝对路径)
 
+  # 指纹识别配置
+  fingerprint:
+    rule_path: "rules/fingerprint" # 规则文件路径
+
   # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:
     user_registration: true       # 用户注册功能[完成]

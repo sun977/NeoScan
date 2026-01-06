@@ -8,6 +8,7 @@
 package etl
 
 import (
+	"encoding/json"
 	"fmt"
 
 	assetModel "neomaster/internal/model/asset"
@@ -68,8 +69,34 @@ func mapIPAlive(result *orcModel.StageResult) (*AssetBundle, error) {
 
 // mapPortScan 映射端口扫描结果
 func mapPortScan(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	return nil, nil
+	var attr PortScanAttributes
+	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	}
+
+	host := &assetModel.AssetHost{
+		IP:             result.TargetValue,
+		Tags:           "{}",
+		SourceStageIDs: "[]",
+	}
+
+	var services []*assetModel.AssetService
+	for _, p := range attr.Ports {
+		if p.State == "open" {
+			services = append(services, &assetModel.AssetService{
+				Port:        p.Port,
+				Proto:       p.Proto,
+				Name:        p.ServiceHint,
+				Fingerprint: "{}",
+				Tags:        "{}",
+			})
+		}
+	}
+
+	return &AssetBundle{
+		Host:     host,
+		Services: services,
+	}, nil
 }
 
 // mapServiceFingerprint 映射服务指纹识别结果

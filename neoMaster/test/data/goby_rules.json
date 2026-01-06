@@ -1,0 +1,22 @@
+{
+  "rule": [
+    {
+      "name": "ThinkPHP",
+      "level": "2",
+      "soft_hard": "1",
+      "rule": "header=\"thinkphp\" || body=\"thinkphp\"",
+      "product": "ThinkPHP",
+      "company": "ThinkPHP",
+      "category": "framework"
+    },
+    {
+      "name": "Nginx",
+      "level": "1",
+      "soft_hard": "1",
+      "rule": "header=\"Server: nginx\"",
+      "product": "Nginx",
+      "company": "F5",
+      "category": "app"
+    }
+  ]
+}

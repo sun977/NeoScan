@@ -20,6 +20,15 @@ app:
       retry_interval: 10    # 任务重试间隔(秒)
       max_concurrency: 5    # 单个Agent最大并发任务数
 
+    # 结果队列配置
+    queue:
+      capacity: 1000        # 内存队列容量，用于削峰填谷
+
+    # 归档配置
+    archive:
+      type: "file"             # 归档存储类型: file (本地文件), s3 (对象存储)
+      path: "data/evidence"    # 本地存储路径 (相对项目根目录或绝对路径)
+
   # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:
     user_registration: true       # 用户注册功能[完成]

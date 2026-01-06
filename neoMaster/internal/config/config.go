@@ -10,15 +10,21 @@ type Config struct {
 	Server   ServerConfig   `yaml:"server" mapstructure:"server"`     // 服务器配置
 	Database DatabaseConfig `yaml:"database" mapstructure:"database"` // 数据库配置
 	// JWT        JWTConfig        `yaml:"jwt" mapstructure:"jwt"`                 // JWT配置 合并到 安全配置中
-	Log        LogConfig        `yaml:"log" mapstructure:"log"`                 // 日志配置
-	Security   SecurityConfig   `yaml:"security" mapstructure:"security"`       // 安全配置
-	Session    SessionConfig    `yaml:"session" mapstructure:"session"`         // 会话配置
-	WebSocket  WebSocketConfig  `yaml:"websocket" mapstructure:"websocket"`     // WebSocket配置
-	Upload     UploadConfig     `yaml:"upload" mapstructure:"upload"`           // 文件上传配置
-	Mail       MailConfig       `yaml:"mail" mapstructure:"mail"`               // 邮件配置
-	Monitor    MonitorConfig    `yaml:"monitor" mapstructure:"monitor"`         // 监控配置
-	App        AppConfig        `yaml:"app" mapstructure:"app"`                 // 应用配置
-	ThirdParty ThirdPartyConfig `yaml:"third_party" mapstructure:"third_party"` // 第三方服务配置
+	Log         LogConfig         `yaml:"log" mapstructure:"log"`                 // 日志配置
+	Security    SecurityConfig    `yaml:"security" mapstructure:"security"`       // 安全配置
+	Session     SessionConfig     `yaml:"session" mapstructure:"session"`         // 会话配置
+	WebSocket   WebSocketConfig   `yaml:"websocket" mapstructure:"websocket"`     // WebSocket配置
+	Upload      UploadConfig      `yaml:"upload" mapstructure:"upload"`           // 文件上传配置
+	Mail        MailConfig        `yaml:"mail" mapstructure:"mail"`               // 邮件配置
+	Monitor     MonitorConfig     `yaml:"monitor" mapstructure:"monitor"`         // 监控配置
+	Fingerprint FingerprintConfig `yaml:"fingerprint" mapstructure:"fingerprint"` // 指纹识别配置
+	App         AppConfig         `yaml:"app" mapstructure:"app"`                 // 应用配置
+	ThirdParty  ThirdPartyConfig  `yaml:"third_party" mapstructure:"third_party"` // 第三方服务配置
+}
+
+// FingerprintConfig 指纹识别配置
+type FingerprintConfig struct {
+	RulePath string `yaml:"rule_path" mapstructure:"rule_path"` // 规则文件路径
 }
 
 // ServerConfig 服务器配置

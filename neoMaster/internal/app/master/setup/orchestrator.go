@@ -14,6 +14,9 @@ import (
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/asset/etl"
+	"neomaster/internal/service/fingerprint"
+	"neomaster/internal/service/fingerprint/engines/http"
+	"neomaster/internal/service/fingerprint/engines/service"
 	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/core/task_dispatcher"
 	"neomaster/internal/service/orchestrator/ingestor"    // 引入ingestor
@@ -92,7 +95,28 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	webRepo := assetRepo.NewAssetWebRepository(db)
 	assetMerger := etl.NewAssetMerger(hostRepo, webRepo)
 
-	etlProcessor := etl.NewResultProcessor(resultQueue, assetMerger, etlWorkerNum)
+	// 初始化 FingerprintService
+	httpEngine := http.NewHTTPEngine(assetRepo.NewAssetFingerRepository(db))
+	serviceEngine := service.NewServiceEngine(assetRepo.NewAssetCPERepository(db))
+	fpService := fingerprint.NewFingerprintService(httpEngine, serviceEngine)
+
+	// 加载指纹规则
+	rulePath := cfg.Fingerprint.RulePath
+	if rulePath == "" {
+		rulePath = "rules/fingerprint" // 默认路径
+	}
+	if err := fpService.LoadRules(rulePath); err != nil {
+		// 仅记录错误，不阻断启动，因为可能只使用数据库规则
+		logger.LogError(err, "Failed to load fingerprint rules from file", 0, "", "setup.BuildOrchestratorModule", "", map[string]interface{}{
+			"path": rulePath,
+		})
+	} else {
+		logger.LogInfo("Fingerprint rules loaded", "", 0, "", "setup.BuildOrchestratorModule", "", map[string]interface{}{
+			"path": rulePath,
+		})
+	}
+
+	etlProcessor := etl.NewResultProcessor(resultQueue, assetMerger, fpService, etlWorkerNum)
 	// TODO: 在应用启动时调用 etlProcessor.Start(ctx)
 
 	// 3. Service 初始化

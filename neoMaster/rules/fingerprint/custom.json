@@ -1,0 +1,982 @@
+{
+  "name": "CMS Sample",
+  "version": "2.0.0",
+  "author": "sunhaobo 20230222",
+  "samples": [
+    {
+      "id": 1,
+      "name": "WordPress",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "Just another WordPress site",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 2,
+      "name": "WordPress",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Just another WordPress site",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 3,
+      "name": "WordPress",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "Powered by WordPress",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 4,
+      "name": "WordPress",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "'wp-content'&&'wp-includes'",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 5,
+      "name": "WordPress",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "自豪地采用WordPress",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 10,
+      "name": "JeeCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered by JEECMS",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 11,
+      "name": "JeeCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Powered by JEECMS",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 12,
+      "name": "JeeCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "JEECMS",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 20,
+      "name": "DedeCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "powered by dedecms",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 21,
+      "name": "DedeCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "'Powered by' && 'DedeCMS'",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 22,
+      "name": "DedeCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "style/dede.css",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 30,
+      "name": "Discuz",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Powered by Discuz",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 31,
+      "name": "Discuz",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered by && Discuz",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 32,
+      "name": "PHPWeb",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered by && phpweb.net",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 40,
+      "name": "PHPWind",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Powered by phpwind",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 41,
+      "name": "PHPWind",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered by && phpwind",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 42,
+      "name": "PHPWind",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered by && phpwind",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 50,
+      "name": "PHPCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Powered by PHPCMS",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 51,
+      "name": "PHPCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered by && PHPCMS",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 51,
+      "name": "PHPCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "PHPCMS",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 61,
+      "name": "ECShop",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Powered by ECShop",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 71,
+      "name": "Dvbbs",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered by && Dvbbs",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 81,
+      "name": "siteweaver",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "PowerEasy SiteAzure",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 91,
+      "name": "siteweaver",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "PowerEasy SiteAzure",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 100,
+      "name": "ThinkPHP",
+      "rule": {
+        "status_code": "",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": "ThinkPHP"
+      }
+    },
+    {
+      "id": 101,
+      "name": "ThinkPHP",
+      "rule": {
+        "status_code": "",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": "Powered by ThinkPHP"
+      }
+    },
+    {
+      "id": 103,
+      "name": "ThinkPHP",
+      "rule": {
+        "status_code": "",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": ":)|| ThinkPHP",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 110,
+      "name": "SpringBoot",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Hello Spring Boot",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 111,
+      "name": "SpringBoot",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Spring Boot Admin",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 112,
+      "name": "SpringBoot",
+      "rule": {
+        "status_code": "404",
+        "url": "",
+        "title": "",
+        "subtitle": "Whitelabel Error Page",
+        "footer": "",
+        "header": "",
+        "response": "type=Not Found, status=404",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 120,
+      "name": "z-blog",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "content=\"Z-Blog",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 121,
+      "name": "z-blog",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "zb_system && zb_users",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 122,
+      "name": "z-blog",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered By && Z-Blog",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 130,
+      "name": "Joomla",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered By Joomla",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 131,
+      "name": "Joomla",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "joomla",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 132,
+      "name": "joomla",
+      "rule": {
+        "status_code": "200",
+        "url": "'joomla'||'/installation/template/js/installation.js'||'/media/com_finder/js/indexer.js'||'joomla.xml'||'com_joomlaupdate'",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 133,
+      "name": "joomla",
+      "rule": {
+        "status_code": "200",
+        "url": "'media/editors/tinymce/templates/template_list.js'||'CONTRIBUTING.md'||'/installation/language/en-'",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 140,
+      "name": "Drupal",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "Powered&&By&&Drupal",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 141,
+      "name": "Drupal",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "drupal && is powered by",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 150,
+      "name": "GateOne",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Gate One",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 151,
+      "name": "GateOne",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "/static/gateone.css",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 152,
+      "name": "GateOne",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "GateOne",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 160,
+      "name": "Apache Flink",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Apache Flink Web Dashboard",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 171,
+      "name": "Okay CMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "generator&&okaycms",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 180,
+      "name": "EmpireCMS",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Powered by EmpireCMS",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 190,
+      "name": "ShopEX",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "generator&&shopex",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 10000,
+      "name": "管理后台或登录窗口",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Login||Admin||管理||后台||登录",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 10001,
+      "name": "管理后台或登录窗口",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "Login||Admin||管理||后台||登录",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 10001,
+      "name": "管理后台或登录窗口",
+      "rule": {
+        "status_code": "200",
+        "url": "admin||management||login||administrator",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 200,
+      "name": "cacti监控系统",
+      "rule": {
+        "status_code": "200",
+        "url": "/cacti",
+        "title": "登录到Cacti",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 205,
+      "name": "x_via_ssl",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "X-Via-SSL",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 210,
+      "name": "myucms",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "MyuCMS社区||商城开源内容管理系统",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 215,
+      "name": "kafka",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Kafka Manager||kafka",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 220,
+      "name": "fhem",
+      "rule": {
+        "status_code": "200",
+        "url": "fhemicon",
+        "title": "Home, Sweet Home",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 225,
+      "name": "casbin",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Casdoor",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 230,
+      "name": "mrtg",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "MRTG Index Page",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 235,
+      "name": "centreon",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "/centreon",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 240,
+      "name": "thinkadmin",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "ThinkAdmin",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 245,
+      "name": "用友nc_cloud",
+      "rule": {
+        "status_code": "200",
+        "url": "/nccloud/resources",
+        "title": "",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 250,
+      "name": "sugarcrm",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "SugarCRM",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 255,
+      "name": "zipkin",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "/zipkin",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 260,
+      "name": "redmine",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "redmine",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 265,
+      "name": "phpmemcachedadmin",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "phpMemcachedAdmin",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 270,
+      "name": "geneko",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "Geneko GWR Router",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    },
+    {
+      "id": 275,
+      "name": "venustech 天玥运维安全网关",
+      "rule": {
+        "status_code": "200",
+        "url": "",
+        "title": "天玥运维安全网关",
+        "subtitle": "",
+        "footer": "",
+        "header": "",
+        "response": "",
+        "server": "",
+        "x_powered_by": ""
+      }
+    }
+  ]
+}

@@ -4,10 +4,12 @@ package etl
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/service/fingerprint"
 	"neomaster/internal/service/orchestrator/ingestor"
 )
 
@@ -23,6 +25,7 @@ type ResultProcessor interface {
 type resultProcessor struct {
 	queue     ingestor.ResultQueue // 结果队列
 	merger    AssetMerger          // 资产合并器
+	fpService fingerprint.Service  // 指纹识别服务
 	wg        sync.WaitGroup       // 等待组
 	ctx       context.Context      // 上下文
 	cancel    context.CancelFunc   // 取消函数
@@ -30,13 +33,14 @@ type resultProcessor struct {
 }
 
 // NewResultProcessor 创建结果处理器
-func NewResultProcessor(queue ingestor.ResultQueue, merger AssetMerger, workerNum int) ResultProcessor {
+func NewResultProcessor(queue ingestor.ResultQueue, merger AssetMerger, fpService fingerprint.Service, workerNum int) ResultProcessor {
 	if workerNum <= 0 {
 		workerNum = 5 // 默认 5 个 Worker
 	}
 	return &resultProcessor{
 		queue:     queue,
 		merger:    merger,
+		fpService: fpService,
 		workerNum: workerNum,
 	}
 }
@@ -99,6 +103,52 @@ func (p *resultProcessor) worker(id int) {
 				})
 				// TODO: 记录到死信队列或错误日志表
 				continue
+			}
+
+			// 2.5 调用指纹识别 (如果存在 Service 信息)
+			if p.fpService != nil && len(bundle.Services) > 0 {
+				for _, svc := range bundle.Services {
+					// 构造指纹输入
+					// TODO: 暂时只有 Banner，后续应补充 Headers/Body 等信息（如果 Mapper 支持）
+					// 需要 Mapper 将原始响应数据传递到 AssetService 的某个临时字段或 Context 中
+					// 这里假设 svc.Name 可能包含 Banner 信息，或者我们直接使用 svc 里的字段
+
+					// 简单的 heuristic: 如果没有 CPE，尝试识别
+					if svc.CPE == "" {
+						input := &fingerprint.Input{
+							Target:   bundle.Host.IP, // 假设 Host 总是存在
+							Port:     svc.Port,
+							Protocol: svc.Proto,
+							Banner:   svc.Version, // 假设 Version 字段暂时存放 Banner (取决于 Mapper 实现)
+						}
+						// 如果 version 为空，使用 name
+						if input.Banner == "" {
+							input.Banner = svc.Name
+						}
+
+						fpResult, err := p.fpService.Identify(p.ctx, input)
+						if err == nil && fpResult != nil && fpResult.Best != nil {
+							svc.CPE = fpResult.Best.CPE
+							svc.Version = fpResult.Best.Version
+
+							// 更新指纹 JSON 信息 (Product, Vendor, Type)
+							fpMap := make(map[string]interface{})
+							if svc.Fingerprint != "" && svc.Fingerprint != "{}" {
+								_ = json.Unmarshal([]byte(svc.Fingerprint), &fpMap)
+							}
+							fpMap["product"] = fpResult.Best.Product
+							fpMap["vendor"] = fpResult.Best.Vendor
+							fpMap["type"] = fpResult.Best.Type
+							fpJSON, _ := json.Marshal(fpMap)
+							svc.Fingerprint = string(fpJSON)
+
+							logger.LogInfo("Fingerprint identified", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
+								"port": svc.Port,
+								"cpe":  svc.CPE,
+							})
+						}
+					}
+				}
 			}
 
 			// 3. 调用 Merger 进行入库

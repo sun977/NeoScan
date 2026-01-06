@@ -4,21 +4,27 @@ package etl
 
 import (
 	"context"
+
+	"neomaster/internal/service/fingerprint"
 )
 
+// MatchContext 指纹匹配上下文
+// Deprecated: Use fingerprint.Input instead
+type MatchContext = fingerprint.Input
+
 // FingerprintMatcher 指纹识别接口
+// Deprecated: Use fingerprint.Service instead
 type FingerprintMatcher interface {
-	// Match 将原始 Banner/Service 字符串映射为标准指纹
-	// input: 如 "nginx/1.18.0 (Ubuntu)"
-	// output: Product="nginx", Version="1.18.0", Vendor="F5", CPE="..."
-	Match(ctx context.Context, input string) (*Fingerprint, error)
+	Match(ctx context.Context, input MatchContext) (*Fingerprint, error)
+	LoadRules(path string, ruleType string) error
 }
 
 // Fingerprint 标准指纹结构
+// Deprecated: Use fingerprint.Match instead
 type Fingerprint struct {
 	Product string
 	Version string
 	Vendor  string
 	CPE     string
-	Type    string // os, app, hardware
+	Type    string
 }

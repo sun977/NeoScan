@@ -13,11 +13,13 @@ import (
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	assetRepo "neomaster/internal/repo/mysql/asset"
+	"neomaster/internal/service/asset/etl"
 	"neomaster/internal/service/orchestrator/core/scheduler"
-	"neomaster/internal/service/orchestrator/core/task_dispatcher" // 引入ingestor
-	"neomaster/internal/service/orchestrator/ingestor"
+	"neomaster/internal/service/orchestrator/core/task_dispatcher"
+	"neomaster/internal/service/orchestrator/ingestor"    // 引入ingestor
 	"neomaster/internal/service/orchestrator/local_agent" // 本地Agent，用于master模块执行系统任务
 
+	// 引入ETL
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	orchestratorRepo "neomaster/internal/repo/mysql/orchestrator"
 	orchestratorService "neomaster/internal/service/orchestrator"
@@ -78,6 +80,11 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	evidenceArchiver := ingestor.NewFileArchiver(archivePath)
 	resultIngestor := ingestor.NewResultIngestor(resultQueue, resultValidator, evidenceArchiver)
 
+	// ETL Components 初始化
+	// 启动 5 个 Worker 消费结果队列
+	etlProcessor := etl.NewResultProcessor(resultQueue, 5)
+	// TODO: 在应用启动时调用 etlProcessor.Start(ctx)
+
 	// 3. Service 初始化
 	projectService := orchestratorService.NewProjectService(projectRepo, tagService)
 	workflowService := orchestratorService.NewWorkflowService(workflowRepo, tagService)
@@ -117,5 +124,6 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 		SchedulerService: schedulerService,
 		LocalAgent:       localAgent,
 		ResultIngestor:   resultIngestor,
+		ETLProcessor:     etlProcessor,
 	}
 }

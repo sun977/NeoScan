@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"neomaster/internal/service/asset/etl"
 	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/local_agent"
 
@@ -37,6 +38,7 @@ type App struct {
 	config     *config.Config
 	scheduler  scheduler.SchedulerService
 	localAgent *local_agent.LocalAgent
+	etl        etl.ResultProcessor
 }
 
 // NewApp 创建新的应用程序实例
@@ -156,6 +158,7 @@ func NewApp() (*App, error) {
 	// 避免重复初始化和多实例问题
 	schedulerService := router.GetSchedulerService()
 	localAgent := router.GetLocalAgent()
+	etlProcessor := router.GetETLProcessor()
 
 	return &App{
 		router:     router,
@@ -164,6 +167,7 @@ func NewApp() (*App, error) {
 		config:     cfg,
 		scheduler:  schedulerService,
 		localAgent: localAgent,
+		etl:        etlProcessor,
 	}, nil
 }
 
@@ -177,7 +181,7 @@ func (a *App) GetConfig() *config.Config {
 	return a.config
 }
 
-// StartScheduler 启动调度引擎
+// StartScheduler 启动调度引擎及后台服务
 func (a *App) StartScheduler(ctx context.Context) {
 	if a.scheduler != nil {
 		a.scheduler.Start(ctx)
@@ -185,15 +189,21 @@ func (a *App) StartScheduler(ctx context.Context) {
 	if a.localAgent != nil {
 		a.localAgent.Start()
 	}
+	if a.etl != nil {
+		a.etl.Start(ctx)
+	}
 }
 
-// StopScheduler 停止调度引擎
+// StopScheduler 停止调度引擎及后台服务
 func (a *App) StopScheduler() {
 	if a.scheduler != nil {
 		a.scheduler.Stop()
 	}
 	if a.localAgent != nil {
 		a.localAgent.Stop()
+	}
+	if a.etl != nil {
+		a.etl.Stop()
 	}
 }
 

@@ -9,6 +9,7 @@ package router
 
 import (
 	setup "neomaster/internal/app/master/setup"
+	"neomaster/internal/service/asset/etl"
 	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/local_agent"
 
@@ -68,6 +69,8 @@ type Router struct {
 	schedulerService scheduler.SchedulerService
 	// 本地Agent (原系统任务执行器)
 	localAgent *local_agent.LocalAgent
+	// ETL 处理器
+	etlProcessor etl.ResultProcessor
 }
 
 // NewRouter 创建路由管理器实例
@@ -184,6 +187,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		schedulerService: orchestratorModule.SchedulerService,
 		// 本地Agent
 		localAgent: orchestratorModule.LocalAgent,
+		// ETL 处理器
+		etlProcessor: orchestratorModule.ETLProcessor,
 	}
 }
 
@@ -212,6 +217,11 @@ func (r *Router) GetSchedulerService() scheduler.SchedulerService {
 // GetLocalAgent 获取本地Agent实例
 func (r *Router) GetLocalAgent() *local_agent.LocalAgent {
 	return r.localAgent
+}
+
+// GetETLProcessor 获取ETL处理器实例
+func (r *Router) GetETLProcessor() etl.ResultProcessor {
+	return r.etlProcessor
 }
 
 // registerGlobalMiddleware 注册全局中间件（对齐 neoAgent 的风格）

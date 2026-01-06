@@ -230,12 +230,18 @@ type AppConfig struct {
 type MasterConfig struct {
 	Task    TaskConfig    `yaml:"task" mapstructure:"task"`       // 任务配置
 	Queue   QueueConfig   `yaml:"queue" mapstructure:"queue"`     // 队列配置
+	ETL     ETLConfig     `yaml:"etl" mapstructure:"etl"`         // ETL配置
 	Archive ArchiveConfig `yaml:"archive" mapstructure:"archive"` // 归档配置
 }
 
 // QueueConfig 队列配置
 type QueueConfig struct {
 	Capacity int `yaml:"capacity" mapstructure:"capacity"` // 队列容量
+}
+
+// ETLConfig ETL配置
+type ETLConfig struct {
+	WorkerNum int `yaml:"worker_num" mapstructure:"worker_num"` // ETL处理协程数
 }
 
 // ArchiveConfig 归档配置

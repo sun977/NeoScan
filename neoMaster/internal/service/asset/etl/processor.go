@@ -21,21 +21,22 @@ type ResultProcessor interface {
 
 // resultProcessor 默认实现
 type resultProcessor struct {
-	queue ingestor.ResultQueue
-	// merger  Merger // 依赖 Merger 组件 (后续注入)
-	wg        sync.WaitGroup
-	ctx       context.Context
-	cancel    context.CancelFunc
-	workerNum int
+	queue     ingestor.ResultQueue // 结果队列
+	merger    AssetMerger          // 资产合并器
+	wg        sync.WaitGroup       // 等待组
+	ctx       context.Context      // 上下文
+	cancel    context.CancelFunc   // 取消函数
+	workerNum int                  // Worker 数量
 }
 
 // NewResultProcessor 创建结果处理器
-func NewResultProcessor(queue ingestor.ResultQueue, workerNum int) ResultProcessor {
+func NewResultProcessor(queue ingestor.ResultQueue, merger AssetMerger, workerNum int) ResultProcessor {
 	if workerNum <= 0 {
 		workerNum = 5 // 默认 5 个 Worker
 	}
 	return &resultProcessor{
 		queue:     queue,
+		merger:    merger,
 		workerNum: workerNum,
 	}
 }
@@ -100,9 +101,13 @@ func (p *resultProcessor) worker(id int) {
 				continue
 			}
 
-			// 3. 调用 Merger 进行入库 (占位)
-			// if err := p.merger.Merge(p.ctx, bundle); err != nil { ... }
-			_ = bundle // 避免未使用变量报错
+			// 3. 调用 Merger 进行入库
+			if err := p.merger.Merge(p.ctx, bundle); err != nil {
+				logger.LogError(err, "Failed to merge asset bundle", 0, "", "etl.processor.worker", "", map[string]interface{}{
+					"task_id": result.TaskID,
+				})
+				// TODO: 错误处理策略 (重试/丢弃)
+			}
 			logger.LogInfo("Processed result successfully", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
 				"task_id":     result.TaskID,
 				"result_type": result.ResultType,

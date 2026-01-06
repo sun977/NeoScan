@@ -21,9 +21,9 @@ type ResultIngestor interface {
 }
 
 type resultIngestor struct {
-	queue     ResultQueue
-	validator ResultValidator
-	archiver  EvidenceArchiver
+	queue     ResultQueue      // 结果队列，解耦Agent提交与Master处理
+	validator ResultValidator  // 结果校验器
+	archiver  EvidenceArchiver // 证据归档器
 }
 
 // NewResultIngestor 创建结果摄入服务
@@ -38,7 +38,7 @@ func NewResultIngestor(queue ResultQueue, validator ResultValidator, archiver Ev
 // SubmitResult 提交扫描结果
 func (s *resultIngestor) SubmitResult(ctx context.Context, result *orcModel.StageResult) error {
 	loggerFields := map[string]interface{}{
-		"task_id":  result.TaskID, // 假设 StageResult 有 TaskID 字段，如果没有需要确认模型
+		"task_id":  result.TaskID, // StageResult 有 TaskID 字段
 		"agent_id": result.AgentID,
 	}
 

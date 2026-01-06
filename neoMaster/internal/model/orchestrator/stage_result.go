@@ -15,6 +15,7 @@ type StageResult struct {
 	ProjectID        uint64    `json:"project_id" gorm:"index;not null;comment:所属项目ID"` // 所属项目ID 为了性能和管理选择让 项目ID 冗余, 方便查询
 	WorkflowID       uint64    `json:"workflow_id" gorm:"index;not null;comment:所属工作流ID"`
 	StageID          uint64    `json:"stage_id" gorm:"index;not null;comment:阶段ID"`
+	TaskID           string    `json:"task_id" gorm:"index;size:64;not null;comment:关联的任务ID"` // 新增: 关联具体的 AgentTask
 	AgentID          string    `json:"agent_id" gorm:"index;size:100;comment:执行扫描的AgentID"`
 	ResultType       string    `json:"result_type" gorm:"size:50;comment:结果类型枚举(ipAlive/serviceScan/PocScan等)"`
 	TargetType       string    `json:"target_type" gorm:"size:50;comment:目标类型(ip/domain/url)"`

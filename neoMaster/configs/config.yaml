@@ -24,6 +24,10 @@ app:
     queue:
       capacity: 1000        # 内存队列容量，用于削峰填谷
 
+    # ETL配置
+    etl:
+      worker_num: 5         # ETL处理协程数，建议根据CPU核心数调整
+
     # 归档配置
     archive:
       type: "file"             # 归档存储类型: file (本地文件), s3 (对象存储)

@@ -81,8 +81,12 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	resultIngestor := ingestor.NewResultIngestor(resultQueue, resultValidator, evidenceArchiver)
 
 	// ETL Components 初始化
-	// 启动 5 个 Worker 消费结果队列
-	etlProcessor := etl.NewResultProcessor(resultQueue, 5)
+	// 启动 Worker 消费结果队列
+	etlWorkerNum := cfg.App.Master.ETL.WorkerNum
+	if etlWorkerNum <= 0 {
+		etlWorkerNum = 5 // 默认值
+	}
+	etlProcessor := etl.NewResultProcessor(resultQueue, etlWorkerNum)
 	// TODO: 在应用启动时调用 etlProcessor.Start(ctx)
 
 	// 3. Service 初始化

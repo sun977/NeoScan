@@ -132,3 +132,24 @@ fingerprint:
 
 系统启动时会自动初始化 `FingerprintService` 并加载该目录下的所有规则。
 同时，系统也会连接数据库，自动加载 `asset_finger` 和 `asset_cpe` 表中的规则。
+
+## 6. Master-Agent 指纹同步机制 (设计中)
+
+为了减轻 Master 的 ETL 压力并提高 Agent 端识别的实时性，计划实现 Agent 主动拉取 Master 指纹库的机制。
+
+### 6.1 核心策略
+*   **Single Source of Truth**: Master 端的 `asset_cpe` 和 `asset_finger` 表（及其版本号）是唯一可信源。
+*   **Pull + Push**: Agent 定时检查版本并拉取更新，Master 提供 API 接口。
+
+### 6.2 流程设计
+1.  **Master 端**:
+    *   维护全局指纹库版本号 (Fingerprint Version)。
+    *   提供 API: `GET /api/v1/agent/fingerprint/version` (查版本)。
+    *   提供 API: `GET /api/v1/agent/fingerprint/rules` (下发规则 JSON)。
+2.  **Agent 端**:
+    *   启动或定时任务 (Cron) 检查 Master 版本。
+    *   若版本落后，下载全量/增量规则并落盘至 `data/rules/`。
+    *   **热重载**: 扫描引擎 (Service/Web) 重新加载本地规则文件。
+3.  **引擎复用**:
+    *   Agent 代码复用 Master 的 `internal/service/fingerprint` 核心逻辑 (需抽离为公共包 `pkg/fingerprint`)。
+    *   实现端云同构，保证识别逻辑的一致性。

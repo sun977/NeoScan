@@ -138,6 +138,7 @@ CREATE TABLE `stage_results` (
   `project_id` bigint unsigned NOT NULL COMMENT '所属项目ID',
   `workflow_id` bigint unsigned NOT NULL COMMENT '所属工作流ID',
   `stage_id` bigint unsigned NOT NULL COMMENT '阶段ID',
+  `task_id` varchar(64) NOT NULL COMMENT '关联的任务ID',
   `agent_id` varchar(100) NOT NULL COMMENT '执行扫描的AgentID',
   `result_type` varchar(50) DEFAULT NULL COMMENT '结果类型枚举',
   `target_type` varchar(50) DEFAULT NULL COMMENT '目标类型',

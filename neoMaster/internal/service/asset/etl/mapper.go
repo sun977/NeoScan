@@ -101,8 +101,38 @@ func mapPortScan(result *orcModel.StageResult) (*AssetBundle, error) {
 
 // mapServiceFingerprint 映射服务指纹识别结果
 func mapServiceFingerprint(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	return nil, nil
+	var attr ServiceFingerprintAttributes
+	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	}
+
+	host := &assetModel.AssetHost{
+		IP:             result.TargetValue,
+		Tags:           "{}",
+		SourceStageIDs: "[]",
+	}
+
+	var services []*assetModel.AssetService
+	for _, s := range attr.Services {
+		svc := &assetModel.AssetService{
+			Port:        s.Port,
+			Proto:       s.Proto,
+			Name:        s.Name,
+			Version:     s.Version,
+			CPE:         s.CPE,
+			Fingerprint: "{}",
+			Tags:        "{}",
+		}
+
+		// 如果没有 CPE 但有详细版本信息，尝试补充 (可选，依赖 Matcher)
+		// 这里简单处理，直接使用 Agent 提供的数据
+		services = append(services, svc)
+	}
+
+	return &AssetBundle{
+		Host:     host,
+		Services: services,
+	}, nil
 }
 
 // mapVulnFinding 映射漏洞发现结果

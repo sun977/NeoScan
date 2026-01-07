@@ -12,13 +12,17 @@ import (
 func TestMapWebEndpoint(t *testing.T) {
 	// 1. Test with full attributes including IP
 	jsonAttr := `{
-		"url": "http://example.com/login",
-		"ip": "1.2.3.4",
-		"title": "Login Page",
-		"status_code": 200,
-		"tech_stack": ["Nginx", "React"],
-		"headers": {"Server": "Nginx"},
-		"screenshot": "base64-mock"
+		"endpoints": [
+			{
+				"url": "http://example.com/login",
+				"ip": "1.2.3.4",
+				"title": "Login Page",
+				"status_code": 200,
+				"tech_stack": ["Nginx", "React"],
+				"headers": {"Server": "Nginx"},
+				"screenshot": "base64-mock"
+			}
+		]
 	}`
 
 	result := &orcModel.StageResult{
@@ -68,8 +72,12 @@ func TestMapWebEndpoint(t *testing.T) {
 func TestMapWebEndpoint_InferIP(t *testing.T) {
 	// 2. Test without explicit IP in attributes, infer from TargetValue
 	jsonAttr := `{
-		"url": "http://192.168.1.100:8080/",
-		"title": "Admin"
+		"endpoints": [
+			{
+				"url": "http://192.168.1.100:8080/",
+				"title": "Admin"
+			}
+		]
 	}`
 
 	result := &orcModel.StageResult{
@@ -88,7 +96,11 @@ func TestMapWebEndpoint_InferIP(t *testing.T) {
 func TestMapWebEndpoint_InferIP_FromURLTarget(t *testing.T) {
 	// 3. Test when TargetValue is URL
 	jsonAttr := `{
-		"url": "http://test.com"
+		"endpoints": [
+			{
+				"url": "http://test.com"
+			}
+		]
 	}`
 
 	result := &orcModel.StageResult{

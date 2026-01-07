@@ -42,10 +42,14 @@ type ServiceFingerprintAttributes struct {
 // WebEndpointAttributes Web端点属性
 type WebEndpointAttributes struct {
 	Endpoints []struct {
-		URL       string `json:"url"`
-		Status    int    `json:"status"`
-		Tech      string `json:"tech"`      // e.g. Node.js
-		Framework string `json:"framework"` // e.g. Express
+		URL        string            `json:"url"`
+		IP         string            `json:"ip"`
+		Title      string            `json:"title"`
+		Headers    map[string]string `json:"headers"`
+		Screenshot string            `json:"screenshot"`
+		TechStack  []string          `json:"tech_stack"`
+		StatusCode int               `json:"status_code"`
+		Favicon    string            `json:"favicon"`
 	} `json:"endpoints"`
 }
 

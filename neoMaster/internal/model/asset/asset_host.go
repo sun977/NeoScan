@@ -32,8 +32,10 @@ type AssetService struct {
 	Port        int        `json:"port" gorm:"not null;comment:端口号"`
 	Proto       string     `json:"proto" gorm:"size:10;default:'tcp';comment:协议(tcp/udp)"`
 	Name        string     `json:"name" gorm:"size:100;comment:服务名称"`
+	Product     string     `json:"product" gorm:"size:100;comment:产品名称"` // 新增
 	Version     string     `json:"version" gorm:"size:100;comment:服务版本"`
 	CPE         string     `json:"cpe" gorm:"size:255;comment:CPE标识"`
+	Banner      string     `json:"banner" gorm:"size:2048;comment:服务横幅信息"` // 新增
 	Fingerprint string     `json:"fingerprint" gorm:"type:json;comment:指纹信息(JSON)"`
 	AssetType   string     `json:"asset_type" gorm:"size:50;default:'service';comment:资产类型(service/database/container)"`
 	Tags        string     `json:"tags" gorm:"type:json;comment:标签(JSON)"`

@@ -4,8 +4,6 @@ package etl
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -106,106 +104,13 @@ func (p *resultProcessor) worker(id int) {
 				continue
 			}
 
-			// 2.5 调用指纹识别
+			// 2.5 调用指纹识别 (Matcher)
 			if p.fpService != nil {
-				// A. 服务指纹识别 (Service Fingerprint)
-				// 策略: 优先使用 Agent 返回的 CPE；仅当 Agent 未识别出 CPE 时，Master 尝试基于 Banner 进行补充识别
-				if len(bundle.Services) > 0 {
-					for _, svc := range bundle.Services {
-						// 简单的 heuristic: 如果没有 CPE，尝试识别
-						if svc.CPE == "" {
-							input := &fingerprint.Input{
-								Target:   bundle.Host.IP, // 假设 Host 总是存在
-								Port:     svc.Port,
-								Protocol: svc.Proto,
-								Banner:   svc.Version, // 假设 Version 字段暂时存放 Banner (取决于 Mapper 实现)
-							}
-							// 如果 version 为空，使用 name
-							if input.Banner == "" {
-								input.Banner = svc.Name
-							}
-
-							fpResult, err := p.fpService.Identify(p.ctx, input)
-							if err == nil && fpResult != nil && fpResult.Best != nil {
-								svc.CPE = fpResult.Best.CPE
-								svc.Version = fpResult.Best.Version
-
-								// 更新指纹 JSON 信息 (Product, Vendor, Type)
-								fpMap := make(map[string]interface{})
-								if svc.Fingerprint != "" && svc.Fingerprint != "{}" {
-									_ = json.Unmarshal([]byte(svc.Fingerprint), &fpMap)
-								}
-								fpMap["product"] = fpResult.Best.Product
-								fpMap["vendor"] = fpResult.Best.Vendor
-								fpMap["type"] = fpResult.Best.Type
-								fpJSON, _ := json.Marshal(fpMap)
-								svc.Fingerprint = string(fpJSON)
-
-								logger.LogInfo("Service Fingerprint identified (Master)", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
-									"port": svc.Port,
-									"cpe":  svc.CPE,
-								})
-							}
-						}
-					}
-				}
-
-				// B. Web 指纹识别 (Web Fingerprint)
-				// 策略: Master 端拥有更丰富的 CMS 规则库，尝试对 Web 资产进行深度识别并合并结果
-				if len(bundle.Webs) > 0 {
-					for _, web := range bundle.Webs {
-						// 构造 Web 输入 (需要从 BasicInfo 或 WebDetails 中提取)
-						// 注意: 这里假设 BasicInfo 包含 Headers 等信息
-						input := &fingerprint.Input{
-							Target: web.URL,
-							// Body, Headers 需要从 web 对象中解析
-						}
-
-						// 尝试解析 BasicInfo
-						if web.BasicInfo != "" {
-							var info map[string]interface{}
-							if err := json.Unmarshal([]byte(web.BasicInfo), &info); err == nil {
-								if headers, ok := info["headers"].(map[string]interface{}); ok {
-									input.Headers = make(map[string]string)
-									for k, v := range headers {
-										input.Headers[k] = fmt.Sprintf("%v", v)
-									}
-								}
-								if body, ok := info["body"].(string); ok {
-									input.Body = body
-								}
-							}
-						}
-
-						// 只有当有足够信息时才识别
-						if len(input.Headers) > 0 || input.Body != "" {
-							fpResult, err := p.fpService.Identify(p.ctx, input)
-							if err == nil && fpResult != nil && len(fpResult.Matches) > 0 {
-								// 合并 TechStack
-								currentStack := make(map[string]interface{})
-								if web.TechStack != "" {
-									_ = json.Unmarshal([]byte(web.TechStack), &currentStack)
-								}
-
-								for _, match := range fpResult.Matches {
-									// 将识别到的组件添加到 TechStack
-									currentStack[match.Product] = map[string]interface{}{
-										"version": match.Version,
-										"type":    match.Type,
-										"source":  "master_fingerprint",
-									}
-								}
-
-								newStack, _ := json.Marshal(currentStack)
-								web.TechStack = string(newStack)
-
-								logger.LogInfo("Web Fingerprint identified (Master)", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
-									"url":   web.URL,
-									"count": len(fpResult.Matches),
-								})
-							}
-						}
-					}
+				if err := enrichWithFingerprint(p.ctx, bundle, p.fpService); err != nil {
+					logger.LogError(err, "Failed to enrich fingerprint", 0, "", "etl.processor.worker", "", map[string]interface{}{
+						"task_id": result.TaskID,
+					})
+					// 继续执行，指纹识别失败不应阻塞入库
 				}
 			}
 

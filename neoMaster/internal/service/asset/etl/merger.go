@@ -106,15 +106,16 @@ func (m *assetMerger) syncToUnified(ctx context.Context, bundle *AssetBundle) er
 	// 1. 处理 Services -> Unified
 	for _, svc := range bundle.Services {
 		unified := &assetModel.AssetUnified{
-			ProjectID: bundle.ProjectID,
-			IP:        bundle.Host.IP,
-			Port:      svc.Port,
-			HostName:  bundle.Host.Hostname,
-			OS:        bundle.Host.OS,
-			Protocol:  svc.Proto,
-			Service:   svc.Name,
-			Version:   svc.Version,
-			SyncTime:  &now,
+			ProjectID:   bundle.ProjectID,
+			IP:          bundle.Host.IP,
+			Port:        svc.Port,
+			HostName:    bundle.Host.Hostname,
+			OS:          bundle.Host.OS,
+			Protocol:    svc.Proto,
+			Service:     svc.Name,
+			Version:     svc.Version,
+			Fingerprint: svc.Fingerprint, // 同步指纹信息
+			SyncTime:    &now,
 		}
 
 		// 解析 CPE 获取 Product

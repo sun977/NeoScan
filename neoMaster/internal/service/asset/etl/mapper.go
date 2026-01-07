@@ -151,8 +151,68 @@ func mapServiceFingerprint(result *orcModel.StageResult) (*AssetBundle, error) {
 
 // mapVulnFinding 映射漏洞发现结果
 func mapVulnFinding(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	return nil, nil
+	var attr VulnFindingAttributes
+	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	}
+
+	var vulns []*assetModel.AssetVuln
+
+	for _, finding := range attr.Findings {
+		// 1. 构造标准化 Attributes 用于存储
+		stdAttr := map[string]interface{}{
+			"name":        finding.Name,
+			"type":        finding.Type,
+			"description": finding.Description,
+			"solution":    finding.Solution,
+			"reference":   finding.Reference,
+			"port":        finding.Port,
+			"url":         finding.URL,
+			"ip":          result.TargetValue, // 假设 TargetValue 是 IP
+		}
+		stdAttrJSON, _ := json.Marshal(stdAttr)
+
+		// 2. 构造 AssetVuln
+		cve := finding.CVE
+		if cve == "" {
+			cve = extractCVE(finding.ID)
+		}
+
+		vuln := &assetModel.AssetVuln{
+			TargetType: finding.TargetType,
+			// TargetRefID: 0, // 留给 Merger 填充
+			CVE:        cve,
+			IDAlias:    finding.ID,
+			Severity:   finding.Severity,
+			Confidence: finding.Confidence,
+			Evidence:   fmt.Sprintf(`{"raw": "%s"}`, finding.Evidence),
+			Attributes: string(stdAttrJSON),
+			Status:     "open",
+		}
+		vulns = append(vulns, vuln)
+	}
+
+	// 3. 构造 Host (总是需要的，用于定位)
+	host := &assetModel.AssetHost{
+		IP:             result.TargetValue,
+		Tags:           "{}",
+		SourceStageIDs: "[]",
+	}
+
+	return &AssetBundle{
+		Host:  host,
+		Vulns: vulns,
+	}, nil
+}
+
+// extractCVE 从 ID 字符串中提取 CVE 编号
+func extractCVE(id string) string {
+	id = strings.ToUpper(id)
+	if strings.HasPrefix(id, "CVE-") {
+		return id
+	}
+	// 简单的正则提取可以后续补充
+	return ""
 }
 
 // mapPocScan 映射PoC验证结果

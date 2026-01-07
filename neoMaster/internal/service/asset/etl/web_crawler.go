@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"neomaster/internal/config"
 	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
 )
@@ -49,8 +50,12 @@ type webCrawlerDataHandler struct {
 
 // NewWebCrawlerDataHandler 创建 Web 爬虫数据处理器
 func NewWebCrawlerDataHandler() WebCrawlerDataHandler {
-	// 默认存储路径，后续可从 Config 注入
+	// 优先使用配置中的路径，如果未配置则使用默认值
 	storageDir := "./data/web_evidence"
+	if cfgPath := config.GetConfig().App.Master.WebCrawler.StoragePath; cfgPath != "" {
+		storageDir = cfgPath
+	}
+
 	if err := os.MkdirAll(storageDir, 0755); err != nil {
 		logger.LogBusinessError(err, "", 0, "", "etl.NewWebCrawlerDataHandler", "INIT", nil)
 	}

@@ -234,10 +234,11 @@ type AppConfig struct {
 
 // MasterConfig Master节点配置
 type MasterConfig struct {
-	Task    TaskConfig    `yaml:"task" mapstructure:"task"`       // 任务配置
-	Queue   QueueConfig   `yaml:"queue" mapstructure:"queue"`     // 队列配置
-	ETL     ETLConfig     `yaml:"etl" mapstructure:"etl"`         // ETL配置
-	Archive ArchiveConfig `yaml:"archive" mapstructure:"archive"` // 归档配置
+	Task       TaskConfig       `yaml:"task" mapstructure:"task"`               // 任务配置
+	Queue      QueueConfig      `yaml:"queue" mapstructure:"queue"`             // 队列配置
+	ETL        ETLConfig        `yaml:"etl" mapstructure:"etl"`                 // ETL配置
+	Archive    ArchiveConfig    `yaml:"archive" mapstructure:"archive"`         // 归档配置
+	WebCrawler WebCrawlerConfig `yaml:"web_crawler" mapstructure:"web_crawler"` // 爬虫配置
 }
 
 // QueueConfig 队列配置
@@ -254,6 +255,11 @@ type ETLConfig struct {
 type ArchiveConfig struct {
 	Type string `yaml:"type" mapstructure:"type"` // 归档类型: file, s3
 	Path string `yaml:"path" mapstructure:"path"` // 存储路径
+}
+
+// WebCrawlerConfig 爬虫配置
+type WebCrawlerConfig struct {
+	StoragePath string `yaml:"storage_path" mapstructure:"storage_path"` // 爬虫数据存储路径
 }
 
 // TaskConfig 任务配置

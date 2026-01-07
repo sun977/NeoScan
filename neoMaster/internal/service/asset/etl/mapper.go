@@ -19,6 +19,7 @@ import (
 // 聚合了从 StageResult 中提取出的各类资产实体
 // Processor 拿到此包后，根据字段是否非空调用对应的 Merger 逻辑
 type AssetBundle struct {
+	ProjectID  uint64                       // 所属项目ID (来自 StageResult)
 	Host       *assetModel.AssetHost        // 主机资产 (必选)
 	Services   []*assetModel.AssetService   // 关联的服务列表
 	Webs       []*assetModel.AssetWeb       // 关联的 Web 站点
@@ -29,36 +30,47 @@ type AssetBundle struct {
 // MapToAssetBundle 将通用的 StageResult 映射为标准资产包
 // 根据 ResultType 分发到具体的映射逻辑
 func MapToAssetBundle(result *orcModel.StageResult) (*AssetBundle, error) {
+	var bundle *AssetBundle
+	var err error
+
 	switch result.ResultType {
 	case "ip_alive":
-		return mapIPAlive(result)
+		bundle, err = mapIPAlive(result)
 	case "fast_port_scan", "full_port_scan":
-		return mapPortScan(result)
+		bundle, err = mapPortScan(result)
 	case "service_fingerprint":
-		return mapServiceFingerprint(result)
+		bundle, err = mapServiceFingerprint(result)
 	case "vuln_finding":
-		return mapVulnFinding(result)
+		bundle, err = mapVulnFinding(result)
 	case "poc_scan":
-		return mapPocScan(result)
+		bundle, err = mapPocScan(result)
 	case "web_endpoint":
-		return mapWebEndpoint(result)
+		bundle, err = mapWebEndpoint(result)
 	case "password_audit":
-		return mapPasswordAudit(result)
+		bundle, err = mapPasswordAudit(result)
 	case "proxy_detection":
-		return mapProxyDetection(result)
+		bundle, err = mapProxyDetection(result)
 	case "directory_scan":
-		return mapDirectoryScan(result)
+		bundle, err = mapDirectoryScan(result)
 	case "subdomain_discovery":
-		return mapSubdomainDiscovery(result)
+		bundle, err = mapSubdomainDiscovery(result)
 	case "api_discovery":
-		return mapApiDiscovery(result)
+		bundle, err = mapApiDiscovery(result)
 	case "file_discovery":
-		return mapFileDiscovery(result)
+		bundle, err = mapFileDiscovery(result)
 	case "other_scan":
-		return mapOtherScan(result)
+		bundle, err = mapOtherScan(result)
 	default:
 		return nil, fmt.Errorf("unsupported result type for mapping: %s", result.ResultType)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+	if bundle != nil {
+		bundle.ProjectID = result.ProjectID
+	}
+	return bundle, nil
 }
 
 // mapIPAlive 映射探活结果

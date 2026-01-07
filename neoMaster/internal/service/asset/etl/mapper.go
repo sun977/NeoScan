@@ -10,6 +10,8 @@ package etl
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 
 	assetModel "neomaster/internal/model/asset"
 	orcModel "neomaster/internal/model/orchestrator"
@@ -161,8 +163,93 @@ func mapPocScan(result *orcModel.StageResult) (*AssetBundle, error) {
 
 // mapWebEndpoint 映射 Web 扫描结果
 func mapWebEndpoint(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	return nil, nil
+	var attr struct {
+		URL        string            `json:"url"`
+		IP         string            `json:"ip"`
+		Title      string            `json:"title"`
+		Headers    map[string]string `json:"headers"`
+		Screenshot string            `json:"screenshot"`
+		TechStack  []string          `json:"tech_stack"`
+		StatusCode int               `json:"status_code"`
+		Favicon    string            `json:"favicon"`
+	}
+	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	}
+
+	u, err := url.Parse(attr.URL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid url: %s", attr.URL)
+	}
+
+	// 1. 确定 Host IP
+	hostIP := result.TargetValue
+	if attr.IP != "" {
+		hostIP = attr.IP
+	} else {
+		// 尝试从 TargetValue 解析 IP (如果 TargetValue 是 URL)
+		if uTarget, err := url.Parse(result.TargetValue); err == nil && uTarget.Hostname() != "" {
+			hostIP = uTarget.Hostname()
+		}
+	}
+
+	host := &assetModel.AssetHost{
+		IP:             hostIP,
+		Tags:           "{}",
+		SourceStageIDs: "[]",
+	}
+
+	port := 80
+	if strings.EqualFold(u.Scheme, "https") {
+		port = 443
+	}
+	if u.Port() != "" {
+		fmt.Sscanf(u.Port(), "%d", &port)
+	}
+
+	// 2. 构建 AssetWeb
+	techStackJSON, _ := json.Marshal(attr.TechStack)
+	basicInfo := map[string]interface{}{
+		"title":       attr.Title,
+		"status_code": attr.StatusCode,
+		"favicon":     attr.Favicon,
+		"headers":     attr.Headers,
+		"port":        port,
+		"service":     u.Scheme,
+	}
+	basicInfoJSON, _ := json.Marshal(basicInfo)
+
+	web := &assetModel.AssetWeb{
+		URL:       attr.URL,
+		Domain:    u.Hostname(),
+		TechStack: string(techStackJSON),
+		BasicInfo: string(basicInfoJSON),
+		Tags:      "{}",
+	}
+
+	// 3. 构建 AssetWebDetail (如果包含详细信息)
+	// 注意: 此时没有 AssetWebID，Merger 会处理关联
+	// 如果有截图或完整 Headers，建议创建 Detail
+	var details []*assetModel.AssetWebDetail
+	if attr.Screenshot != "" || len(attr.Headers) > 0 {
+		contentDetails := map[string]interface{}{
+			"url":              attr.URL,
+			"response_headers": attr.Headers,
+		}
+		contentDetailsJSON, _ := json.Marshal(contentDetails)
+
+		detail := &assetModel.AssetWebDetail{
+			ContentDetails: string(contentDetailsJSON),
+			Screenshot:     attr.Screenshot, // 可能是 ID 或 Base64，由 Processor/Handler 进一步处理
+		}
+		details = append(details, detail)
+	}
+
+	return &AssetBundle{
+		Host:       host,
+		Webs:       []*assetModel.AssetWeb{web},
+		WebDetails: details,
+	}, nil
 }
 
 // mapPasswordAudit 映射密码审计结果

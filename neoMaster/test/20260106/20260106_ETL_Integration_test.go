@@ -85,9 +85,10 @@ func TestETLIntegration_PortScan(t *testing.T) {
 		Proto       string `json:"proto"`
 		State       string `json:"state"`
 		ServiceHint string `json:"service_hint"`
+		Banner      string `json:"banner"`
 	}{
-		{Port: 80, Proto: "tcp", State: "open", ServiceHint: "http"},
-		{Port: 22, Proto: "tcp", State: "open", ServiceHint: "ssh"},
+		{Port: 80, Proto: "tcp", State: "open", ServiceHint: "http", Banner: "nginx/1.18"},
+		{Port: 22, Proto: "tcp", State: "open", ServiceHint: "ssh", Banner: "OpenSSH 7.9"},
 	}
 	attributes.Summary.OpenCount = 2
 

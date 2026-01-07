@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 
 	"neomaster/internal/model/asset"
+	"neomaster/internal/pkg/matcher"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/fingerprint"
 	"neomaster/internal/service/fingerprint/converters"
@@ -28,20 +30,26 @@ type CustomRule struct {
 	Rule *asset.AssetFinger `json:"rule"`
 }
 
+// CompiledRule 包含原始规则和编译后的 MatchRule
+type CompiledRule struct {
+	Original asset.AssetFinger // 原始规则
+	Matcher  matcher.MatchRule // 匹配规则
+}
+
 // HTTPEngine 统一 HTTP 指纹识别引擎
 // 负责处理所有基于 HTTP 特征的指纹识别 (CMS, Web Framework, Middleware 等)
 // 数据源支持: 数据库 (asset_finger), 本地文件 (Goby JSON, Custom JSON)
 // 所有规则最终统一转换为 asset.AssetFinger 结构进行匹配
 type HTTPEngine struct {
 	repo  assetRepo.AssetFingerRepository
-	rules []asset.AssetFinger
+	rules []CompiledRule
 	mu    sync.RWMutex
 }
 
 func NewHTTPEngine(repo assetRepo.AssetFingerRepository) *HTTPEngine {
 	return &HTTPEngine{
 		repo:  repo,
-		rules: make([]asset.AssetFinger, 0),
+		rules: make([]CompiledRule, 0),
 	}
 }
 
@@ -56,13 +64,22 @@ func (e *HTTPEngine) Match(input *fingerprint.Input) ([]fingerprint.Match, error
 
 	var matches []fingerprint.Match
 
+	// 准备匹配数据 输入数据转化成匹配器可用的数据结构
+	data := convertInputToMap(input)
+
 	for _, rule := range e.rules {
-		if matchRule(input, &rule) {
+		matched, err := matcher.Match(data, rule.Matcher)
+		if err != nil {
+			// 记录错误但继续匹配其他规则?
+			continue
+		}
+
+		if matched {
 			matches = append(matches, fingerprint.Match{
-				Product:    rule.Name,
-				Vendor:     guessVendor(rule.Name),
+				Product:    rule.Original.Name,
+				Vendor:     guessVendor(rule.Original.Name),
 				Type:       "app", // Web 资产统一视为 app
-				CPE:        generateCPE(rule.Name),
+				CPE:        generateCPE(rule.Original.Name),
 				Confidence: 95, // 统一置信度
 				Source:     "http_engine",
 			})
@@ -86,7 +103,7 @@ func (e *HTTPEngine) LoadRules(path string) error {
 			dbRules, err := e.repo.FindAll(context.Background())
 			if err == nil {
 				for _, r := range dbRules {
-					e.rules = append(e.rules, *r)
+					e.rules = append(e.rules, compileRule(*r))
 				}
 			}
 		}
@@ -119,7 +136,7 @@ func (e *HTTPEngine) loadFromFile(path string) error {
 			for _, sample := range customFile.Samples {
 				if sample.Rule != nil {
 					sample.Rule.Name = sample.Name
-					e.rules = append(e.rules, *sample.Rule)
+					e.rules = append(e.rules, compileRule(*sample.Rule))
 				}
 			}
 			return nil
@@ -132,16 +149,11 @@ func (e *HTTPEngine) loadFromFile(path string) error {
 		for _, rule := range gobyFile.Rule {
 			cmsRule := converters.ConvertGobyToCMS(&rule)
 			if cmsRule != nil {
-				e.rules = append(e.rules, *cmsRule)
+				e.rules = append(e.rules, compileRule(*cmsRule))
 			}
 		}
 		return nil
 	}
-
-	// 如果解析失败但不是因为格式错误（例如空文件或不匹配的类型），我们应该忽略还是报错？
-	// 这里我们返回一个错误，表明该文件不是预期的格式，让上层决定是否忽略。
-	// 但考虑到 loadFromDir 会遍历所有文件，这里报错会导致整个加载过程中断。
-	// 最好是：如果无法识别，返回特定的错误，或者在 loadFromDir 中处理。
 
 	// 检查是否是其他引擎的文件
 	var genericFile map[string]interface{}
@@ -155,63 +167,163 @@ func (e *HTTPEngine) loadFromFile(path string) error {
 	return fmt.Errorf("unknown rule file format: %s", path)
 }
 
-// matchRule 统一匹配逻辑 (AssetFinger 结构)
-func matchRule(input *fingerprint.Input, rule *asset.AssetFinger) bool {
-	// 如果规则没有任何匹配条件，返回 false
-	if rule.Title == "" && rule.Header == "" && rule.Server == "" &&
-		rule.XPoweredBy == "" && rule.Body == "" && rule.Response == "" &&
-		rule.Footer == "" && rule.Subtitle == "" {
-		return false
-	}
+// compileRule 将 AssetFinger 转换为 CompiledRule
+func compileRule(rule asset.AssetFinger) CompiledRule {
+	var conditions []matcher.MatchRule
+
+	// 1. 处理标准字段 (隐式 AND)
 
 	// Title
 	if rule.Title != "" {
-		if !strings.Contains(strings.ToLower(extractTitle(input.Body)), strings.ToLower(rule.Title)) {
-			return false
+		conditions = append(conditions, matcher.MatchRule{
+			Field:      "title",
+			Operator:   "contains",
+			Value:      rule.Title,
+			IgnoreCase: true,
+		})
+	}
+
+	// Header
+	if rule.Header != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Field:      "all_headers",
+			Operator:   "contains",
+			Value:      rule.Header,
+			IgnoreCase: true,
+		})
+	}
+
+	// Server (支持 server 字段或 header 中的 Server)
+	if rule.Server != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Or: []matcher.MatchRule{
+				{Field: "server", Operator: "contains", Value: rule.Server, IgnoreCase: true},
+				{Field: "all_headers", Operator: "contains", Value: rule.Server, IgnoreCase: true},
+			},
+		})
+	}
+
+	// X-Powered-By
+	if rule.XPoweredBy != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Or: []matcher.MatchRule{
+				{Field: "x_powered_by", Operator: "contains", Value: rule.XPoweredBy, IgnoreCase: true},
+				{Field: "all_headers", Operator: "contains", Value: rule.XPoweredBy, IgnoreCase: true},
+			},
+		})
+	}
+
+	// Body / Response / Footer / Subtitle (统一查 Body)
+	for _, val := range []string{rule.Body, rule.Response, rule.Footer, rule.Subtitle} {
+		if val != "" {
+			conditions = append(conditions, matcher.MatchRule{
+				Field:      "body",
+				Operator:   "contains",
+				Value:      val,
+				IgnoreCase: true,
+			})
 		}
 	}
 
-	// Header / Server / X-Powered-By
-	if rule.Header != "" || rule.Server != "" || rule.XPoweredBy != "" {
-		allHeaders := ""
-		for k, v := range input.Headers {
-			allHeaders += k + ": " + v + "\n"
-		}
-		allHeaders = strings.ToLower(allHeaders)
+	// Status Code
+	if rule.StatusCode != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Field:    "status_code",
+			Operator: "equals",
+			Value:    rule.StatusCode,
+		})
+	}
 
-		if rule.Header != "" && !strings.Contains(allHeaders, strings.ToLower(rule.Header)) {
-			return false
-		}
-		if rule.Server != "" {
-			if !strings.Contains(allHeaders, "server: "+strings.ToLower(rule.Server)) &&
-				!strings.Contains(allHeaders, strings.ToLower(rule.Server)) { // 宽容匹配
-				return false
+	// 2. 处理 Match 字段 (高级规则或正则)
+	if rule.Match != "" {
+		// 尝试解析为 JSON MatchRule
+		var complexRule matcher.MatchRule
+		if strings.HasPrefix(strings.TrimSpace(rule.Match), "{") {
+			if err := json.Unmarshal([]byte(rule.Match), &complexRule); err == nil {
+				conditions = append(conditions, complexRule)
+			} else {
+				// 解析失败，回退为正则
+				if re, err := regexp.Compile(rule.Match); err == nil {
+					conditions = append(conditions, matcher.MatchRule{
+						Field:    "all_response",
+						Operator: "regex",
+						Value:    re, // 使用预编译的正则
+					})
+				}
+			}
+		} else {
+			// 默认为正则
+			if re, err := regexp.Compile(rule.Match); err == nil {
+				conditions = append(conditions, matcher.MatchRule{
+					Field:    "all_response",
+					Operator: "regex",
+					Value:    re, // 使用预编译的正则
+				})
 			}
 		}
-		if rule.XPoweredBy != "" {
-			if !strings.Contains(allHeaders, "x-powered-by: "+strings.ToLower(rule.XPoweredBy)) &&
-				!strings.Contains(allHeaders, strings.ToLower(rule.XPoweredBy)) {
-				return false
-			}
+	}
+
+	// 如果没有生成任何规则，返回一个"空"规则 (实际上 matchRule 会返回 false)
+	// 但 matcher.Match 如果 And 为空会返回 true，所以我们需要处理这种情况
+	if len(conditions) == 0 {
+		// 创建一个永远为 false 的规则
+		return CompiledRule{
+			Original: rule,
+			Matcher: matcher.MatchRule{
+				Field:    "always_false",
+				Operator: "equals",
+				Value:    "unexpected_value",
+			},
 		}
 	}
 
-	// Body / Response / Footer / Subtitle (简化为 Body 包含)
-	bodyLower := strings.ToLower(input.Body)
-	if rule.Body != "" && !strings.Contains(bodyLower, strings.ToLower(rule.Body)) {
-		return false
+	return CompiledRule{
+		Original: rule,
+		Matcher: matcher.MatchRule{
+			And: conditions,
+		},
 	}
-	if rule.Response != "" && !strings.Contains(bodyLower, strings.ToLower(rule.Response)) {
-		return false
+}
+
+// convertInputToMap 将输入转换为 matcher 可用的 map
+func convertInputToMap(input *fingerprint.Input) map[string]interface{} {
+	data := make(map[string]interface{})
+
+	// 基础字段
+	data["body"] = input.Body
+	data["title"] = extractTitle(input.Body)
+
+	// Headers
+	data["headers"] = input.Headers // 支持 headers.Key 访问
+
+	// 构建 all_headers 字符串
+	var allHeadersBuilder strings.Builder
+	for k, v := range input.Headers {
+		allHeadersBuilder.WriteString(k)
+		allHeadersBuilder.WriteString(": ")
+		allHeadersBuilder.WriteString(v)
+		allHeadersBuilder.WriteString("\n")
 	}
-	if rule.Footer != "" && !strings.Contains(bodyLower, strings.ToLower(rule.Footer)) {
-		return false
-	}
-	if rule.Subtitle != "" && !strings.Contains(bodyLower, strings.ToLower(rule.Subtitle)) {
-		return false
+	allHeadersStr := allHeadersBuilder.String()
+	data["all_headers"] = allHeadersStr
+
+	// 特殊 Header 提取 (方便快速访问)
+	if val, ok := input.Headers["Server"]; ok {
+		data["server"] = val
+	} else if val, ok := input.Headers["server"]; ok {
+		data["server"] = val
 	}
 
-	return true
+	if val, ok := input.Headers["X-Powered-By"]; ok {
+		data["x_powered_by"] = val
+	} else if val, ok := input.Headers["x-powered-by"]; ok {
+		data["x_powered_by"] = val
+	}
+
+	// All Response (Headers + Body)
+	data["all_response"] = allHeadersStr + "\n" + input.Body
+
+	return data
 }
 
 func extractTitle(body string) string {

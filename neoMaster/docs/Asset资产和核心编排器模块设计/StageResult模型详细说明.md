@@ -103,8 +103,24 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 ```json
 {
   "endpoints": [
-    {"url": "https://example.com/api", "status": 200, "tech": "Node.js", "framework": "Express"},
-    {"url": "https://example.com/admin", "status": 401, "tech": "PHP", "framework": "Laravel"}
+    {
+      "url": "https://example.com/api",
+      "ip": "1.2.3.4",
+      "title": "API Documentation",
+      "headers": {"Server": "Nginx", "X-Powered-By": "Express"},
+      "screenshot": "base64_encoded_image_data...",
+      "tech_stack": ["Node.js", "Express", "Nginx"],
+      "status_code": 200,
+      "favicon": "base64_encoded_favicon_data..."
+    },
+    {
+      "url": "https://example.com/admin",
+      "ip": "1.2.3.4",
+      "title": "Admin Login",
+      "headers": {"Server": "Apache"},
+      "tech_stack": ["PHP", "Laravel", "Apache"],
+      "status_code": 401
+    }
   ]
 }
 ```

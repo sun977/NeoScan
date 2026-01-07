@@ -70,7 +70,14 @@ func (m *assetMerger) Merge(ctx context.Context, bundle *AssetBundle) error {
 		}
 	}
 
-	// TODO: 处理 WebDetails 和 Vulns
+	// 4. 处理 WebDetails
+	if len(bundle.WebDetails) > 0 {
+		if err := m.upsertWebDetails(ctx, bundle.WebDetails); err != nil {
+			return fmt.Errorf("failed to upsert web details: %w", err)
+		}
+	}
+
+	// TODO: 处理 Vulns
 
 	return nil
 }
@@ -155,7 +162,68 @@ func (m *assetMerger) upsertServices(ctx context.Context, hostID uint64, service
 
 // upsertWebs 更新或插入 Web 站点列表
 func (m *assetMerger) upsertWebs(ctx context.Context, hostID uint64, webs []*assetModel.AssetWeb) error {
-	// TODO: 实现 Web Upsert 逻辑
-	// 暂时留空，等待 Web Repo 方法确认
+	for _, web := range webs {
+		web.HostID = hostID // 关联主机
+		existing, err := m.webRepo.GetWebByURL(ctx, web.URL)
+		if err != nil {
+			return fmt.Errorf("check web existence failed: %w", err)
+		}
+
+		now := time.Now()
+		if existing != nil {
+			// Update
+			existing.LastSeenAt = &now
+			if web.Domain != "" {
+				existing.Domain = web.Domain
+			}
+			if web.TechStack != "" && web.TechStack != "{}" {
+				existing.TechStack = web.TechStack
+			}
+			if web.BasicInfo != "" && web.BasicInfo != "{}" {
+				existing.BasicInfo = web.BasicInfo
+			}
+			// Update Status/Tags if needed
+
+			if err := m.webRepo.UpdateWeb(ctx, existing); err != nil {
+				return fmt.Errorf("update web failed: %w", err)
+			}
+			// 如果有关联的 Detail，需要更新其 AssetWebID
+			// 这里假设 bundle.WebDetails 中的 AssetWebID 是空的或者临时的
+			// 实际上 Mapper 应该处理好，或者我们在这里通过 URL 匹配
+		} else {
+			// Create
+			if web.LastSeenAt == nil {
+				web.LastSeenAt = &now
+			}
+			if err := m.webRepo.CreateWeb(ctx, web); err != nil {
+				return fmt.Errorf("create web failed: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+// upsertWebDetails 更新或插入 Web 详细信息
+func (m *assetMerger) upsertWebDetails(ctx context.Context, details []*assetModel.AssetWebDetail) error {
+	for _, detail := range details {
+		// 注意: AssetWebDetail 依赖 AssetWebID。
+		// 在 Bundle 中，Detail 必须能关联到 Web。
+		// 如果 Web 是新创建的，ID 在 upsertWebs 之后才生成。
+		// 这意味着 upsertWebs 应该返回 ID 映射，或者 Bundle 结构需要调整以支持嵌套。
+		// 简单方案: 假设 Mapper 已经尽力填充了，或者我们再次查询 URL 获取 ID。
+		// 由于 Detail 通常不包含 URL 字段，我们很难反向查找。
+		// 最佳实践: 在 Bundle 中，Web 和 Detail 应该是一对一关联的，例如 AssetWeb 包含 Detail 指针。
+		// 但目前 Bundle 是扁平列表。
+		// 妥协: 假设 Detail.AssetWebID 已经设置 (如果是基于已有 Web 的爬虫任务)。
+		// 如果是发现任务同时产生 Web 和 Detail，我们需要更复杂的逻辑。
+
+		if detail.AssetWebID == 0 {
+			continue // Skip orphan details
+		}
+
+		if err := m.webRepo.CreateOrUpdateDetail(ctx, detail); err != nil {
+			return fmt.Errorf("upsert web detail failed: %w", err)
+		}
+	}
 	return nil
 }

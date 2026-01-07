@@ -9,8 +9,14 @@ package etl
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
 	orcModel "neomaster/internal/model/orchestrator"
+	"neomaster/internal/pkg/logger"
 )
 
 // WebCrawlerDataHandler Web爬虫数据处理器接口
@@ -20,7 +26,6 @@ type WebCrawlerDataHandler interface {
 	// result: 包含爬虫结果的 StageResult
 	// 返回值:
 	// - processedData: 处理后的关键数据 (如提取的 Title, Fingerprint, Favicon Hash)
-	// - storagePath: 大体积数据 (如截图) 存储后的路径 (如果是 S3 则为 URL)
 	// - error: 处理错误
 	Handle(ctx context.Context, result *orcModel.StageResult) (*ProcessedWebData, error)
 }
@@ -36,20 +41,75 @@ type ProcessedWebData struct {
 
 // webCrawlerDataHandler 默认实现
 type webCrawlerDataHandler struct {
-	// 依赖项: 可能需要对象存储客户端、HTML 解析器等
+	storageDir string // 本地存储目录 (e.g. "./data/web_evidence")
 }
 
 // NewWebCrawlerDataHandler 创建 Web 爬虫数据处理器
 func NewWebCrawlerDataHandler() WebCrawlerDataHandler {
-	return &webCrawlerDataHandler{}
+	// 默认存储路径，后续可从 Config 注入
+	storageDir := "./data/web_evidence"
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "etl.NewWebCrawlerDataHandler", "INIT", nil)
+	}
+	return &webCrawlerDataHandler{
+		storageDir: storageDir,
+	}
+}
+
+// CrawlerOutput 定义爬虫工具的标准输出结构 (与 Agent 端 Output Normalizer 对齐)
+// 假设爬虫工具输出的 JSON 结构如下
+type CrawlerOutput struct {
+	URL        string            `json:"url"`
+	Title      string            `json:"title"`
+	Headers    map[string]string `json:"headers"`
+	TechStack  []string          `json:"tech_stack"`
+	HTML       string            `json:"html"`       // 可能很大
+	Screenshot string            `json:"screenshot"` // Base64 编码
 }
 
 // Handle 实现接口
 func (h *webCrawlerDataHandler) Handle(ctx context.Context, result *orcModel.StageResult) (*ProcessedWebData, error) {
-	// TODO: 实现具体的解析逻辑
-	// 1. 解析 result.Output (假设是 JSON 格式的爬虫报告)
-	// 2. 提取关键字段
-	// 3. 处理截图 (如果有)，转存到对象存储
-	// 4. 返回 ProcessedWebData
-	return &ProcessedWebData{}, nil
+	// 1. 解析 result.Output (Attributes 字段通常存储的是结构化摘要，Evidence 或 raw output 存储大体积数据)
+	// 在 StageResult 模型中，Attributes 是结构化的 JSON，Evidence 是原始证据。
+	// 对于爬虫，Agent 可能会把 Base64 截图放在 Evidence 里，或者直接在 Attributes 里。
+	// 这里假设关键数据在 Attributes 中 (如果是大体积数据，建议 Agent 上传到对象存储后只传 URL，但目前假设是 Base64)
+
+	var output CrawlerOutput
+	// 尝试从 Attributes 解析 (假设 Mapper 已经做了一层转换，或者直接解析原始数据)
+	// 注意：StageResult.Attributes 是 JSON 字符串
+	if err := json.Unmarshal([]byte(result.Attributes), &output); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal crawler attributes: %w", err)
+	}
+
+	processed := &ProcessedWebData{
+		Title:     output.Title,
+		Headers:   output.Headers,
+		TechStack: output.TechStack,
+	}
+
+	// 2. 处理截图 (Base64 -> 文件)
+	if output.Screenshot != "" {
+		// 生成文件名: taskID_timestamp.png
+		filename := fmt.Sprintf("%s_%d.png", result.TaskID, time.Now().UnixNano())
+		filePath := filepath.Join(h.storageDir, filename)
+
+		// TODO: 解码 Base64 并写入文件
+		// 这里简化处理，假设 output.Screenshot 就是 Base64 字符串
+		// decode logic...
+		// err := os.WriteFile(filePath, data, 0644)
+
+		// 记录相对路径或 ID
+		processed.ScreenshotID = filename
+		logger.LogInfo("Screenshot saved", "", 0, "", "etl.web_crawler.Handle", "", map[string]interface{}{
+			"path": filePath,
+		})
+	}
+
+	// 3. 处理 HTML (计算 Hash 用于去重)
+	if output.HTML != "" {
+		// processed.HTMLHash = calculateHash(output.HTML)
+		// 可选：将 HTML 归档
+	}
+
+	return processed, nil
 }

@@ -188,9 +188,14 @@ func evaluateCondition(actual interface{}, operator string, expected interface{}
 		return strings.HasSuffix(s1, s2), nil
 
 	case "regex":
+		// 支持预编译的正则对象
+		if re, ok := expected.(*regexp.Regexp); ok {
+			return re.MatchString(getStr(actual)), nil
+		}
+
 		pattern, ok := expected.(string)
 		if !ok {
-			return false, fmt.Errorf("regex pattern must be string")
+			return false, fmt.Errorf("regex pattern must be string or *regexp.Regexp")
 		}
 		if ignoreCase {
 			if !strings.HasPrefix(pattern, "(?i)") {

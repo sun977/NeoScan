@@ -9,7 +9,11 @@ package etl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	assetModel "neomaster/internal/model/asset"
@@ -24,18 +28,21 @@ type AssetMerger interface {
 
 // assetMerger 默认实现
 type assetMerger struct {
-	hostRepo *assetRepo.AssetHostRepository
-	webRepo  *assetRepo.AssetWebRepository
+	hostRepo    *assetRepo.AssetHostRepository
+	webRepo     *assetRepo.AssetWebRepository
+	unifiedRepo *assetRepo.AssetUnifiedRepository
 }
 
 // NewAssetMerger 创建资产合并器
 func NewAssetMerger(
 	hostRepo *assetRepo.AssetHostRepository,
 	webRepo *assetRepo.AssetWebRepository,
+	unifiedRepo *assetRepo.AssetUnifiedRepository,
 ) AssetMerger {
 	return &assetMerger{
-		hostRepo: hostRepo,
-		webRepo:  webRepo,
+		hostRepo:    hostRepo,
+		webRepo:     webRepo,
+		unifiedRepo: unifiedRepo,
 	}
 }
 
@@ -77,9 +84,131 @@ func (m *assetMerger) Merge(ctx context.Context, bundle *AssetBundle) error {
 		}
 	}
 
+	// 5. 同步到 Unified 表 (关键步骤: 确保指纹和资产信息落地到统一视图)
+	if err := m.syncToUnified(ctx, bundle); err != nil {
+		return fmt.Errorf("failed to sync to unified asset: %w", err)
+	}
+
 	// TODO: 处理 Vulns
 
 	return nil
+}
+
+// syncToUnified 同步资产信息到 Unified 表
+func (m *assetMerger) syncToUnified(ctx context.Context, bundle *AssetBundle) error {
+	if bundle.Host == nil {
+		return nil
+	}
+
+	processedPorts := make(map[int]bool)
+	now := time.Now()
+
+	// 1. 处理 Services -> Unified
+	for _, svc := range bundle.Services {
+		unified := &assetModel.AssetUnified{
+			ProjectID: bundle.ProjectID,
+			IP:        bundle.Host.IP,
+			Port:      svc.Port,
+			HostName:  bundle.Host.Hostname,
+			OS:        bundle.Host.OS,
+			Protocol:  svc.Proto,
+			Service:   svc.Name,
+			Version:   svc.Version,
+			SyncTime:  &now,
+		}
+
+		// 解析 CPE 获取 Product
+		if svc.CPE != "" {
+			// cpe:2.3:a:vendor:product:version:...
+			parts := strings.Split(svc.CPE, ":")
+			if len(parts) >= 5 {
+				unified.Product = parts[4]
+			}
+		}
+
+		// 检查是否有匹配的 Web
+		for _, web := range bundle.Webs {
+			if getPortFromURL(web.URL) == svc.Port {
+				unified.IsWeb = true
+				unified.URL = web.URL
+				unified.TechStack = web.TechStack
+
+				// 尝试从 BasicInfo 提取 Title
+				if web.BasicInfo != "" && web.BasicInfo != "{}" {
+					var info map[string]interface{}
+					if err := json.Unmarshal([]byte(web.BasicInfo), &info); err == nil {
+						if title, ok := info["title"].(string); ok {
+							unified.Title = title
+						}
+					}
+				}
+				break
+			}
+		}
+
+		if err := m.unifiedRepo.UpsertUnifiedAsset(ctx, unified); err != nil {
+			return err
+		}
+		processedPorts[svc.Port] = true
+	}
+
+	// 2. 处理纯 Web (没有 Service 记录的情况)
+	for _, web := range bundle.Webs {
+		port := getPortFromURL(web.URL)
+		if processedPorts[port] {
+			continue
+		}
+
+		unified := &assetModel.AssetUnified{
+			ProjectID: bundle.ProjectID,
+			IP:        bundle.Host.IP,
+			Port:      port,
+			HostName:  bundle.Host.Hostname,
+			OS:        bundle.Host.OS,
+			Protocol:  "tcp", // Web 默认为 TCP
+			Service:   "http",
+			URL:       web.URL,
+			TechStack: web.TechStack,
+			IsWeb:     true,
+			SyncTime:  &now,
+		}
+
+		if strings.HasPrefix(web.URL, "https") {
+			unified.Service = "https"
+		}
+
+		// 尝试从 BasicInfo 提取 Title
+		if web.BasicInfo != "" && web.BasicInfo != "{}" {
+			var info map[string]interface{}
+			if err := json.Unmarshal([]byte(web.BasicInfo), &info); err == nil {
+				if title, ok := info["title"].(string); ok {
+					unified.Title = title
+				}
+			}
+		}
+
+		if err := m.unifiedRepo.UpsertUnifiedAsset(ctx, unified); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getPortFromURL(rawURL string) int {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return 80
+	}
+	port := u.Port()
+	if port == "" {
+		if u.Scheme == "https" {
+			return 443
+		}
+		return 80
+	}
+	p, _ := strconv.Atoi(port)
+	return p
 }
 
 // upsertHost 更新或插入主机

@@ -184,4 +184,4 @@ fingerprint:
 *   `GET /api/v1/agent/fingerprint/download`: 下载最新的指纹库快照文件。
 
 ### 7.3 端云同构
-Agent 和 Master 复用同一套核心代码 (`pkg/fingerprint`)。Master 用于规则管理和单点测试，Agent 用于大规模分布式扫描。
+Agent 和 Master 复用同一套核心代码 (`pkg/fingerprint`)。Master 用于规则管理、单点测试和离线治理（存量资产再识别），Agent 用于大规模分布式扫描。

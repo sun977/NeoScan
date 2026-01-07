@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"neomaster/internal/pkg/logger"
-	"neomaster/internal/service/fingerprint"
 	"neomaster/internal/service/orchestrator/ingestor"
 )
 
@@ -24,7 +23,6 @@ type ResultProcessor interface {
 type resultProcessor struct {
 	queue     ingestor.ResultQueue // 结果队列
 	merger    AssetMerger          // 资产合并器
-	fpService fingerprint.Service  // 指纹识别服务
 	wg        sync.WaitGroup       // 等待组
 	ctx       context.Context      // 上下文
 	cancel    context.CancelFunc   // 取消函数
@@ -32,14 +30,13 @@ type resultProcessor struct {
 }
 
 // NewResultProcessor 创建结果处理器
-func NewResultProcessor(queue ingestor.ResultQueue, merger AssetMerger, fpService fingerprint.Service, workerNum int) ResultProcessor {
+func NewResultProcessor(queue ingestor.ResultQueue, merger AssetMerger, workerNum int) ResultProcessor {
 	if workerNum <= 0 {
 		workerNum = 5 // 默认 5 个 Worker
 	}
 	return &resultProcessor{
 		queue:     queue,
 		merger:    merger,
-		fpService: fpService,
 		workerNum: workerNum,
 	}
 }
@@ -102,16 +99,6 @@ func (p *resultProcessor) worker(id int) {
 				})
 				// TODO: 记录到死信队列或错误日志表
 				continue
-			}
-
-			// 2.5 调用指纹识别 (Matcher)
-			if p.fpService != nil {
-				if err := enrichWithFingerprint(p.ctx, bundle, p.fpService); err != nil {
-					logger.LogError(err, "Failed to enrich fingerprint", 0, "", "etl.processor.worker", "", map[string]interface{}{
-						"task_id": result.TaskID,
-					})
-					// 继续执行，指纹识别失败不应阻塞入库
-				}
 			}
 
 			// 3. 调用 Merger 进行入库

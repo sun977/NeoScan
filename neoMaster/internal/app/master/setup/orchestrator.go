@@ -117,7 +117,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 		})
 	}
 
-	etlProcessor := etl.NewResultProcessor(resultQueue, assetMerger, fpService, etlWorkerNum)
+	etlProcessor := etl.NewResultProcessor(resultQueue, assetMerger, etlWorkerNum)
 	// TODO: 在应用启动时调用 etlProcessor.Start(ctx)
 
 	// 3. Service 初始化

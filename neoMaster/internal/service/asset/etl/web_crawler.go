@@ -9,6 +9,9 @@ package etl
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -93,22 +96,40 @@ func (h *webCrawlerDataHandler) Handle(ctx context.Context, result *orcModel.Sta
 		filename := fmt.Sprintf("%s_%d.png", result.TaskID, time.Now().UnixNano())
 		filePath := filepath.Join(h.storageDir, filename)
 
-		// TODO: 解码 Base64 并写入文件
-		// 这里简化处理，假设 output.Screenshot 就是 Base64 字符串
-		// decode logic...
-		// err := os.WriteFile(filePath, data, 0644)
+		// 解码 Base64
+		// 某些前缀可能包含 "data:image/png;base64,"，需要去除
+		rawBase64 := output.Screenshot
+		if idx := len("data:image/png;base64,"); len(rawBase64) > idx && rawBase64[:idx] == "data:image/png;base64," {
+			rawBase64 = rawBase64[idx:]
+		}
 
-		// 记录相对路径或 ID
-		processed.ScreenshotID = filename
-		logger.LogInfo("Screenshot saved", "", 0, "", "etl.web_crawler.Handle", "", map[string]interface{}{
-			"path": filePath,
-		})
+		data, err := base64.StdEncoding.DecodeString(rawBase64)
+		if err != nil {
+			// 仅记录错误但不中断流程，因为截图是非关键数据
+			logger.LogBusinessError(err, "decode_screenshot", 0, "", "etl.web_crawler.Handle", "DECODE", map[string]interface{}{
+				"task_id": result.TaskID,
+			})
+		} else {
+			if err := os.WriteFile(filePath, data, 0644); err != nil {
+				logger.LogBusinessError(err, "save_screenshot", 0, "", "etl.web_crawler.Handle", "SAVE", map[string]interface{}{
+					"path": filePath,
+				})
+			} else {
+				// 记录相对路径或 ID
+				processed.ScreenshotID = filename
+				logger.LogInfo("Screenshot saved", "", 0, "", "etl.web_crawler.Handle", "", map[string]interface{}{
+					"path": filePath,
+				})
+			}
+		}
 	}
 
 	// 3. 处理 HTML (计算 Hash 用于去重)
 	if output.HTML != "" {
-		// processed.HTMLHash = calculateHash(output.HTML)
+		hash := md5.Sum([]byte(output.HTML))
+		processed.HTMLHash = hex.EncodeToString(hash[:])
 		// 可选：将 HTML 归档
+		// 如果需要归档 HTML，可以在这里写入文件，类似截图处理
 	}
 
 	return processed, nil

@@ -52,11 +52,19 @@ type WebEndpointAttributes struct {
 // VulnFindingAttributes 漏洞发现属性
 type VulnFindingAttributes struct {
 	Findings []struct {
-		ID          string `json:"id"`
-		CVE         string `json:"cve"`
-		Severity    string `json:"severity"`
-		Confidence  string `json:"confidence"`
-		EvidenceRef string `json:"evidence_ref"`
+		ID          string  `json:"id"`          // 漏洞ID (e.g., Scanner-ID)
+		CVE         string  `json:"cve"`         // CVE编号 (e.g., CVE-2021-44228)
+		Name        string  `json:"name"`        // 漏洞名称
+		Type        string  `json:"type"`        // 漏洞类型
+		Severity    string  `json:"severity"`    // 严重程度
+		Description string  `json:"description"` // 描述
+		Solution    string  `json:"solution"`    // 修复建议
+		Confidence  float64 `json:"confidence"`  // 置信度
+		Reference   string  `json:"reference"`   // 参考链接
+		TargetType  string  `json:"target_type"` // host/service/web
+		Port        int     `json:"port"`        // 关联端口 (for service target)
+		URL         string  `json:"url"`         // 关联URL (for web target)
+		Evidence    string  `json:"evidence"`    // 证据
 	} `json:"findings"`
 }
 

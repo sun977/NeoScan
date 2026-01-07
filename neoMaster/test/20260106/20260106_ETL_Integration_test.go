@@ -57,11 +57,12 @@ func SetupETLTestEnv() (*gorm.DB, etl.ResultProcessor, ingestor.ResultQueue, err
 	// 4. 初始化组件
 	hostRepo := assetRepo.NewAssetHostRepository(db)
 	webRepo := assetRepo.NewAssetWebRepository(db)
-	merger := etl.NewAssetMerger(hostRepo, webRepo)
+	unifiedRepo := assetRepo.NewAssetUnifiedRepository(db)
+	merger := etl.NewAssetMerger(hostRepo, webRepo, unifiedRepo)
 
 	queue := ingestor.NewMemoryQueue(100)
 	// 在测试中暂时不注入 FingerprintService (nil)
-	processor := etl.NewResultProcessor(queue, merger, nil, 2) // 2 workers
+	processor := etl.NewResultProcessor(queue, merger, 2) // 2 workers
 
 	return db, processor, queue, nil
 }
@@ -156,6 +157,7 @@ func TestETLIntegration_PortScan_Upsert(t *testing.T) {
 			Proto       string `json:"proto"`
 			State       string `json:"state"`
 			ServiceHint string `json:"service_hint"`
+			Banner      string `json:"banner"`
 		}{
 			{Port: 80, Proto: "tcp", State: "open", ServiceHint: "http"},
 		},
@@ -181,6 +183,7 @@ func TestETLIntegration_PortScan_Upsert(t *testing.T) {
 			Proto       string `json:"proto"`
 			State       string `json:"state"`
 			ServiceHint string `json:"service_hint"`
+			Banner      string `json:"banner"`
 		}{
 			{Port: 80, Proto: "tcp", State: "open", ServiceHint: "http-alt"}, // Name 变更
 		},

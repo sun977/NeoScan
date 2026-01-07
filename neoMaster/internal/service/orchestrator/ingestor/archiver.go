@@ -23,7 +23,7 @@ type FileArchiver struct {
 }
 
 // NewFileArchiver 创建本地文件系统归档器
-// basePath: 基础存储路径 (如: ./storage/evidence)
+// basePath: 基础存储路径 (如: data/evidence)
 func NewFileArchiver(basePath string) *FileArchiver {
 	return &FileArchiver{
 		basePath: basePath,

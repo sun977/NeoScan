@@ -20,6 +20,7 @@ type PortScanAttributes struct {
 		Proto       string `json:"proto"`
 		State       string `json:"state"`        // open, closed, filtered
 		ServiceHint string `json:"service_hint"` // 简单服务猜测 (http, ssh)
+		Banner      string `json:"banner"`       // 服务横幅信息
 	} `json:"ports"`
 	Summary struct {
 		OpenCount    int    `json:"open_count"`
@@ -36,6 +37,7 @@ type ServiceFingerprintAttributes struct {
 		Name    string `json:"name"`    // e.g. OpenSSH
 		Version string `json:"version"` // e.g. 7.9p1
 		CPE     string `json:"cpe"`     // e.g. cpe:/a:openbsd:openssh:7.9p1
+		Banner  string `json:"banner"`  // 服务横幅信息
 	} `json:"services"`
 }
 

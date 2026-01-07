@@ -132,8 +132,10 @@ func mapServiceFingerprint(result *orcModel.StageResult) (*AssetBundle, error) {
 			Port:        s.Port,
 			Proto:       s.Proto,
 			Name:        s.Name,
+			Product:     s.Name, // Fingerprint Name is Product
 			Version:     s.Version,
 			CPE:         s.CPE,
+			Banner:      s.Banner,
 			Fingerprint: "{}",
 			Tags:        "{}",
 		}

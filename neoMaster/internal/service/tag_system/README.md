@@ -1,5 +1,29 @@
 # Tag System Design Philosophy & Implementation
 
+#### 目前支持打标的实体：
+- Agnet
+- project
+- workflow
+- ScanStage
+
+#### AgnetTask 也是借助 tag_system 来实现 系统任务 和 普通任务之间的区分。
+- system 任务：LocalAgent 
+- agent 任务：其他 Agent 执行的任务
+
+#### 资产相关的实体后续也需要支持打标(尚未实现)
+- AssetHost
+- AssetService
+- AssetWeb
+- AssetWebDetail
+- AssetVuln
+- AssetVulnPoc
+- AssetUnified（资产统一模型）
+- AssetNetwork
+- AssetWhitelist
+- AssetSkipPolicy
+
+#### 系统RBAC也应该支持打标(尚未实现)
+
 
 本文档记录了标签系统针对三种核心业务场景的设计思考与实现方案。我们的核心准则是**实用主义**和**避免过度设计**。
 

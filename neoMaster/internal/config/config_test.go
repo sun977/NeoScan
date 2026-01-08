@@ -50,13 +50,6 @@ database:
     pool_timeout: 4s
     idle_timeout: 300s
 
-jwt:
-  secret: "test_jwt_secret_key_at_least_32_chars"
-  issuer: "neoscan-test"
-  access_token_expire: 24h
-  refresh_token_expire: 168h
-  algorithm: "HS256"
-
 log:
   level: "info"
   format: "json"
@@ -70,6 +63,12 @@ log:
   stack_trace: true
 
 security:
+  jwt:
+    secret: "test_jwt_secret_key_at_least_32_chars"
+    issuer: "neoscan-test"
+    access_token_expire: 24h
+    refresh_token_expire: 168h
+    algorithm: "HS256"
   cors:
     allow_origins: ["*"]
     allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
@@ -233,13 +232,6 @@ database:
     pool_timeout: 4s
     idle_timeout: 300s
 
-jwt:
-  secret: "original_jwt_secret_key_at_least_32_chars"
-  issuer: "neoscan-test"
-  access_token_expire: 24h
-  refresh_token_expire: 168h
-  algorithm: "HS256"
-
 log:
   level: "info"
   format: "json"
@@ -253,6 +245,12 @@ log:
   stack_trace: true
 
 security:
+  jwt:
+    secret: "original_jwt_secret_key_at_least_32_chars"
+    issuer: "neoscan-test"
+    access_token_expire: 24h
+    refresh_token_expire: 168h
+    algorithm: "HS256"
   cors:
     allow_origins: ["*"]
     allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]

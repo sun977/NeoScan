@@ -3,6 +3,7 @@ package asset
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/logger"
@@ -281,7 +282,20 @@ func (h *AssetUnifiedHandler) ListUnifiedAssets(c *gin.Context) {
 	}
 	filter.Keyword = c.Query("keyword")
 
-	assets, total, err := h.service.ListUnifiedAssets(c.Request.Context(), page, pageSize, filter)
+	tagIDsStr := c.Query("tag_ids")
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		parts := strings.Split(tagIDsStr, ",")
+		for _, part := range parts {
+			id, err := strconv.ParseUint(part, 10, 64)
+			if err != nil {
+				continue
+			}
+			tagIDs = append(tagIDs, id)
+		}
+	}
+
+	assets, total, err := h.service.ListUnifiedAssets(c.Request.Context(), page, pageSize, filter, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_unified_assets",
@@ -364,5 +378,165 @@ func (h *AssetUnifiedHandler) UpsertUnifiedAsset(c *gin.Context) {
 		Status:  "success",
 		Message: "Unified asset upserted successfully",
 		Data:    asset,
+	})
+}
+
+// -----------------------------------------------------------------------------
+// Tag Management Handlers
+// -----------------------------------------------------------------------------
+
+// GetUnifiedAssetTags 获取统一资产标签
+func (h *AssetUnifiedHandler) GetUnifiedAssetTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Asset ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetUnifiedAssetTags(c.Request.Context(), id)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_unified_asset_tags",
+			"id":        id,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get unified asset tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Unified asset tags retrieved successfully",
+		Data:    tags,
+	})
+}
+
+// AddUnifiedAssetTag 为统一资产添加标签
+func (h *AssetUnifiedHandler) AddUnifiedAssetTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Asset ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddUnifiedAssetTag(c.Request.Context(), id, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_unified_asset_tag",
+			"id":        id,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to unified asset",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_unified_asset_tag", 0, "", clientIP, XRequestID, "success", "Tag added to unified asset successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to unified asset successfully",
+	})
+}
+
+// RemoveUnifiedAssetTag 为统一资产移除标签
+func (h *AssetUnifiedHandler) RemoveUnifiedAssetTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Asset ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveUnifiedAssetTag(c.Request.Context(), id, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_unified_asset_tag",
+			"id":        id,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from unified asset",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_unified_asset_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from unified asset successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from unified asset successfully",
 	})
 }

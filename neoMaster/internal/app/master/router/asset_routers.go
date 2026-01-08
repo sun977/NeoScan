@@ -174,6 +174,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			unified.PUT("/:id", r.assetUnifiedHandler.UpdateUnifiedAsset)     // 更新统一资产
 			unified.DELETE("/:id", r.assetUnifiedHandler.DeleteUnifiedAsset)  // 删除统一资产
 			unified.GET("", r.assetUnifiedHandler.ListUnifiedAssets)          // 获取统一资产列表
+
+			// 统一资产标签管理
+			unified.GET("/:id/tags", r.assetUnifiedHandler.GetUnifiedAssetTags)              // 获取统一资产标签
+			unified.POST("/:id/tags", r.assetUnifiedHandler.AddUnifiedAssetTag)              // 添加统一资产标签
+			unified.DELETE("/:id/tags/:tag_id", r.assetUnifiedHandler.RemoveUnifiedAssetTag) // 删除统一资产标签
 		}
 
 		// 资产扫描记录管理

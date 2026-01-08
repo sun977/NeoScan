@@ -164,3 +164,57 @@ func TestMapVulnFinding(t *testing.T) {
 	assert.Equal(t, float64(8080), attr["port"])
 	assert.Equal(t, "10.0.0.1", attr["ip"])
 }
+
+func TestMapPocScan(t *testing.T) {
+	jsonAttr := `{
+		"poc_results": [
+			{
+				"poc_id": "CVE-2022-1234",
+				"target": "http://10.0.0.1:8080/vulnerable",
+				"status": "confirmed",
+				"severity": "high",
+				"evidence_ref": "evidence/123.txt"
+			},
+			{
+				"poc_id": "CVE-2022-5678",
+				"target": "10.0.0.1:22",
+				"status": "not_vulnerable",
+				"severity": "medium",
+				"evidence_ref": "evidence/456.txt"
+			}
+		]
+	}`
+
+	result := &orcModel.StageResult{
+		ResultType:  "poc_scan",
+		TargetValue: "10.0.0.1",
+		Attributes:  jsonAttr,
+	}
+
+	bundle, err := MapToAssetBundle(result)
+	assert.NoError(t, err)
+	assert.NotNil(t, bundle)
+
+	// Verify Host
+	assert.Equal(t, "10.0.0.1", bundle.Host.IP)
+
+	// Verify Vulns
+	assert.Len(t, bundle.Vulns, 1) // Only confirmed one
+	vuln := bundle.Vulns[0]
+
+	assert.Equal(t, "CVE-2022-1234", vuln.CVE)
+	assert.Equal(t, "CVE-2022-1234", vuln.IDAlias)
+	assert.Equal(t, "high", vuln.Severity)
+	assert.Equal(t, 100.0, vuln.Confidence)
+	assert.Equal(t, "web", vuln.TargetType) // deduced from http prefix
+	assert.Equal(t, "verified", vuln.VerifyStatus)
+	assert.Equal(t, "poc_scanner", vuln.VerifiedBy)
+	assert.NotNil(t, vuln.VerifiedAt)
+
+	// Verify Attributes
+	var attr map[string]interface{}
+	err = json.Unmarshal([]byte(vuln.Attributes), &attr)
+	assert.NoError(t, err)
+	assert.Equal(t, "CVE-2022-1234", attr["poc_id"])
+	assert.Equal(t, "http://10.0.0.1:8080/vulnerable", attr["target"])
+}

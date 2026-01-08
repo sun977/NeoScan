@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	assetModel "neomaster/internal/model/asset"
 	orcModel "neomaster/internal/model/orchestrator"
@@ -219,8 +220,70 @@ func extractCVE(id string) string {
 
 // mapPocScan 映射PoC验证结果
 func mapPocScan(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	return nil, nil
+	var attr PocScanAttributes
+	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	}
+
+	var vulns []*assetModel.AssetVuln
+	now := time.Now()
+
+	for _, res := range attr.PocResults {
+		if res.Status != "confirmed" {
+			continue
+		}
+
+		stdAttr := map[string]interface{}{
+			"poc_id":       res.PocID,
+			"target":       res.Target,
+			"evidence_ref": res.EvidenceRef,
+		}
+		stdAttrJSON, _ := json.Marshal(stdAttr)
+
+		cve := extractCVE(res.PocID)
+		vuln := &assetModel.AssetVuln{
+			TargetType:   "unknown",
+			TargetRefID:  0,
+			CVE:          cve,
+			IDAlias:      res.PocID,
+			Severity:     res.Severity,
+			Confidence:   100.0,
+			Evidence:     fmt.Sprintf(`{"ref": "%s"}`, res.EvidenceRef),
+			Attributes:   string(stdAttrJSON),
+			Status:       "open",
+			VerifyStatus: "verified",
+			VerifiedBy:   "poc_scanner",
+			VerifiedAt:   &now,
+		}
+
+		if strings.HasPrefix(res.Target, "http") {
+			vuln.TargetType = "web"
+		} else if strings.Contains(res.Target, ":") {
+			vuln.TargetType = "service"
+		} else {
+			vuln.TargetType = "host"
+		}
+
+		vulns = append(vulns, vuln)
+	}
+
+	hostIP := result.TargetValue
+	if strings.Contains(hostIP, "://") {
+		if uTarget, err := url.Parse(hostIP); err == nil && uTarget.Hostname() != "" {
+			hostIP = uTarget.Hostname()
+		}
+	}
+
+	host := &assetModel.AssetHost{
+		IP:             hostIP,
+		Tags:           "{}",
+		SourceStageIDs: "[]",
+	}
+
+	return &AssetBundle{
+		Host:  host,
+		Vulns: vulns,
+	}, nil
 }
 
 // mapWebEndpoint 映射 Web 扫描结果

@@ -39,7 +39,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	rawService := assetService.NewRawAssetService(rawRepo)
 	hostService := assetService.NewAssetHostService(hostRepo, tagSystem)
 	networkService := assetService.NewAssetNetworkService(networkRepo, tagSystem)
-	policyService := assetService.NewAssetPolicyService(policyRepo)
+	policyService := assetService.NewAssetPolicyService(policyRepo, tagSystem)
 	webService := assetService.NewAssetWebService(webRepo, tagSystem)
 	vulnService := assetService.NewAssetVulnService(vulnRepo)
 	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo)

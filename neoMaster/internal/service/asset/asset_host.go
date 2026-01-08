@@ -256,13 +256,47 @@ func (s *AssetHostService) ListServicesByHostID(ctx context.Context, hostID uint
 }
 
 // ListServices 获取服务列表
-func (s *AssetHostService) ListServices(ctx context.Context, page, pageSize int, port int, name, proto string) ([]*asset.AssetService, int64, error) {
-	list, total, err := s.repo.ListServices(ctx, page, pageSize, port, name, proto)
+func (s *AssetHostService) ListServices(ctx context.Context, page, pageSize int, port int, name, proto string, tagIDs []uint64) ([]*asset.AssetService, int64, error) {
+	var serviceIDs []uint64
+
+	// 如果指定了标签，先从标签系统获取对应的服务ID列表
+	if len(tagIDs) > 0 {
+		entityIDsStr, err := s.tagService.GetEntityIDsByTagIDs(ctx, "service", tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "list_services_get_tags", "SERVICE", map[string]interface{}{
+				"operation": "list_services_get_tags",
+				"tag_ids":   tagIDs,
+			})
+			return nil, 0, err
+		}
+
+		if len(entityIDsStr) == 0 {
+			// 筛选了标签但没找到对应的资源，直接返回空列表
+			return []*asset.AssetService{}, 0, nil
+		}
+
+		// 转换 ID 类型
+		for _, idStr := range entityIDsStr {
+			id, err := strconv.ParseUint(idStr, 10, 64)
+			if err != nil {
+				continue
+			}
+			serviceIDs = append(serviceIDs, id)
+		}
+
+		if len(serviceIDs) == 0 {
+			return []*asset.AssetService{}, 0, nil
+		}
+	}
+
+	// 根据 tagIDs 筛选出的 serviceIDs 进行分页查询, 所以这里传入的参数是 serviceIDs 列表(可空)
+	list, total, err := s.repo.ListServices(ctx, page, pageSize, port, name, proto, serviceIDs)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "list_services", "SERVICE", map[string]interface{}{
 			"operation": "list_services",
 			"page":      page,
 			"page_size": pageSize,
+			"tag_ids":   tagIDs,
 		})
 		return nil, 0, err
 	}

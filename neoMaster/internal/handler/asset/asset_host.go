@@ -580,3 +580,319 @@ func (h *AssetHostHandler) ListServices(c *gin.Context) {
 		Data:    pagination,
 	})
 }
+
+// -----------------------------------------------------------------------------
+// Tag Management Handlers
+// -----------------------------------------------------------------------------
+
+// AddHostTag 为主机添加标签
+func (h *AssetHostHandler) AddHostTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	hostID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Host ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToHost(c.Request.Context(), hostID, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_host_tag",
+			"host_id":   hostID,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to host",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_host_tag", 0, "", clientIP, XRequestID, "success", "Tag added to host successfully", map[string]interface{}{
+		"host_id": hostID,
+		"tag_id":  req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to host successfully",
+	})
+}
+
+// RemoveHostTag 从主机移除标签
+func (h *AssetHostHandler) RemoveHostTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	hostIDStr := c.Param("id")
+	hostID, err := strconv.ParseUint(hostIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Host ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromHost(c.Request.Context(), hostID, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_host_tag",
+			"host_id":   hostID,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from host",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_host_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from host successfully", map[string]interface{}{
+		"host_id": hostID,
+		"tag_id":  tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from host successfully",
+	})
+}
+
+// GetHostTags 获取主机标签
+func (h *AssetHostHandler) GetHostTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	hostID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Host ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetHostTags(c.Request.Context(), hostID)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_host_tags",
+			"host_id":   hostID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get host tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Host tags retrieved successfully",
+		Data:    tags,
+	})
+}
+
+// AddServiceTag 为服务添加标签
+func (h *AssetHostHandler) AddServiceTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("service_id")
+	serviceID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Service ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToService(c.Request.Context(), serviceID, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation":  "add_service_tag",
+			"service_id": serviceID,
+			"tag_id":     req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to service",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_service_tag", 0, "", clientIP, XRequestID, "success", "Tag added to service successfully", map[string]interface{}{
+		"service_id": serviceID,
+		"tag_id":     req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to service successfully",
+	})
+}
+
+// RemoveServiceTag 从服务移除标签
+func (h *AssetHostHandler) RemoveServiceTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	serviceIDStr := c.Param("service_id")
+	serviceID, err := strconv.ParseUint(serviceIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Service ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromService(c.Request.Context(), serviceID, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation":  "remove_service_tag",
+			"service_id": serviceID,
+			"tag_id":     tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from service",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_service_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from service successfully", map[string]interface{}{
+		"service_id": serviceID,
+		"tag_id":     tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from service successfully",
+	})
+}
+
+// GetServiceTags 获取服务标签
+func (h *AssetHostHandler) GetServiceTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("service_id")
+	serviceID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Service ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetServiceTags(c.Request.Context(), serviceID)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation":  "get_service_tags",
+			"service_id": serviceID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get service tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Service tags retrieved successfully",
+		Data:    tags,
+	})
+}

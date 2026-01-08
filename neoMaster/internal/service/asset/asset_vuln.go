@@ -3,19 +3,26 @@ package asset
 import (
 	"context"
 	assetmodel "neomaster/internal/model/asset"
+	tagsystem "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	assetrepo "neomaster/internal/repo/mysql/asset"
+	tagservice "neomaster/internal/service/tag_system"
+	"strconv"
 )
 
 // AssetVulnService 漏洞资产服务层
 // 处理漏洞及其PoC的业务逻辑
 type AssetVulnService struct {
-	repo *assetrepo.AssetVulnRepository
+	repo       *assetrepo.AssetVulnRepository
+	tagService tagservice.TagService
 }
 
 // NewAssetVulnService 创建 AssetVulnService 实例
-func NewAssetVulnService(repo *assetrepo.AssetVulnRepository) *AssetVulnService {
-	return &AssetVulnService{repo: repo}
+func NewAssetVulnService(repo *assetrepo.AssetVulnRepository, tagService tagservice.TagService) *AssetVulnService {
+	return &AssetVulnService{
+		repo:       repo,
+		tagService: tagService,
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -65,8 +72,29 @@ func (s *AssetVulnService) DeleteVuln(ctx context.Context, id uint64) error {
 }
 
 // ListVulns 获取漏洞列表
-func (s *AssetVulnService) ListVulns(ctx context.Context, page, pageSize int, targetType string, targetRefID uint64, status string, severity string) ([]*assetmodel.AssetVuln, int64, error) {
-	return s.repo.ListVulns(ctx, page, pageSize, targetType, targetRefID, status, severity)
+func (s *AssetVulnService) ListVulns(ctx context.Context, page, pageSize int, targetType string, targetRefID uint64, status string, severity string, tagIDs []uint64) ([]*assetmodel.AssetVuln, int64, error) {
+	var vulnIDs []uint64
+	if len(tagIDs) > 0 {
+		entityIDsStr, err := s.tagService.GetEntityIDsByTagIDs(ctx, "vuln", tagIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		if len(entityIDsStr) == 0 {
+			return []*assetmodel.AssetVuln{}, 0, nil
+		}
+		for _, idStr := range entityIDsStr {
+			id, err := strconv.ParseUint(idStr, 10, 64)
+			if err != nil {
+				continue
+			}
+			vulnIDs = append(vulnIDs, id)
+		}
+		if len(vulnIDs) == 0 {
+			return []*assetmodel.AssetVuln{}, 0, nil
+		}
+	}
+
+	return s.repo.ListVulns(ctx, page, pageSize, targetType, targetRefID, status, severity, vulnIDs)
 }
 
 // -----------------------------------------------------------------------------
@@ -117,10 +145,86 @@ func (s *AssetVulnService) DeletePoc(ctx context.Context, id uint64) error {
 
 // GetValidPocsByVulnID 获取指定漏洞的所有有效PoC (用于执行调度)
 func (s *AssetVulnService) GetValidPocsByVulnID(ctx context.Context, vulnID uint64) ([]*assetmodel.AssetVulnPoc, error) {
-	return s.repo.ListPocsByVulnID(ctx, vulnID, true)
+	return s.repo.ListPocsByVulnID(ctx, vulnID, true, nil)
 }
 
 // ListAllPocsByVulnID 获取指定漏洞的所有PoC (包括无效的，用于管理)
-func (s *AssetVulnService) ListAllPocsByVulnID(ctx context.Context, vulnID uint64) ([]*assetmodel.AssetVulnPoc, error) {
-	return s.repo.ListPocsByVulnID(ctx, vulnID, false)
+func (s *AssetVulnService) ListAllPocsByVulnID(ctx context.Context, vulnID uint64, tagIDs []uint64) ([]*assetmodel.AssetVulnPoc, error) {
+	var pocIDs []uint64
+	if len(tagIDs) > 0 {
+		entityIDsStr, err := s.tagService.GetEntityIDsByTagIDs(ctx, "vuln_poc", tagIDs)
+		if err != nil {
+			return nil, err
+		}
+		if len(entityIDsStr) == 0 {
+			return []*assetmodel.AssetVulnPoc{}, nil
+		}
+		for _, idStr := range entityIDsStr {
+			id, err := strconv.ParseUint(idStr, 10, 64)
+			if err != nil {
+				continue
+			}
+			pocIDs = append(pocIDs, id)
+		}
+		if len(pocIDs) == 0 {
+			return []*assetmodel.AssetVulnPoc{}, nil
+		}
+	}
+	return s.repo.ListPocsByVulnID(ctx, vulnID, false, pocIDs)
+}
+
+// -----------------------------------------------------------------------------
+// Tag Management
+// -----------------------------------------------------------------------------
+
+// AddVulnTag 为漏洞添加标签
+func (s *AssetVulnService) AddVulnTag(ctx context.Context, vulnID uint64, tagID uint64) error {
+	return s.tagService.AddEntityTag(ctx, "vuln", strconv.FormatUint(vulnID, 10), tagID, "manual", 0)
+}
+
+// RemoveVulnTag 为漏洞移除标签
+func (s *AssetVulnService) RemoveVulnTag(ctx context.Context, vulnID uint64, tagID uint64) error {
+	return s.tagService.RemoveEntityTag(ctx, "vuln", strconv.FormatUint(vulnID, 10), tagID)
+}
+
+// GetVulnTags 获取漏洞的标签
+func (s *AssetVulnService) GetVulnTags(ctx context.Context, vulnID uint64) ([]tagsystem.SysTag, error) {
+	entityTags, err := s.tagService.GetEntityTags(ctx, "vuln", strconv.FormatUint(vulnID, 10))
+	if err != nil {
+		return nil, err
+	}
+	if len(entityTags) == 0 {
+		return []tagsystem.SysTag{}, nil
+	}
+	var tagIDs []uint64
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+	return s.tagService.GetTagsByIDs(ctx, tagIDs)
+}
+
+// AddPocTag 为PoC添加标签
+func (s *AssetVulnService) AddPocTag(ctx context.Context, pocID uint64, tagID uint64) error {
+	return s.tagService.AddEntityTag(ctx, "vuln_poc", strconv.FormatUint(pocID, 10), tagID, "manual", 0)
+}
+
+// RemovePocTag 为PoC移除标签
+func (s *AssetVulnService) RemovePocTag(ctx context.Context, pocID uint64, tagID uint64) error {
+	return s.tagService.RemoveEntityTag(ctx, "vuln_poc", strconv.FormatUint(pocID, 10), tagID)
+}
+
+// GetPocTags 获取PoC的标签
+func (s *AssetVulnService) GetPocTags(ctx context.Context, pocID uint64) ([]tagsystem.SysTag, error) {
+	entityTags, err := s.tagService.GetEntityTags(ctx, "vuln_poc", strconv.FormatUint(pocID, 10))
+	if err != nil {
+		return nil, err
+	}
+	if len(entityTags) == 0 {
+		return []tagsystem.SysTag{}, nil
+	}
+	var tagIDs []uint64
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+	return s.tagService.GetTagsByIDs(ctx, tagIDs)
 }

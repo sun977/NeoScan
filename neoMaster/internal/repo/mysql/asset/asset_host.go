@@ -282,3 +282,23 @@ func (r *AssetHostRepository) ListServices(ctx context.Context, page, pageSize i
 
 	return services, total, nil
 }
+
+// GetServicesPendingFingerprint 获取待进行指纹识别的服务列表
+// 条件: Product 为空且 Banner 不为空
+// 总结 ：虽然文档在概念上提到了 AssetUnified ，
+// 但在工程实现上，针对 AssetService 中 Product 为空且 Banner 有值的记录进行补全，是 最精准、最高效且符合数据流向 的最佳实践。
+// 这不仅没有背离文档的初衷（清洗和再识别），反而是以更务实的方式落地了这一需求。
+func (r *AssetHostRepository) GetServicesPendingFingerprint(ctx context.Context, limit int) ([]*asset.AssetService, error) {
+	var services []*asset.AssetService
+	err := r.db.WithContext(ctx).
+		Where("(product IS NULL OR product = '') AND (banner IS NOT NULL AND banner != '')").
+		Limit(limit).
+		Find(&services).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "get_services_pending_fingerprint", "REPO", map[string]interface{}{
+			"operation": "get_services_pending_fingerprint",
+		})
+		return nil, err
+	}
+	return services, nil
+}

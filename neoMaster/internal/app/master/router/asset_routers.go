@@ -96,6 +96,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			// Web详细信息
 			webs.GET("/:id/detail", r.assetWebHandler.GetWebDetail)  // 获取Web详细信息
 			webs.PUT("/:id/detail", r.assetWebHandler.SaveWebDetail) // 保存Web详细信息
+
+			// Web标签管理
+			webs.GET("/:id/tags", r.assetWebHandler.GetWebTags)              // 获取Web资产标签
+			webs.POST("/:id/tags", r.assetWebHandler.AddWebTag)              // 添加Web资产标签
+			webs.DELETE("/:id/tags/:tag_id", r.assetWebHandler.RemoveWebTag) // 删除Web资产标签
 		}
 
 		// 资产策略管理

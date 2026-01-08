@@ -105,7 +105,7 @@ func (r *AssetNetworkRepository) DeleteNetwork(ctx context.Context, id uint64) e
 }
 
 // ListNetworks 获取网段列表 (分页 + 筛选)
-func (r *AssetNetworkRepository) ListNetworks(ctx context.Context, page, pageSize int, cidr, networkType, status string) ([]*asset.AssetNetwork, int64, error) {
+func (r *AssetNetworkRepository) ListNetworks(ctx context.Context, page, pageSize int, cidr, networkType, status string, networkIDs []uint64) ([]*asset.AssetNetwork, int64, error) {
 	var networks []*asset.AssetNetwork
 	var total int64
 
@@ -119,6 +119,9 @@ func (r *AssetNetworkRepository) ListNetworks(ctx context.Context, page, pageSiz
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+	if len(networkIDs) > 0 {
+		query = query.Where("id IN ?", networkIDs)
 	}
 
 	err := query.Count(&total).Error

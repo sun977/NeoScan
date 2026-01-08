@@ -24,7 +24,6 @@ type Project struct {
 	NotifyConfig string         `json:"notify_config" gorm:"type:json;comment:通知配置聚合(JSON)"`
 	ExportConfig string         `json:"export_config" gorm:"type:json;comment:结果导出配置(JSON)"`
 	ExtendedData string         `json:"extended_data" gorm:"type:json;comment:扩展数据(JSON)"`
-	Tags         string         `json:"tags" gorm:"type:json;comment:标签列表(JSON)"`
 	LastExecTime *time.Time     `json:"last_exec_time" gorm:"comment:最后一次执行开始时间"`
 	LastExecID   string         `json:"last_exec_id" gorm:"size:100;comment:最后一次执行的任务ID"`
 	CreatedBy    uint64         `json:"created_by" gorm:"comment:创建者UserID"`

@@ -33,7 +33,6 @@ func TestPolicyEnforcer_SkipRule_Matcher(t *testing.T) {
 		// ID will be auto-generated or can be set if needed for relation
 		Name:        "ProdProject",
 		TargetScope: "192.168.1.1", // valid scope
-		Tags:        `["production", "high-value"]`,
 	}
 	// Manually set ID for test consistency
 	project.ID = 123
@@ -114,7 +113,6 @@ func TestPolicyEnforcer_SkipRule_Legacy(t *testing.T) {
 	project := &agentModel.Project{
 		Name:        "LegacyProject",
 		TargetScope: "10.0.0.1",
-		Tags:        `["sensitive"]`,
 	}
 	project.ID = 456
 	db.Create(project)

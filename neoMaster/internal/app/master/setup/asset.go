@@ -42,7 +42,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	policyService := assetService.NewAssetPolicyService(policyRepo, tagSystem)
 	webService := assetService.NewAssetWebService(webRepo, tagSystem)
 	vulnService := assetService.NewAssetVulnService(vulnRepo, tagSystem)
-	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo)
+	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo, tagSystem)
 	scanService := assetService.NewAssetScanService(scanRepo, networkRepo)
 
 	// 3. Handler 初始化

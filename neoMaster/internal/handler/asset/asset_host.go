@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -522,8 +523,19 @@ func (h *AssetHostHandler) ListServices(c *gin.Context) {
 	port, _ := strconv.Atoi(c.DefaultQuery("port", "0"))
 	name := c.Query("name")
 	proto := c.Query("proto")
+	tagIDsStr := c.Query("tag_ids")
 
-	services, total, err := h.service.ListServices(c.Request.Context(), page, pageSize, port, name, proto)
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, id := range ids {
+			if idInt, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64); err == nil {
+				tagIDs = append(tagIDs, idInt)
+			}
+		}
+	}
+
+	services, total, err := h.service.ListServices(c.Request.Context(), page, pageSize, port, name, proto, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_services",

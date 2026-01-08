@@ -88,7 +88,7 @@ func (r *AssetPolicyRepository) DeleteWhitelist(ctx context.Context, id uint64) 
 }
 
 // ListWhitelists 获取白名单列表 (分页 + 筛选)
-func (r *AssetPolicyRepository) ListWhitelists(ctx context.Context, page, pageSize int, name, targetType string) ([]*asset.AssetWhitelist, int64, error) {
+func (r *AssetPolicyRepository) ListWhitelists(ctx context.Context, page, pageSize int, name, targetType string, whitelistIDs []uint64) ([]*asset.AssetWhitelist, int64, error) {
 	var whitelists []*asset.AssetWhitelist
 	var total int64
 
@@ -99,6 +99,9 @@ func (r *AssetPolicyRepository) ListWhitelists(ctx context.Context, page, pageSi
 	}
 	if targetType != "" {
 		query = query.Where("target_type = ?", targetType)
+	}
+	if len(whitelistIDs) > 0 {
+		query = query.Where("id IN ?", whitelistIDs)
 	}
 
 	err := query.Count(&total).Error
@@ -189,7 +192,7 @@ func (r *AssetPolicyRepository) DeleteSkipPolicy(ctx context.Context, id uint64)
 }
 
 // ListSkipPolicies 获取跳过策略列表 (分页 + 筛选)
-func (r *AssetPolicyRepository) ListSkipPolicies(ctx context.Context, page, pageSize int, name, policyType string) ([]*asset.AssetSkipPolicy, int64, error) {
+func (r *AssetPolicyRepository) ListSkipPolicies(ctx context.Context, page, pageSize int, name, policyType string, policyIDs []uint64) ([]*asset.AssetSkipPolicy, int64, error) {
 	var policies []*asset.AssetSkipPolicy
 	var total int64
 
@@ -202,6 +205,9 @@ func (r *AssetPolicyRepository) ListSkipPolicies(ctx context.Context, page, page
 	if policyType != "" {
 		// 添加 policyType 筛选 模型和数据库表均有 policy_type 字段
 		query = query.Where("policy_type = ?", policyType)
+	}
+	if len(policyIDs) > 0 {
+		query = query.Where("id IN ?", policyIDs)
 	}
 
 	err := query.Count(&total).Error

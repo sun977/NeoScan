@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -237,8 +238,19 @@ func (h *AssetPolicyHandler) ListWhitelists(c *gin.Context) {
 
 	name := c.Query("name")
 	targetType := c.Query("type")
+	tagIDsStr := c.Query("tag_ids")
 
-	whitelists, total, err := h.service.ListWhitelists(c.Request.Context(), page, pageSize, name, targetType)
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, id := range ids {
+			if idInt, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64); err == nil {
+				tagIDs = append(tagIDs, idInt)
+			}
+		}
+	}
+
+	whitelists, total, err := h.service.ListWhitelists(c.Request.Context(), page, pageSize, name, targetType, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_whitelists",
@@ -484,8 +496,19 @@ func (h *AssetPolicyHandler) ListSkipPolicies(c *gin.Context) {
 
 	name := c.Query("name")
 	policyType := c.Query("type")
+	tagIDsStr := c.Query("tag_ids")
 
-	policies, total, err := h.service.ListSkipPolicies(c.Request.Context(), page, pageSize, name, policyType)
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, id := range ids {
+			if idInt, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64); err == nil {
+				tagIDs = append(tagIDs, idInt)
+			}
+		}
+	}
+
+	policies, total, err := h.service.ListSkipPolicies(c.Request.Context(), page, pageSize, name, policyType, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_skip_policies",
@@ -517,5 +540,325 @@ func (h *AssetPolicyHandler) ListSkipPolicies(c *gin.Context) {
 		Status:  "success",
 		Message: "Skip policies retrieved successfully",
 		Data:    pagination,
+	})
+}
+
+// -----------------------------------------------------------------------------
+// Tag Management Handlers (Whitelist)
+// -----------------------------------------------------------------------------
+
+// AddWhitelistTag 为白名单添加标签
+func (h *AssetPolicyHandler) AddWhitelistTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	whitelistID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Whitelist ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToWhitelist(c.Request.Context(), whitelistID, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation":    "add_whitelist_tag",
+			"whitelist_id": whitelistID,
+			"tag_id":       req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to whitelist",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_whitelist_tag", 0, "", clientIP, XRequestID, "success", "Tag added to whitelist successfully", map[string]interface{}{
+		"whitelist_id": whitelistID,
+		"tag_id":       req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to whitelist successfully",
+	})
+}
+
+// RemoveWhitelistTag 从白名单移除标签
+func (h *AssetPolicyHandler) RemoveWhitelistTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	whitelistIDStr := c.Param("id")
+	whitelistID, err := strconv.ParseUint(whitelistIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Whitelist ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromWhitelist(c.Request.Context(), whitelistID, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation":    "remove_whitelist_tag",
+			"whitelist_id": whitelistID,
+			"tag_id":       tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from whitelist",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_whitelist_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from whitelist successfully", map[string]interface{}{
+		"whitelist_id": whitelistID,
+		"tag_id":       tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from whitelist successfully",
+	})
+}
+
+// GetWhitelistTags 获取白名单标签
+func (h *AssetPolicyHandler) GetWhitelistTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	whitelistID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Whitelist ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetWhitelistTags(c.Request.Context(), whitelistID)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation":    "get_whitelist_tags",
+			"whitelist_id": whitelistID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get whitelist tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Whitelist tags retrieved successfully",
+		Data:    tags,
+	})
+}
+
+// -----------------------------------------------------------------------------
+// Tag Management Handlers (SkipPolicy)
+// -----------------------------------------------------------------------------
+
+// AddSkipPolicyTag 为跳过策略添加标签
+func (h *AssetPolicyHandler) AddSkipPolicyTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	policyID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Policy ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToSkipPolicy(c.Request.Context(), policyID, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_skip_policy_tag",
+			"policy_id": policyID,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to skip policy",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_skip_policy_tag", 0, "", clientIP, XRequestID, "success", "Tag added to skip policy successfully", map[string]interface{}{
+		"policy_id": policyID,
+		"tag_id":    req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to skip policy successfully",
+	})
+}
+
+// RemoveSkipPolicyTag 从跳过策略移除标签
+func (h *AssetPolicyHandler) RemoveSkipPolicyTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	policyIDStr := c.Param("id")
+	policyID, err := strconv.ParseUint(policyIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Policy ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromSkipPolicy(c.Request.Context(), policyID, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_skip_policy_tag",
+			"policy_id": policyID,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from skip policy",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_skip_policy_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from skip policy successfully", map[string]interface{}{
+		"policy_id": policyID,
+		"tag_id":    tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from skip policy successfully",
+	})
+}
+
+// GetSkipPolicyTags 获取跳过策略标签
+func (h *AssetPolicyHandler) GetSkipPolicyTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	policyID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Policy ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetSkipPolicyTags(c.Request.Context(), policyID)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_skip_policy_tags",
+			"policy_id": policyID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get skip policy tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Skip policy tags retrieved successfully",
+		Data:    tags,
 	})
 }

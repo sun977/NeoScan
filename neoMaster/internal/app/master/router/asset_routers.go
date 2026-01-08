@@ -114,6 +114,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 				whitelists.PUT("/:id", r.assetPolicyHandler.UpdateWhitelist)    // 更新白名单
 				whitelists.DELETE("/:id", r.assetPolicyHandler.DeleteWhitelist) // 删除白名单
 				whitelists.GET("", r.assetPolicyHandler.ListWhitelists)         // 获取白名单列表
+
+				// 白名单标签管理
+				whitelists.GET("/:id/tags", r.assetPolicyHandler.GetWhitelistTags)              // 获取白名单标签
+				whitelists.POST("/:id/tags", r.assetPolicyHandler.AddWhitelistTag)              // 添加白名单标签
+				whitelists.DELETE("/:id/tags/:tag_id", r.assetPolicyHandler.RemoveWhitelistTag) // 删除白名单标签
 			}
 
 			// 跳过策略管理
@@ -124,6 +129,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 				skipPolicies.PUT("/:id", r.assetPolicyHandler.UpdateSkipPolicy)    // 更新跳过策略
 				skipPolicies.DELETE("/:id", r.assetPolicyHandler.DeleteSkipPolicy) // 删除跳过策略
 				skipPolicies.GET("", r.assetPolicyHandler.ListSkipPolicies)        // 获取跳过策略列表
+
+				// 跳过策略标签管理
+				skipPolicies.GET("/:id/tags", r.assetPolicyHandler.GetSkipPolicyTags)              // 获取跳过策略标签
+				skipPolicies.POST("/:id/tags", r.assetPolicyHandler.AddSkipPolicyTag)              // 添加跳过策略标签
+				skipPolicies.DELETE("/:id/tags/:tag_id", r.assetPolicyHandler.RemoveSkipPolicyTag) // 删除跳过策略标签
 			}
 		}
 

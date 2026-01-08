@@ -152,7 +152,7 @@ func (m *MiddlewareManager) GinRateLimitMiddleware() gin.HandlerFunc {
 		// 获取客户端IP作为限流key
 		clientIP := utils.GetClientIP(c)
 
-		// 根据配置创建限流器
+		// 根据配置获取限流器
 		limiter := m.getRateLimiter()
 
 		// 检查是否允许请求
@@ -165,10 +165,17 @@ func (m *MiddlewareManager) GinRateLimitMiddleware() gin.HandlerFunc {
 				"method":    c.Request.Method,
 			})
 
-			// 返回配置的限流错误
-			c.JSON(m.securityConfig.RateLimit.StatusCode, gin.H{
+			statusCode := m.securityConfig.RateLimit.StatusCode
+			if statusCode <= 0 {
+				statusCode = http.StatusTooManyRequests
+			}
+			message := m.securityConfig.RateLimit.Message
+			if message == "" {
+				message = "Too many requests, please try again later"
+			}
+			c.JSON(statusCode, gin.H{
 				"error":   "Rate limit exceeded",
-				"message": m.securityConfig.RateLimit.Message,
+				"message": message,
 				"code":    "RATE_LIMIT_EXCEEDED",
 			})
 			c.Abort()
@@ -211,31 +218,39 @@ func (m *MiddlewareManager) shouldSkipRateLimit(c *gin.Context) bool {
 
 // getRateLimiter 根据配置获取限流器
 func (m *MiddlewareManager) getRateLimiter() RateLimiter {
-	config := &m.securityConfig.RateLimit
+	m.rateLimiterOnce.Do(func() {
+		config := &m.securityConfig.RateLimit
+		requestsPerSecond := config.RequestsPerSecond
+		if requestsPerSecond <= 0 {
+			requestsPerSecond = 10
+		}
+		burstSize := config.BurstSize
+		if burstSize <= 0 {
+			burstSize = requestsPerSecond
+		}
 
-	// 解析窗口大小字符串为time.Duration
-	windowSize, err := time.ParseDuration(config.WindowSize)
-	if err != nil {
-		// 如果解析失败，使用默认值
-		windowSize = 15 * time.Minute
-	}
+		windowSize, err := time.ParseDuration(config.WindowSize)
+		if err != nil {
+			windowSize = 15 * time.Minute
+		}
 
-	// 根据策略创建不同的限流器
-	switch config.Strategy {
-	case "token_bucket":
-		return NewTokenBucketLimiter(
-			config.RequestsPerSecond,
-			config.BurstSize,
-			windowSize,
-		)
-	default:
-		// 默认使用令牌桶算法
-		return NewTokenBucketLimiter(
-			config.RequestsPerSecond,
-			config.BurstSize,
-			windowSize,
-		)
-	}
+		switch config.Strategy {
+		case "token_bucket":
+			m.rateLimiter = NewTokenBucketLimiter(
+				requestsPerSecond,
+				burstSize,
+				windowSize,
+			)
+		default:
+			m.rateLimiter = NewTokenBucketLimiter(
+				requestsPerSecond,
+				burstSize,
+				windowSize,
+			)
+		}
+	})
+
+	return m.rateLimiter
 }
 
 // GinRateLimitMiddlewareWithLimiter 通用限流中间件

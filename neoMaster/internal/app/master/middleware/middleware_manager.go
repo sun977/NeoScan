@@ -3,6 +3,7 @@ package middleware
 import (
 	"neomaster/internal/config"
 	"neomaster/internal/service/auth"
+	"sync"
 )
 
 // MiddlewareManager 中间件管理器
@@ -12,6 +13,8 @@ type MiddlewareManager struct {
 	rbacService    *auth.RBACService      // RBAC服务，用于角色和权限验证
 	jwtService     *auth.JWTService       // JWT服务，用于令牌管理
 	securityConfig *config.SecurityConfig // 安全配置，用于中间件配置
+	rateLimiter    RateLimiter
+	rateLimiterOnce sync.Once
 }
 
 // NewMiddlewareManager 创建中间件管理器

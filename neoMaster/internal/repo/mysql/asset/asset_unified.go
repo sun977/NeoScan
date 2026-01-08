@@ -97,7 +97,8 @@ type UnifiedAssetFilter struct {
 	Product   string
 	Component string
 	IsWeb     *bool
-	Keyword   string // 模糊搜索 (IP/Hostname/Title/Service)
+	Keyword   string   // 模糊搜索 (IP/Hostname/Title/Service)
+	IDs       []uint64 // ID列表过滤 (用于标签反查)
 }
 
 // ListUnifiedAssets 获取统一资产列表 (高级搜索)
@@ -116,6 +117,9 @@ func (r *AssetUnifiedRepository) ListUnifiedAssets(ctx context.Context, page, pa
 	}
 	if filter.IsWeb != nil {
 		query = query.Where("is_web = ?", *filter.IsWeb)
+	}
+	if len(filter.IDs) > 0 {
+		query = query.Where("id IN ?", filter.IDs)
 	}
 
 	// 模糊过滤

@@ -85,7 +85,6 @@ func TestTargetPolicyResolution(t *testing.T) {
 		Version:      "v1",
 		GlobalVars:   "{}",
 		PolicyConfig: "{}",
-		Tags:         "[]",
 		Enabled:      true,
 	}
 	if err := db.Create(workflow).Error; err != nil {
@@ -126,7 +125,6 @@ func TestTargetPolicyResolution(t *testing.T) {
 		ExtendedData: "{}", // Empty seed targets
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
-		Tags:         "[]",
 	}
 	if err := db.Create(project).Error; err != nil {
 		t.Fatalf("Create project failed: %v", err)

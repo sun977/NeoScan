@@ -19,7 +19,6 @@ type Workflow struct {
 	ExecMode     string         `json:"exec_mode" gorm:"size:20;default:'sequential';comment:阶段执行模式(sequential/parallel/dag)"`
 	GlobalVars   string         `json:"global_vars" gorm:"type:json;comment:全局变量定义(JSON)"`
 	PolicyConfig string         `json:"policy_config" gorm:"type:json;comment:执行策略配置(超时/重试/通知)(JSON)"`
-	Tags         string         `json:"tags" gorm:"type:json;comment:标签列表(JSON)"`
 	CreatedBy    uint64         `json:"created_by" gorm:"comment:创建者ID"`
 	UpdatedBy    uint64         `json:"updated_by" gorm:"comment:更新者ID"`
 	DeletedAt    gorm.DeletedAt `json:"deleted_at" gorm:"index;comment:软删除时间"`

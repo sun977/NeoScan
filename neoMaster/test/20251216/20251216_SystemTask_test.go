@@ -79,7 +79,6 @@ func TestSystemTaskCategorization(t *testing.T) {
 		ExtendedData: "{}",
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
-		Tags:         "[]",
 	}
 	db.Create(project)
 

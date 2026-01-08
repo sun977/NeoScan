@@ -98,7 +98,6 @@ func TestPolicyEnforcer_Whitelist(t *testing.T) {
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
 		ExtendedData: "{}",
-		Tags:         "[]",
 	}
 	if err := db.Create(project).Error; err != nil {
 		t.Fatalf("Failed to create project: %v", err)

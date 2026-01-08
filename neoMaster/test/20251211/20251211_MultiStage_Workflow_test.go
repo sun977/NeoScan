@@ -112,7 +112,6 @@ func TestMultiStageWorkflow(t *testing.T) {
 		ExtendedData: "{}",
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
-		Tags:         "[]",
 	}
 	err = db.Create(&project).Error
 	assert.NoError(t, err)
@@ -144,7 +143,6 @@ func TestMultiStageWorkflow(t *testing.T) {
 		Enabled:      true,
 		GlobalVars:   "{}",
 		PolicyConfig: "{}",
-		Tags:         "[]",
 	}
 	err = db.Create(&workflow).Error
 	assert.NoError(t, err)

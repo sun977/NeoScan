@@ -131,7 +131,6 @@ func TestCronScheduler(t *testing.T) {
 		ExtendedData: "{}",          // ExtendedData 为空 JSON
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
-		Tags:         "[]",
 		LastExecTime: &lastExecTime,
 	}
 	err = db.Create(&project).Error
@@ -143,7 +142,6 @@ func TestCronScheduler(t *testing.T) {
 		Enabled:      true,
 		GlobalVars:   "{}",
 		PolicyConfig: "{}",
-		Tags:         "[]",
 	}
 	err = db.Create(&workflow).Error
 	assert.NoError(t, err)

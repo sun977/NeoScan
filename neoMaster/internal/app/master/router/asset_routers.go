@@ -64,6 +64,19 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 
 			// 主机服务列表
 			hosts.GET("/:id/services", r.assetHostHandler.ListServicesByHost)
+
+			// 主机标签管理
+			hosts.GET("/:id/tags", r.assetHostHandler.GetHostTags)              // 获取主机标签
+			hosts.POST("/:id/tags", r.assetHostHandler.AddHostTag)              // 添加主机标签
+			hosts.DELETE("/:id/tags/:tag_id", r.assetHostHandler.RemoveHostTag) // 删除主机标签
+
+			// 主机服务标签管理
+			services := hosts.Group("/:id/services")
+			{
+				services.GET("/:service_id/tags", r.assetHostHandler.GetServiceTags)              // 获取服务标签
+				services.POST("/:service_id/tags", r.assetHostHandler.AddServiceTag)              // 添加服务标签
+				services.DELETE("/:service_id/tags/:tag_id", r.assetHostHandler.RemoveServiceTag) // 删除服务标签
+			}
 		}
 
 		// Web资产管理

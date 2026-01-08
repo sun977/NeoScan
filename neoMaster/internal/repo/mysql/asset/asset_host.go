@@ -247,12 +247,15 @@ func (r *AssetHostRepository) ListServicesByHostID(ctx context.Context, hostID u
 }
 
 // ListServices 获取服务列表 (分页 + 筛选)
-func (r *AssetHostRepository) ListServices(ctx context.Context, page, pageSize int, port int, name, proto string) ([]*asset.AssetService, int64, error) {
+func (r *AssetHostRepository) ListServices(ctx context.Context, page, pageSize int, port int, name, proto string, serviceIDs []uint64) ([]*asset.AssetService, int64, error) {
 	var services []*asset.AssetService
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&asset.AssetService{})
 
+	if len(serviceIDs) > 0 {
+		query = query.Where("id IN ?", serviceIDs)
+	}
 	if port > 0 {
 		query = query.Where("port = ?", port)
 	}

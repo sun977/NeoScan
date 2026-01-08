@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -238,8 +239,19 @@ func (h *AssetNetworkHandler) ListNetworks(c *gin.Context) {
 	cidr := c.Query("cidr")
 	networkType := c.Query("type")
 	status := c.Query("status")
+	tagIDsStr := c.Query("tag_ids")
 
-	networks, total, err := h.service.ListNetworks(c.Request.Context(), page, pageSize, cidr, networkType, status)
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, id := range ids {
+			if idInt, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64); err == nil {
+				tagIDs = append(tagIDs, idInt)
+			}
+		}
+	}
+
+	networks, total, err := h.service.ListNetworks(c.Request.Context(), page, pageSize, cidr, networkType, status, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_networks",
@@ -329,5 +341,165 @@ func (h *AssetNetworkHandler) UpdateScanStatus(c *gin.Context) {
 		Code:    http.StatusOK,
 		Status:  "success",
 		Message: "Network scan status updated successfully",
+	})
+}
+
+// -----------------------------------------------------------------------------
+// Tag Management Handlers
+// -----------------------------------------------------------------------------
+
+// AddNetworkTag 为网段添加标签
+func (h *AssetNetworkHandler) AddNetworkTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	networkID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Network ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToNetwork(c.Request.Context(), networkID, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation":  "add_network_tag",
+			"network_id": networkID,
+			"tag_id":     req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to network",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_network_tag", 0, "", clientIP, XRequestID, "success", "Tag added to network successfully", map[string]interface{}{
+		"network_id": networkID,
+		"tag_id":     req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to network successfully",
+	})
+}
+
+// RemoveNetworkTag 从网段移除标签
+func (h *AssetNetworkHandler) RemoveNetworkTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	networkIDStr := c.Param("id")
+	networkID, err := strconv.ParseUint(networkIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Network ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromNetwork(c.Request.Context(), networkID, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation":  "remove_network_tag",
+			"network_id": networkID,
+			"tag_id":     tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from network",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_network_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from network successfully", map[string]interface{}{
+		"network_id": networkID,
+		"tag_id":     tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from network successfully",
+	})
+}
+
+// GetNetworkTags 获取网段标签
+func (h *AssetNetworkHandler) GetNetworkTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	networkID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Network ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetNetworkTags(c.Request.Context(), networkID)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation":  "get_network_tags",
+			"network_id": networkID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get network tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Network tags retrieved successfully",
+		Data:    tags,
 	})
 }

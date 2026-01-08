@@ -51,6 +51,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			networks.DELETE("/:id", r.assetNetworkHandler.DeleteNetwork)               // 删除网段
 			networks.GET("", r.assetNetworkHandler.ListNetworks)                       // 获取网段列表
 			networks.PATCH("/:id/scan-status", r.assetNetworkHandler.UpdateScanStatus) // 更新网段扫描状态
+
+			// 网段标签管理
+			networks.GET("/:id/tags", r.assetNetworkHandler.GetNetworkTags)              // 获取网段标签
+			networks.POST("/:id/tags", r.assetNetworkHandler.AddNetworkTag)              // 添加网段标签
+			networks.DELETE("/:id/tags/:tag_id", r.assetNetworkHandler.RemoveNetworkTag) // 删除网段标签
 		}
 
 		// 主机资产管理

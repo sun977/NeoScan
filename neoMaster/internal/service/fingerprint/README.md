@@ -1,5 +1,7 @@
 # 指纹识别服务 (Fingerprint Service)
 
+fingerprint 服务：保持纯粹的计算引擎角色，只负责 "Input -> Identify -> Result"，不关心数据库
+
 ## 1. 简介
 FingerprintService 是 NeoScan 的核心服务之一，负责识别资产的指纹信息。它将分散在各个扫描工具（如 Nmap, Goby, Wappalyzer 等）的指纹数据进行统一清洗、匹配和标准化，最终生成标准的 CPE (Common Platform Enumeration) 标识。
 

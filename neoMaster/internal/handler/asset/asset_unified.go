@@ -287,8 +287,8 @@ func (h *AssetUnifiedHandler) ListUnifiedAssets(c *gin.Context) {
 	if tagIDsStr != "" {
 		parts := strings.Split(tagIDsStr, ",")
 		for _, part := range parts {
-			id, err := strconv.ParseUint(part, 10, 64)
-			if err != nil {
+			id, err1 := strconv.ParseUint(part, 10, 64)
+			if err1 != nil {
 				continue
 			}
 			tagIDs = append(tagIDs, id)

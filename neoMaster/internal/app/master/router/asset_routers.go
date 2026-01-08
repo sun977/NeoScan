@@ -147,12 +147,22 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			vulns.DELETE("/:id", r.assetVulnHandler.DeleteVuln) // 删除漏洞
 			vulns.GET("", r.assetVulnHandler.ListVulns)         // 获取漏洞列表
 
+			// 漏洞标签管理
+			vulns.GET("/:id/tags", r.assetVulnHandler.GetVulnTags)              // 获取漏洞标签
+			vulns.POST("/:id/tags", r.assetVulnHandler.AddVulnTag)              // 添加漏洞标签
+			vulns.DELETE("/:id/tags/:tag_id", r.assetVulnHandler.RemoveVulnTag) // 删除漏洞标签
+
 			// PoC管理
 			vulns.POST("/pocs", r.assetVulnHandler.CreatePoc)         // 创建PoC
 			vulns.GET("/pocs/:id", r.assetVulnHandler.GetPoc)         // 获取PoC详情
 			vulns.PUT("/pocs/:id", r.assetVulnHandler.UpdatePoc)      // 更新PoC
 			vulns.DELETE("/pocs/:id", r.assetVulnHandler.DeletePoc)   // 删除PoC
 			vulns.GET("/:id/pocs", r.assetVulnHandler.ListPocsByVuln) // 获取漏洞关联的PoC列表
+
+			// PoC标签管理
+			vulns.GET("/pocs/:id/tags", r.assetVulnHandler.GetPocTags)              // 获取PoC标签
+			vulns.POST("/pocs/:id/tags", r.assetVulnHandler.AddPocTag)              // 添加PoC标签
+			vulns.DELETE("/pocs/:id/tags/:tag_id", r.assetVulnHandler.RemovePocTag) // 删除PoC标签
 		}
 
 		// 统一资产视图

@@ -106,7 +106,7 @@ func (r *AssetWebRepository) DeleteWeb(ctx context.Context, id uint64) error {
 }
 
 // ListWebs 获取Web资产列表 (分页 + 筛选)
-func (r *AssetWebRepository) ListWebs(ctx context.Context, page, pageSize int, domain string, assetType string, status string) ([]*assetmodel.AssetWeb, int64, error) {
+func (r *AssetWebRepository) ListWebs(ctx context.Context, page, pageSize int, domain string, assetType string, status string, webIDs []uint64) ([]*assetmodel.AssetWeb, int64, error) {
 	var webs []*assetmodel.AssetWeb
 	var total int64
 
@@ -120,6 +120,9 @@ func (r *AssetWebRepository) ListWebs(ctx context.Context, page, pageSize int, d
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+	if len(webIDs) > 0 {
+		query = query.Where("id IN ?", webIDs)
 	}
 
 	err := query.Count(&total).Error

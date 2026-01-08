@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -254,8 +255,19 @@ func (h *AssetWebHandler) ListWebs(c *gin.Context) {
 	domain := c.Query("domain")
 	assetType := c.Query("asset_type")
 	status := c.Query("status")
+	tagIDsStr := c.Query("tag_ids")
 
-	webs, total, err := h.service.ListWebs(c.Request.Context(), page, pageSize, domain, assetType, status)
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, id := range ids {
+			if idInt, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64); err == nil {
+				tagIDs = append(tagIDs, idInt)
+			}
+		}
+	}
+
+	webs, total, err := h.service.ListWebs(c.Request.Context(), page, pageSize, domain, assetType, status, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_webs",
@@ -287,6 +299,166 @@ func (h *AssetWebHandler) ListWebs(c *gin.Context) {
 		Status:  "success",
 		Message: "Web assets retrieved successfully",
 		Data:    pagination,
+	})
+}
+
+// -----------------------------------------------------------------------------
+// Tag Management Handlers
+// -----------------------------------------------------------------------------
+
+// AddWebTag 为Web资产添加标签
+func (h *AssetWebHandler) AddWebTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	webID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Web ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToWeb(c.Request.Context(), webID, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_web_tag",
+			"web_id":    webID,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to web asset",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_web_tag", 0, "", clientIP, XRequestID, "success", "Tag added to web asset successfully", map[string]interface{}{
+		"web_id": webID,
+		"tag_id": req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to web asset successfully",
+	})
+}
+
+// RemoveWebTag 从Web资产移除标签
+func (h *AssetWebHandler) RemoveWebTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	webIDStr := c.Param("id")
+	webID, err := strconv.ParseUint(webIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Web ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromWeb(c.Request.Context(), webID, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_web_tag",
+			"web_id":    webID,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from web asset",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_web_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from web asset successfully", map[string]interface{}{
+		"web_id": webID,
+		"tag_id": tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from web asset successfully",
+	})
+}
+
+// GetWebTags 获取Web资产标签
+func (h *AssetWebHandler) GetWebTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	webID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Web ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetWebTags(c.Request.Context(), webID)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_web_tags",
+			"web_id":    webID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get web asset tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Web asset tags retrieved successfully",
+		Data:    tags,
 	})
 }
 

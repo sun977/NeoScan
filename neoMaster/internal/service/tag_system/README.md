@@ -10,11 +10,11 @@
 - system 任务：LocalAgent 
 - agent 任务：其他 Agent 执行的任务
 
-#### 资产相关的实体后续也需要支持打标(尚未实现)
+#### 资产相关的实体后续也需要支持打标
 - AssetHost
 - AssetService
 - AssetWeb
-- AssetWebDetail
+- AssetWebDetail(不需要)
 - AssetVuln
 - AssetVulnPoc
 - AssetUnified（资产统一模型）

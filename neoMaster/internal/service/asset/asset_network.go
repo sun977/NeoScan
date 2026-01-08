@@ -4,19 +4,26 @@ import (
 	"context"
 	"errors"
 	"neomaster/internal/model/asset"
+	tagsystem "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	assetrepo "neomaster/internal/repo/mysql/asset"
+	tagservice "neomaster/internal/service/tag_system"
+	"strconv"
 )
 
 // AssetNetworkService 资产网段服务
 // 负责处理网段资产的业务逻辑
 type AssetNetworkService struct {
-	repo *assetrepo.AssetNetworkRepository
+	repo       *assetrepo.AssetNetworkRepository
+	tagService tagservice.TagService
 }
 
 // NewAssetNetworkService 创建 AssetNetworkService 实例
-func NewAssetNetworkService(repo *assetrepo.AssetNetworkRepository) *AssetNetworkService {
-	return &AssetNetworkService{repo: repo}
+func NewAssetNetworkService(repo *assetrepo.AssetNetworkRepository, tagService tagservice.TagService) *AssetNetworkService {
+	return &AssetNetworkService{
+		repo:       repo,
+		tagService: tagService,
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -109,13 +116,46 @@ func (s *AssetNetworkService) DeleteNetwork(ctx context.Context, id uint64) erro
 }
 
 // ListNetworks 获取网段列表
-func (s *AssetNetworkService) ListNetworks(ctx context.Context, page, pageSize int, cidr, networkType, status string) ([]*asset.AssetNetwork, int64, error) {
-	list, total, err := s.repo.ListNetworks(ctx, page, pageSize, cidr, networkType, status)
+func (s *AssetNetworkService) ListNetworks(ctx context.Context, page, pageSize int, cidr, networkType, status string, tagIDs []uint64) ([]*asset.AssetNetwork, int64, error) {
+	var networkIDs []uint64
+
+	// 如果指定了标签，先从标签系统获取对应的 NetworkID 列表
+	if len(tagIDs) > 0 {
+		entityIDsStr, err := s.tagService.GetEntityIDsByTagIDs(ctx, "network", tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "list_networks_get_tags", "SERVICE", map[string]interface{}{
+				"operation": "list_networks_get_tags",
+				"tag_ids":   tagIDs,
+			})
+			return nil, 0, err
+		}
+
+		if len(entityIDsStr) == 0 {
+			// 筛选了标签但没找到对应的资源，直接返回空列表
+			return []*asset.AssetNetwork{}, 0, nil
+		}
+
+		// 转换 ID 类型
+		for _, idStr := range entityIDsStr {
+			id, err := strconv.ParseUint(idStr, 10, 64)
+			if err != nil {
+				continue
+			}
+			networkIDs = append(networkIDs, id)
+		}
+
+		if len(networkIDs) == 0 {
+			return []*asset.AssetNetwork{}, 0, nil
+		}
+	}
+
+	list, total, err := s.repo.ListNetworks(ctx, page, pageSize, cidr, networkType, status, networkIDs)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "list_networks", "SERVICE", map[string]interface{}{
 			"operation": "list_networks",
 			"page":      page,
 			"page_size": pageSize,
+			"tag_ids":   tagIDs,
 		})
 		return nil, 0, err
 	}
@@ -145,4 +185,91 @@ func (s *AssetNetworkService) UpdateScanStatus(ctx context.Context, id uint64, s
 		return err
 	}
 	return nil
+}
+
+// AddTagToNetwork 添加标签到网段
+func (s *AssetNetworkService) AddTagToNetwork(ctx context.Context, networkID uint64, tagID uint64) error {
+	// 检查网段是否存在
+	network, err := s.repo.GetNetworkByID(ctx, networkID)
+	if err != nil {
+		return err
+	}
+	if network == nil {
+		return errors.New("network not found")
+	}
+
+	// 添加标签 (Source=manual)
+	err = s.tagService.AddEntityTag(ctx, "network", strconv.FormatUint(networkID, 10), tagID, "manual", 0)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_tag_to_network", "SERVICE", map[string]interface{}{
+			"operation":  "add_tag_to_network",
+			"network_id": networkID,
+			"tag_id":     tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveTagFromNetwork 从网段移除标签
+func (s *AssetNetworkService) RemoveTagFromNetwork(ctx context.Context, networkID uint64, tagID uint64) error {
+	// 检查网段是否存在
+	network, err := s.repo.GetNetworkByID(ctx, networkID)
+	if err != nil {
+		return err
+	}
+	if network == nil {
+		return errors.New("network not found")
+	}
+
+	err = s.tagService.RemoveEntityTag(ctx, "network", strconv.FormatUint(networkID, 10), tagID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_tag_from_network", "SERVICE", map[string]interface{}{
+			"operation":  "remove_tag_from_network",
+			"network_id": networkID,
+			"tag_id":     tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetNetworkTags 获取网段标签
+func (s *AssetNetworkService) GetNetworkTags(ctx context.Context, networkID uint64) ([]tagsystem.SysTag, error) {
+	// 检查网段是否存在
+	network, err := s.repo.GetNetworkByID(ctx, networkID)
+	if err != nil {
+		return nil, err
+	}
+	if network == nil {
+		return nil, errors.New("network not found")
+	}
+
+	// 1. 获取实体关联关系
+	entityTags, err := s.tagService.GetEntityTags(ctx, "network", strconv.FormatUint(networkID, 10))
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_network_tags", "SERVICE", map[string]interface{}{
+			"operation":  "get_network_tags",
+			"network_id": networkID,
+		})
+		return nil, err
+	}
+
+	if len(entityTags) == 0 {
+		return []tagsystem.SysTag{}, nil
+	}
+
+	// 2. 提取TagIDs
+	var tagIDs []uint64
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+
+	// 3. 批量获取标签详情
+	tags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 }

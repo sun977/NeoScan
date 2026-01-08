@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -259,8 +260,20 @@ func (h *AssetVulnHandler) ListVulns(c *gin.Context) {
 	}
 	status := c.Query("status")
 	severity := c.Query("severity")
+	tagIDsStr := c.Query("tag_ids")
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		parts := strings.Split(tagIDsStr, ",")
+		for _, part := range parts {
+			id, err := strconv.ParseUint(part, 10, 64)
+			if err != nil {
+				continue
+			}
+			tagIDs = append(tagIDs, id)
+		}
+	}
 
-	vulns, total, err := h.service.ListVulns(c.Request.Context(), page, pageSize, targetType, targetRefID, status, severity)
+	vulns, total, err := h.service.ListVulns(c.Request.Context(), page, pageSize, targetType, targetRefID, status, severity, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_vulns",
@@ -524,12 +537,24 @@ func (h *AssetVulnHandler) ListPocsByVuln(c *gin.Context) {
 	}
 
 	validOnly := c.Query("valid_only") == "true"
+	tagIDsStr := c.Query("tag_ids")
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		parts := strings.Split(tagIDsStr, ",")
+		for _, part := range parts {
+			id, err1 := strconv.ParseUint(part, 10, 64)
+			if err1 != nil {
+				continue
+			}
+			tagIDs = append(tagIDs, id)
+		}
+	}
 
 	var pocs []*assetmodel.AssetVulnPoc
 	if validOnly {
 		pocs, err = h.service.GetValidPocsByVulnID(c.Request.Context(), vulnID)
 	} else {
-		pocs, err = h.service.ListAllPocsByVulnID(c.Request.Context(), vulnID)
+		pocs, err = h.service.ListAllPocsByVulnID(c.Request.Context(), vulnID, tagIDs)
 	}
 
 	if err != nil {
@@ -551,5 +576,321 @@ func (h *AssetVulnHandler) ListPocsByVuln(c *gin.Context) {
 		Status:  "success",
 		Message: "PoCs retrieved successfully",
 		Data:    pocs,
+	})
+}
+
+// -----------------------------------------------------------------------------
+// Tag Management Handlers
+// -----------------------------------------------------------------------------
+
+// GetVulnTags 获取漏洞标签
+func (h *AssetVulnHandler) GetVulnTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetVulnTags(c.Request.Context(), id)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_vuln_tags",
+			"id":        id,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get vulnerability tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Vulnerability tags retrieved successfully",
+		Data:    tags,
+	})
+}
+
+// AddVulnTag 为漏洞添加标签
+func (h *AssetVulnHandler) AddVulnTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddVulnTag(c.Request.Context(), id, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_vuln_tag",
+			"id":        id,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to vulnerability",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_vuln_tag", 0, "", clientIP, XRequestID, "success", "Tag added to vulnerability successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to vulnerability successfully",
+	})
+}
+
+// RemoveVulnTag 为漏洞移除标签
+func (h *AssetVulnHandler) RemoveVulnTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveVulnTag(c.Request.Context(), id, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_vuln_tag",
+			"id":        id,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from vulnerability",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_vuln_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from vulnerability successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from vulnerability successfully",
+	})
+}
+
+// GetPocTags 获取PoC标签
+func (h *AssetVulnHandler) GetPocTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetPocTags(c.Request.Context(), id)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_poc_tags",
+			"id":        id,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get PoC tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "PoC tags retrieved successfully",
+		Data:    tags,
+	})
+}
+
+// AddPocTag 为PoC添加标签
+func (h *AssetVulnHandler) AddPocTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		TagID uint64 `json:"tag_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddPocTag(c.Request.Context(), id, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_poc_tag",
+			"id":        id,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to PoC",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_poc_tag", 0, "", clientIP, XRequestID, "success", "Tag added to PoC successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to PoC successfully",
+	})
+}
+
+// RemovePocTag 为PoC移除标签
+func (h *AssetVulnHandler) RemovePocTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemovePocTag(c.Request.Context(), id, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_poc_tag",
+			"id":        id,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from PoC",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_poc_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from PoC successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from PoC successfully",
 	})
 }

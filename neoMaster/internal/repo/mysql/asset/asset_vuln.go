@@ -89,7 +89,7 @@ func (r *AssetVulnRepository) DeleteVuln(ctx context.Context, id uint64) error {
 }
 
 // ListVulns 获取漏洞列表 (支持分页和多条件筛选)
-func (r *AssetVulnRepository) ListVulns(ctx context.Context, page, pageSize int, targetType string, targetRefID uint64, status string, severity string) ([]*assetmodel.AssetVuln, int64, error) {
+func (r *AssetVulnRepository) ListVulns(ctx context.Context, page, pageSize int, targetType string, targetRefID uint64, status string, severity string, vulnIDs []uint64) ([]*assetmodel.AssetVuln, int64, error) {
 	var vulns []*assetmodel.AssetVuln
 	var total int64
 
@@ -106,6 +106,9 @@ func (r *AssetVulnRepository) ListVulns(ctx context.Context, page, pageSize int,
 	}
 	if severity != "" {
 		query = query.Where("severity = ?", severity)
+	}
+	if len(vulnIDs) > 0 {
+		query = query.Where("id IN ?", vulnIDs)
 	}
 
 	err := query.Count(&total).Error
@@ -197,12 +200,15 @@ func (r *AssetVulnRepository) DeletePoc(ctx context.Context, id uint64) error {
 }
 
 // ListPocsByVulnID 获取指定漏洞的所有PoC (支持按优先级排序)
-func (r *AssetVulnRepository) ListPocsByVulnID(ctx context.Context, vulnID uint64, onlyValid bool) ([]*assetmodel.AssetVulnPoc, error) {
+func (r *AssetVulnRepository) ListPocsByVulnID(ctx context.Context, vulnID uint64, onlyValid bool, pocIDs []uint64) ([]*assetmodel.AssetVulnPoc, error) {
 	var pocs []*assetmodel.AssetVulnPoc
 	query := r.db.WithContext(ctx).Where("vuln_id = ?", vulnID)
 
 	if onlyValid {
 		query = query.Where("is_valid = ?", true)
+	}
+	if len(pocIDs) > 0 {
+		query = query.Where("id IN ?", pocIDs)
 	}
 
 	// 按优先级升序 (越小越优先)，如果优先级相同则按ID降序

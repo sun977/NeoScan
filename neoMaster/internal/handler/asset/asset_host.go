@@ -239,8 +239,19 @@ func (h *AssetHostHandler) ListHosts(c *gin.Context) {
 	ip := c.Query("ip")
 	hostname := c.Query("hostname")
 	os := c.Query("os")
+	tagIDsStr := c.Query("tag_ids")
 
-	hosts, total, err := h.service.ListHosts(c.Request.Context(), page, pageSize, ip, hostname, os)
+	var tagIDs []uint64
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, id := range ids {
+			if idInt, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64); err == nil {
+				tagIDs = append(tagIDs, idInt)
+			}
+		}
+	}
+
+	hosts, total, err := h.service.ListHosts(c.Request.Context(), page, pageSize, ip, hostname, os, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_hosts",

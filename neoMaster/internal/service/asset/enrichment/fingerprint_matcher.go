@@ -1,4 +1,4 @@
-package governance
+package enrichment
 
 import (
 	"context"
@@ -75,7 +75,7 @@ func (s *FingerprintMatcher) ProcessBatch(ctx context.Context, limit int, enable
 		// 4. 调用指纹服务
 		result, err := s.fpService.Identify(ctx, input)
 		if err != nil {
-			logger.LogError(err, "", 0, "", "fingerprint_matcher.identify", "GOVERNANCE", map[string]interface{}{
+			logger.LogError(err, "", 0, "", "fingerprint_matcher.identify", "ENRICHMENT", map[string]interface{}{
 				"service_id": svc.ID,
 				"ip":         host.IP,
 			})

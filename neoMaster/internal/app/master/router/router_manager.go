@@ -111,11 +111,11 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	permissionHandler := rbacModule.PermissionHandler
 	sessionHandler := systemHandler.NewSessionHandler(authModule.SessionService)
 
-	// 通过 setup.BuildAssetModule 初始化资产管理模块
-	assetModule := setup.BuildAssetModule(db)
-
 	// 通过 setup.BuildTagSystemModule 初始化标签系统模块
 	tagModule := setup.BuildTagSystemModule(db)
+
+	// 通过 setup.BuildAssetModule 初始化资产管理模块
+	assetModule := setup.BuildAssetModule(db, tagModule.TagService)
 
 	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块
 	orchestratorModule := setup.BuildOrchestratorModule(db, config, tagModule.TagService)

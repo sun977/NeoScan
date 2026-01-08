@@ -126,7 +126,6 @@ func TestWorkflowScheduler(t *testing.T) {
 		ExtendedData: "{}", // Required for MySQL JSON column
 		NotifyConfig: "{}",
 		ExportConfig: "{}",
-		Tags:         "[]",
 	}
 	err = db.Create(&project).Error
 	assert.NoError(t, err)
@@ -138,7 +137,6 @@ func TestWorkflowScheduler(t *testing.T) {
 		Enabled:      true,
 		GlobalVars:   "{}",
 		PolicyConfig: "{}",
-		Tags:         "[]",
 	}
 	err = db.Create(&workflow).Error
 	assert.NoError(t, err)

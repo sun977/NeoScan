@@ -119,3 +119,26 @@ func (r *ScanStageRepository) ListStagesByWorkflowID(ctx context.Context, workfl
 	}
 	return stages, nil
 }
+
+// ListStagesByWorkflowIDAndStageIDs 获取指定工作流的阶段列表（按阶段 ID 白名单过滤）
+// 说明：阶段 ID 列表通常来自标签系统筛选结果；这里保持仓库层只做数据过滤，不掺杂任何业务逻辑。
+func (r *ScanStageRepository) ListStagesByWorkflowIDAndStageIDs(ctx context.Context, workflowID uint64, stageIDs []uint64) ([]*orcmodel.ScanStage, error) {
+	if len(stageIDs) == 0 {
+		return []*orcmodel.ScanStage{}, nil
+	}
+
+	var stages []*orcmodel.ScanStage
+	err := r.db.WithContext(ctx).
+		Where("workflow_id = ? AND id IN ?", workflowID, stageIDs).
+		Order("id asc").
+		Find(&stages).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "list_stages_by_workflow_id_and_stage_ids", "REPO", map[string]interface{}{
+			"operation":   "list_stages_by_workflow_id_and_stage_ids",
+			"workflow_id": workflowID,
+			"stage_ids":   stageIDs,
+		})
+		return nil, err
+	}
+	return stages, nil
+}

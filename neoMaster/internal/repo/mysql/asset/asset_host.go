@@ -107,12 +107,15 @@ func (r *AssetHostRepository) DeleteHost(ctx context.Context, id uint64) error {
 }
 
 // ListHosts 获取主机列表 (分页 + 筛选)
-func (r *AssetHostRepository) ListHosts(ctx context.Context, page, pageSize int, ip, hostname, os string) ([]*asset.AssetHost, int64, error) {
+func (r *AssetHostRepository) ListHosts(ctx context.Context, page, pageSize int, ip, hostname, os string, hostIDs []uint64) ([]*asset.AssetHost, int64, error) {
 	var hosts []*asset.AssetHost
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&asset.AssetHost{})
 
+	if len(hostIDs) > 0 {
+		query = query.Where("id IN ?", hostIDs)
+	}
 	if ip != "" {
 		query = query.Where("ip LIKE ?", "%"+ip+"%")
 	}

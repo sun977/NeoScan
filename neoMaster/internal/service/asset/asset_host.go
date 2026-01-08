@@ -124,13 +124,47 @@ func (s *AssetHostService) DeleteHost(ctx context.Context, id uint64) error {
 }
 
 // ListHosts 获取主机列表
-func (s *AssetHostService) ListHosts(ctx context.Context, page, pageSize int, ip, hostname, os string) ([]*asset.AssetHost, int64, error) {
-	list, total, err := s.repo.ListHosts(ctx, page, pageSize, ip, hostname, os)
+func (s *AssetHostService) ListHosts(ctx context.Context, page, pageSize int, ip, hostname, os string, tagIDs []uint64) ([]*asset.AssetHost, int64, error) {
+	var hostIDs []uint64
+
+	// 如果指定了标签，先从标签系统获取对应的 HostID 列表
+	if len(tagIDs) > 0 {
+		entityIDsStr, err := s.tagService.GetEntityIDsByTagIDs(ctx, "host", tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "list_hosts_get_tags", "SERVICE", map[string]interface{}{
+				"operation": "list_hosts_get_tags",
+				"tag_ids":   tagIDs,
+			})
+			return nil, 0, err
+		}
+
+		if len(entityIDsStr) == 0 {
+			// 筛选了标签但没找到对应的资源，直接返回空列表
+			return []*asset.AssetHost{}, 0, nil
+		}
+
+		// 转换 ID 类型
+		for _, idStr := range entityIDsStr {
+			id, err := strconv.ParseUint(idStr, 10, 64)
+			if err != nil {
+				continue
+			}
+			hostIDs = append(hostIDs, id)
+		}
+
+		if len(hostIDs) == 0 {
+			return []*asset.AssetHost{}, 0, nil
+		}
+	}
+
+	// 根据 tagIDs 获取 hostIDs 列表，然后用主机列表获取主机信息
+	list, total, err := s.repo.ListHosts(ctx, page, pageSize, ip, hostname, os, hostIDs)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "list_hosts", "SERVICE", map[string]interface{}{
 			"operation": "list_hosts",
 			"page":      page,
 			"page_size": pageSize,
+			"tag_ids":   tagIDs,
 		})
 		return nil, 0, err
 	}
@@ -138,10 +172,91 @@ func (s *AssetHostService) ListHosts(ctx context.Context, page, pageSize int, ip
 }
 
 // AddTagToHost 添加标签到主机
+func (s *AssetHostService) AddTagToHost(ctx context.Context, hostID uint64, tagID uint64) error {
+	// 检查主机是否存在
+	host, err := s.repo.GetHostByID(ctx, hostID)
+	if err != nil {
+		return err
+	}
+	if host == nil {
+		return errors.New("host not found")
+	}
+
+	// 添加标签 (Source=manual)
+	err = s.tagService.AddEntityTag(ctx, "host", strconv.FormatUint(hostID, 10), tagID, "manual", 0)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_tag_to_host", "SERVICE", map[string]interface{}{
+			"operation": "add_tag_to_host",
+			"host_id":   hostID,
+			"tag_id":    tagID,
+		})
+		return err
+	}
+	return nil
+}
 
 // RemoveTagFromHost 从主机移除标签
+func (s *AssetHostService) RemoveTagFromHost(ctx context.Context, hostID uint64, tagID uint64) error {
+	// 检查主机是否存在
+	host, err := s.repo.GetHostByID(ctx, hostID)
+	if err != nil {
+		return err
+	}
+	if host == nil {
+		return errors.New("host not found")
+	}
+
+	err = s.tagService.RemoveEntityTag(ctx, "host", strconv.FormatUint(hostID, 10), tagID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_tag_from_host", "SERVICE", map[string]interface{}{
+			"operation": "remove_tag_from_host",
+			"host_id":   hostID,
+			"tag_id":    tagID,
+		})
+		return err
+	}
+	return nil
+}
 
 // GetHostTags 获取主机标签
+func (s *AssetHostService) GetHostTags(ctx context.Context, hostID uint64) ([]tagsystem.SysTag, error) {
+	// 检查主机是否存在
+	host, err := s.repo.GetHostByID(ctx, hostID)
+	if err != nil {
+		return nil, err
+	}
+	if host == nil {
+		return nil, errors.New("host not found")
+	}
+
+	// 1. 获取实体关联关系
+	entityTags, err := s.tagService.GetEntityTags(ctx, "host", strconv.FormatUint(hostID, 10))
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_host_tags", "SERVICE", map[string]interface{}{
+			"operation": "get_host_tags",
+			"host_id":   hostID,
+		})
+		return nil, err
+	}
+
+	if len(entityTags) == 0 {
+		return []tagsystem.SysTag{}, nil
+	}
+
+	// 2. 提取TagIDs
+	var tagIDs []uint64
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+
+	// 3. 批量获取标签详情
+	tags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}
 
 // -----------------------------------------------------------------------------
 // AssetService (服务资产) 业务逻辑

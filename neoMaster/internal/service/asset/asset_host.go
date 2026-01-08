@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"neomaster/internal/model/asset"
+	tagsystem "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	assetrepo "neomaster/internal/repo/mysql/asset"
+	tagservice "neomaster/internal/service/tag_system"
+	"strconv"
 )
 
 // // AssetHostServiceInterface 资产主机服务接口
@@ -19,12 +22,16 @@ import (
 // AssetHostService 资产主机服务
 // 负责处理主机和服务资产的业务逻辑
 type AssetHostService struct {
-	repo *assetrepo.AssetHostRepository
+	repo       *assetrepo.AssetHostRepository
+	tagService tagservice.TagService
 }
 
 // NewAssetHostService 创建 AssetHostService 实例
-func NewAssetHostService(repo *assetrepo.AssetHostRepository) *AssetHostService {
-	return &AssetHostService{repo: repo}
+func NewAssetHostService(repo *assetrepo.AssetHostRepository, tagService tagservice.TagService) *AssetHostService {
+	return &AssetHostService{
+		repo:       repo,
+		tagService: tagService,
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -129,6 +136,12 @@ func (s *AssetHostService) ListHosts(ctx context.Context, page, pageSize int, ip
 	}
 	return list, total, nil
 }
+
+// AddTagToHost 添加标签到主机
+
+// RemoveTagFromHost 从主机移除标签
+
+// GetHostTags 获取主机标签
 
 // -----------------------------------------------------------------------------
 // AssetService (服务资产) 业务逻辑
@@ -254,4 +267,92 @@ func (s *AssetHostService) ListServices(ctx context.Context, page, pageSize int,
 		return nil, 0, err
 	}
 	return list, total, nil
+}
+
+// AddTagToService 添加标签到服务
+func (s *AssetHostService) AddTagToService(ctx context.Context, serviceID uint64, tagID uint64) error {
+	// 检查服务是否存在
+	service, err := s.repo.GetServiceByID(ctx, serviceID)
+	if err != nil {
+		return err
+	}
+	if service == nil {
+		return errors.New("service not found")
+	}
+
+	// 添加标签 (Source=manual)
+	// 注意：entityType 使用 "service"
+	err = s.tagService.AddEntityTag(ctx, "service", strconv.FormatUint(serviceID, 10), tagID, "manual", 0)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_tag_to_service", "SERVICE", map[string]interface{}{
+			"operation":  "add_tag_to_service",
+			"service_id": serviceID,
+			"tag_id":     tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveTagFromService 从服务移除标签
+func (s *AssetHostService) RemoveTagFromService(ctx context.Context, serviceID uint64, tagID uint64) error {
+	// 检查服务是否存在
+	service, err := s.repo.GetServiceByID(ctx, serviceID)
+	if err != nil {
+		return err
+	}
+	if service == nil {
+		return errors.New("service not found")
+	}
+
+	err = s.tagService.RemoveEntityTag(ctx, "service", strconv.FormatUint(serviceID, 10), tagID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_tag_from_service", "SERVICE", map[string]interface{}{
+			"operation":  "remove_tag_from_service",
+			"service_id": serviceID,
+			"tag_id":     tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetServiceTags 获取服务标签
+func (s *AssetHostService) GetServiceTags(ctx context.Context, serviceID uint64) ([]tagsystem.SysTag, error) {
+	// 检查服务是否存在
+	service, err := s.repo.GetServiceByID(ctx, serviceID)
+	if err != nil {
+		return nil, err
+	}
+	if service == nil {
+		return nil, errors.New("service not found")
+	}
+
+	// 1. 获取实体关联关系
+	entityTags, err := s.tagService.GetEntityTags(ctx, "service", strconv.FormatUint(serviceID, 10))
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_service_tags", "SERVICE", map[string]interface{}{
+			"operation":  "get_service_tags",
+			"service_id": serviceID,
+		})
+		return nil, err
+	}
+
+	if len(entityTags) == 0 {
+		return []tagsystem.SysTag{}, nil
+	}
+
+	// 2. 提取TagIDs
+	var tagIDs []uint64
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+
+	// 3. 批量获取标签详情
+	tags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 }

@@ -135,6 +135,55 @@ func (s *ScanStageService) ListStagesByWorkflowID(ctx context.Context, workflowI
 	return stages, nil
 }
 
+// ListStagesByWorkflowIDWithTag 获取工作流的所有阶段（按标签筛选）
+// 设计要点：
+// 1) 不修改原 ListStagesByWorkflowID 签名，避免破坏既有调用方。
+// 2) 使用标签系统的 GetEntityIDsByTagIDs 获取 stageID 列表（包含子标签），再回到仓库层做二次过滤。
+// 3) 如果标签筛选命中为空，直接返回空切片，避免对数据库做无意义查询。
+func (s *ScanStageService) ListStagesByWorkflowIDWithTag(ctx context.Context, workflowID uint64, tagID uint64) ([]*orcmodel.ScanStage, error) {
+	if tagID == 0 {
+		return s.ListStagesByWorkflowID(ctx, workflowID)
+	}
+
+	entityIDsStr, err := s.tagService.GetEntityIDsByTagIDs(ctx, "scan_stage", []uint64{tagID})
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "list_stages_by_workflow_id_with_tag_get_entity_ids", "SERVICE", map[string]interface{}{
+			"operation":   "list_stages_by_workflow_id_with_tag_get_entity_ids",
+			"workflow_id": workflowID,
+			"tag_id":      tagID,
+		})
+		return nil, err
+	}
+
+	if len(entityIDsStr) == 0 {
+		return []*orcmodel.ScanStage{}, nil
+	}
+
+	stageIDs := make([]uint64, 0, len(entityIDsStr))
+	for _, idStr := range entityIDsStr {
+		id, parseErr := strconv.ParseUint(idStr, 10, 64)
+		if parseErr != nil {
+			continue
+		}
+		stageIDs = append(stageIDs, id)
+	}
+
+	if len(stageIDs) == 0 {
+		return []*orcmodel.ScanStage{}, nil
+	}
+
+	stages, err := s.repo.ListStagesByWorkflowIDAndStageIDs(ctx, workflowID, stageIDs)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "list_stages_by_workflow_id_with_tag", "SERVICE", map[string]interface{}{
+			"operation":   "list_stages_by_workflow_id_with_tag",
+			"workflow_id": workflowID,
+			"tag_id":      tagID,
+		})
+		return nil, err
+	}
+	return stages, nil
+}
+
 // AddTagToStage 为扫描阶段添加标签
 func (s *ScanStageService) AddTagToStage(ctx context.Context, stageID uint64, tagID uint64) error {
 	// 1. 检查阶段是否存在

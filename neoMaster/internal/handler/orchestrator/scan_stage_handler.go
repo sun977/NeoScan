@@ -207,7 +207,24 @@ func (h *ScanStageHandler) ListStages(c *gin.Context) {
 		return
 	}
 
-	stages, err := h.service.ListStagesByWorkflowID(c.Request.Context(), workflowID)
+	// 标签筛选参数（可选）：与 orchestrator 其他列表接口保持一致，使用 tag_id。
+	// tag_id=0 或缺失代表不筛选，保持向后兼容。
+	tagIDStr := c.Query("tag_id")
+	var tagID uint64
+	if tagIDStr != "" {
+		// 这里不强制返回 400，以避免客户端传入非数字时导致行为破坏；
+		// 与 workflow/project 的 tag_id 解析策略保持一致：解析失败则视为未传入筛选。
+		tagID, _ = strconv.ParseUint(tagIDStr, 10, 64)
+	}
+
+	var stages []*orcmodel.ScanStage
+	if tagID > 0 {
+		// 标签筛选：调用服务层获取带标签的阶段列表。
+		stages, err = h.service.ListStagesByWorkflowIDWithTag(c.Request.Context(), workflowID, tagID)
+	} else {
+		// 无标签筛选：直接返回所有阶段。
+		stages, err = h.service.ListStagesByWorkflowID(c.Request.Context(), workflowID)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,

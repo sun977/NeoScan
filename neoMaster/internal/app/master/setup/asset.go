@@ -12,12 +12,13 @@ import (
 	assetHandler "neomaster/internal/handler/asset"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	assetService "neomaster/internal/service/asset"
+	tagService "neomaster/internal/service/tag_system"
 
 	"gorm.io/gorm"
 )
 
 // BuildAssetModule 构建资产管理模块
-func BuildAssetModule(db *gorm.DB) *AssetModule {
+func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule {
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
 		"operation": "build_module",
@@ -36,7 +37,7 @@ func BuildAssetModule(db *gorm.DB) *AssetModule {
 
 	// 2. Service 初始化
 	rawService := assetService.NewRawAssetService(rawRepo)
-	hostService := assetService.NewAssetHostService(hostRepo)
+	hostService := assetService.NewAssetHostService(hostRepo, tagSystem)
 	networkService := assetService.NewAssetNetworkService(networkRepo)
 	policyService := assetService.NewAssetPolicyService(policyRepo)
 	webService := assetService.NewAssetWebService(webRepo)

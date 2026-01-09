@@ -15,30 +15,26 @@ import (
 	assetservice "neomaster/internal/service/asset"
 )
 
-// AssetFingerHandler 资产指纹规则管理
-// 负责 asset_finger 表(HTTP 指纹规则)的增删改查接口
-type AssetFingerHandler struct {
-	service *assetservice.AssetFingerService
+type AssetCPEHandler struct {
+	service *assetservice.AssetCPEService
 }
 
-// NewAssetFingerHandler 创建 AssetFingerHandler 实例
-func NewAssetFingerHandler(service *assetservice.AssetFingerService) *AssetFingerHandler {
-	return &AssetFingerHandler{service: service}
+func NewAssetCPEHandler(service *assetservice.AssetCPEService) *AssetCPEHandler {
+	return &AssetCPEHandler{service: service}
 }
 
-// CreateFingerRule 创建指纹规则
-func (h *AssetFingerHandler) CreateFingerRule(c *gin.Context) {
+func (h *AssetCPEHandler) CreateCPERule(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
 
-	var rule assetmodel.AssetFinger
+	var rule assetmodel.AssetCPE
 	if err := c.ShouldBindJSON(&rule); err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
-			"operation":  "create_finger_rule",
+			"operation":  "create_cpe_rule",
 			"option":     "ShouldBindJSON",
-			"func_name":  "handler.asset.asset_finger.CreateFingerRule",
+			"func_name":  "handler.asset.asset_cpe.CreateCPERule",
 			"user_agent": userAgent,
 		})
 		c.JSON(http.StatusBadRequest, system.APIResponse{
@@ -50,22 +46,24 @@ func (h *AssetFingerHandler) CreateFingerRule(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.CreateFingerRule(c.Request.Context(), &rule); err != nil {
+	if err := h.service.CreateCPERule(c.Request.Context(), &rule); err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
-			"operation": "create_finger_rule",
+			"operation": "create_cpe_rule",
 			"name":      rule.Name,
+			"vendor":    rule.Vendor,
+			"product":   rule.Product,
 		})
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
-			Message: "Failed to create fingerprint rule",
+			Message: "Failed to create CPE rule",
 			Error:   err.Error(),
 		})
 		return
 	}
 
-	logger.LogBusinessOperation("create_finger_rule", 0, "", clientIP, XRequestID, "success", "Fingerprint rule created successfully", map[string]interface{}{
-		"func_name":  "handler.asset.asset_finger.CreateFingerRule",
+	logger.LogBusinessOperation("create_cpe_rule", 0, "", clientIP, XRequestID, "success", "CPE rule created successfully", map[string]interface{}{
+		"func_name":  "handler.asset.asset_cpe.CreateCPERule",
 		"path":       pathUrl,
 		"method":     "POST",
 		"name":       rule.Name,
@@ -76,13 +74,12 @@ func (h *AssetFingerHandler) CreateFingerRule(c *gin.Context) {
 	c.JSON(http.StatusCreated, system.APIResponse{
 		Code:    http.StatusCreated,
 		Status:  "success",
-		Message: "Fingerprint rule created successfully",
+		Message: "CPE rule created successfully",
 		Data:    rule,
 	})
 }
 
-// GetFingerRule 获取指纹规则详情
-func (h *AssetFingerHandler) GetFingerRule(c *gin.Context) {
+func (h *AssetCPEHandler) GetCPERule(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
@@ -99,16 +96,16 @@ func (h *AssetFingerHandler) GetFingerRule(c *gin.Context) {
 		return
 	}
 
-	rule, err := h.service.GetFingerRule(c.Request.Context(), id)
+	rule, err := h.service.GetCPERule(c.Request.Context(), id)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
-			"operation": "get_finger_rule",
+			"operation": "get_cpe_rule",
 			"id":        id,
 		})
 		c.JSON(http.StatusNotFound, system.APIResponse{
 			Code:    http.StatusNotFound,
 			Status:  "failed",
-			Message: "Fingerprint rule not found",
+			Message: "CPE rule not found",
 			Error:   err.Error(),
 		})
 		return
@@ -117,13 +114,12 @@ func (h *AssetFingerHandler) GetFingerRule(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Fingerprint rule retrieved successfully",
+		Message: "CPE rule retrieved successfully",
 		Data:    rule,
 	})
 }
 
-// UpdateFingerRule 更新指纹规则
-func (h *AssetFingerHandler) UpdateFingerRule(c *gin.Context) {
+func (h *AssetCPEHandler) UpdateCPERule(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
@@ -140,7 +136,7 @@ func (h *AssetFingerHandler) UpdateFingerRule(c *gin.Context) {
 		return
 	}
 
-	var rule assetmodel.AssetFinger
+	var rule assetmodel.AssetCPE
 	if err := c.ShouldBindJSON(&rule); err != nil {
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
@@ -152,23 +148,23 @@ func (h *AssetFingerHandler) UpdateFingerRule(c *gin.Context) {
 	}
 	rule.ID = id
 
-	if err := h.service.UpdateFingerRule(c.Request.Context(), &rule); err != nil {
+	if err := h.service.UpdateCPERule(c.Request.Context(), &rule); err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "PUT", map[string]interface{}{
-			"operation": "update_finger_rule",
+			"operation": "update_cpe_rule",
 			"id":        id,
 		})
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
-			Message: "Failed to update fingerprint rule",
+			Message: "Failed to update CPE rule",
 			Error:   err.Error(),
 		})
 		return
 	}
 
-	logger.LogBusinessOperation("update_finger_rule", 0, "", clientIP, XRequestID, "success", "Fingerprint rule updated successfully", map[string]interface{}{
+	logger.LogBusinessOperation("update_cpe_rule", 0, "", clientIP, XRequestID, "success", "CPE rule updated successfully", map[string]interface{}{
 		"id":        id,
-		"func_name": "handler.asset.asset_finger.UpdateFingerRule",
+		"func_name": "handler.asset.asset_cpe.UpdateCPERule",
 		"path":      pathUrl,
 		"method":    "PUT",
 	})
@@ -176,12 +172,11 @@ func (h *AssetFingerHandler) UpdateFingerRule(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Fingerprint rule updated successfully",
+		Message: "CPE rule updated successfully",
 	})
 }
 
-// DeleteFingerRule 删除指纹规则
-func (h *AssetFingerHandler) DeleteFingerRule(c *gin.Context) {
+func (h *AssetCPEHandler) DeleteCPERule(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
@@ -198,23 +193,23 @@ func (h *AssetFingerHandler) DeleteFingerRule(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteFingerRule(c.Request.Context(), id); err != nil {
+	if err := h.service.DeleteCPERule(c.Request.Context(), id); err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
-			"operation": "delete_finger_rule",
+			"operation": "delete_cpe_rule",
 			"id":        id,
 		})
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
-			Message: "Failed to delete fingerprint rule",
+			Message: "Failed to delete CPE rule",
 			Error:   err.Error(),
 		})
 		return
 	}
 
-	logger.LogBusinessOperation("delete_finger_rule", 0, "", clientIP, XRequestID, "success", "Fingerprint rule deleted successfully", map[string]interface{}{
+	logger.LogBusinessOperation("delete_cpe_rule", 0, "", clientIP, XRequestID, "success", "CPE rule deleted successfully", map[string]interface{}{
 		"id":        id,
-		"func_name": "handler.asset.asset_finger.DeleteFingerRule",
+		"func_name": "handler.asset.asset_cpe.DeleteCPERule",
 		"path":      pathUrl,
 		"method":    "DELETE",
 	})
@@ -222,12 +217,11 @@ func (h *AssetFingerHandler) DeleteFingerRule(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Fingerprint rule deleted successfully",
+		Message: "CPE rule deleted successfully",
 	})
 }
 
-// ListFingerRules 获取指纹规则列表
-func (h *AssetFingerHandler) ListFingerRules(c *gin.Context) {
+func (h *AssetCPEHandler) ListCPERules(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
@@ -242,19 +236,23 @@ func (h *AssetFingerHandler) ListFingerRules(c *gin.Context) {
 	}
 
 	name := c.Query("name")
+	vendor := c.Query("vendor")
+	product := c.Query("product")
 
-	list, total, _, err := h.service.ListFingerRules(c.Request.Context(), page, pageSize, name)
+	list, total, _, err := h.service.ListCPERules(c.Request.Context(), page, pageSize, name, vendor, product)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
-			"operation": "list_finger_rules",
+			"operation": "list_cpe_rules",
 			"page":      page,
 			"page_size": pageSize,
 			"name":      name,
+			"vendor":    vendor,
+			"product":   product,
 		})
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
-			Message: "Failed to list fingerprint rules",
+			Message: "Failed to list CPE rules",
 			Error:   err.Error(),
 		})
 		return
@@ -274,13 +272,12 @@ func (h *AssetFingerHandler) ListFingerRules(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Fingerprint rules retrieved successfully",
+		Message: "CPE rules retrieved successfully",
 		Data:    pagination,
 	})
 }
 
-// AddFingerRuleTag 为指纹规则添加标签
-func (h *AssetFingerHandler) AddFingerRuleTag(c *gin.Context) {
+func (h *AssetCPEHandler) AddCPERuleTag(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
@@ -310,25 +307,25 @@ func (h *AssetFingerHandler) AddFingerRuleTag(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.AddTagToFingerRule(c.Request.Context(), ruleID, req.TagID); err != nil {
+	if err := h.service.AddTagToCPERule(c.Request.Context(), ruleID, req.TagID); err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
-			"operation": "add_finger_rule_tag",
+			"operation": "add_cpe_rule_tag",
 			"rule_id":   ruleID,
 			"tag_id":    req.TagID,
 		})
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
-			Message: "Failed to add tag to fingerprint rule",
+			Message: "Failed to add tag to CPE rule",
 			Error:   err.Error(),
 		})
 		return
 	}
 
-	logger.LogBusinessOperation("add_finger_rule_tag", 0, "", clientIP, XRequestID, "success", "Tag added to fingerprint rule successfully", map[string]interface{}{
+	logger.LogBusinessOperation("add_cpe_rule_tag", 0, "", clientIP, XRequestID, "success", "Tag added to CPE rule successfully", map[string]interface{}{
 		"rule_id":   ruleID,
 		"tag_id":    req.TagID,
-		"func_name": "handler.asset.asset_finger.AddFingerRuleTag",
+		"func_name": "handler.asset.asset_cpe.AddCPERuleTag",
 		"path":      pathUrl,
 		"method":    "POST",
 	})
@@ -336,12 +333,11 @@ func (h *AssetFingerHandler) AddFingerRuleTag(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Tag added to fingerprint rule successfully",
+		Message: "Tag added to CPE rule successfully",
 	})
 }
 
-// RemoveFingerRuleTag 从指纹规则移除标签
-func (h *AssetFingerHandler) RemoveFingerRuleTag(c *gin.Context) {
+func (h *AssetCPEHandler) RemoveCPERuleTag(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
@@ -370,25 +366,25 @@ func (h *AssetFingerHandler) RemoveFingerRuleTag(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.RemoveTagFromFingerRule(c.Request.Context(), ruleID, tagID); err != nil {
+	if err := h.service.RemoveTagFromCPERule(c.Request.Context(), ruleID, tagID); err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
-			"operation": "remove_finger_rule_tag",
+			"operation": "remove_cpe_rule_tag",
 			"rule_id":   ruleID,
 			"tag_id":    tagID,
 		})
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
-			Message: "Failed to remove tag from fingerprint rule",
+			Message: "Failed to remove tag from CPE rule",
 			Error:   err.Error(),
 		})
 		return
 	}
 
-	logger.LogBusinessOperation("remove_finger_rule_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from fingerprint rule successfully", map[string]interface{}{
+	logger.LogBusinessOperation("remove_cpe_rule_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from CPE rule successfully", map[string]interface{}{
 		"rule_id":   ruleID,
 		"tag_id":    tagID,
-		"func_name": "handler.asset.asset_finger.RemoveFingerRuleTag",
+		"func_name": "handler.asset.asset_cpe.RemoveCPERuleTag",
 		"path":      pathUrl,
 		"method":    "DELETE",
 	})
@@ -396,12 +392,11 @@ func (h *AssetFingerHandler) RemoveFingerRuleTag(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Tag removed from fingerprint rule successfully",
+		Message: "Tag removed from CPE rule successfully",
 	})
 }
 
-// GetFingerRuleTags 获取指纹规则标签
-func (h *AssetFingerHandler) GetFingerRuleTags(c *gin.Context) {
+func (h *AssetCPEHandler) GetCPERuleTags(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")
 	pathUrl := c.Request.URL.String()
@@ -418,16 +413,16 @@ func (h *AssetFingerHandler) GetFingerRuleTags(c *gin.Context) {
 		return
 	}
 
-	tags, err := h.service.GetFingerRuleTags(c.Request.Context(), ruleID)
+	tags, err := h.service.GetCPERuleTags(c.Request.Context(), ruleID)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
-			"operation": "get_finger_rule_tags",
+			"operation": "get_cpe_rule_tags",
 			"rule_id":   ruleID,
 		})
 		c.JSON(http.StatusBadRequest, system.APIResponse{
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
-			Message: "Failed to get fingerprint rule tags",
+			Message: "Failed to get CPE rule tags",
 			Error:   err.Error(),
 		})
 		return
@@ -436,7 +431,8 @@ func (h *AssetFingerHandler) GetFingerRuleTags(c *gin.Context) {
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "Fingerprint rule tags retrieved successfully",
+		Message: "CPE rule tags retrieved successfully",
 		Data:    tags,
 	})
 }
+

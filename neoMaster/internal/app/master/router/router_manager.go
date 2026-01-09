@@ -51,6 +51,7 @@ type Router struct {
 	assetNetworkHandler *assetHandler.AssetNetworkHandler
 	assetPolicyHandler  *assetHandler.AssetPolicyHandler
 	assetFingerHandler  *assetHandler.AssetFingerHandler
+	assetCPEHandler     *assetHandler.AssetCPEHandler
 	assetWebHandler     *assetHandler.AssetWebHandler
 	assetVulnHandler    *assetHandler.AssetVulnHandler
 	assetUnifiedHandler *assetHandler.AssetUnifiedHandler
@@ -139,6 +140,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetNetworkHandler := assetModule.AssetNetworkHandler
 	assetPolicyHandler := assetModule.AssetPolicyHandler
 	assetFingerHandler := assetModule.AssetFingerHandler
+	assetCPEHandler := assetModule.AssetCPEHandler
 	assetWebHandler := assetModule.AssetWebHandler
 	assetVulnHandler := assetModule.AssetVulnHandler
 	assetUnifiedHandler := assetModule.AssetUnifiedHandler
@@ -171,6 +173,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		assetNetworkHandler: assetNetworkHandler,
 		assetPolicyHandler:  assetPolicyHandler,
 		assetFingerHandler:  assetFingerHandler,
+		assetCPEHandler:     assetCPEHandler,
 		assetWebHandler:     assetWebHandler,
 		assetVulnHandler:    assetVulnHandler,
 		assetUnifiedHandler: assetUnifiedHandler,

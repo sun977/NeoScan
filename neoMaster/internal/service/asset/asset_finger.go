@@ -1,25 +1,33 @@
+// 除了基础的CRUD之外
+// 还需要：数据库指纹表转换成供agent下载的指纹文件
+// 还需要：用户的指纹文件加载到系统指纹库
+
 package asset
 
 import (
 	"context"
 	"errors"
 	"math"
+	"strconv"
 	"strings"
 
 	assetmodel "neomaster/internal/model/asset"
+	tagsystem "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
 	assetrepo "neomaster/internal/repo/mysql/asset"
+	tagservice "neomaster/internal/service/tag_system"
 )
 
 // AssetFingerService 资产指纹规则服务
 // 负责处理 asset_finger 表的增删改查业务逻辑
 type AssetFingerService struct {
-	repo assetrepo.AssetFingerRepository
+	repo       assetrepo.AssetFingerRepository
+	tagService tagservice.TagService
 }
 
 // NewAssetFingerService 创建 AssetFingerService 实例
-func NewAssetFingerService(repo assetrepo.AssetFingerRepository) *AssetFingerService {
-	return &AssetFingerService{repo: repo}
+func NewAssetFingerService(repo assetrepo.AssetFingerRepository, tagService tagservice.TagService) *AssetFingerService {
+	return &AssetFingerService{repo: repo, tagService: tagService}
 }
 
 // CreateFingerRule 创建指纹规则
@@ -128,3 +136,83 @@ func (s *AssetFingerService) ListFingerRules(ctx context.Context, page, pageSize
 	return list, total, totalPages, nil
 }
 
+// AddTagToFingerRule 为指纹规则添加标签
+func (s *AssetFingerService) AddTagToFingerRule(ctx context.Context, ruleID uint64, tagID uint64) error {
+	// 检查指纹规则是否存在
+	rule, err := s.repo.GetByID(ctx, ruleID)
+	if err != nil {
+		return err
+	}
+	if rule == nil {
+		return errors.New("fingerprint rule not found")
+	}
+
+	if err := s.tagService.AddEntityTag(ctx, "fingers_cms", strconv.FormatUint(ruleID, 10), tagID, "manual", 0); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_tag_to_finger_rule", "SERVICE", map[string]interface{}{
+			"operation": "add_tag_to_finger_rule",
+			"rule_id":   ruleID,
+			"tag_id":    tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveTagFromFingerRule 从指纹规则移除标签
+func (s *AssetFingerService) RemoveTagFromFingerRule(ctx context.Context, ruleID uint64, tagID uint64) error {
+	// 检查指纹规则是否存在
+	rule, err := s.repo.GetByID(ctx, ruleID)
+	if err != nil {
+		return err
+	}
+	if rule == nil {
+		return errors.New("fingerprint rule not found")
+	}
+
+	if err := s.tagService.RemoveEntityTag(ctx, "fingers_cms", strconv.FormatUint(ruleID, 10), tagID); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_tag_from_finger_rule", "SERVICE", map[string]interface{}{
+			"operation": "remove_tag_from_finger_rule",
+			"rule_id":   ruleID,
+			"tag_id":    tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetFingerRuleTags 获取指纹规则标签
+func (s *AssetFingerService) GetFingerRuleTags(ctx context.Context, ruleID uint64) ([]tagsystem.SysTag, error) {
+	// 检查指纹规则是否存在
+	rule, err := s.repo.GetByID(ctx, ruleID)
+	if err != nil {
+		return nil, err
+	}
+	if rule == nil {
+		return nil, errors.New("fingerprint rule not found")
+	}
+
+	entityTags, err := s.tagService.GetEntityTags(ctx, "fingers_cms", strconv.FormatUint(ruleID, 10))
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_finger_rule_tags", "SERVICE", map[string]interface{}{
+			"operation": "get_finger_rule_tags",
+			"rule_id":   ruleID,
+		})
+		return nil, err
+	}
+
+	if len(entityTags) == 0 {
+		return []tagsystem.SysTag{}, nil
+	}
+
+	var tagIDs []uint64
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+
+	tags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}

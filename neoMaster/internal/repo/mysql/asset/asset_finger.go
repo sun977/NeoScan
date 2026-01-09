@@ -23,7 +23,7 @@ type AssetFingerRepository interface {
 	// Delete 删除指纹规则
 	Delete(ctx context.Context, id uint64) error
 	// List 获取指纹规则列表(分页 + 简单筛选)
-	List(ctx context.Context, page, pageSize int, name string) ([]*asset.AssetFinger, int64, error)
+	List(ctx context.Context, page, pageSize int, name string, tagID uint64) ([]*asset.AssetFinger, int64, error)
 }
 
 // assetFingerRepository 实现
@@ -104,7 +104,7 @@ func (r *assetFingerRepository) Delete(ctx context.Context, id uint64) error {
 }
 
 // List 获取指纹规则列表(分页 + 简单筛选)
-func (r *assetFingerRepository) List(ctx context.Context, page, pageSize int, name string) ([]*asset.AssetFinger, int64, error) {
+func (r *assetFingerRepository) List(ctx context.Context, page, pageSize int, name string, tagID uint64) ([]*asset.AssetFinger, int64, error) {
 	var rules []*asset.AssetFinger
 	var total int64
 
@@ -112,8 +112,17 @@ func (r *assetFingerRepository) List(ctx context.Context, page, pageSize int, na
 	if name != "" {
 		query = query.Where("name LIKE ?", "%"+name+"%")
 	}
+	if tagID > 0 {
+		query = query.Joins("JOIN sys_entity_tags ON asset_finger.id = sys_entity_tags.entity_id").
+			Where("sys_entity_tags.entity_type = ? AND sys_entity_tags.tag_id = ?", "fingers_cms", tagID)
+	}
 
-	if err := query.Count(&total).Error; err != nil {
+	countQuery := query
+	if tagID > 0 {
+		countQuery = countQuery.Distinct("asset_finger.id")
+	}
+
+	if err := countQuery.Count(&total).Error; err != nil {
 		logger.LogError(err, "", 0, "", "list_asset_finger_count", "REPO", map[string]interface{}{
 			"operation": "list_asset_finger_count",
 		})
@@ -121,7 +130,10 @@ func (r *assetFingerRepository) List(ctx context.Context, page, pageSize int, na
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Order("id desc").Find(&rules).Error; err != nil {
+	if tagID > 0 {
+		query = query.Distinct("asset_finger.*")
+	}
+	if err := query.Offset(offset).Limit(pageSize).Order("asset_finger.id desc").Find(&rules).Error; err != nil {
 		logger.LogError(err, "", 0, "", "list_asset_finger_find", "REPO", map[string]interface{}{
 			"operation": "list_asset_finger_find",
 		})

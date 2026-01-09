@@ -276,8 +276,8 @@ func TestRegisterAgent_WithTaskSupport(t *testing.T) {
 			len(a.Feature) == 0 // Feature should be empty as req.Feature is empty
 	})).Return(nil)
 
-	// 4. Mock GetTagIDsByTaskSupportIDs (updated from GetTagIDsByScanTypeNames)
-	mockRepo.On("GetTagIDsByTaskSupportIDs", []string{"task1", "task2"}).Return([]uint64{101, 102}, nil)
+	// 4. Mock GetTagIDsByTaskSupportNames
+	mockRepo.On("GetTagIDsByTaskSupportNames", []string{"task1", "task2"}).Return([]uint64{101, 102}, nil)
 
 	// 5. Mock SyncEntityTags
 	// Expect call with tagIDs 101, 102
@@ -286,7 +286,7 @@ func TestRegisterAgent_WithTaskSupport(t *testing.T) {
 		"agent",
 		mock.AnythingOfType("string"),
 		[]uint64{101, 102},
-		"agent_capability",
+		"agent_register_update",
 		uint64(0),
 	).Return(nil)
 

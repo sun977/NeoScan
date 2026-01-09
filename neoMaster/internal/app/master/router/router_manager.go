@@ -44,7 +44,8 @@ type Router struct {
 	permissionHandler *systemHandler.PermissionHandler
 	sessionHandler    *systemHandler.SessionHandler
 	// Agent管理相关Handler
-	agentHandler *agentHandler.AgentHandler
+	agentHandler       *agentHandler.AgentHandler
+	agentUpdateHandler *agentHandler.AgentUpdateHandler // Agent规则更新模块
 	// 资产管理相关Handler
 	assetRawHandler     *assetHandler.RawAssetHandler
 	assetHostHandler    *assetHandler.AssetHostHandler
@@ -92,7 +93,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		// 初始化失败时，直接返回一个基础 Router；调用方可根据返回值判断并处理
 		gin.SetMode(gin.ReleaseMode)
 		engine := gin.New()
-		return &Router{config: config, engine: engine}
+		agentUpdateHandler := agentHandler.NewAgentUpdateHandler(config)
+		return &Router{config: config, engine: engine, agentUpdateHandler: agentUpdateHandler}
 	}
 
 	// 通过 setup.BuildSystemRBACModule 初始化系统RBAC模块（角色与权限管理）
@@ -133,7 +135,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 
 	// 从 AgentModule 中获取聚合后的 Handler（分组功能已合并到 ManagerService 内部）
 	assetRawHandler := assetModule.AssetRawHandler
-	agentHandler := agentModule.AgentHandler
+	agentMgmtHandler := agentModule.AgentHandler
+	agentUpdateHandler := agentHandler.NewAgentUpdateHandler(config)
 	assetHostHandler := assetModule.AssetHostHandler
 	assetNetworkHandler := assetModule.AssetNetworkHandler
 	assetPolicyHandler := assetModule.AssetPolicyHandler
@@ -162,7 +165,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		permissionHandler: permissionHandler,
 		sessionHandler:    sessionHandler,
 		// Agent管理相关Handler
-		agentHandler: agentHandler,
+		agentHandler:       agentMgmtHandler,
+		agentUpdateHandler: agentUpdateHandler,
 		// 资产管理相关Handler
 		assetRawHandler:     assetRawHandler,
 		assetHostHandler:    assetHostHandler,

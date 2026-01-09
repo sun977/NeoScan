@@ -1,9 +1,11 @@
-﻿package test
+package test
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -13,6 +15,8 @@ import (
 	"neomaster/internal/app/master/router"
 	"neomaster/internal/config"
 	assetmodel "neomaster/internal/model/asset"
+	systemmodel "neomaster/internal/model/system"
+	tagsystem "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/auth"
 	"neomaster/internal/pkg/database"
 	"neomaster/internal/pkg/logger"
@@ -82,7 +86,9 @@ func SetupTestEnv() (*gin.Engine, *gorm.DB, string, error) {
 				AccessTokenExpire: 24 * time.Hour,
 			},
 			Auth: config.AuthConfig{
-				SkipPaths: []string{"/health"},
+				SkipPaths:         []string{"/health"},
+				WhitelistIPs:      []string{"9.9.9.9"},
+				EnableIPWhitelist: true,
 			},
 			RateLimit: config.RateLimitConfig{
 				Enabled: false, // 娴嬭瘯鏃朵笉闄愭祦
@@ -91,6 +97,10 @@ func SetupTestEnv() (*gin.Engine, *gorm.DB, string, error) {
 				EnableRequestLog: false, // 鍑忓皯娴嬭瘯鏃ュ織
 			},
 		},
+	}
+
+	if err := ensureTestUserActive(db, 2); err != nil {
+		return nil, nil, "", err
 	}
 
 	// 5. 鍒濆鍖?Router
@@ -107,6 +117,502 @@ func SetupTestEnv() (*gin.Engine, *gorm.DB, string, error) {
 	}
 
 	return appRouter.GetEngine(), db, token, nil
+}
+
+func ensureTestUserActive(db *gorm.DB, userID uint) error {
+	var user systemmodel.User
+	err := db.First(&user, userID).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to query users table: %w", err)
+	}
+
+	user = systemmodel.User{
+		ID:       userID,
+		Username: fmt.Sprintf("sysuser_test_%d", userID),
+		Email:    fmt.Sprintf("sysuser_test_%d@neoscan.local", userID),
+		Password: "test_password_placeholder",
+		Status:   systemmodel.UserStatusEnabled,
+	}
+
+	if err := db.Create(&user).Error; err != nil {
+		return fmt.Errorf("failed to create test user: %w", err)
+	}
+	return nil
+}
+
+func performJSONRequest(engine *gin.Engine, method, path string, body interface{}, headers map[string]string) *httptest.ResponseRecorder {
+	var jsonBytes []byte
+	if body != nil {
+		jsonBytes, _ = json.Marshal(body)
+	}
+
+	req, _ := http.NewRequest(method, path, bytes.NewBuffer(jsonBytes))
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("X-Forwarded-For", "9.9.9.9")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+	return w
+}
+
+func performJSONRequestToServer(t *testing.T, client *http.Client, baseURL, method, path string, body interface{}, headers map[string]string) (int, []byte) {
+	t.Helper()
+
+	var bodyReader io.Reader
+	if body != nil {
+		jsonBytes, err := json.Marshal(body)
+		assert.NoError(t, err)
+		bodyReader = bytes.NewBuffer(jsonBytes)
+	}
+
+	req, err := http.NewRequest(method, baseURL+path, bodyReader)
+	assert.NoError(t, err)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if headers != nil {
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+	}
+	req.Header.Set("X-Forwarded-For", "9.9.9.9")
+
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	return resp.StatusCode, respBody
+}
+
+func extractCreatedIDFromBytes(t *testing.T, body []byte) uint64 {
+	t.Helper()
+	var resp map[string]interface{}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	data, ok := resp["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("missing data field: %s", string(body))
+	}
+	idFloat, ok := data["id"].(float64)
+	if !ok {
+		t.Fatalf("missing id field: %s", string(body))
+	}
+	return uint64(idFloat)
+}
+
+func responseContainsIDFromBytes(t *testing.T, body []byte, id uint64) bool {
+	t.Helper()
+	var resp map[string]interface{}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	data, ok := resp["data"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	items, ok := data["data"].([]interface{})
+	if !ok {
+		return false
+	}
+	for _, it := range items {
+		m, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		idFloat, ok := m["id"].(float64)
+		if !ok {
+			continue
+		}
+		if uint64(idFloat) == id {
+			return true
+		}
+	}
+	return false
+}
+
+func extractCreatedID(t *testing.T, w *httptest.ResponseRecorder) uint64 {
+	t.Helper()
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	data, ok := resp["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("missing data field: %s", w.Body.String())
+	}
+	idFloat, ok := data["id"].(float64)
+	if !ok {
+		t.Fatalf("missing id field: %s", w.Body.String())
+	}
+	return uint64(idFloat)
+}
+
+func responseContainsID(t *testing.T, w *httptest.ResponseRecorder, id uint64) bool {
+	t.Helper()
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	data, ok := resp["data"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	items, ok := data["data"].([]interface{})
+	if !ok {
+		return false
+	}
+	for _, it := range items {
+		m, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		idFloat, ok := m["id"].(float64)
+		if !ok {
+			continue
+		}
+		if uint64(idFloat) == id {
+			return true
+		}
+	}
+	return false
+}
+
+func TestAssetFingerRuleRoutes(t *testing.T) {
+	engine, db, _, err := SetupTestEnv()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
+	db.AutoMigrate(&assetmodel.AssetFinger{}, &tagsystem.SysTag{}, &tagsystem.SysEntityTag{})
+
+	now := time.Now().UnixNano()
+	ruleName := fmt.Sprintf("test_finger_rule_%d", now)
+	updatedName := fmt.Sprintf("test_finger_rule_updated_%d", now)
+	tagName := fmt.Sprintf("test_tag_fingers_%d", now)
+
+	tag := &tagsystem.SysTag{
+		Name:     tagName,
+		ParentID: 0,
+		Path:     "/",
+		Level:    0,
+		Category: "asset",
+	}
+	if err := db.Create(tag).Error; err != nil {
+		t.Fatalf("failed to create tag: %v", err)
+	}
+	defer db.Delete(tag)
+
+	var ruleID uint64
+
+	t.Run("CreateFingerRule", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"name":        ruleName,
+			"status_code": "200",
+			"url":         "/",
+			"match":       "contains",
+			"body":        "neoscan_test",
+		}
+		w := performJSONRequest(engine, "POST", "/api/v1/asset/fingers", payload, nil)
+		assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+		ruleID = extractCreatedID(t, w)
+	})
+
+	if ruleID == 0 {
+		t.Fatalf("failed to create finger rule")
+	}
+	defer db.Exec("DELETE FROM asset_finger WHERE id = ?", ruleID)
+	defer db.Exec("DELETE FROM sys_entity_tags WHERE entity_type = ? AND entity_id = ?", "fingers_cms", strconv.FormatUint(ruleID, 10))
+
+	t.Run("GetFingerRule", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/fingers/%d", ruleID)
+		w := performJSONRequest(engine, "GET", url, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	})
+
+	t.Run("UpdateFingerRule", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/fingers/%d", ruleID)
+		payload := map[string]interface{}{
+			"name": updatedName,
+		}
+		w := performJSONRequest(engine, "PUT", url, payload, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	})
+
+	t.Run("ListFingerRules", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/fingers?page=1&page_size=10&name=%s", updatedName)
+		w := performJSONRequest(engine, "GET", url, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.True(t, responseContainsID(t, w, ruleID), "list response missing created rule")
+	})
+
+	t.Run("TagFingerRule", func(t *testing.T) {
+		addURL := fmt.Sprintf("/api/v1/asset/fingers/%d/tags", ruleID)
+		w := performJSONRequest(engine, "POST", addURL, map[string]uint64{"tag_id": tag.ID}, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+		getURL := fmt.Sprintf("/api/v1/asset/fingers/%d/tags", ruleID)
+		w = performJSONRequest(engine, "GET", getURL, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.True(t, bytes.Contains(w.Body.Bytes(), []byte(tagName)), "get tags response missing tag")
+
+		listByTagURL := fmt.Sprintf("/api/v1/asset/fingers?page=1&page_size=10&tag_id=%d", tag.ID)
+		w = performJSONRequest(engine, "GET", listByTagURL, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.True(t, responseContainsID(t, w, ruleID), "tag filter list missing created rule")
+
+		delURL := fmt.Sprintf("/api/v1/asset/fingers/%d/tags/%d", ruleID, tag.ID)
+		w = performJSONRequest(engine, "DELETE", delURL, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	})
+
+	t.Run("DeleteFingerRule", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/fingers/%d", ruleID)
+		w := performJSONRequest(engine, "DELETE", url, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+		w = performJSONRequest(engine, "GET", url, nil, nil)
+		assert.Equal(t, http.StatusNotFound, w.Code, w.Body.String())
+	})
+}
+
+func TestAssetCPERuleRoutes(t *testing.T) {
+	engine, db, _, err := SetupTestEnv()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
+	db.AutoMigrate(&assetmodel.AssetCPE{}, &tagsystem.SysTag{}, &tagsystem.SysEntityTag{})
+
+	now := time.Now().UnixNano()
+	ruleName := fmt.Sprintf("test_cpe_rule_%d", now)
+	updatedMatch := fmt.Sprintf("(?i)NeoScanTest/%d", now)
+	tagName := fmt.Sprintf("test_tag_cpes_%d", now)
+
+	tag := &tagsystem.SysTag{
+		Name:     tagName,
+		ParentID: 0,
+		Path:     "/",
+		Level:    0,
+		Category: "asset",
+	}
+	if err := db.Create(tag).Error; err != nil {
+		t.Fatalf("failed to create tag: %v", err)
+	}
+	defer db.Delete(tag)
+
+	var ruleID uint64
+
+	t.Run("CreateCPERule", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"name":      ruleName,
+			"probe":     "GenericLines",
+			"match_str": "(?i)NeoScanTest/([\\d\\.]+)",
+			"vendor":    "neoscan",
+			"product":   "test_service",
+			"part":      "a",
+			"cpe":       "cpe:2.3:a:neoscan:test_service:$1:*:*:*:*:*:*:*",
+		}
+		w := performJSONRequest(engine, "POST", "/api/v1/asset/cpes", payload, nil)
+		assert.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+		ruleID = extractCreatedID(t, w)
+	})
+
+	if ruleID == 0 {
+		t.Fatalf("failed to create cpe rule")
+	}
+	defer db.Exec("DELETE FROM asset_cpe WHERE id = ?", ruleID)
+	defer db.Exec("DELETE FROM sys_entity_tags WHERE entity_type = ? AND entity_id = ?", "fingers_cpe", strconv.FormatUint(ruleID, 10))
+
+	t.Run("GetCPERule", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/cpes/%d", ruleID)
+		w := performJSONRequest(engine, "GET", url, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	})
+
+	t.Run("UpdateCPERule", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/cpes/%d", ruleID)
+		payload := map[string]interface{}{
+			"name":      ruleName,
+			"match_str": updatedMatch,
+		}
+		w := performJSONRequest(engine, "PUT", url, payload, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	})
+
+	t.Run("ListCPERules", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/cpes?page=1&page_size=10&name=%s", ruleName)
+		w := performJSONRequest(engine, "GET", url, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.True(t, responseContainsID(t, w, ruleID), "list response missing created rule")
+	})
+
+	t.Run("TagCPERule", func(t *testing.T) {
+		addURL := fmt.Sprintf("/api/v1/asset/cpes/%d/tags", ruleID)
+		w := performJSONRequest(engine, "POST", addURL, map[string]uint64{"tag_id": tag.ID}, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+		getURL := fmt.Sprintf("/api/v1/asset/cpes/%d/tags", ruleID)
+		w = performJSONRequest(engine, "GET", getURL, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.True(t, bytes.Contains(w.Body.Bytes(), []byte(tagName)), "get tags response missing tag")
+
+		listByTagURL := fmt.Sprintf("/api/v1/asset/cpes?page=1&page_size=10&tag_id=%d", tag.ID)
+		w = performJSONRequest(engine, "GET", listByTagURL, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.True(t, responseContainsID(t, w, ruleID), "tag filter list missing created rule")
+
+		delURL := fmt.Sprintf("/api/v1/asset/cpes/%d/tags/%d", ruleID, tag.ID)
+		w = performJSONRequest(engine, "DELETE", delURL, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	})
+
+	t.Run("DeleteCPERule", func(t *testing.T) {
+		url := fmt.Sprintf("/api/v1/asset/cpes/%d", ruleID)
+		w := performJSONRequest(engine, "DELETE", url, nil, nil)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+		w = performJSONRequest(engine, "GET", url, nil, nil)
+		assert.Equal(t, http.StatusNotFound, w.Code, w.Body.String())
+	})
+}
+
+func TestAssetFingerRuleRoutes_SmokeServer(t *testing.T) {
+	engine, db, _, err := SetupTestEnv()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
+	db.AutoMigrate(&assetmodel.AssetFinger{}, &tagsystem.SysTag{}, &tagsystem.SysEntityTag{})
+
+	ts := httptest.NewServer(engine)
+	defer ts.Close()
+	client := ts.Client()
+
+	now := time.Now().UnixNano()
+	ruleName := fmt.Sprintf("smoke_finger_rule_%d", now)
+	tagName := fmt.Sprintf("smoke_tag_fingers_%d", now)
+
+	tag := &tagsystem.SysTag{
+		Name:     tagName,
+		ParentID: 0,
+		Path:     "/",
+		Level:    0,
+		Category: "asset",
+	}
+	if err := db.Create(tag).Error; err != nil {
+		t.Fatalf("failed to create tag: %v", err)
+	}
+	defer db.Delete(tag)
+
+	createPayload := map[string]interface{}{
+		"name":        ruleName,
+		"status_code": "200",
+		"url":         "/",
+		"match":       "contains",
+		"body":        "neoscan_smoke_test",
+	}
+	status, respBody := performJSONRequestToServer(t, client, ts.URL, "POST", "/api/v1/asset/fingers", createPayload, nil)
+	assert.Equal(t, http.StatusCreated, status, string(respBody))
+
+	ruleID := extractCreatedIDFromBytes(t, respBody)
+	if ruleID == 0 {
+		t.Fatalf("failed to create finger rule")
+	}
+	defer db.Exec("DELETE FROM asset_finger WHERE id = ?", ruleID)
+	defer db.Exec("DELETE FROM sys_entity_tags WHERE entity_type = ? AND entity_id = ?", "fingers_cms", strconv.FormatUint(ruleID, 10))
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "GET", fmt.Sprintf("/api/v1/asset/fingers/%d", ruleID), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "GET", fmt.Sprintf("/api/v1/asset/fingers?page=1&page_size=10&name=%s", ruleName), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+	assert.True(t, responseContainsIDFromBytes(t, respBody, ruleID), "list response missing created rule")
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "POST", fmt.Sprintf("/api/v1/asset/fingers/%d/tags", ruleID), map[string]uint64{"tag_id": tag.ID}, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "GET", fmt.Sprintf("/api/v1/asset/fingers/%d/tags", ruleID), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+	assert.True(t, bytes.Contains(respBody, []byte(tagName)), "get tags response missing tag")
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "DELETE", fmt.Sprintf("/api/v1/asset/fingers/%d", ruleID), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+}
+
+func TestAssetCPERuleRoutes_SmokeServer(t *testing.T) {
+	engine, db, _, err := SetupTestEnv()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
+	db.AutoMigrate(&assetmodel.AssetCPE{}, &tagsystem.SysTag{}, &tagsystem.SysEntityTag{})
+
+	ts := httptest.NewServer(engine)
+	defer ts.Close()
+	client := ts.Client()
+
+	now := time.Now().UnixNano()
+	ruleName := fmt.Sprintf("smoke_cpe_rule_%d", now)
+	tagName := fmt.Sprintf("smoke_tag_cpes_%d", now)
+
+	tag := &tagsystem.SysTag{
+		Name:     tagName,
+		ParentID: 0,
+		Path:     "/",
+		Level:    0,
+		Category: "asset",
+	}
+	if err := db.Create(tag).Error; err != nil {
+		t.Fatalf("failed to create tag: %v", err)
+	}
+	defer db.Delete(tag)
+
+	createPayload := map[string]interface{}{
+		"name":      ruleName,
+		"probe":     "GenericLines",
+		"match_str": "(?i)NeoScanSmokeTest/([\\d\\.]+)",
+		"vendor":    "neoscan",
+		"product":   "smoke_service",
+		"part":      "a",
+		"cpe":       "cpe:2.3:a:neoscan:smoke_service:$1:*:*:*:*:*:*:*",
+	}
+	status, respBody := performJSONRequestToServer(t, client, ts.URL, "POST", "/api/v1/asset/cpes", createPayload, nil)
+	assert.Equal(t, http.StatusCreated, status, string(respBody))
+
+	ruleID := extractCreatedIDFromBytes(t, respBody)
+	if ruleID == 0 {
+		t.Fatalf("failed to create cpe rule")
+	}
+	defer db.Exec("DELETE FROM asset_cpe WHERE id = ?", ruleID)
+	defer db.Exec("DELETE FROM sys_entity_tags WHERE entity_type = ? AND entity_id = ?", "fingers_cpe", strconv.FormatUint(ruleID, 10))
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "GET", fmt.Sprintf("/api/v1/asset/cpes/%d", ruleID), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "GET", fmt.Sprintf("/api/v1/asset/cpes?page=1&page_size=10&name=%s", ruleName), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+	assert.True(t, responseContainsIDFromBytes(t, respBody, ruleID), "list response missing created rule")
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "POST", fmt.Sprintf("/api/v1/asset/cpes/%d/tags", ruleID), map[string]uint64{"tag_id": tag.ID}, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "GET", fmt.Sprintf("/api/v1/asset/cpes/%d/tags", ruleID), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
+	assert.True(t, bytes.Contains(respBody, []byte(tagName)), "get tags response missing tag")
+
+	status, respBody = performJSONRequestToServer(t, client, ts.URL, "DELETE", fmt.Sprintf("/api/v1/asset/cpes/%d", ruleID), nil, nil)
+	assert.Equal(t, http.StatusOK, status, string(respBody))
 }
 
 // TestRawAssetRoutes 娴嬭瘯鍘熷璧勪骇鐩稿叧璺敱

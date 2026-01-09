@@ -99,8 +99,8 @@ func SetupTestEnv() (*gin.Engine, *gorm.DB, string, error) {
 		},
 	}
 
-	if err := ensureTestUserActive(db, 2); err != nil {
-		return nil, nil, "", err
+	if err1 := ensureTestUserActive(db, 2); err1 != nil {
+		return nil, nil, "", err1
 	}
 
 	// 5. 鍒濆鍖?Router

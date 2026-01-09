@@ -113,7 +113,7 @@ func (s *AssetFingerService) DeleteFingerRule(ctx context.Context, id uint64) er
 }
 
 // ListFingerRules 获取指纹规则列表
-func (s *AssetFingerService) ListFingerRules(ctx context.Context, page, pageSize int, name string) ([]*assetmodel.AssetFinger, int64, int, error) {
+func (s *AssetFingerService) ListFingerRules(ctx context.Context, page, pageSize int, name string, tagID uint64) ([]*assetmodel.AssetFinger, int64, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -121,13 +121,14 @@ func (s *AssetFingerService) ListFingerRules(ctx context.Context, page, pageSize
 		pageSize = 10
 	}
 
-	list, total, err := s.repo.List(ctx, page, pageSize, name)
+	list, total, err := s.repo.List(ctx, page, pageSize, name, tagID)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "list_finger_rules", "SERVICE", map[string]interface{}{
 			"operation": "list_finger_rules",
 			"page":      page,
 			"page_size": pageSize,
 			"name":      name,
+			"tag_id":    tagID,
 		})
 		return nil, 0, 0, err
 	}

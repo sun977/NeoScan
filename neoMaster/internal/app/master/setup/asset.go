@@ -30,6 +30,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	hostRepo := assetRepo.NewAssetHostRepository(db)
 	networkRepo := assetRepo.NewAssetNetworkRepository(db)
 	policyRepo := assetRepo.NewAssetPolicyRepository(db)
+	fingerRepo := assetRepo.NewAssetFingerRepository(db)
 	webRepo := assetRepo.NewAssetWebRepository(db)
 	vulnRepo := assetRepo.NewAssetVulnRepository(db)
 	unifiedRepo := assetRepo.NewAssetUnifiedRepository(db)
@@ -40,6 +41,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	hostService := assetService.NewAssetHostService(hostRepo, tagSystem)
 	networkService := assetService.NewAssetNetworkService(networkRepo, tagSystem)
 	policyService := assetService.NewAssetPolicyService(policyRepo, tagSystem)
+	fingerService := assetService.NewAssetFingerService(fingerRepo)
 	webService := assetService.NewAssetWebService(webRepo, tagSystem)
 	vulnService := assetService.NewAssetVulnService(vulnRepo, tagSystem)
 	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo, tagSystem)
@@ -50,6 +52,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	hostHandler := assetHandler.NewAssetHostHandler(hostService)
 	networkHandler := assetHandler.NewAssetNetworkHandler(networkService)
 	policyHandler := assetHandler.NewAssetPolicyHandler(policyService)
+	fingerHandler := assetHandler.NewAssetFingerHandler(fingerService)
 	webHandler := assetHandler.NewAssetWebHandler(webService)
 	vulnHandler := assetHandler.NewAssetVulnHandler(vulnService)
 	unifiedHandler := assetHandler.NewAssetUnifiedHandler(unifiedService)
@@ -66,6 +69,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 		AssetHostHandler:    hostHandler,
 		AssetNetworkHandler: networkHandler,
 		AssetPolicyHandler:  policyHandler,
+		AssetFingerHandler:  fingerHandler,
 		AssetWebHandler:     webHandler,
 		AssetVulnHandler:    vulnHandler,
 		AssetUnifiedHandler: unifiedHandler,
@@ -75,6 +79,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 		AssetHostService:    hostService,
 		AssetNetworkService: networkService,
 		AssetPolicyService:  policyService,
+		AssetFingerService:  fingerService,
 		AssetWebService:     webService,
 		AssetVulnService:    vulnService,
 		AssetUnifiedService: unifiedService,

@@ -21,6 +21,7 @@
 - AssetNetwork
 - AssetWhitelist
 - AssetSkipPolicy
+- AssetFinger(finger_cms/finger_cpe)
 
 #### 系统RBAC也应该支持打标(尚未实现)
 

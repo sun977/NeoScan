@@ -24,14 +24,14 @@ rules/
 │   │   │   ├── default_cms.json
 │   │   │   └── ...
 │   │   └── service/
-│   │       ├── default_services.json
+│   │       ├── default_cpe.json
 │   │       └── ...
 │   └── custom/
 │       ├── cms/
 │       │   ├── user_defined_cms.json
 │       │   └── ...
 │       └── service/
-│           ├── user_defined_service.json
+│           ├── user_defined_cpe.json
 │           └── ...
 ├── poc/
 │   ├── system/

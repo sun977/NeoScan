@@ -37,9 +37,13 @@ app:
     web_crawler:
       storage_path: "data/web_evidence" # 爬虫数据存储路径
 
-  # 指纹识别配置
-  fingerprint:
-    rule_path: "rules/fingerprint" # 规则文件路径
+  # 规则目录配置
+  rules:
+    root_path: "rules"
+    fingerprint:
+      dir: "fingerprint"
+    poc:
+      dir: "poc"
 
   # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:

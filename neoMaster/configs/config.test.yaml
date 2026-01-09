@@ -179,6 +179,13 @@ app:
   debug: false
   timezone: "UTC"
   language: "en-US"
+
+  rules:
+    root_path: "rules"
+    fingerprint:
+      dir: "fingerprint"
+    poc:
+      dir: "poc"
   
   # 功能开关
   features:

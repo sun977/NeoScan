@@ -138,6 +138,13 @@ app:
   debug: false
   timezone: "Asia/Shanghai"
   language: "zh-CN"
+
+  rules:
+    root_path: "rules"
+    fingerprint:
+      dir: "fingerprint"
+    poc:
+      dir: "poc"
   
   # 功能开关
   features:

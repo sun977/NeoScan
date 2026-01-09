@@ -102,10 +102,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	fpService := fingerprint.NewFingerprintService(httpEngine, serviceEngine)
 
 	// 加载指纹规则
-	rulePath := cfg.Fingerprint.RulePath
-	if rulePath == "" {
-		rulePath = "rules/fingerprint" // 默认路径
-	}
+	rulePath := cfg.GetFingerprintRulePath()
 	if err := fpService.LoadRules(rulePath); err != nil {
 		// 仅记录错误，不阻断启动，因为可能只使用数据库规则
 		logger.LogError(err, "Failed to load fingerprint rules from file", 0, "", "setup.BuildOrchestratorModule", "", map[string]interface{}{

@@ -26,6 +26,7 @@ type AgentHandler struct {
 	agentManagerService agentService.AgentManagerService // Agent管理服务（包含分组功能）
 	agentMonitorService agentService.AgentMonitorService // Agent监控服务
 	agentConfigService  agentService.AgentConfigService  // Agent配置服务
+	agentUpdateService  agentService.AgentUpdateService  // Agent规则更新服务(Agent自己pull)
 }
 
 // NewAgentHandler 创建Agent处理器实例
@@ -39,11 +40,13 @@ func NewAgentHandler(
 	agentManagerService agentService.AgentManagerService,
 	agentMonitorService agentService.AgentMonitorService,
 	agentConfigService agentService.AgentConfigService,
+	agentUpdateService agentService.AgentUpdateService,
 ) *AgentHandler {
 	return &AgentHandler{
 		agentManagerService: agentManagerService,
 		agentMonitorService: agentMonitorService,
 		agentConfigService:  agentConfigService,
+		agentUpdateService:  agentUpdateService,
 	}
 }
 

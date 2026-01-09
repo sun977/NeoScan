@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"neomaster/internal/config"
 	agentHandler "neomaster/internal/handler/agent"
 	"neomaster/internal/pkg/logger"
 	agentRepo "neomaster/internal/repo/mysql/agent"
@@ -23,7 +24,7 @@ import (
 //
 // 返回：
 // - *AgentModule：聚合后的 Agent 模块输出（包含 Handler 与具体 Service）。
-func BuildAgentModule(db *gorm.DB, tagService tag_system.TagService) *AgentModule {
+func BuildAgentModule(db *gorm.DB, cfg *config.Config, tagService tag_system.TagService) *AgentModule {
 	// 结构化日志：记录模块初始化关键步骤，便于问题定位与审计
 	logger.WithFields(map[string]interface{}{
 		"path":      "internal.app.master.setup.agent.BuildAgentModule",
@@ -40,6 +41,7 @@ func BuildAgentModule(db *gorm.DB, tagService tag_system.TagService) *AgentModul
 	managerService := agentService.NewAgentManagerService(agentRepository, tagService)
 	monitorService := agentService.NewAgentMonitorService(agentRepository, tagService)
 	configService := agentService.NewAgentConfigService(agentRepository)
+	updateService := agentService.NewAgentUpdateService(cfg)
 	// AgentTaskService 已移至 Orchestrator 模块
 
 	// 执行系统标签初始化与同步 (Bootstrap & Sync)
@@ -60,6 +62,7 @@ func BuildAgentModule(db *gorm.DB, tagService tag_system.TagService) *AgentModul
 		managerService,
 		monitorService,
 		configService,
+		updateService,
 		// taskService, // 已移除
 	)
 
@@ -69,6 +72,7 @@ func BuildAgentModule(db *gorm.DB, tagService tag_system.TagService) *AgentModul
 		ManagerService: managerService,
 		MonitorService: monitorService,
 		ConfigService:  configService,
+		UpdateService:  updateService,
 	}
 
 	logger.WithFields(map[string]interface{}{

@@ -37,8 +37,8 @@ func TestAgentTagAPI(t *testing.T) {
 	agentSvc := agentService.NewAgentManagerService(agentRepoInst, tagSvc)
 
 	// Handler
-	// 注意：NewAgentHandler 需要 Monitor 和 Config 服务，这里传 nil，因为只测试 Tag 功能
-	h := agentHandler.NewAgentHandler(agentSvc, nil, nil)
+	// 注意：NewAgentHandler 需要 Monitor / Config / Update 服务，这里传 nil，因为只测试 Tag 功能
+	h := agentHandler.NewAgentHandler(agentSvc, nil, nil, nil)
 
 	// 2. 设置 Gin 路由
 	gin.SetMode(gin.TestMode)

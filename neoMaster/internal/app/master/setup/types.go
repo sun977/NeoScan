@@ -94,6 +94,7 @@ type AgentModule struct {
 	ManagerService agentService.AgentManagerService
 	MonitorService agentService.AgentMonitorService
 	ConfigService  agentService.AgentConfigService
+	UpdateService  agentService.AgentUpdateService
 	// TaskService 移至 OrchestratorModule
 }
 

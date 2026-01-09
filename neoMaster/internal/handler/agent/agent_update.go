@@ -1,44 +1,49 @@
-// AgentUpdateHandler 处理 Agent 主动拉取规则更新请求
+// Agent 规则更新控制器
 package agent
 
 import (
+	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
-	"neomaster/internal/config"
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
-	"neomaster/internal/service/agent_update"
 )
 
-type AgentUpdateHandler struct {
-	cfg *config.Config
-}
-
-func NewAgentUpdateHandler(cfg *config.Config) *AgentUpdateHandler {
-	return &AgentUpdateHandler{cfg: cfg}
-}
-
-func (h *AgentUpdateHandler) GetFingerprintVersion(c *gin.Context) {
+func (h *AgentHandler) GetFingerprintVersion(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	requestID := c.GetHeader("X-Request-ID")
 	urlPath := c.Request.URL.String()
 
-	rulePath := ""
-	if h.cfg != nil {
-		rulePath = strings.TrimSpace(h.cfg.Fingerprint.RulePath)
+	if h.agentUpdateService == nil {
+		err := errors.New("agent update service is nil")
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+			"operation":  "agent_fingerprint_sync",
+			"option":     "GetFingerprintVersion",
+			"func_name":  "handler.agent.GetFingerprintVersion",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": requestID,
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "agent update service not initialized",
+			Error:   err.Error(),
+		})
+		return
 	}
 
-	info, err := agent_update.GetFingerprintSnapshotInfo(c.Request.Context(), rulePath)
+	info, err := h.agentUpdateService.GetFingerprintSnapshotInfo(c.Request.Context())
 	if err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "agent_fingerprint_sync",
 			"option":     "GetFingerprintVersion",
-			"func_name":  "handler.agent.agent_update.GetFingerprintVersion",
+			"func_name":  "handler.agent.GetFingerprintVersion",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -57,7 +62,7 @@ func (h *AgentUpdateHandler) GetFingerprintVersion(c *gin.Context) {
 		"path":         urlPath,
 		"operation":    "agent_fingerprint_sync",
 		"option":       "GetFingerprintVersion",
-		"func_name":    "handler.agent.agent_update.GetFingerprintVersion",
+		"func_name":    "handler.agent.GetFingerprintVersion",
 		"version_hash": info.VersionHash,
 		"file_count":   info.FileCount,
 		"rule_path":    info.RulePath,
@@ -72,23 +77,38 @@ func (h *AgentUpdateHandler) GetFingerprintVersion(c *gin.Context) {
 	})
 }
 
-func (h *AgentUpdateHandler) DownloadFingerprintSnapshot(c *gin.Context) {
+func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	requestID := c.GetHeader("X-Request-ID")
 	urlPath := c.Request.URL.String()
 
-	rulePath := ""
-	if h.cfg != nil {
-		rulePath = strings.TrimSpace(h.cfg.Fingerprint.RulePath)
+	if h.agentUpdateService == nil {
+		err := errors.New("agent update service is nil")
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+			"operation":  "agent_fingerprint_sync",
+			"option":     "DownloadFingerprintSnapshot",
+			"func_name":  "handler.agent.DownloadFingerprintSnapshot",
+			"client_ip":  clientIP,
+			"user_agent": userAgent,
+			"request_id": requestID,
+			"timestamp":  logger.NowFormatted(),
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "agent update service not initialized",
+			Error:   err.Error(),
+		})
+		return
 	}
 
-	snapshot, err := agent_update.BuildFingerprintSnapshot(c.Request.Context(), rulePath)
+	snapshot, err := h.agentUpdateService.BuildFingerprintSnapshot(c.Request.Context())
 	if err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "agent_fingerprint_sync",
 			"option":     "DownloadFingerprintSnapshot",
-			"func_name":  "handler.agent.agent_update.DownloadFingerprintSnapshot",
+			"func_name":  "handler.agent.DownloadFingerprintSnapshot",
 			"client_ip":  clientIP,
 			"user_agent": userAgent,
 			"request_id": requestID,
@@ -107,7 +127,7 @@ func (h *AgentUpdateHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 		"path":         urlPath,
 		"operation":    "agent_fingerprint_sync",
 		"option":       "DownloadFingerprintSnapshot",
-		"func_name":    "handler.agent.agent_update.DownloadFingerprintSnapshot",
+		"func_name":    "handler.agent.DownloadFingerprintSnapshot",
 		"version_hash": snapshot.VersionHash,
 		"file_count":   snapshot.FileCount,
 		"rule_path":    snapshot.RulePath,

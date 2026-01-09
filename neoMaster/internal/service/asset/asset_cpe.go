@@ -107,7 +107,7 @@ func (s *AssetCPEService) DeleteCPERule(ctx context.Context, id uint64) error {
 	return nil
 }
 
-func (s *AssetCPEService) ListCPERules(ctx context.Context, page, pageSize int, name, vendor, product string) ([]*assetmodel.AssetCPE, int64, int, error) {
+func (s *AssetCPEService) ListCPERules(ctx context.Context, page, pageSize int, name, vendor, product string, tagID uint64) ([]*assetmodel.AssetCPE, int64, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -115,7 +115,7 @@ func (s *AssetCPEService) ListCPERules(ctx context.Context, page, pageSize int, 
 		pageSize = 10
 	}
 
-	list, total, err := s.repo.List(ctx, page, pageSize, name, vendor, product)
+	list, total, err := s.repo.List(ctx, page, pageSize, name, vendor, product, tagID)
 	if err != nil {
 		logger.LogBusinessError(err, "", 0, "", "list_cpe_rules", "SERVICE", map[string]interface{}{
 			"operation": "list_cpe_rules",
@@ -124,6 +124,7 @@ func (s *AssetCPEService) ListCPERules(ctx context.Context, page, pageSize int, 
 			"name":      name,
 			"vendor":    vendor,
 			"product":   product,
+			"tag_id":    tagID,
 		})
 		return nil, 0, 0, err
 	}

@@ -238,8 +238,23 @@ func (h *AssetCPEHandler) ListCPERules(c *gin.Context) {
 	name := c.Query("name")
 	vendor := c.Query("vendor")
 	product := c.Query("product")
+	tagIDStr := strings.TrimSpace(c.Query("tag_id"))
+	var tagID uint64
+	if tagIDStr != "" {
+		parsed, err := strconv.ParseUint(tagIDStr, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, system.APIResponse{
+				Code:    http.StatusBadRequest,
+				Status:  "failed",
+				Message: "Invalid Tag ID",
+				Error:   err.Error(),
+			})
+			return
+		}
+		tagID = parsed
+	}
 
-	list, total, _, err := h.service.ListCPERules(c.Request.Context(), page, pageSize, name, vendor, product)
+	list, total, _, err := h.service.ListCPERules(c.Request.Context(), page, pageSize, name, vendor, product, tagID)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_cpe_rules",
@@ -248,6 +263,7 @@ func (h *AssetCPEHandler) ListCPERules(c *gin.Context) {
 			"name":      name,
 			"vendor":    vendor,
 			"product":   product,
+			"tag_id":    tagID,
 		})
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
@@ -435,4 +451,3 @@ func (h *AssetCPEHandler) GetCPERuleTags(c *gin.Context) {
 		Data:    tags,
 	})
 }
-

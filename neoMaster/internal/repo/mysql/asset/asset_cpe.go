@@ -23,7 +23,7 @@ type AssetCPERepository interface {
 	// Delete 删除 CPE 指纹规则
 	Delete(ctx context.Context, id uint64) error
 	// List 获取 CPE 指纹规则列表(分页 + 简单筛选)
-	List(ctx context.Context, page, pageSize int, name, vendor, product string) ([]*asset.AssetCPE, int64, error)
+	List(ctx context.Context, page, pageSize int, name, vendor, product string, tagID uint64) ([]*asset.AssetCPE, int64, error)
 }
 
 // assetCPERepository 实现
@@ -99,7 +99,7 @@ func (r *assetCPERepository) Delete(ctx context.Context, id uint64) error {
 	return nil
 }
 
-func (r *assetCPERepository) List(ctx context.Context, page, pageSize int, name, vendor, product string) ([]*asset.AssetCPE, int64, error) {
+func (r *assetCPERepository) List(ctx context.Context, page, pageSize int, name, vendor, product string, tagID uint64) ([]*asset.AssetCPE, int64, error) {
 	var rules []*asset.AssetCPE
 	var total int64
 
@@ -113,8 +113,17 @@ func (r *assetCPERepository) List(ctx context.Context, page, pageSize int, name,
 	if product != "" {
 		query = query.Where("product LIKE ?", "%"+product+"%")
 	}
+	if tagID > 0 {
+		query = query.Joins("JOIN sys_entity_tags ON asset_cpe.id = sys_entity_tags.entity_id").
+			Where("sys_entity_tags.entity_type = ? AND sys_entity_tags.tag_id = ?", "fingers_cpe", tagID)
+	}
 
-	if err := query.Count(&total).Error; err != nil {
+	countQuery := query
+	if tagID > 0 {
+		countQuery = countQuery.Distinct("asset_cpe.id")
+	}
+
+	if err := countQuery.Count(&total).Error; err != nil {
 		logger.LogError(err, "", 0, "", "list_asset_cpe_count", "REPO", map[string]interface{}{
 			"operation": "list_asset_cpe_count",
 		})
@@ -122,7 +131,10 @@ func (r *assetCPERepository) List(ctx context.Context, page, pageSize int, name,
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Order("id desc").Find(&rules).Error; err != nil {
+	if tagID > 0 {
+		query = query.Distinct("asset_cpe.*")
+	}
+	if err := query.Offset(offset).Limit(pageSize).Order("asset_cpe.id desc").Find(&rules).Error; err != nil {
 		logger.LogError(err, "", 0, "", "list_asset_cpe_find", "REPO", map[string]interface{}{
 			"operation": "list_asset_cpe_find",
 		})

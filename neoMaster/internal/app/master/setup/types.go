@@ -145,6 +145,7 @@ type AssetModule struct {
 	AssetNetworkHandler *assetHandler.AssetNetworkHandler
 	AssetPolicyHandler  *assetHandler.AssetPolicyHandler
 	AssetFingerHandler  *assetHandler.AssetFingerHandler
+	AssetCPEHandler     *assetHandler.AssetCPEHandler
 	AssetWebHandler     *assetHandler.AssetWebHandler
 	AssetVulnHandler    *assetHandler.AssetVulnHandler
 	AssetUnifiedHandler *assetHandler.AssetUnifiedHandler
@@ -156,6 +157,7 @@ type AssetModule struct {
 	AssetNetworkService *assetService.AssetNetworkService
 	AssetPolicyService  *assetService.AssetPolicyService
 	AssetFingerService  *assetService.AssetFingerService
+	AssetCPEService     *assetService.AssetCPEService
 	AssetWebService     *assetService.AssetWebService
 	AssetVulnService    *assetService.AssetVulnService
 	AssetUnifiedService *assetService.AssetUnifiedService

@@ -165,7 +165,7 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			vulns.DELETE("/pocs/:id/tags/:tag_id", r.assetVulnHandler.RemovePocTag) // 删除PoC标签
 		}
 
-		// 指纹资产管理
+		// 指纹资产管理 - CMS指纹规则
 		fingers := assetGroup.Group("/fingers")
 		{
 			// 指纹规则管理
@@ -175,7 +175,23 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			fingers.DELETE("/:id", r.assetFingerHandler.DeleteFingerRule) // 删除指纹规则
 			fingers.GET("", r.assetFingerHandler.ListFingerRules)         // 获取指纹规则列表
 			// 指纹规则标签管理
+			fingers.GET("/:id/tags", r.assetFingerHandler.GetFingerRuleTags)              // 获取指纹规则标签
+			fingers.POST("/:id/tags", r.assetFingerHandler.AddFingerRuleTag)              // 添加指纹规则标签
+			fingers.DELETE("/:id/tags/:tag_id", r.assetFingerHandler.RemoveFingerRuleTag) // 删除指纹规则标签
+		}
 
+		// 指纹资产管理 - CPE指纹规则
+		cpes := assetGroup.Group("/cpes")
+		{
+			cpes.POST("", r.assetCPEHandler.CreateCPERule)       // 创建CPE指纹规则
+			cpes.GET("/:id", r.assetCPEHandler.GetCPERule)       // 获取CPE指纹规则详情
+			cpes.PUT("/:id", r.assetCPEHandler.UpdateCPERule)    // 更新CPE指纹规则
+			cpes.DELETE("/:id", r.assetCPEHandler.DeleteCPERule) // 删除CPE指纹规则
+			cpes.GET("", r.assetCPEHandler.ListCPERules)         // 获取CPE指纹规则列表
+			// CPE指纹规则标签管理
+			cpes.GET("/:id/tags", r.assetCPEHandler.GetCPERuleTags)              // 获取CPE指纹规则标签
+			cpes.POST("/:id/tags", r.assetCPEHandler.AddCPERuleTag)              // 添加CPE指纹规则标签
+			cpes.DELETE("/:id/tags/:tag_id", r.assetCPEHandler.RemoveCPERuleTag) // 删除CPE指纹规则标签
 		}
 
 		// 统一资产视图

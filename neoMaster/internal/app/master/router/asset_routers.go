@@ -165,6 +165,19 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			vulns.DELETE("/pocs/:id/tags/:tag_id", r.assetVulnHandler.RemovePocTag) // 删除PoC标签
 		}
 
+		// 指纹资产管理
+		fingers := assetGroup.Group("/fingers")
+		{
+			// 指纹规则管理
+			fingers.POST("", r.assetFingerHandler.CreateFingerRule)       // 创建指纹规则
+			fingers.GET("/:id", r.assetFingerHandler.GetFingerRule)       // 获取指纹规则详情
+			fingers.PUT("/:id", r.assetFingerHandler.UpdateFingerRule)    // 更新指纹规则
+			fingers.DELETE("/:id", r.assetFingerHandler.DeleteFingerRule) // 删除指纹规则
+			fingers.GET("", r.assetFingerHandler.ListFingerRules)         // 获取指纹规则列表
+			// 指纹规则标签管理
+
+		}
+
 		// 统一资产视图
 		unified := assetGroup.Group("/unified")
 		{

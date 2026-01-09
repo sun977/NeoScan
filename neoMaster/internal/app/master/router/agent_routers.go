@@ -32,8 +32,8 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	{
 		fingerprintGroup := agentPullGroup.Group("/fingerprint")
 		{
-			fingerprintGroup.GET("/version", r.agentUpdateHandler.GetFingerprintVersion)
-			fingerprintGroup.GET("/download", r.agentUpdateHandler.DownloadFingerprintSnapshot)
+			fingerprintGroup.GET("/version", r.agentHandler.GetFingerprintVersion)
+			fingerprintGroup.GET("/download", r.agentHandler.DownloadFingerprintSnapshot)
 		}
 	}
 

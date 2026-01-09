@@ -1,8 +1,45 @@
 # 规则目录
 
 这里存放的各种规则是为了让 Agent 主动拉取更新使用
+获取方式： master生成规则文件，供Agent下载
+加密传输：1.身份鉴权，只有已认证的Agent可以下载 2.HTTPS安全传输
+规则加密：在Master端加密规则文件，然后Agent下载后解密使用
+
+需要在配置文件中添加加密密钥
+security:
+- agent_token_secret: "your-agent-token-secret-here"
+- encryption_key: "your-encryption-key-here"
 
 ## 规则类型
 
 - 指纹识别规则
 - POC文件（yaml格式）
+
+
+## 文件目录说明
+rules/
+├── fingerprint/
+│   ├── system/
+│   │   ├── cms/
+│   │   │   ├── default_cms.json
+│   │   │   └── ...
+│   │   └── service/
+│   │       ├── default_services.json
+│   │       └── ...
+│   └── custom/
+│       ├── cms/
+│       │   ├── user_defined_cms.json
+│       │   └── ...
+│       └── service/
+│           ├── user_defined_service.json
+│           └── ...
+├── poc/
+│   ├── system/
+│   │   ├── default_poc_1.yaml
+│   │   ├── default_poc_2.yaml
+│   │   └── ...
+│   └── custom/
+│       ├── user_poc_1.yaml
+│       ├── user_poc_2.yaml
+│       └── ...
+└── README.md

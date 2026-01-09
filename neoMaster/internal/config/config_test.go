@@ -356,86 +356,77 @@ third_party:
 
 // TestConfigValidation 测试配置验证
 func TestConfigValidation(t *testing.T) {
+	baseValidConfig := func() *Config {
+		return &Config{
+			Server: ServerConfig{
+				Host: "localhost",
+				Port: 8080,
+				Mode: "debug",
+			},
+			Database: DatabaseConfig{
+				MySQL: MySQLConfig{
+					Host:     "localhost",
+					Database: "test_db",
+				},
+				Redis: RedisConfig{
+					Host: "localhost",
+				},
+			},
+			Security: SecurityConfig{
+				JWT: JWTConfig{
+					Secret: "test_jwt_secret_key_at_least_32_chars",
+				},
+			},
+			Log: LogConfig{
+				Level:  "info",
+				Format: "json",
+				Output: "stdout",
+			},
+			Session: SessionConfig{
+				Store:    "memory",
+				SameSite: "lax",
+			},
+			App: AppConfig{
+				Rules: RulesConfig{
+					RootPath: "rules",
+					Fingerprint: RuleDirConfig{
+						Dir: "fingerprint",
+					},
+					POC: RuleDirConfig{
+						Dir: "poc",
+					},
+				},
+			},
+		}
+	}
+
 	tests := []struct {
 		name        string
-		config      *Config
+		buildConfig func() *Config
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "valid config",
-			config: &Config{
-				Server: ServerConfig{
-					Host: "localhost",
-					Port: 8080,
-					Mode: "debug",
-				},
-				Database: DatabaseConfig{
-					MySQL: MySQLConfig{
-						Host:     "localhost",
-						Database: "test_db",
-					},
-					Redis: RedisConfig{
-						Host: "localhost",
-					},
-				},
-				Security: SecurityConfig{
-					JWT: JWTConfig{
-						Secret: "test_jwt_secret_key_at_least_32_chars",
-					},
-				},
-				Log: LogConfig{
-					Level:  "info",
-					Format: "json",
-					Output: "stdout",
-				},
-				Session: SessionConfig{
-					Store:    "memory",
-					SameSite: "lax",
-				},
-			},
+			buildConfig: func() *Config { return baseValidConfig() },
 			expectError: false,
 		},
 		{
 			name: "invalid port",
-			config: &Config{
-				Server: ServerConfig{
-					Port: -1,
-				},
+			buildConfig: func() *Config {
+				cfg := baseValidConfig()
+				cfg.Server.Port = -1
+				return cfg
 			},
 			expectError: true,
 			errorMsg:    "invalid server port",
 		},
 		{
 			name: "short jwt secret",
-			config: &Config{
-				Server: ServerConfig{
-					Port: 8080,
-					Mode: "debug",
-				},
-				Database: DatabaseConfig{
-					MySQL: MySQLConfig{
-						Host:     "localhost",
-						Database: "test_db",
-					},
-					Redis: RedisConfig{
-						Host: "localhost",
-					},
-				},
-				Security: SecurityConfig{
-					JWT: JWTConfig{
-						Secret: "short", // 太短的密钥
-					},
-				},
-				Log: LogConfig{
-					Level:  "info",
-					Format: "json",
-					Output: "stdout",
-				},
-				Session: SessionConfig{
-					Store:    "memory",
-					SameSite: "lax",
-				},
+			buildConfig: func() *Config {
+				cfg := baseValidConfig()
+				cfg.Security.JWT.Secret = "short"
+				return cfg
 			},
 			expectError: true,
 			errorMsg:    "jwt secret must be at least 32 characters long",
@@ -444,7 +435,7 @@ func TestConfigValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateConfig(tt.config)
+			err := validateConfig(tt.buildConfig())
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
@@ -457,6 +448,80 @@ func TestConfigValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGetFingerprintRulePath_UsesAppRules(t *testing.T) {
+	cfg := &Config{
+		App: AppConfig{
+			Rules: RulesConfig{
+				RootPath: "rules",
+				Fingerprint: RuleDirConfig{
+					Dir: "fingerprint",
+				},
+			},
+		},
+	}
+
+	if got := cfg.GetFingerprintRulePath(); got != filepath.Clean("rules/fingerprint") {
+		t.Fatalf("Expected rules/fingerprint, got %s", got)
+	}
+}
+
+func TestLoadConfigWithEnvVars_RulesOverride(t *testing.T) {
+	os.Setenv("NEOSCAN_APP_RULES_ROOT_PATH", "custom_rules")
+	os.Setenv("NEOSCAN_APP_RULES_FINGERPRINT_DIR", "fp")
+	os.Setenv("NEOSCAN_APP_RULES_POC_DIR", "poc")
+	defer func() {
+		os.Unsetenv("NEOSCAN_APP_RULES_ROOT_PATH")
+		os.Unsetenv("NEOSCAN_APP_RULES_FINGERPRINT_DIR")
+		os.Unsetenv("NEOSCAN_APP_RULES_POC_DIR")
+	}()
+
+	tempDir := t.TempDir()
+	configContent := `
+server:
+  host: "localhost"
+  port: 8080
+  mode: "test"
+
+database:
+  mysql:
+    host: "localhost"
+    port: 3306
+    username: "test_user"
+    password: "test_password"
+    database: "test_db"
+  redis:
+    host: "localhost"
+    port: 6379
+
+log:
+  level: "info"
+  format: "json"
+  output: "stdout"
+
+security:
+  jwt:
+    secret: "test_jwt_secret_key_at_least_32_chars"
+
+session:
+  store: "memory"
+  same_site: "lax"
+`
+
+	configFile := filepath.Join(tempDir, "config.yaml")
+	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	config, err := LoadConfig(tempDir, "test")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if got := config.GetFingerprintRulePath(); got != filepath.Clean("custom_rules/fp") {
+		t.Fatalf("Expected custom_rules/fp, got %s", got)
 	}
 }
 

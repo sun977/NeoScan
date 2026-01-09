@@ -23,6 +23,20 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 		agentPublicGroup.POST("/heartbeat", r.agentHandler.ProcessHeartbeat) // 处理Agent心跳 - 公开接口
 	}
 
+	// ==================== Agent主动调用（Agent Pull Master） ====================
+	// 说明：
+	// - 这部分接口由 Agent 侧主动调用，用于从 Master 拉取规则/文件更新。
+	// - 鉴权使用 agent_auth 中间件（GinAgentAuthMiddleware），不要混用用户 JWT。
+	agentPullGroup := v1.Group("/agent")
+	agentPullGroup.Use(r.middlewareManager.GinAgentAuthMiddleware())
+	{
+		fingerprintGroup := agentPullGroup.Group("/fingerprint")
+		{
+			fingerprintGroup.GET("/version", r.agentUpdateHandler.GetFingerprintVersion)
+			fingerprintGroup.GET("/download", r.agentUpdateHandler.DownloadFingerprintSnapshot)
+		}
+	}
+
 	// Agent管理路由组（需要认证）
 	agentManageGroup := v1.Group("/agent")
 	agentManageGroup.Use(r.middlewareManager.GinJWTAuthMiddleware())

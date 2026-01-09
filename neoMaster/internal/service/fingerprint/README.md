@@ -149,11 +149,14 @@ type Match struct {
 
 ## 6. 配置与使用
 
-在 `config.yaml` 中配置规则路径：
+在 `config.yaml` 中配置规则目录：
 
 ```yaml
-fingerprint:
-  rule_path: "rules/fingerprint"
+app:
+  rules:
+    root_path: "rules"
+    fingerprint:
+      dir: "fingerprint"
 ```
 
 系统启动时会自动初始化 `FingerprintService` 并加载该目录下的所有规则。

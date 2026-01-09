@@ -57,6 +57,8 @@ func LoadConfig(configPath, env string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	applyDefaultRulesConfig(&config)
+
 	// 验证配置
 	if err := validateConfig(&config); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
@@ -155,6 +157,9 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	// 应用配置
 	v.BindEnv("app.environment", "NEOSCAN_APP_ENVIRONMENT")
 	v.BindEnv("app.debug", "NEOSCAN_APP_DEBUG")
+	v.BindEnv("app.rules.root_path", "NEOSCAN_APP_RULES_ROOT_PATH")
+	v.BindEnv("app.rules.fingerprint.dir", "NEOSCAN_APP_RULES_FINGERPRINT_DIR")
+	v.BindEnv("app.rules.poc.dir", "NEOSCAN_APP_RULES_POC_DIR")
 }
 
 // validateConfig 验证配置
@@ -222,7 +227,33 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("invalid session same_site value: %s", config.Session.SameSite)
 	}
 
+	if strings.TrimSpace(config.App.Rules.RootPath) == "" {
+		return fmt.Errorf("app.rules.root_path is required")
+	}
+	if strings.TrimSpace(config.App.Rules.Fingerprint.Dir) == "" {
+		return fmt.Errorf("app.rules.fingerprint.dir is required")
+	}
+	if strings.TrimSpace(config.App.Rules.POC.Dir) == "" {
+		return fmt.Errorf("app.rules.poc.dir is required")
+	}
+
 	return nil
+}
+
+func applyDefaultRulesConfig(config *Config) {
+	if config == nil {
+		return
+	}
+
+	if strings.TrimSpace(config.App.Rules.RootPath) == "" {
+		config.App.Rules.RootPath = "rules"
+	}
+	if strings.TrimSpace(config.App.Rules.Fingerprint.Dir) == "" {
+		config.App.Rules.Fingerprint.Dir = "fingerprint"
+	}
+	if strings.TrimSpace(config.App.Rules.POC.Dir) == "" {
+		config.App.Rules.POC.Dir = "poc"
+	}
 }
 
 // contains 检查切片是否包含指定元素

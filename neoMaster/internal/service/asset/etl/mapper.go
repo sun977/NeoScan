@@ -16,6 +16,7 @@ import (
 
 	assetModel "neomaster/internal/model/asset"
 	orcModel "neomaster/internal/model/orchestrator"
+	"neomaster/internal/pkg/logger"
 )
 
 // AssetBundle 资产数据包
@@ -83,7 +84,16 @@ func MapToAssetBundle(result *orcModel.StageResult) (*AssetBundle, error) {
 // mapIPAlive 映射探活结果
 func mapIPAlive(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapIPAlive", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }
 
 // mapPortScan 映射端口扫描结果
@@ -379,41 +389,104 @@ func mapWebEndpoint(result *orcModel.StageResult) (*AssetBundle, error) {
 // mapPasswordAudit 映射密码审计结果
 func mapPasswordAudit(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapPasswordAudit", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }
 
 // mapProxyDetection 映射代理检测结果
 func mapProxyDetection(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapProxyDetection", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }
 
 // mapDirectoryScan 映射目录扫描结果
 func mapDirectoryScan(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapDirectoryScan", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }
 
 // mapSubdomainDiscovery 映射子域发现结果
 func mapSubdomainDiscovery(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapSubdomainDiscovery", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }
 
 // mapApiDiscovery 映射API发现结果
 func mapApiDiscovery(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapApiDiscovery", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }
 
 // mapFileDiscovery 映射文件发现结果
 func mapFileDiscovery(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapFileDiscovery", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }
 
 // mapOtherScan 映射其他扫描结果
 func mapOtherScan(result *orcModel.StageResult) (*AssetBundle, error) {
 	// TODO: 实现逻辑
-	return nil, nil
+	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
+	logger.LogError(err, "", 0, "", "etl.mapper.mapOtherScan", "", map[string]interface{}{
+		"task_id":      result.TaskID,
+		"project_id":   result.ProjectID,
+		"stage_id":     result.StageID,
+		"result_type":  result.ResultType,
+		"target_type":  result.TargetType,
+		"target_value": result.TargetValue,
+	})
+	return nil, err
 }

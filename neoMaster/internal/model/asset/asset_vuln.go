@@ -32,8 +32,8 @@ type AssetVuln struct {
 
 	TargetType  string     `json:"target_type" gorm:"size:50;index;not null;comment:目标类型(host/service/web/api)"`
 	TargetRefID uint64     `json:"target_ref_id" gorm:"index;not null;comment:指向对应实体的ID"`
-	CVE         string     `json:"cve" gorm:"size:50;index;comment:CVE编号"`
-	IDAlias     string     `json:"id_alias" gorm:"size:100;comment:漏洞标识(自定义ID)"`
+	CVE         string     `json:"cve" gorm:"size:50;index;comment:CVE编号(可选)"`
+	IDAlias     string     `json:"id_alias" gorm:"size:100;comment:漏洞标识(系统定义漏洞ID标识)"`
 	Severity    string     `json:"severity" gorm:"size:20;default:'medium';comment:严重程度(low/medium/high/critical)"`
 	Confidence  float64    `json:"confidence" gorm:"default:0;comment:置信度(0-1)"`
 	Evidence    string     `json:"evidence" gorm:"type:json;comment:原始证据(JSON)"`

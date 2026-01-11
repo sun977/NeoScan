@@ -30,6 +30,7 @@ type AssetMerger interface {
 type assetMerger struct {
 	hostRepo    *assetRepo.AssetHostRepository
 	webRepo     *assetRepo.AssetWebRepository
+	vulnRepo    *assetRepo.AssetVulnRepository
 	unifiedRepo *assetRepo.AssetUnifiedRepository
 }
 
@@ -37,11 +38,13 @@ type assetMerger struct {
 func NewAssetMerger(
 	hostRepo *assetRepo.AssetHostRepository,
 	webRepo *assetRepo.AssetWebRepository,
+	vulnRepo *assetRepo.AssetVulnRepository,
 	unifiedRepo *assetRepo.AssetUnifiedRepository,
 ) AssetMerger {
 	return &assetMerger{
 		hostRepo:    hostRepo,
 		webRepo:     webRepo,
+		vulnRepo:    vulnRepo,
 		unifiedRepo: unifiedRepo,
 	}
 }
@@ -70,17 +73,10 @@ func (m *assetMerger) Merge(ctx context.Context, bundle *AssetBundle) error {
 		}
 	}
 
-	// 3. 处理 Webs
-	if len(bundle.Webs) > 0 {
-		if err := m.upsertWebs(ctx, hostID, bundle.Webs); err != nil {
-			return fmt.Errorf("failed to upsert webs: %w", err)
-		}
-	}
-
-	// 4. 处理 WebDetails
-	if len(bundle.WebDetails) > 0 {
-		if err := m.upsertWebDetails(ctx, bundle.WebDetails); err != nil {
-			return fmt.Errorf("failed to upsert web details: %w", err)
+	// 3. 处理 WebAssets
+	if len(bundle.WebAssets) > 0 {
+		if err := m.upsertWebAssets(ctx, hostID, bundle.WebAssets); err != nil {
+			return fmt.Errorf("failed to upsert web assets: %w", err)
 		}
 	}
 
@@ -89,7 +85,12 @@ func (m *assetMerger) Merge(ctx context.Context, bundle *AssetBundle) error {
 		return fmt.Errorf("failed to sync to unified asset: %w", err)
 	}
 
-	// TODO: 处理 Vulns
+	// 6. 处理 Vulns
+	if len(bundle.Vulns) > 0 {
+		if err := m.upsertVulns(ctx, hostID, bundle.Vulns); err != nil {
+			return fmt.Errorf("failed to upsert vulns: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -100,6 +101,7 @@ func (m *assetMerger) syncToUnified(ctx context.Context, bundle *AssetBundle) er
 		return nil
 	}
 
+	// 缓存已处理的端口
 	processedPorts := make(map[int]bool)
 	now := time.Now()
 
@@ -128,7 +130,11 @@ func (m *assetMerger) syncToUnified(ctx context.Context, bundle *AssetBundle) er
 		}
 
 		// 检查是否有匹配的 Web
-		for _, web := range bundle.Webs {
+		for _, wa := range bundle.WebAssets {
+			if wa == nil || wa.Web == nil {
+				continue
+			}
+			web := wa.Web
 			if getPortFromURL(web.URL) == svc.Port {
 				unified.IsWeb = true
 				unified.URL = web.URL
@@ -147,6 +153,7 @@ func (m *assetMerger) syncToUnified(ctx context.Context, bundle *AssetBundle) er
 			}
 		}
 
+		// Upsert 资产统一表
 		if err := m.unifiedRepo.UpsertUnifiedAsset(ctx, unified); err != nil {
 			return err
 		}
@@ -154,7 +161,11 @@ func (m *assetMerger) syncToUnified(ctx context.Context, bundle *AssetBundle) er
 	}
 
 	// 2. 处理纯 Web (没有 Service 记录的情况)
-	for _, web := range bundle.Webs {
+	for _, wa := range bundle.WebAssets {
+		if wa == nil || wa.Web == nil {
+			continue
+		}
+		web := wa.Web
 		port := getPortFromURL(web.URL)
 		if processedPorts[port] {
 			continue
@@ -196,6 +207,7 @@ func (m *assetMerger) syncToUnified(ctx context.Context, bundle *AssetBundle) er
 	return nil
 }
 
+// getPortFromURL 从 URL 中获取端口
 func getPortFromURL(rawURL string) int {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -290,19 +302,29 @@ func (m *assetMerger) upsertServices(ctx context.Context, hostID uint64, service
 	return nil
 }
 
-// upsertWebs 更新或插入 Web 站点列表
-func (m *assetMerger) upsertWebs(ctx context.Context, hostID uint64, webs []*assetModel.AssetWeb) error {
-	for _, web := range webs {
-		web.HostID = hostID // 关联主机
-		existing, err := m.webRepo.GetWebByURL(ctx, web.URL)
+// upsertWebAssets 创建或更新 Web 资产(包含web信息和web详情)
+func (m *assetMerger) upsertWebAssets(ctx context.Context, hostID uint64, webAssets []*WebAsset) error {
+	now := time.Now()
+	for _, wa := range webAssets {
+		if wa == nil || wa.Web == nil || wa.Web.URL == "" {
+			continue
+		}
+
+		// 获取Web资产中的web信息部分 - WebAsset.Web
+		web := wa.Web
+		web.HostID = hostID
+		existing, err := m.webRepo.GetWebByURL(ctx, web.URL) // 根据URL获取Web资产
 		if err != nil {
 			return fmt.Errorf("check web existence failed: %w", err)
 		}
 
-		now := time.Now()
+		// 如果存在web资产
 		if existing != nil {
-			// Update
+			// 更新web资产相关的字段信息
 			existing.LastSeenAt = &now
+			if web.HostID != 0 {
+				existing.HostID = web.HostID
+			}
 			if web.Domain != "" {
 				existing.Domain = web.Domain
 			}
@@ -312,48 +334,231 @@ func (m *assetMerger) upsertWebs(ctx context.Context, hostID uint64, webs []*ass
 			if web.BasicInfo != "" && web.BasicInfo != "{}" {
 				existing.BasicInfo = web.BasicInfo
 			}
-			// Update Status/Tags if needed
-
+			// 更新 AssetWeb 资产表
 			if err := m.webRepo.UpdateWeb(ctx, existing); err != nil {
 				return fmt.Errorf("update web failed: %w", err)
 			}
-			// 如果有关联的 Detail，需要更新其 AssetWebID
-			// 这里假设 bundle.WebDetails 中的 AssetWebID 是空的或者临时的
-			// 实际上 Mapper 应该处理好，或者我们在这里通过 URL 匹配
-		} else {
-			// Create
+			// 获取 AssetWeb.ID
+			web.ID = existing.ID
+		} else { // 如果不存在web资产
 			if web.LastSeenAt == nil {
 				web.LastSeenAt = &now
 			}
+			// 创建新的 AssetWeb 资产
 			if err := m.webRepo.CreateWeb(ctx, web); err != nil {
 				return fmt.Errorf("create web failed: %w", err)
 			}
 		}
-	}
-	return nil
-}
 
-// upsertWebDetails 更新或插入 Web 详细信息
-func (m *assetMerger) upsertWebDetails(ctx context.Context, details []*assetModel.AssetWebDetail) error {
-	for _, detail := range details {
-		// 注意: AssetWebDetail 依赖 AssetWebID。
-		// 在 Bundle 中，Detail 必须能关联到 Web。
-		// 如果 Web 是新创建的，ID 在 upsertWebs 之后才生成。
-		// 这意味着 upsertWebs 应该返回 ID 映射，或者 Bundle 结构需要调整以支持嵌套。
-		// 简单方案: 假设 Mapper 已经尽力填充了，或者我们再次查询 URL 获取 ID。
-		// 由于 Detail 通常不包含 URL 字段，我们很难反向查找。
-		// 最佳实践: 在 Bundle 中，Web 和 Detail 应该是一对一关联的，例如 AssetWeb 包含 Detail 指针。
-		// 但目前 Bundle 是扁平列表。
-		// 妥协: 假设 Detail.AssetWebID 已经设置 (如果是基于已有 Web 的爬虫任务)。
-		// 如果是发现任务同时产生 Web 和 Detail，我们需要更复杂的逻辑。
-
-		if detail.AssetWebID == 0 {
-			continue // Skip orphan details
+		// 处理web资产详情 - WebAsset.Detail
+		if wa.Detail == nil {
+			continue // 没有web资产详情,就跳过
 		}
-
+		// 有web资产详情就赋值然后更新
+		detail := wa.Detail
+		detail.AssetWebID = web.ID
+		// 更新 AssetWebDetail 资产
 		if err := m.webRepo.CreateOrUpdateDetail(ctx, detail); err != nil {
 			return fmt.Errorf("upsert web detail failed: %w", err)
 		}
 	}
 	return nil
+}
+
+// upsertVulns 创建或更新漏洞资产 - AssetVuln
+func (m *assetMerger) upsertVulns(ctx context.Context, hostID uint64, vulns []*assetModel.AssetVuln) error {
+	now := time.Now()
+	for _, v := range vulns {
+		if v == nil {
+			continue
+		}
+
+		// 获取漏洞资产目标类型
+		targetType := strings.ToLower(strings.TrimSpace(v.TargetType))
+		if targetType == "" {
+			targetType = "host" // 默认目标类型为主机
+		}
+
+		// 解析漏洞资产目标
+		targetRefID, resolvedTargetType, err := m.resolveVulnTarget(ctx, hostID, targetType, v)
+		if err != nil {
+			return err
+		}
+		v.TargetType = resolvedTargetType
+		v.TargetRefID = targetRefID
+
+		if v.FirstSeenAt == nil {
+			v.FirstSeenAt = &now
+		}
+		v.LastSeenAt = &now
+
+		// 尝试查找已存在的漏洞资产
+		existing, err := m.findExistingVuln(ctx, v)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			existing.LastSeenAt = &now
+			if v.Severity != "" {
+				existing.Severity = v.Severity
+			}
+			if v.Confidence != 0 {
+				existing.Confidence = v.Confidence
+			}
+			if v.Evidence != "" {
+				existing.Evidence = v.Evidence
+			}
+			if v.Attributes != "" {
+				existing.Attributes = v.Attributes
+			}
+			if v.Status != "" {
+				existing.Status = v.Status
+			}
+			if err := m.vulnRepo.UpdateVuln(ctx, existing); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := m.vulnRepo.CreateVuln(ctx, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// findExistingVuln 查找已存在的漏洞资产
+func (m *assetMerger) findExistingVuln(ctx context.Context, v *assetModel.AssetVuln) (*assetModel.AssetVuln, error) {
+	if v == nil || v.TargetRefID == 0 || v.TargetType == "" {
+		return nil, nil
+	}
+	// 尝试通过CVE查找已存在的漏洞资产
+	if v.CVE != "" {
+		return m.vulnRepo.GetVulnByTargetAndCVE(ctx, v.TargetType, v.TargetRefID, v.CVE)
+	}
+	// 尝试通过漏洞标识(ID别名)查找已存在的漏洞资产
+	if v.IDAlias != "" {
+		return m.vulnRepo.GetVulnByTargetAndAlias(ctx, v.TargetType, v.TargetRefID, v.IDAlias)
+	}
+	return nil, nil
+}
+
+// resolveVulnTarget 解析漏洞资产目标
+func (m *assetMerger) resolveVulnTarget(ctx context.Context, hostID uint64, targetType string, v *assetModel.AssetVuln) (uint64, string, error) {
+	switch targetType {
+	case "service":
+		// 尝试从VulnAttributes中获取漏洞资产目标端口
+		port := extractPortFromVulnAttributes(v.Attributes)
+		if port <= 0 {
+			return hostID, "host", nil
+		}
+		// 获取对应端口的Service资产,协议筛选TCP
+		svc, err := m.hostRepo.GetServiceByHostIDAndPort(ctx, hostID, port, "tcp")
+		if err != nil {
+			return 0, "", err
+		}
+		// 如果没有找到对应的Service资产,则尝试从UDP协议获取
+		if svc == nil {
+			svc, err = m.hostRepo.GetServiceByHostIDAndPort(ctx, hostID, port, "udp")
+			if err != nil {
+				return 0, "", err
+			}
+		}
+		// 如果没有找到对应的Service资产,则创建一个新的Service资产
+		if svc == nil {
+			stub := &assetModel.AssetService{
+				HostID:     hostID,
+				Port:       port,
+				Proto:      "tcp",
+				LastSeenAt: timePtr(time.Now()),
+			}
+			if err := m.hostRepo.CreateService(ctx, stub); err != nil {
+				return 0, "", err
+			}
+			svc = stub
+		}
+		return svc.ID, "service", nil
+	case "web":
+		// 尝试从VulnAttributes中获取漏洞资产目标URL
+		rawURL := extractURLFromVulnAttributes(v.Attributes)
+		if rawURL == "" {
+			return hostID, "host", nil
+		}
+		// 获取对应URL的Web资产
+		web, err := m.webRepo.GetWebByURL(ctx, rawURL)
+		if err != nil {
+			return 0, "", err
+		}
+		// 如果没有找到对应的Web资产,则创建一个新的Web资产
+		if web == nil {
+			domain := ""
+			if u, err := url.Parse(rawURL); err == nil {
+				domain = u.Hostname()
+			}
+			stub := &assetModel.AssetWeb{
+				HostID:     hostID,
+				URL:        rawURL,
+				Domain:     domain,
+				Tags:       "{}",
+				LastSeenAt: timePtr(time.Now()),
+			}
+			if err := m.webRepo.CreateWeb(ctx, stub); err != nil {
+				return 0, "", err
+			}
+			web = stub
+		}
+		return web.ID, "web", nil
+	default:
+		return hostID, "host", nil
+	}
+}
+
+// extractPortFromVulnAttributes 尝试从漏洞资产属性中提取端口
+func extractPortFromVulnAttributes(raw string) int {
+	if raw == "" {
+		return 0
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return 0
+	}
+	v, ok := m["port"]
+	if !ok {
+		return 0
+	}
+	switch vv := v.(type) {
+	case float64:
+		return int(vv)
+	case int:
+		return vv
+	case string:
+		p, _ := strconv.Atoi(vv)
+		return p
+	default:
+		return 0
+	}
+}
+
+// extractURLFromVulnAttributes 尝试从漏洞资产属性中提取URL
+func extractURLFromVulnAttributes(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return ""
+	}
+	if s, ok := m["url"].(string); ok && s != "" {
+		return s
+	}
+	if s, ok := m["target"].(string); ok && s != "" {
+		if strings.HasPrefix(strings.ToLower(s), "http://") || strings.HasPrefix(strings.ToLower(s), "https://") {
+			return s
+		}
+	}
+	return ""
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
 }

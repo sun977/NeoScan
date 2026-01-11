@@ -58,6 +58,54 @@ func (r *AssetVulnRepository) GetVulnByID(ctx context.Context, id uint64) (*asse
 	return &vuln, nil
 }
 
+// GetVulnByTargetAndCVE 根据目标类型、目标ID和CVE获取漏洞记录
+func (r *AssetVulnRepository) GetVulnByTargetAndCVE(ctx context.Context, targetType string, targetRefID uint64, cve string) (*assetmodel.AssetVuln, error) {
+	if targetType == "" || targetRefID == 0 || cve == "" {
+		return nil, nil
+	}
+	var vuln assetmodel.AssetVuln
+	err := r.db.WithContext(ctx).
+		Where("target_type = ? AND target_ref_id = ? AND cve = ?", targetType, targetRefID, cve).
+		First(&vuln).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		logger.LogError(err, "", 0, "", "get_vuln_by_target_and_cve", "REPO", map[string]interface{}{
+			"operation":     "get_vuln_by_target_and_cve",
+			"target_type":   targetType,
+			"target_ref_id": targetRefID,
+			"cve":           cve,
+		})
+		return nil, err
+	}
+	return &vuln, nil
+}
+
+// GetVulnByTargetAndAlias 根据目标类型、目标ID和漏洞标识(别名)获取漏洞记录
+func (r *AssetVulnRepository) GetVulnByTargetAndAlias(ctx context.Context, targetType string, targetRefID uint64, alias string) (*assetmodel.AssetVuln, error) {
+	if targetType == "" || targetRefID == 0 || alias == "" {
+		return nil, nil
+	}
+	var vuln assetmodel.AssetVuln
+	err := r.db.WithContext(ctx).
+		Where("target_type = ? AND target_ref_id = ? AND id_alias = ?", targetType, targetRefID, alias).
+		First(&vuln).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		logger.LogError(err, "", 0, "", "get_vuln_by_target_and_alias", "REPO", map[string]interface{}{
+			"operation":     "get_vuln_by_target_and_alias",
+			"target_type":   targetType,
+			"target_ref_id": targetRefID,
+			"id_alias":      alias,
+		})
+		return nil, err
+	}
+	return &vuln, nil
+}
+
 // UpdateVuln 更新漏洞记录
 func (r *AssetVulnRepository) UpdateVuln(ctx context.Context, vuln *assetmodel.AssetVuln) error {
 	if vuln == nil || vuln.ID == 0 {

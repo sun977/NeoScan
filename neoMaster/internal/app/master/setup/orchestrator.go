@@ -93,8 +93,9 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	// 初始化 AssetMerger
 	hostRepo := assetRepo.NewAssetHostRepository(db)
 	webRepo := assetRepo.NewAssetWebRepository(db)
+	vulnRepo := assetRepo.NewAssetVulnRepository(db)
 	unifiedRepo := assetRepo.NewAssetUnifiedRepository(db)
-	assetMerger := etl.NewAssetMerger(hostRepo, webRepo, unifiedRepo)
+	assetMerger := etl.NewAssetMerger(hostRepo, webRepo, vulnRepo, unifiedRepo)
 
 	// 初始化 FingerprintService
 	httpEngine := http.NewHTTPEngine(assetRepo.NewAssetFingerRepository(db))

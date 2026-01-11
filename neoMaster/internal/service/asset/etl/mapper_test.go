@@ -39,8 +39,11 @@ func TestMapWebEndpoint(t *testing.T) {
 	assert.Equal(t, "1.2.3.4", bundle.Host.IP)
 
 	// Verify Web
-	assert.Len(t, bundle.Webs, 1)
-	web := bundle.Webs[0]
+	assert.Len(t, bundle.WebAssets, 1)
+	wa := bundle.WebAssets[0]
+	assert.NotNil(t, wa)
+	assert.NotNil(t, wa.Web)
+	web := wa.Web
 	assert.Equal(t, "http://example.com/login", web.URL)
 	assert.Equal(t, "example.com", web.Domain)
 	assert.Contains(t, web.TechStack, "React")
@@ -53,8 +56,8 @@ func TestMapWebEndpoint(t *testing.T) {
 	assert.Equal(t, float64(200), basicInfo["status_code"]) // JSON numbers are floats
 
 	// Verify WebDetails
-	assert.Len(t, bundle.WebDetails, 1)
-	detail := bundle.WebDetails[0]
+	assert.NotNil(t, wa.Detail)
+	detail := wa.Detail
 	assert.Equal(t, "base64-mock", detail.Screenshot)
 
 	// Verify ContentDetails
@@ -90,7 +93,10 @@ func TestMapWebEndpoint_InferIP(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "192.168.1.100", bundle.Host.IP)
-	assert.Equal(t, "192.168.1.100", bundle.Webs[0].Domain) // extractDomain might return hostname for IP too
+	assert.Len(t, bundle.WebAssets, 1)
+	assert.NotNil(t, bundle.WebAssets[0])
+	assert.NotNil(t, bundle.WebAssets[0].Web)
+	assert.Equal(t, "192.168.1.100", bundle.WebAssets[0].Web.Domain)
 }
 
 func TestMapWebEndpoint_InferIP_FromURLTarget(t *testing.T) {

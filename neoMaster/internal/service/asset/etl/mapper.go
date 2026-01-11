@@ -22,12 +22,16 @@ import (
 // 聚合了从 StageResult 中提取出的各类资产实体
 // Processor 拿到此包后，根据字段是否非空调用对应的 Merger 逻辑
 type AssetBundle struct {
-	ProjectID  uint64                       // 所属项目ID (来自 StageResult)
-	Host       *assetModel.AssetHost        // 主机资产 (必选)
-	Services   []*assetModel.AssetService   // 关联的服务列表
-	Webs       []*assetModel.AssetWeb       // 关联的 Web 站点
-	WebDetails []*assetModel.AssetWebDetail // 关联的 Web 站点详情 (爬虫结果) Web 详情 (通常与 Webs 一一对应)
-	Vulns      []*assetModel.AssetVuln      // 关联的漏洞列表
+	ProjectID uint64                     // 所属项目ID (来自 StageResult)
+	Host      *assetModel.AssetHost      // 主机资产 (必选)
+	Services  []*assetModel.AssetService // 关联的服务列表
+	WebAssets []*WebAsset                // 关联的 Web 站点及其详情
+	Vulns     []*assetModel.AssetVuln    // 关联的漏洞列表
+}
+
+type WebAsset struct {
+	Web    *assetModel.AssetWeb       // Web 站点资产
+	Detail *assetModel.AssetWebDetail // Web 站点详情
 }
 
 // MapToAssetBundle 将通用的 StageResult 映射为标准资产包
@@ -312,8 +316,7 @@ func mapWebEndpoint(result *orcModel.StageResult) (*AssetBundle, error) {
 		SourceStageIDs: "[]",
 	}
 
-	var webs []*assetModel.AssetWeb
-	var details []*assetModel.AssetWebDetail
+	var webAssets []*WebAsset // 包含 web 资产信息和详情信息
 
 	for _, ep := range attr.Endpoints {
 		u, err := url.Parse(ep.URL)
@@ -346,30 +349,30 @@ func mapWebEndpoint(result *orcModel.StageResult) (*AssetBundle, error) {
 			Domain:    u.Hostname(),
 			TechStack: string(techStackJSON),
 			BasicInfo: string(basicInfoJSON),
-			Tags:      "{}",
+			Tags:      "{}", // Tags 字段留空，后续删除,已经使用TagSystem支持打标
 		}
-		webs = append(webs, web)
 
 		// 3. 构建 AssetWebDetail
+		var detail *assetModel.AssetWebDetail
 		if ep.Screenshot != "" || len(ep.Headers) > 0 {
 			contentDetails := map[string]interface{}{
 				"url":              ep.URL,
 				"response_headers": ep.Headers,
 			}
 			contentDetailsJSON, _ := json.Marshal(contentDetails)
-
-			detail := &assetModel.AssetWebDetail{
+			detail = &assetModel.AssetWebDetail{
 				ContentDetails: string(contentDetailsJSON),
 				Screenshot:     ep.Screenshot,
+				// TODO: 添加更多字段
 			}
-			details = append(details, detail)
 		}
+
+		webAssets = append(webAssets, &WebAsset{Web: web, Detail: detail})
 	}
 
 	return &AssetBundle{
-		Host:       host,
-		Webs:       webs,
-		WebDetails: details,
+		Host:      host,
+		WebAssets: webAssets,
 	}, nil
 }
 

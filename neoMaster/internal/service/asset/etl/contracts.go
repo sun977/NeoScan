@@ -9,8 +9,16 @@ package etl
 
 // IPAliveAttributes 探活阶段属性
 type IPAliveAttributes struct {
-	Alive     bool     `json:"alive"`
-	Protocols []string `json:"protocols"` // e.g. ["icmp", "tcp"]
+	Hosts []struct {
+		IP  string  `json:"ip"`
+		RTT float64 `json:"rtt"`
+		TTL int     `json:"ttl"`
+	} `json:"hosts"`
+	Summary struct {
+		AliveCount   int     `json:"alive_count"`
+		TotalScanned int     `json:"total_scanned"`
+		ElapsedMs    float64 `json:"elapsed_ms"`
+	} `json:"summary"`
 }
 
 // PortScanAttributes 端口扫描属性 (Fast/Full)

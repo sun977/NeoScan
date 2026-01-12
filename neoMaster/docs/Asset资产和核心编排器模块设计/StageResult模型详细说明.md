@@ -167,8 +167,8 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 ```json
 {
   "poc_results": [
-    {"poc_id": "CVE-2021-1234#poc1", "target": "https://example.com", "status": "confirmed", "severity": "high", "evidence_ref": "ref-abc"},
-    {"poc_id": "CVE-2021-5678#poc2", "target": "https://example.com", "status": "not_vulnerable", "severity": "medium", "evidence_ref": "ref-def"}
+    {"ip": "192.168.1.10", "poc_id": "CVE-2021-1234#poc1", "target": "https://example.com", "status": "confirmed", "severity": "high", "evidence_ref": "ref-abc"},
+    {"ip": "192.168.1.10", "poc_id": "CVE-2021-5678#poc2", "target": "https://example.com", "status": "not_vulnerable", "severity": "medium", "evidence_ref": "ref-def"}
   ]
 }
 ```

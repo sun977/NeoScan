@@ -7,6 +7,7 @@ import (
 	"neomaster/internal/pkg/logger"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // AssetVulnRepository 漏洞资产仓库
@@ -29,12 +30,79 @@ func (r *AssetVulnRepository) CreateVuln(ctx context.Context, vuln *assetmodel.A
 	if vuln == nil {
 		return errors.New("vuln is nil")
 	}
+	if vuln.IDAlias == "" {
+		return errors.New("id_alias is empty")
+	}
 	err := r.db.WithContext(ctx).Create(vuln).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "create_vuln", "REPO", map[string]interface{}{
 			"operation": "create_vuln",
 			"target":    vuln.TargetRefID,
 			"cve":       vuln.CVE,
+		})
+		return err
+	}
+	return nil
+}
+
+// UpsertVuln 创建或更新漏洞记录
+func (r *AssetVulnRepository) UpsertVuln(ctx context.Context, vuln *assetmodel.AssetVuln) error {
+	if vuln == nil {
+		return errors.New("vuln is nil")
+	}
+	if vuln.TargetType == "" || vuln.TargetRefID == 0 {
+		return errors.New("invalid target")
+	}
+	if vuln.IDAlias == "" {
+		return errors.New("id_alias is empty")
+	}
+
+	updates := map[string]interface{}{
+		"last_seen_at": vuln.LastSeenAt,
+	}
+	if vuln.CVE != "" {
+		updates["cve"] = vuln.CVE
+	}
+	if vuln.Severity != "" {
+		updates["severity"] = vuln.Severity
+	}
+	if vuln.Confidence != 0 {
+		updates["confidence"] = vuln.Confidence
+	}
+	if vuln.Evidence != "" {
+		updates["evidence"] = vuln.Evidence
+	}
+	if vuln.Attributes != "" {
+		updates["attributes"] = vuln.Attributes
+	}
+	if vuln.Status != "" {
+		updates["status"] = vuln.Status
+	}
+	if vuln.VerifyStatus != "" {
+		updates["verify_status"] = vuln.VerifyStatus
+	}
+	if vuln.VerifiedBy != "" {
+		updates["verified_by"] = vuln.VerifiedBy
+	}
+	if vuln.VerifiedAt != nil {
+		updates["verified_at"] = vuln.VerifiedAt
+	}
+	if vuln.VerifyResult != "" {
+		updates["verify_result"] = vuln.VerifyResult
+	}
+
+	err := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "target_type"}, {Name: "target_ref_id"}, {Name: "id_alias"}},
+			DoUpdates: clause.Assignments(updates),
+		}).
+		Create(vuln).Error
+	if err != nil {
+		logger.LogError(err, "", 0, "", "upsert_vuln", "REPO", map[string]interface{}{
+			"operation":     "upsert_vuln",
+			"target_type":   vuln.TargetType,
+			"target_ref_id": vuln.TargetRefID,
+			"id_alias":      vuln.IDAlias,
 		})
 		return err
 	}

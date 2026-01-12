@@ -8,6 +8,8 @@
 package etl
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -194,12 +196,29 @@ func mapVulnFinding(result *orcModel.StageResult) (*AssetBundle, error) {
 		if cve == "" {
 			cve = extractCVE(finding.ID)
 		}
+		idAlias := strings.TrimSpace(finding.ID)
+		if idAlias == "" {
+			idAlias = strings.TrimSpace(cve)
+		}
+		if idAlias == "" {
+			t := strings.TrimSpace(finding.Type)
+			n := strings.TrimSpace(finding.Name)
+			u := strings.TrimSpace(finding.URL)
+			p := finding.Port
+			if t != "" || n != "" || u != "" || p != 0 {
+				idAlias = fmt.Sprintf("%s|%s|%d|%s", t, n, p, u)
+			}
+		}
+		if idAlias == "" {
+			s := sha1.Sum(stdAttrJSON)
+			idAlias = "hash:" + hex.EncodeToString(s[:])
+		}
 
 		vuln := &assetModel.AssetVuln{
 			TargetType: finding.TargetType,
 			// TargetRefID: 0, // 留给 Merger 填充
 			CVE:        cve,
-			IDAlias:    finding.ID,
+			IDAlias:    idAlias,
 			Severity:   finding.Severity,
 			Confidence: finding.Confidence,
 			Evidence:   fmt.Sprintf(`{"raw": "%s"}`, finding.Evidence),

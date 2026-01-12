@@ -209,7 +209,7 @@ CREATE TABLE `asset_vulns` (
   `target_type` varchar(50) NOT NULL COMMENT '目标类型',
   `target_ref_id` bigint unsigned NOT NULL COMMENT '指向对应实体的ID',
   `cve` varchar(50) DEFAULT NULL COMMENT 'CVE编号',
-  `id_alias` varchar(100) DEFAULT NULL COMMENT '漏洞标识',
+  `id_alias` varchar(200) NOT NULL COMMENT '漏洞标识',
   `severity` varchar(20) DEFAULT 'medium' COMMENT '严重程度',
   `confidence` double DEFAULT '0' COMMENT '置信度',
   `evidence` json DEFAULT NULL COMMENT '原始证据(JSON)',
@@ -222,9 +222,11 @@ CREATE TABLE `asset_vulns` (
   `verified_at` datetime(3) DEFAULT NULL COMMENT '验证完成时间',
   `verify_result` text COMMENT '验证结果快照',
   PRIMARY KEY (`id`),
+	UNIQUE KEY `uidx_asset_vulns_identity` (`target_type`,`target_ref_id`,`id_alias`),
   KEY `idx_asset_vulns_target_type` (`target_type`),
   KEY `idx_asset_vulns_target_ref_id` (`target_ref_id`),
   KEY `idx_asset_vulns_cve` (`cve`),
+	KEY `idx_asset_vulns_target_cve` (`target_type`,`target_ref_id`,`cve`),
   KEY `idx_asset_vulns_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='漏洞资产表';
 

@@ -75,7 +75,12 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
       "rtt": 1.20,
       "ttl": 128
     }
-  ]
+  ],
+  "summary": {
+    "alive_count": 2,
+    "total_scanned": 256,
+    "elapsed_ms": 1500
+  }
 }
 ```
 

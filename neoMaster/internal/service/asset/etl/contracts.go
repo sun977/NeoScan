@@ -24,6 +24,7 @@ type IPAliveAttributes struct {
 // PortScanAttributes 端口扫描属性 (Fast/Full)
 type PortScanAttributes struct {
 	Ports []struct {
+		IP          string `json:"ip"` // 目标IP (批量扫描时必需)
 		Port        int    `json:"port"`
 		Proto       string `json:"proto"`
 		State       string `json:"state"`        // open, closed, filtered
@@ -40,6 +41,7 @@ type PortScanAttributes struct {
 // ServiceFingerprintAttributes 服务指纹属性
 type ServiceFingerprintAttributes struct {
 	Services []struct {
+		IP      string `json:"ip"` // 目标IP (批量扫描时必需)
 		Port    int    `json:"port"`
 		Proto   string `json:"proto"`
 		Name    string `json:"name"`    // e.g. OpenSSH
@@ -66,6 +68,7 @@ type WebEndpointAttributes struct {
 // VulnFindingAttributes 漏洞发现属性
 type VulnFindingAttributes struct {
 	Findings []struct {
+		IP          string  `json:"ip"`          // 目标IP (批量扫描时必需)
 		ID          string  `json:"id"`          // 漏洞ID (e.g., Scanner-ID)
 		CVE         string  `json:"cve"`         // CVE编号 (e.g., CVE-2021-44228)
 		Name        string  `json:"name"`        // 漏洞名称
@@ -85,6 +88,7 @@ type VulnFindingAttributes struct {
 // PocScanAttributes PoC验证属性
 type PocScanAttributes struct {
 	PocResults []struct {
+		IP          string `json:"ip"` // 目标IP (批量扫描时必需)
 		PocID       string `json:"poc_id"`
 		Target      string `json:"target"`
 		Status      string `json:"status"` // confirmed, not_vulnerable

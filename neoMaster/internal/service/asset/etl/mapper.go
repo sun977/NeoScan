@@ -48,15 +48,15 @@ func MapToAssetBundles(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	case "ip_alive":
 		return mapIPAlive(result)
 	case "fast_port_scan", "full_port_scan":
-		singleBundle, err = mapPortScan(result)
+		return mapPortScan(result)
 	case "service_fingerprint":
-		singleBundle, err = mapServiceFingerprint(result)
+		return mapServiceFingerprint(result)
 	case "vuln_finding":
-		singleBundle, err = mapVulnFinding(result)
+		return mapVulnFinding(result)
 	case "poc_scan":
-		singleBundle, err = mapPocScan(result)
+		return mapPocScan(result)
 	case "web_endpoint":
-		singleBundle, err = mapWebEndpoint(result)
+		return mapWebEndpoint(result)
 	case "password_audit":
 		singleBundle, err = mapPasswordAudit(result)
 	case "proxy_detection":
@@ -119,52 +119,84 @@ func mapIPAlive(result *orcModel.StageResult) ([]*AssetBundle, error) {
 }
 
 // mapPortScan 映射端口扫描结果
-func mapPortScan(result *orcModel.StageResult) (*AssetBundle, error) {
+func mapPortScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var attr PortScanAttributes
 	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
 	}
 
-	host := &assetModel.AssetHost{
-		IP:             result.TargetValue,
-		Tags:           "{}",
-		SourceStageIDs: "[]",
-	}
+	servicesByIP := make(map[string][]*assetModel.AssetService)
+	defaultIP := result.TargetValue
+	// 如果 TargetValue 是网段，且没有具体 IP，这可能是一个问题
+	// 但通常 Attributes 里会有 IP
 
-	var services []*assetModel.AssetService
 	for _, p := range attr.Ports {
-		if p.State == "open" {
-			services = append(services, &assetModel.AssetService{
-				Port:        p.Port,
-				Proto:       p.Proto,
-				Name:        p.ServiceHint,
-				Fingerprint: "{}",
-				Tags:        "{}",
-			})
+		if p.State != "open" {
+			continue
 		}
+
+		targetIP := p.IP
+		if targetIP == "" {
+			targetIP = defaultIP
+		}
+
+		svc := &assetModel.AssetService{
+			Port:        p.Port,
+			Proto:       p.Proto,
+			Name:        p.ServiceHint,
+			Fingerprint: "{}",
+			Tags:        "{}",
+		}
+		servicesByIP[targetIP] = append(servicesByIP[targetIP], svc)
 	}
 
-	return &AssetBundle{
-		Host:     host,
-		Services: services,
-	}, nil
+	var bundles []*AssetBundle
+
+	for ip, services := range servicesByIP {
+		host := &assetModel.AssetHost{
+			IP:             ip,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+			Services:  services,
+		})
+	}
+
+	// 如果没有发现服务，但 TargetValue 是单个 IP，则返回空服务的 Bundle
+	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
+		host := &assetModel.AssetHost{
+			IP:             defaultIP,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+		})
+	}
+
+	return bundles, nil
 }
 
 // mapServiceFingerprint 映射服务指纹识别结果
-func mapServiceFingerprint(result *orcModel.StageResult) (*AssetBundle, error) {
+func mapServiceFingerprint(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var attr ServiceFingerprintAttributes
 	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
 	}
 
-	host := &assetModel.AssetHost{
-		IP:             result.TargetValue,
-		Tags:           "{}",
-		SourceStageIDs: "[]",
-	}
+	servicesByIP := make(map[string][]*assetModel.AssetService)
+	defaultIP := result.TargetValue
 
-	var services []*assetModel.AssetService
 	for _, s := range attr.Services {
+		targetIP := s.IP
+		if targetIP == "" {
+			targetIP = defaultIP
+		}
+
 		svc := &assetModel.AssetService{
 			Port:        s.Port,
 			Proto:       s.Proto,
@@ -176,28 +208,55 @@ func mapServiceFingerprint(result *orcModel.StageResult) (*AssetBundle, error) {
 			Fingerprint: "{}",
 			Tags:        "{}",
 		}
-
-		// 如果没有 CPE 但有详细版本信息，尝试补充 (可选，依赖 Matcher)
-		// 这里简单处理，直接使用 Agent 提供的数据
-		services = append(services, svc)
+		servicesByIP[targetIP] = append(servicesByIP[targetIP], svc)
 	}
 
-	return &AssetBundle{
-		Host:     host,
-		Services: services,
-	}, nil
+	var bundles []*AssetBundle
+
+	for ip, services := range servicesByIP {
+		host := &assetModel.AssetHost{
+			IP:             ip,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+			Services:  services,
+		})
+	}
+
+	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
+		host := &assetModel.AssetHost{
+			IP:             defaultIP,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+		})
+	}
+
+	return bundles, nil
 }
 
 // mapVulnFinding 映射漏洞发现结果
-func mapVulnFinding(result *orcModel.StageResult) (*AssetBundle, error) {
+func mapVulnFinding(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var attr VulnFindingAttributes
 	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
 	}
 
-	var vulns []*assetModel.AssetVuln
+	vulnsByIP := make(map[string][]*assetModel.AssetVuln)
+	defaultIP := result.TargetValue
 
 	for _, finding := range attr.Findings {
+		targetIP := finding.IP
+		if targetIP == "" {
+			targetIP = defaultIP
+		}
+
 		// 1. 构造标准化 Attributes 用于存储
 		stdAttr := map[string]interface{}{
 			"name":        finding.Name,
@@ -207,7 +266,7 @@ func mapVulnFinding(result *orcModel.StageResult) (*AssetBundle, error) {
 			"reference":   finding.Reference,
 			"port":        finding.Port,
 			"url":         finding.URL,
-			"ip":          result.TargetValue, // 假设 TargetValue 是 IP
+			"ip":          targetIP,
 		}
 		stdAttrJSON, _ := json.Marshal(stdAttr)
 
@@ -245,20 +304,37 @@ func mapVulnFinding(result *orcModel.StageResult) (*AssetBundle, error) {
 			Attributes: string(stdAttrJSON),
 			Status:     "open",
 		}
-		vulns = append(vulns, vuln)
+		vulnsByIP[targetIP] = append(vulnsByIP[targetIP], vuln)
 	}
 
-	// 3. 构造 Host (总是需要的，用于定位)
-	host := &assetModel.AssetHost{
-		IP:             result.TargetValue,
-		Tags:           "{}",
-		SourceStageIDs: "[]",
+	var bundles []*AssetBundle
+
+	for ip, vulns := range vulnsByIP {
+		host := &assetModel.AssetHost{
+			IP:             ip,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+			Vulns:     vulns,
+		})
 	}
 
-	return &AssetBundle{
-		Host:  host,
-		Vulns: vulns,
-	}, nil
+	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
+		host := &assetModel.AssetHost{
+			IP:             defaultIP,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+		})
+	}
+
+	return bundles, nil
 }
 
 // extractCVE 从 ID 字符串中提取 CVE 编号
@@ -272,13 +348,20 @@ func extractCVE(id string) string {
 }
 
 // mapPocScan 映射PoC验证结果
-func mapPocScan(result *orcModel.StageResult) (*AssetBundle, error) {
+func mapPocScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var attr PocScanAttributes
 	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
 	}
 
-	var vulns []*assetModel.AssetVuln
+	vulnsByIP := make(map[string][]*assetModel.AssetVuln)
+	defaultIP := result.TargetValue
+	if strings.Contains(defaultIP, "://") {
+		if uTarget, err := url.Parse(defaultIP); err == nil && uTarget.Hostname() != "" {
+			defaultIP = uTarget.Hostname()
+		}
+	}
+
 	now := time.Now()
 
 	for _, res := range attr.PocResults {
@@ -286,10 +369,27 @@ func mapPocScan(result *orcModel.StageResult) (*AssetBundle, error) {
 			continue
 		}
 
+		targetIP := res.IP
+		if targetIP == "" {
+			// 尝试从 Target 解析 IP
+			if u, err := url.Parse(res.Target); err == nil && u.Hostname() != "" {
+				targetIP = u.Hostname()
+			} else {
+				// 简单的 IP:Port 解析
+				if strings.Contains(res.Target, ":") && !strings.Contains(res.Target, "://") {
+					parts := strings.Split(res.Target, ":")
+					targetIP = parts[0]
+				} else {
+					targetIP = defaultIP
+				}
+			}
+		}
+
 		stdAttr := map[string]interface{}{
 			"poc_id":       res.PocID,
 			"target":       res.Target,
 			"evidence_ref": res.EvidenceRef,
+			"ip":           targetIP,
 		}
 		stdAttrJSON, _ := json.Marshal(stdAttr)
 
@@ -317,60 +417,68 @@ func mapPocScan(result *orcModel.StageResult) (*AssetBundle, error) {
 			vuln.TargetType = "host"
 		}
 
-		vulns = append(vulns, vuln)
+		vulnsByIP[targetIP] = append(vulnsByIP[targetIP], vuln)
 	}
 
-	hostIP := result.TargetValue
-	if strings.Contains(hostIP, "://") {
-		if uTarget, err := url.Parse(hostIP); err == nil && uTarget.Hostname() != "" {
-			hostIP = uTarget.Hostname()
+	var bundles []*AssetBundle
+
+	for ip, vulns := range vulnsByIP {
+		host := &assetModel.AssetHost{
+			IP:             ip,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
 		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+			Vulns:     vulns,
+		})
 	}
 
-	host := &assetModel.AssetHost{
-		IP:             hostIP,
-		Tags:           "{}",
-		SourceStageIDs: "[]",
+	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
+		host := &assetModel.AssetHost{
+			IP:             defaultIP,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+		})
 	}
 
-	return &AssetBundle{
-		Host:  host,
-		Vulns: vulns,
-	}, nil
+	return bundles, nil
 }
 
 // mapWebEndpoint 映射 Web 扫描结果
-func mapWebEndpoint(result *orcModel.StageResult) (*AssetBundle, error) {
+func mapWebEndpoint(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var attr WebEndpointAttributes
 	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
 	}
 
-	// 1. 确定 Host IP (基于 TargetValue 或第一个 Endpoint)
-	// 注意：如果 Endpoints 中包含不同 IP，这里只能取一个作为主 Host
-	// 更复杂的场景可能需要拆分 Bundle，但目前假设 StageResult 针对单一目标
-	hostIP := result.TargetValue
-	if len(attr.Endpoints) > 0 && attr.Endpoints[0].IP != "" {
-		hostIP = attr.Endpoints[0].IP
-	} else {
-		// 尝试从 TargetValue 解析 IP (如果 TargetValue 是 URL)
-		if uTarget, err := url.Parse(result.TargetValue); err == nil && uTarget.Hostname() != "" {
-			hostIP = uTarget.Hostname()
+	webAssetsByIP := make(map[string][]*WebAsset)
+	defaultIP := result.TargetValue
+	if strings.Contains(defaultIP, "://") {
+		if uTarget, err := url.Parse(defaultIP); err == nil && uTarget.Hostname() != "" {
+			defaultIP = uTarget.Hostname()
 		}
 	}
-
-	host := &assetModel.AssetHost{
-		IP:             hostIP,
-		Tags:           "{}",
-		SourceStageIDs: "[]",
-	}
-
-	var webAssets []*WebAsset // 包含 web 资产信息和详情信息
 
 	for _, ep := range attr.Endpoints {
 		u, err := url.Parse(ep.URL)
 		if err != nil {
 			continue // Skip invalid URL
+		}
+
+		targetIP := ep.IP
+		if targetIP == "" {
+			// 优先使用 endpoint 的 IP，如果没有则尝试从 URL 解析 Hostname
+			if u.Hostname() != "" {
+				targetIP = u.Hostname()
+			} else {
+				targetIP = defaultIP
+			}
 		}
 
 		port := 80
@@ -416,13 +524,37 @@ func mapWebEndpoint(result *orcModel.StageResult) (*AssetBundle, error) {
 			}
 		}
 
-		webAssets = append(webAssets, &WebAsset{Web: web, Detail: detail})
+		webAssetsByIP[targetIP] = append(webAssetsByIP[targetIP], &WebAsset{Web: web, Detail: detail})
 	}
 
-	return &AssetBundle{
-		Host:      host,
-		WebAssets: webAssets,
-	}, nil
+	var bundles []*AssetBundle
+
+	for ip, webAssets := range webAssetsByIP {
+		host := &assetModel.AssetHost{
+			IP:             ip,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+			WebAssets: webAssets,
+		})
+	}
+
+	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
+		host := &assetModel.AssetHost{
+			IP:             defaultIP,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+		})
+	}
+
+	return bundles, nil
 }
 
 // mapPasswordAudit 映射密码审计结果

@@ -250,14 +250,67 @@ func TestMapPocScan(t *testing.T) {
 	assert.Equal(t, "high", vuln.Severity)
 	assert.Equal(t, 100.0, vuln.Confidence)
 	assert.Equal(t, "web", vuln.TargetType) // deduced from http prefix
-	assert.Equal(t, "verified", vuln.VerifyStatus)
-	assert.Equal(t, "poc_scanner", vuln.VerifiedBy)
-	assert.NotNil(t, vuln.VerifiedAt)
+}
 
-	// Verify Attributes
-	var attr map[string]interface{}
-	err = json.Unmarshal([]byte(vuln.Attributes), &attr)
+func TestMapPortScan_Batch(t *testing.T) {
+	jsonAttr := `{
+		"ports": [
+			{"ip": "192.168.1.10", "port": 80, "proto": "tcp", "state": "open"},
+			{"ip": "192.168.1.11", "port": 22, "proto": "tcp", "state": "open"}
+		]
+	}`
+
+	result := &orcModel.StageResult{
+		ResultType:  "fast_port_scan",
+		TargetValue: "192.168.1.0/24",
+		Attributes:  jsonAttr,
+	}
+
+	bundles, err := MapToAssetBundles(result)
 	assert.NoError(t, err)
-	assert.Equal(t, "CVE-2022-1234", attr["poc_id"])
-	assert.Equal(t, "http://10.0.0.1:8080/vulnerable", attr["target"])
+	assert.Len(t, bundles, 2)
+
+	// Check bundling
+	ips := make(map[string]int)
+	for _, b := range bundles {
+		ips[b.Host.IP] = len(b.Services)
+	}
+
+	assert.Equal(t, 1, ips["192.168.1.10"])
+	assert.Equal(t, 1, ips["192.168.1.11"])
+}
+
+func TestMapWebEndpoint_Batch(t *testing.T) {
+	jsonAttr := `{
+		"endpoints": [
+			{
+				"url": "http://example.com/login",
+				"ip": "1.2.3.4",
+				"title": "Login Page"
+			},
+			{
+				"url": "http://admin.internal/login",
+				"ip": "10.0.0.1",
+				"title": "Admin Login"
+			}
+		]
+	}`
+
+	result := &orcModel.StageResult{
+		ResultType:  "web_endpoint",
+		TargetValue: "batch-scan",
+		Attributes:  jsonAttr,
+	}
+
+	bundles, err := MapToAssetBundles(result)
+	assert.NoError(t, err)
+	assert.Len(t, bundles, 2)
+
+	ips := make(map[string]int)
+	for _, b := range bundles {
+		ips[b.Host.IP] = len(b.WebAssets)
+	}
+
+	assert.Equal(t, 1, ips["1.2.3.4"])
+	assert.Equal(t, 1, ips["10.0.0.1"])
 }

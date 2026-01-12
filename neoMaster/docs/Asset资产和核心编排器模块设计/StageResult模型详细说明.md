@@ -88,8 +88,8 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 ```json
 {
   "ports": [
-    {"port": 22, "proto": "tcp", "state": "open", "service_hint": "ssh"},
-    {"port": 80, "proto": "tcp", "state": "open", "service_hint": "http"}
+    {"ip": "192.168.1.10", "port": 22, "proto": "tcp", "state": "open", "service_hint": "ssh"},
+    {"ip": "192.168.1.10", "port": 80, "proto": "tcp", "state": "open", "service_hint": "http"}
   ]
 }
 ```
@@ -98,8 +98,8 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 ```json
 {
   "services": [
-    {"port": 22, "proto": "tcp", "name": "OpenSSH", "version": "7.9p1", "cpe": "cpe:/a:openbsd:openssh:7.9p1"},
-    {"port": 80, "proto": "tcp", "name": "Apache httpd", "version": "2.4.41", "cpe": "cpe:/a:apache:http_server:2.4.41"}
+    {"ip": "192.168.1.10", "port": 22, "proto": "tcp", "name": "OpenSSH", "version": "7.9p1", "cpe": "cpe:/a:openbsd:openssh:7.9p1"},
+    {"ip": "192.168.1.10", "port": 80, "proto": "tcp", "name": "Apache httpd", "version": "2.4.41", "cpe": "cpe:/a:apache:http_server:2.4.41"}
   ]
 }
 ```
@@ -108,8 +108,8 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 ```json
 {
   "findings": [
-    {"id": "CVE-2021-1234", "cve": "CVE-2021-1234", "severity": "high", "confidence": "high", "evidence_ref": "ref1"},
-    {"id": "CVE-2021-5678", "cve": "CVE-2021-5678", "severity": "medium", "confidence": "medium", "evidence_ref": "ref2"}
+    {"ip": "192.168.1.10", "id": "CVE-2021-1234", "cve": "CVE-2021-1234", "severity": "high", "confidence": "high", "evidence_ref": "ref1"},
+    {"ip": "192.168.1.11", "id": "CVE-2021-5678", "cve": "CVE-2021-5678", "severity": "medium", "confidence": "medium", "evidence_ref": "ref2"}
   ]
 }
 ```
@@ -144,8 +144,8 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 ```json
 {
   "ports": [
-    {"port": 22, "proto": "tcp", "state": "open"},
-    {"port": 443, "proto": "tcp", "state": "open"}
+    {"ip": "192.168.1.10", "port": 22, "proto": "tcp", "state": "open"},
+    {"ip": "192.168.1.11", "port": 443, "proto": "tcp", "state": "open"}
   ],
   "summary": {"open_count": 2, "scan_strategy": "top-1000", "elapsed_ms": 1234}
 }
@@ -155,9 +155,9 @@ StageResult是NeoScan系统中用于统一存储各个扫描阶段结果的核�
 ```json
 {
   "ports": [
-    {"port": 1, "proto": "tcp", "state": "closed"},
-    {"port": 80, "proto": "tcp", "state": "open", "service_hint": "http"},
-    {"port": 8080, "proto": "tcp", "state": "open", "service_hint": "http-proxy"}
+    {"ip": "192.168.1.10", "port": 1, "proto": "tcp", "state": "closed"},
+    {"ip": "192.168.1.10", "port": 80, "proto": "tcp", "state": "open", "service_hint": "http"},
+    {"ip": "192.168.1.10", "port": 8080, "proto": "tcp", "state": "open", "service_hint": "http-proxy"}
   ],
   "summary": {"open_count": 2, "total_scanned": 65535, "elapsed_ms": 123456}
 }

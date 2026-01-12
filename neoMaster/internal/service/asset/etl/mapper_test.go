@@ -31,9 +31,10 @@ func TestMapWebEndpoint(t *testing.T) {
 		Attributes:  jsonAttr,
 	}
 
-	bundle, err := MapToAssetBundle(result)
+	bundles, err := MapToAssetBundles(result)
 	assert.NoError(t, err)
-	assert.NotNil(t, bundle)
+	assert.NotEmpty(t, bundles)
+	bundle := bundles[0]
 
 	// Verify Host
 	assert.Equal(t, "1.2.3.4", bundle.Host.IP)
@@ -89,14 +90,46 @@ func TestMapWebEndpoint_InferIP(t *testing.T) {
 		Attributes:  jsonAttr,
 	}
 
-	bundle, err := MapToAssetBundle(result)
+	bundles, err := MapToAssetBundles(result)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, bundles)
+	bundle := bundles[0]
 
 	assert.Equal(t, "192.168.1.100", bundle.Host.IP)
 	assert.Len(t, bundle.WebAssets, 1)
 	assert.NotNil(t, bundle.WebAssets[0])
 	assert.NotNil(t, bundle.WebAssets[0].Web)
 	assert.Equal(t, "192.168.1.100", bundle.WebAssets[0].Web.Domain)
+}
+
+func TestMapIPAlive(t *testing.T) {
+	jsonAttr := `{
+		"hosts": [
+			{"ip": "192.168.1.10", "rtt": 0.45, "ttl": 64},
+			{"ip": "192.168.1.11", "rtt": 1.20, "ttl": 128}
+		],
+		"summary": {
+			"alive_count": 2,
+			"total_scanned": 256,
+			"elapsed_ms": 1500
+		}
+	}`
+
+	result := &orcModel.StageResult{
+		ResultType:  "ip_alive",
+		TargetValue: "192.168.1.0/24",
+		Attributes:  jsonAttr,
+	}
+
+	bundles, err := MapToAssetBundles(result)
+	assert.NoError(t, err)
+	assert.Len(t, bundles, 2)
+
+	// Verify First Bundle
+	assert.Equal(t, "192.168.1.10", bundles[0].Host.IP)
+
+	// Verify Second Bundle
+	assert.Equal(t, "192.168.1.11", bundles[1].Host.IP)
 }
 
 func TestMapWebEndpoint_InferIP_FromURLTarget(t *testing.T) {
@@ -115,8 +148,10 @@ func TestMapWebEndpoint_InferIP_FromURLTarget(t *testing.T) {
 		Attributes:  jsonAttr,
 	}
 
-	bundle, err := MapToAssetBundle(result)
+	bundles, err := MapToAssetBundles(result)
 	assert.NoError(t, err)
+	assert.NotEmpty(t, bundles)
+	bundle := bundles[0]
 
 	assert.Equal(t, "test.com", bundle.Host.IP) // Hostname extraction
 }
@@ -145,9 +180,10 @@ func TestMapVulnFinding(t *testing.T) {
 		Attributes:  jsonAttr,
 	}
 
-	bundle, err := MapToAssetBundle(result)
+	bundles, err := MapToAssetBundles(result)
 	assert.NoError(t, err)
-	assert.NotNil(t, bundle)
+	assert.NotEmpty(t, bundles)
+	bundle := bundles[0]
 
 	// Verify Host
 	assert.Equal(t, "10.0.0.1", bundle.Host.IP)
@@ -197,9 +233,10 @@ func TestMapPocScan(t *testing.T) {
 		Attributes:  jsonAttr,
 	}
 
-	bundle, err := MapToAssetBundle(result)
+	bundles, err := MapToAssetBundles(result)
 	assert.NoError(t, err)
-	assert.NotNil(t, bundle)
+	assert.NotEmpty(t, bundles)
+	bundle := bundles[0]
 
 	// Verify Host
 	assert.Equal(t, "10.0.0.1", bundle.Host.IP)

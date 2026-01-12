@@ -91,7 +91,7 @@ func (p *resultProcessor) worker(id int) {
 			}
 
 			// 2. 调用 Mapper 进行映射
-			bundle, err := MapToAssetBundle(result)
+			bundles, err := MapToAssetBundles(result)
 			if err != nil {
 				logger.LogError(err, "Failed to map result", 0, "", "etl.processor.worker", "", map[string]interface{}{
 					"task_id":     result.TaskID,
@@ -101,18 +101,25 @@ func (p *resultProcessor) worker(id int) {
 				continue
 			}
 
-			// 3. 调用 Merger 进行入库
-			if err := p.merger.Merge(p.ctx, bundle); err != nil {
-				logger.LogError(err, "Failed to merge asset bundle", 0, "", "etl.processor.worker", "", map[string]interface{}{
-					"task_id": result.TaskID,
-				})
-				// TODO: 错误处理策略 (重试/丢弃)
+			if len(bundles) == 0 {
+				continue
+			}
+
+			// 3. 调用 Merger 进行合并
+			for _, bundle := range bundles {
+				if err := p.merger.Merge(p.ctx, bundle); err != nil {
+					logger.LogError(err, "Failed to merge asset bundle", 0, "", "etl.processor.worker", "", map[string]interface{}{
+						"task_id":     result.TaskID,
+						"result_type": result.ResultType,
+						"host_ip":     bundle.Host.IP,
+					})
+					// TODO: 记录到死信队列或错误日志表
+				}
 			}
 			logger.LogInfo("Processed result successfully", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
 				"task_id":     result.TaskID,
 				"result_type": result.ResultType,
-				"has_host":    bundle.Host != nil,
-				"services":    len(bundle.Services),
+				"bundles":     len(bundles),
 			})
 		}
 	}

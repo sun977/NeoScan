@@ -37,39 +37,40 @@ type WebAsset struct {
 	Detail *assetModel.AssetWebDetail // Web 站点详情
 }
 
-// MapToAssetBundle 将通用的 StageResult 映射为标准资产包
+// MapToAssetBundles 将通用的 StageResult 映射为标准资产包列表
 // 根据 ResultType 分发到具体的映射逻辑
-func MapToAssetBundle(result *orcModel.StageResult) (*AssetBundle, error) {
-	var bundle *AssetBundle
+func MapToAssetBundles(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	var bundles []*AssetBundle
+	var singleBundle *AssetBundle
 	var err error
 
 	switch result.ResultType {
 	case "ip_alive":
-		bundle, err = mapIPAlive(result)
+		return mapIPAlive(result)
 	case "fast_port_scan", "full_port_scan":
-		bundle, err = mapPortScan(result)
+		singleBundle, err = mapPortScan(result)
 	case "service_fingerprint":
-		bundle, err = mapServiceFingerprint(result)
+		singleBundle, err = mapServiceFingerprint(result)
 	case "vuln_finding":
-		bundle, err = mapVulnFinding(result)
+		singleBundle, err = mapVulnFinding(result)
 	case "poc_scan":
-		bundle, err = mapPocScan(result)
+		singleBundle, err = mapPocScan(result)
 	case "web_endpoint":
-		bundle, err = mapWebEndpoint(result)
+		singleBundle, err = mapWebEndpoint(result)
 	case "password_audit":
-		bundle, err = mapPasswordAudit(result)
+		singleBundle, err = mapPasswordAudit(result)
 	case "proxy_detection":
-		bundle, err = mapProxyDetection(result)
+		singleBundle, err = mapProxyDetection(result)
 	case "directory_scan":
-		bundle, err = mapDirectoryScan(result)
+		singleBundle, err = mapDirectoryScan(result)
 	case "subdomain_discovery":
-		bundle, err = mapSubdomainDiscovery(result)
+		singleBundle, err = mapSubdomainDiscovery(result)
 	case "api_discovery":
-		bundle, err = mapApiDiscovery(result)
+		singleBundle, err = mapApiDiscovery(result)
 	case "file_discovery":
-		bundle, err = mapFileDiscovery(result)
+		singleBundle, err = mapFileDiscovery(result)
 	case "other_scan":
-		bundle, err = mapOtherScan(result)
+		singleBundle, err = mapOtherScan(result)
 	default:
 		return nil, fmt.Errorf("unsupported result type for mapping: %s", result.ResultType)
 	}
@@ -77,25 +78,44 @@ func MapToAssetBundle(result *orcModel.StageResult) (*AssetBundle, error) {
 	if err != nil {
 		return nil, err
 	}
-	if bundle != nil {
-		bundle.ProjectID = result.ProjectID
+	if singleBundle != nil {
+		singleBundle.ProjectID = result.ProjectID
+		bundles = append(bundles, singleBundle)
 	}
-	return bundle, nil
+	return bundles, nil
 }
 
 // mapIPAlive 映射探活结果
-func mapIPAlive(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapIPAlive", "", map[string]interface{}{
-		"task_id":      result.TaskID,
-		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
-		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
-		"target_value": result.TargetValue,
-	})
-	return nil, err
+// 仅仅发现存货主机，不做关联service/web/vuln等的动作
+func mapIPAlive(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	var attr IPAliveAttributes
+	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	}
+
+	if len(attr.Hosts) == 0 {
+		return nil, nil
+	}
+
+	var bundles []*AssetBundle
+
+	for _, h := range attr.Hosts {
+		// 构造 AssetHost
+		host := &assetModel.AssetHost{
+			IP:             h.IP,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+
+		// 构造 Bundle
+		bundle := &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+		}
+		bundles = append(bundles, bundle)
+	}
+
+	return bundles, nil
 }
 
 // mapPortScan 映射端口扫描结果

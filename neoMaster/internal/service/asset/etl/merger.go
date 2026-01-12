@@ -391,56 +391,11 @@ func (m *assetMerger) upsertVulns(ctx context.Context, hostID uint64, vulns []*a
 			v.FirstSeenAt = &now
 		}
 		v.LastSeenAt = &now
-
-		// 尝试查找已存在的漏洞资产
-		existing, err := m.findExistingVuln(ctx, v)
-		if err != nil {
-			return err
-		}
-		if existing != nil {
-			existing.LastSeenAt = &now
-			if v.Severity != "" {
-				existing.Severity = v.Severity
-			}
-			if v.Confidence != 0 {
-				existing.Confidence = v.Confidence
-			}
-			if v.Evidence != "" {
-				existing.Evidence = v.Evidence
-			}
-			if v.Attributes != "" {
-				existing.Attributes = v.Attributes
-			}
-			if v.Status != "" {
-				existing.Status = v.Status
-			}
-			if err := m.vulnRepo.UpdateVuln(ctx, existing); err != nil {
-				return err
-			}
-			continue
-		}
-
-		if err := m.vulnRepo.CreateVuln(ctx, v); err != nil {
+		if err := m.vulnRepo.UpsertVuln(ctx, v); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// findExistingVuln 查找已存在的漏洞资产
-func (m *assetMerger) findExistingVuln(ctx context.Context, v *assetModel.AssetVuln) (*assetModel.AssetVuln, error) {
-	if v == nil || v.TargetRefID == 0 || v.TargetType == "" {
-		return nil, nil
-	}
-	// 尝试通过CVE查找已存在的漏洞资产
-	if v.CVE != "" {
-		return m.vulnRepo.GetVulnByTargetAndCVE(ctx, v.TargetType, v.TargetRefID, v.CVE)
-	}
-	// 尝试通过漏洞标识(ID别名)查找已存在的漏洞资产
-	if v.IDAlias != "" {
-		return m.vulnRepo.GetVulnByTargetAndAlias(ctx, v.TargetType, v.TargetRefID, v.IDAlias)
-	}
-	return nil, nil
 }
 
 // resolveVulnTarget 解析漏洞资产目标

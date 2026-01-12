@@ -1,6 +1,7 @@
 package asset
 
 import (
+	"errors"
 	"math"
 	"net/http"
 	"strconv"
@@ -49,6 +50,26 @@ func (h *AssetVulnHandler) CreateVuln(c *gin.Context) {
 			Code:    http.StatusBadRequest,
 			Status:  "failed",
 			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	vuln.IDAlias = strings.TrimSpace(vuln.IDAlias)
+	vuln.CVE = strings.TrimSpace(vuln.CVE)
+	if vuln.IDAlias == "" {
+		vuln.IDAlias = vuln.CVE
+	}
+	if vuln.IDAlias == "" {
+		err := errors.New("id_alias is required")
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "create_vuln",
+			"error":     "missing_id_alias",
+		})
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "id_alias is required",
 			Error:   err.Error(),
 		})
 		return

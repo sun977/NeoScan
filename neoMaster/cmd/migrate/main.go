@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	assetmodel "neomaster/internal/model/asset"
 	"neomaster/internal/model/orchestrator"
 	"os"
 	"time"
@@ -149,6 +150,10 @@ func performMigration(db *gorm.DB, opts *MigrateOptions, logManager *logger.Logg
 		}
 	}
 
+	if err := prepareAssetVulnsForConstraints(db, logManager); err != nil {
+		return fmt.Errorf("准备 asset_vulns 数据失败: %w", err)
+	}
+
 	// 2. 执行模型迁移
 	if err := migrateModels(db, logManager); err != nil {
 		return fmt.Errorf("模型迁移失败: %w", err)
@@ -258,6 +263,9 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 		&orchestrator.AgentTask{},
 		&orchestrator.StageResult{},
 		&orchestrator.ScanToolTemplate{},
+
+		&assetmodel.AssetVuln{},
+		&assetmodel.AssetVulnPoc{},
 	}
 
 	// 执行自动迁移
@@ -274,6 +282,97 @@ func migrateModels(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
 	}
 
 	loggerMgr.GetLogger().Info("所有模型迁移完成")
+	return nil
+}
+
+func prepareAssetVulnsForConstraints(db *gorm.DB, loggerMgr *logger.LoggerManager) error {
+	if !db.Migrator().HasTable("asset_vulns") {
+		return nil
+	}
+
+	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	if err := tx.Exec(`
+		UPDATE asset_vulns
+		SET id_alias = cve
+		WHERE (id_alias IS NULL OR id_alias = '')
+		  AND cve IS NOT NULL AND cve <> ''
+	`).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Exec(`
+		UPDATE asset_vulns
+		SET id_alias = CONCAT('legacy:', id)
+		WHERE (id_alias IS NULL OR id_alias = '')
+	`).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Exec(`
+		UPDATE asset_vulns v
+		JOIN (
+			SELECT
+				MIN(id) AS keep_id,
+				target_type,
+				target_ref_id,
+				id_alias,
+				MIN(first_seen_at) AS min_first_seen_at,
+				MAX(last_seen_at) AS max_last_seen_at
+			FROM asset_vulns
+			GROUP BY target_type, target_ref_id, id_alias
+			HAVING COUNT(*) > 1
+		) agg ON v.id = agg.keep_id
+		SET
+			v.first_seen_at = CASE
+				WHEN v.first_seen_at IS NULL THEN agg.min_first_seen_at
+				WHEN agg.min_first_seen_at IS NULL THEN v.first_seen_at
+				ELSE LEAST(v.first_seen_at, agg.min_first_seen_at)
+			END,
+			v.last_seen_at = CASE
+				WHEN v.last_seen_at IS NULL THEN agg.max_last_seen_at
+				WHEN agg.max_last_seen_at IS NULL THEN v.last_seen_at
+				ELSE GREATEST(v.last_seen_at, agg.max_last_seen_at)
+			END
+	`).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Exec(`
+		DELETE v1 FROM asset_vulns v1
+		JOIN asset_vulns v2
+		  ON v1.target_type = v2.target_type
+		 AND v1.target_ref_id = v2.target_ref_id
+		 AND v1.id_alias = v2.id_alias
+		 AND v1.id > v2.id
+	`).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	loggerMgr.GetLogger().WithFields(logrus.Fields{
+		"path":      "cmd/migrate/main.go",
+		"operation": "prepare_asset_vulns",
+		"option":    "prepareAssetVulnsForConstraints",
+		"func_name": "prepareAssetVulnsForConstraints",
+	}).Info("asset_vulns 预处理完成")
+
 	return nil
 }
 

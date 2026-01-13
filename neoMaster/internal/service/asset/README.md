@@ -62,3 +62,15 @@ rules/fingerprint/
     *   提供 `POST /api/v1/rules/fingerprint/rollback` 接口。
     *   **功能**: 允许将规则文件回滚到指定的备份版本。
     *   **机制**: 查找最近的（或指定的） `.backup` 文件 -> 覆盖当前标准文件。
+
+### 3.5 工程实现约束 (Critical Implementation Notes)
+1.  **原子写入 (Atomic Write)**:
+    *   所有文件写入操作必须遵循 `Write to Temp` -> `Rename` 模式，严禁直接对目标文件进行流式写入，防止 Agent 读取到不完整的文件。
+2.  **并发控制 (Concurrency Control)**:
+    *   文件生成/回滚操作需加互斥锁 (Mutex)，防止多个管理员同时触发导致文件损坏。
+3.  **备份轮转 (Backup Rotation)**:
+    *   实施保留策略 (Retention Policy)，例如仅保留最近 10 个备份版本，避免磁盘空间无限增长。
+4.  **完整性校验 (Integrity Check)**:
+    *   在覆盖正式文件前，必须对生成的 JSON 进行语法校验 (JSON Lint)，确保格式合法。
+5.  **自定义规则管理**:
+    *   Custom 目录下的文件管理需提供 List/Delete 接口，防止废弃规则堆积导致 Agent 规则冲突。

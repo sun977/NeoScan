@@ -101,3 +101,10 @@ type RuleConverter interface {
 2.  定义该格式对应的数据结构 (DTO)。
 3.  实现 `Decode` 和 `Encode` 逻辑。
 4.  编写单元测试，确保数据无损转换。
+
+
+### 各种种类规则的导入导出
+- internal/service/fingerprint/rule_manager.go -> 实现指纹的导入导出
+- internal/service/poc/rule_manager.go -> 实现 PoC 的 YAML 解析和沙箱校验
+- internal/service/webshell/rule_manager.go -> 实现 YARA 规则编译和测试
+- 等等

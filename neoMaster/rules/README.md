@@ -13,6 +13,9 @@ security:
 ## 规则类型
 
 - 指纹识别规则
+  - cms CMS指纹
+  - os OS指纹
+  - service 服务指纹
 - POC文件（yaml格式）
 
 
@@ -23,15 +26,21 @@ rules/
 │   │   ├── cms/
 │   │   │   ├── default_cms.json
 │   │   │   └── ...
+│   │   ├── os/
+│   │   │   ├── default_os.json
+│   │   │   └── ...
 │   │   └── service/
-│   │       ├── default_cpe.json
+│   │       ├── default_service.json
 │   │       └── ...
 │   └── custom/
 │       ├── cms/
 │       │   ├── user_defined_cms.json
 │       │   └── ...
+│       ├── os/
+│       │   ├── user_defined_os.json
+│       │   └── ...
 │       └── service/
-│           ├── user_defined_cpe.json
+│           ├── user_defined_service.json
 │           └── ...
 ├── poc/
 │   ├── system/

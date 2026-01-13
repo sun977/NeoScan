@@ -195,7 +195,7 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 		}
 
 		// 指纹库规则管理 (Import/Export/Version)
-		fingerprintRules := assetGroup.Group("/fingerprint/rules")
+		fingerprintRules := assetGroup.Group("/finger/rules")
 		{
 			fingerprintRules.GET("/version", r.assetFingerprintRuleHandler.GetVersion)  // 获取规则库版本
 			fingerprintRules.GET("/export", r.assetFingerprintRuleHandler.ExportRules)  // 导出规则库

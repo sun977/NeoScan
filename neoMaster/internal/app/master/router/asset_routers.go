@@ -194,6 +194,14 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			cpes.DELETE("/:id/tags/:tag_id", r.assetFingerServiceHandler.RemoveCPERuleTag) // 删除CPE指纹规则标签
 		}
 
+		// 指纹库规则管理 (Import/Export/Version)
+		fingerprintRules := assetGroup.Group("/fingerprint/rules")
+		{
+			fingerprintRules.GET("/version", r.assetFingerprintRuleHandler.GetVersion)  // 获取规则库版本
+			fingerprintRules.GET("/export", r.assetFingerprintRuleHandler.ExportRules)  // 导出规则库
+			fingerprintRules.POST("/import", r.assetFingerprintRuleHandler.ImportRules) // 导入规则库
+		}
+
 		// 统一资产视图
 		unified := assetGroup.Group("/unified")
 		{

@@ -44,19 +44,24 @@ func (h *FingerprintRuleHandler) ExportRules(c *gin.Context) {
 		return
 	}
 
-	// 2. 生成文件名
+	// 2. 计算签名 (SHA256)
+	signature := h.ruleManager.CalculateSignature(data)
+
+	// 3. 生成文件名
 	timestamp := time.Now().Format("20060102_150405")
 	filename := fmt.Sprintf("neoscan_fingerprint_rules_%s.json", timestamp)
 
-	// 3. 记录审计日志
+	// 4. 记录审计日志
 	logger.LogBusinessOperation("export_fingerprint_rules", 0, "", clientIP, requestID, "success", "export fingerprint rules", map[string]interface{}{
 		"filename":  filename,
 		"size":      len(data),
+		"signature": signature,
 		"timestamp": logger.NowFormatted(),
 	})
 
-	// 4. 返回文件流
+	// 5. 返回文件流和签名头
 	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("X-Content-Signature", signature) // 自定义头返回签名
 	c.Data(http.StatusOK, "application/json", data)
 }
 
@@ -93,19 +98,26 @@ func (h *FingerprintRuleHandler) ImportRules(c *gin.Context) {
 		return
 	}
 
-	// 3. 调用 Manager 导入数据
+	// 3. 获取预期签名 (可选)
+	// 如果前端或客户端提供了签名头，我们必须验证
+	// 如果是 Multipart Form，可能在 Form 字段里？或者 Header 里？
+	// 这里支持从 Header "X-Content-Signature" 读取
+	expectedSignature := c.GetHeader("X-Content-Signature")
+
+	// 4. 调用 Manager 导入数据
 	// 默认 overwrite=true (根据需求可改为参数控制)
 	overwrite := c.Query("overwrite") == "true"
-	if err := h.ruleManager.ImportRules(c.Request.Context(), data, overwrite); err != nil {
+	if err := h.ruleManager.ImportRules(c.Request.Context(), data, overwrite, expectedSignature); err != nil {
 		h.handleError(c, http.StatusInternalServerError, "failed to import rules", err, requestID, clientIP, urlPath, "ImportRules")
 		return
 	}
 
-	// 4. 记录审计日志
+	// 5. 记录审计日志
 	logger.LogBusinessOperation("import_fingerprint_rules", 0, "", clientIP, requestID, "success", "import fingerprint rules", map[string]interface{}{
 		"filename":  file.Filename,
 		"size":      len(data),
 		"overwrite": overwrite,
+		"signature": expectedSignature, // Log what was provided
 		"timestamp": logger.NowFormatted(),
 	})
 

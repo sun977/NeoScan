@@ -17,22 +17,46 @@ import (
 	"neomaster/internal/config"
 )
 
-type FingerprintSnapshotInfo struct {
-	VersionHash string `json:"version_hash"`
-	RulePath    string `json:"rule_path"`
-	FileCount   int    `json:"file_count"`
+// RuleType 定义规则库类型
+type RuleType string
+
+const (
+	RuleTypeFingerprint RuleType = "fingerprint"
+	RuleTypePOC         RuleType = "poc"
+	RuleTypeVirus       RuleType = "virus"
+	RuleTypeWebShell    RuleType = "webshell"
+)
+
+// rulePathMap 定义规则类型到文件系统路径的映射
+// 将来如果有新规则类型，只需在此处添加
+var rulePathMap = map[RuleType]string{
+	RuleTypeFingerprint: "rules/fingerprint",
+	RuleTypePOC:         "rules/poc",
+	RuleTypeVirus:       "rules/virus",
+	RuleTypeWebShell:    "rules/webshell",
 }
 
-type FingerprintSnapshot struct {
-	FingerprintSnapshotInfo
+// RuleSnapshotInfo 通用的规则快照信息
+type RuleSnapshotInfo struct {
+	Type        RuleType `json:"type"`         // 规则类型
+	VersionHash string   `json:"version_hash"` // 版本哈希
+	RulePath    string   `json:"rule_path"`    // 规则路径
+	FileCount   int      `json:"file_count"`   // 文件数量
+}
+
+// RuleSnapshot 规则快照，包含二进制数据
+type RuleSnapshot struct {
+	RuleSnapshotInfo
 	FileName    string `json:"file_name"`
 	ContentType string `json:"content_type"`
 	Bytes       []byte `json:"-"`
 }
 
+// AgentUpdateService Agent更新服务接口
+// 负责构建和获取各种类型的规则库快照
 type AgentUpdateService interface {
-	GetFingerprintSnapshotInfo(ctx context.Context) (*FingerprintSnapshotInfo, error)
-	BuildFingerprintSnapshot(ctx context.Context) (*FingerprintSnapshot, error)
+	GetSnapshotInfo(ctx context.Context, ruleType RuleType) (*RuleSnapshotInfo, error)
+	BuildSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error)
 }
 
 type agentUpdateService struct {
@@ -43,54 +67,70 @@ func NewAgentUpdateService(cfg *config.Config) AgentUpdateService {
 	return &agentUpdateService{cfg: cfg}
 }
 
-// GetFingerprintSnapshotInfo 获取当前指纹快照的信息，不包含实际的 ZIP 内容
-func (s *agentUpdateService) GetFingerprintSnapshotInfo(ctx context.Context) (*FingerprintSnapshotInfo, error) {
-	snap, err := s.BuildFingerprintSnapshot(ctx)
+// GetSnapshotInfo 获取指定类型规则的快照信息
+func (s *agentUpdateService) GetSnapshotInfo(ctx context.Context, ruleType RuleType) (*RuleSnapshotInfo, error) {
+	snap, err := s.BuildSnapshot(ctx, ruleType)
 	if err != nil {
 		return nil, err
 	}
-	return &snap.FingerprintSnapshotInfo, nil
+	return &snap.RuleSnapshotInfo, nil
 }
 
-// BuildFingerprintSnapshot 构建指纹快照，包含所有规则文件的 ZIP 压缩包
-func (s *agentUpdateService) BuildFingerprintSnapshot(ctx context.Context) (*FingerprintSnapshot, error) {
+// BuildSnapshot 构建指定类型规则的快照
+func (s *agentUpdateService) BuildSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error) {
+	// 1. 获取基础路径
+	// 优先从配置获取，如果配置没有特定的，则使用默认映射
+	// 目前配置似乎只针对 fingerprint 做了特殊处理，未来可以扩展配置结构
 	rulePath := ""
 	if s.cfg != nil {
-		rulePath = s.cfg.GetFingerprintRulePath()
+		if ruleType == RuleTypeFingerprint {
+			rulePath = s.cfg.GetFingerprintRulePath()
+		}
+		// TODO: 支持其他类型的自定义配置路径
 	}
 
+	// 2. 如果配置为空，使用默认映射
 	resolvedPath := strings.TrimSpace(rulePath)
 	if resolvedPath == "" {
-		resolvedPath = "rules/fingerprint"
+		defaultPath, ok := rulePathMap[ruleType]
+		if !ok {
+			// 如果是未知的规则类型，我们可以报错，或者默认尝试 rules/{type}
+			defaultPath = filepath.Join("rules", string(ruleType))
+		}
+		resolvedPath = defaultPath
 	}
 
+	// 3. 检查目录是否存在，不存在则尝试创建（或者报错，取决于策略）
+	// 这里我们选择只读，如果目录不存在 listRuleFiles 会报错
 	filePaths, err := listRuleFiles(resolvedPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list rule files for type %s at %s: %w", ruleType, resolvedPath, err)
 	}
 
+	// 4. 构建确定性 ZIP
 	zipBytes, err := buildDeterministicZip(ctx, resolvedPath, filePaths)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build zip for type %s: %w", ruleType, err)
 	}
 
+	// 5. 计算 Hash
 	h := md5.Sum(zipBytes)
 	version := hex.EncodeToString(h[:])
 
-	snapshot := &FingerprintSnapshot{
-		FingerprintSnapshotInfo: FingerprintSnapshotInfo{
+	snapshot := &RuleSnapshot{
+		RuleSnapshotInfo: RuleSnapshotInfo{
+			Type:        ruleType,
 			VersionHash: version,
 			RulePath:    resolvedPath,
 			FileCount:   len(filePaths),
 		},
-		FileName:    fmt.Sprintf("fingerprint_snapshot_%s.zip", version),
+		FileName:    fmt.Sprintf("%s_snapshot_%s.zip", ruleType, version),
 		ContentType: "application/zip",
 		Bytes:       zipBytes,
 	}
 	return snapshot, nil
 }
 
-// listRuleFiles 递归列出目录下的所有规则文件路径（不包括目录）
 func listRuleFiles(root string) ([]string, error) {
 	stat, err := os.Stat(root)
 	if err != nil {
@@ -125,7 +165,6 @@ func listRuleFiles(root string) ([]string, error) {
 	return relPaths, nil
 }
 
-// buildDeterministicZip 创建确定性的 ZIP 文件，文件顺序和内容都基于 relPaths 排序
 func buildDeterministicZip(ctx context.Context, root string, relPaths []string) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	zw := zip.NewWriter(buf)

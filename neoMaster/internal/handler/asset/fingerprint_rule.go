@@ -142,6 +142,70 @@ func (h *FingerprintRuleHandler) GetVersion(c *gin.Context) {
 	})
 }
 
+// ListBackups 获取规则库备份列表
+// GET /api/v1/asset/fingerprint/rules/backups
+func (h *FingerprintRuleHandler) ListBackups(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	requestID := c.GetHeader("X-Request-ID")
+	urlPath := c.Request.URL.String()
+
+	if h.ruleManager == nil {
+		h.handleError(c, http.StatusInternalServerError, "rule manager not initialized", nil, requestID, clientIP, urlPath, "ListBackups")
+		return
+	}
+
+	backups, err := h.ruleManager.ListBackups()
+	if err != nil {
+		h.handleError(c, http.StatusInternalServerError, "failed to list backups", err, requestID, clientIP, urlPath, "ListBackups")
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "success",
+		Data:    backups,
+	})
+}
+
+// RollbackRules 回滚规则库到指定备份
+// POST /api/v1/asset/fingerprint/rules/rollback
+func (h *FingerprintRuleHandler) RollbackRules(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	requestID := c.GetHeader("X-Request-ID")
+	urlPath := c.Request.URL.String()
+
+	if h.ruleManager == nil {
+		h.handleError(c, http.StatusInternalServerError, "rule manager not initialized", nil, requestID, clientIP, urlPath, "RollbackRules")
+		return
+	}
+
+	var req struct {
+		Filename string `json:"filename" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.handleError(c, http.StatusBadRequest, "invalid request body", err, requestID, clientIP, urlPath, "RollbackRules")
+		return
+	}
+
+	if err := h.ruleManager.Rollback(c.Request.Context(), req.Filename); err != nil {
+		h.handleError(c, http.StatusInternalServerError, "rollback failed", err, requestID, clientIP, urlPath, "RollbackRules")
+		return
+	}
+
+	// 记录审计日志
+	logger.LogBusinessOperation("rollback_fingerprint_rules", 0, "", clientIP, requestID, "success", "rollback fingerprint rules", map[string]interface{}{
+		"filename":  req.Filename,
+		"timestamp": logger.NowFormatted(),
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "rollback successful",
+	})
+}
+
 // handleError 统一错误处理
 func (h *FingerprintRuleHandler) handleError(c *gin.Context, code int, msg string, err error, requestID, clientIP, path, option string) {
 	errMsg := ""

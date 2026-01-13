@@ -46,16 +46,16 @@ type Router struct {
 	// Agent管理相关Handler
 	agentHandler *agentHandler.AgentHandler
 	// 资产管理相关Handler
-	assetRawHandler     *assetHandler.RawAssetHandler
-	assetHostHandler    *assetHandler.AssetHostHandler
-	assetNetworkHandler *assetHandler.AssetNetworkHandler
-	assetPolicyHandler  *assetHandler.AssetPolicyHandler
-	assetFingerHandler  *assetHandler.AssetFingerHandler
-	assetCPEHandler     *assetHandler.AssetCPEHandler
-	assetWebHandler     *assetHandler.AssetWebHandler
-	assetVulnHandler    *assetHandler.AssetVulnHandler
-	assetUnifiedHandler *assetHandler.AssetUnifiedHandler
-	assetScanHandler    *assetHandler.AssetScanHandler
+	assetRawHandler           *assetHandler.RawAssetHandler
+	assetHostHandler          *assetHandler.AssetHostHandler
+	assetNetworkHandler       *assetHandler.AssetNetworkHandler
+	assetPolicyHandler        *assetHandler.AssetPolicyHandler
+	assetFingerCmsHandler     *assetHandler.AssetFingerHandler
+	assetFingerServiceHandler *assetHandler.AssetCPEHandler
+	assetWebHandler           *assetHandler.AssetWebHandler
+	assetVulnHandler          *assetHandler.AssetVulnHandler
+	assetUnifiedHandler       *assetHandler.AssetUnifiedHandler
+	assetScanHandler          *assetHandler.AssetScanHandler
 
 	// 编排器相关Handler
 	projectHandler          *orchestratorHandler.ProjectHandler
@@ -139,8 +139,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetHostHandler := assetModule.AssetHostHandler
 	assetNetworkHandler := assetModule.AssetNetworkHandler
 	assetPolicyHandler := assetModule.AssetPolicyHandler
-	assetFingerHandler := assetModule.AssetFingerHandler
-	assetCPEHandler := assetModule.AssetCPEHandler
+	assetFingerCmsHandler := assetModule.AssetFingerCmsHandler
+	assetFingerServiceHandler := assetModule.AssetFingerServiceHandler
 	assetWebHandler := assetModule.AssetWebHandler
 	assetVulnHandler := assetModule.AssetVulnHandler
 	assetUnifiedHandler := assetModule.AssetUnifiedHandler
@@ -168,16 +168,16 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		// Agent管理相关Handler
 		agentHandler: agentMgmtHandler,
 		// 资产管理相关Handler
-		assetRawHandler:     assetRawHandler,
-		assetHostHandler:    assetHostHandler,
-		assetNetworkHandler: assetNetworkHandler,
-		assetPolicyHandler:  assetPolicyHandler,
-		assetFingerHandler:  assetFingerHandler,
-		assetCPEHandler:     assetCPEHandler,
-		assetWebHandler:     assetWebHandler,
-		assetVulnHandler:    assetVulnHandler,
-		assetUnifiedHandler: assetUnifiedHandler,
-		assetScanHandler:    assetScanHandler,
+		assetRawHandler:           assetRawHandler,
+		assetHostHandler:          assetHostHandler,
+		assetNetworkHandler:       assetNetworkHandler,
+		assetPolicyHandler:        assetPolicyHandler,
+		assetFingerCmsHandler:     assetFingerCmsHandler,
+		assetFingerServiceHandler: assetFingerServiceHandler,
+		assetWebHandler:           assetWebHandler,
+		assetVulnHandler:          assetVulnHandler,
+		assetUnifiedHandler:       assetUnifiedHandler,
+		assetScanHandler:          assetScanHandler,
 
 		// 扫描编排器相关Handler
 		projectHandler:          projectHandler,

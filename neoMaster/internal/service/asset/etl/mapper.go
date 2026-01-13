@@ -87,6 +87,7 @@ func MapToAssetBundles(result *orcModel.StageResult) ([]*AssetBundle, error) {
 
 // mapIPAlive 映射探活结果
 // 仅仅发现存货主机，不做关联service/web/vuln等的动作
+// 包含初步主机OS识别
 func mapIPAlive(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var attr IPAliveAttributes
 	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {

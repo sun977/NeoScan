@@ -4,6 +4,8 @@ package fingerprint
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -23,9 +25,9 @@ import (
 type RuleManager struct {
 	fingerRepo assetrepo.AssetFingerRepository
 	cpeRepo    assetrepo.AssetCPERepository
-	converter  converters.StandardJSONConverter // 之前定义的 StandardJSONConverter
-	mu         sync.RWMutex                     // 读写锁，保护并发操作
-	backupDir  string                           // 备份目录
+	converter  converters.StandardJSONConverter
+	mu         sync.RWMutex // 读写锁，保护并发操作
+	backupDir  string       // 备份目录
 }
 
 // NewRuleManager 创建管理器
@@ -52,6 +54,20 @@ func (m *RuleManager) ExportRules(ctx context.Context) ([]byte, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.exportRulesInternal(ctx)
+}
+
+// ExportRulesWithSignature 导出规则并附带签名 (HMAC 或 SHA256)
+// 返回: data, signature, error
+// 为了简单，目前直接计算 SHA256，不使用密钥。
+// 如果需要防篡改（防止伪造），应使用 HMAC 和密钥。
+// 但这里主要是为了完整性校验（防止传输错误），SHA256 足够。
+// 为了方便前端或Agent验证，我们可以返回一个 JSON 包装结构？
+// 或者只返回 Header？
+// 这里为了保持 ExportRules 接口的纯粹性，我们返回 data，让 Handler 决定如何包装。
+// Handler 可以将 SHA256 放入 Header。
+func (m *RuleManager) CalculateSignature(data []byte) string {
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
 }
 
 // exportRulesInternal 内部导出逻辑，不加锁，供内部调用
@@ -107,9 +123,18 @@ func (m *RuleManager) GetRuleStats(ctx context.Context) (map[string]interface{},
 
 // ImportRules 导入规则 (覆盖或增量)
 // 包含自动备份和原子锁
-func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bool) error {
+// expectedSignature: 如果不为空，则进行完整性校验
+func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bool, expectedSignature string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	// 0. Integrity Check
+	if expectedSignature != "" {
+		currentSignature := m.CalculateSignature(data)
+		if currentSignature != expectedSignature {
+			return fmt.Errorf("integrity check failed: expected %s, got %s", expectedSignature, currentSignature)
+		}
+	}
 
 	// 1. Auto Backup (Snapshot)
 	if err := m.createBackup(ctx); err != nil {

@@ -10,9 +10,11 @@ package etl
 // IPAliveAttributes 探活阶段属性
 type IPAliveAttributes struct {
 	Hosts []struct {
-		IP  string  `json:"ip"`
-		RTT float64 `json:"rtt"`
-		TTL int     `json:"ttl"`
+		IP       string  `json:"ip"`
+		RTT      float64 `json:"rtt"`
+		TTL      int     `json:"ttl"`
+		Hostname string  `json:"hostname,omitempty"` // 可选：主机名
+		OS       string  `json:"os,omitempty"`       // 可选：操作系统
 	} `json:"hosts"`
 	Summary struct {
 		AliveCount   int     `json:"alive_count"`

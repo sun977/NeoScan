@@ -104,6 +104,8 @@ func mapIPAlive(result *orcModel.StageResult) ([]*AssetBundle, error) {
 		// 构造 AssetHost
 		host := &assetModel.AssetHost{
 			IP:             h.IP,
+			Hostname:       h.Hostname,
+			OS:             h.OS,
 			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}

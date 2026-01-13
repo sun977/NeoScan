@@ -561,6 +561,8 @@ func mapWebEndpoint(result *orcModel.StageResult) ([]*AssetBundle, error) {
 }
 
 // mapPasswordAudit 映射密码审计结果
+// 弱口令是安全隐患,应该在表 asset_vuln 中记录
+// IDAlias 的命名方式因该遵循 <engine>:<ruleset>:<rule_id> neosc:neosc-rules:weak-password:ssh
 func mapPasswordAudit(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var attr PasswordAuditAttributes
 	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {

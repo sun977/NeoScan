@@ -100,10 +100,17 @@ type LogConfig struct {
 // SecurityConfig 安全配置
 type SecurityConfig struct {
 	JWT       JWTConfig       `yaml:"jwt" mapstructure:"jwt"`               // JWT配置
+	Agent     AgentConfig     `yaml:"agent" mapstructure:"agent"`           // Agent安全配置
 	Auth      AuthConfig      `yaml:"auth" mapstructure:"auth"`             // 认证配置
 	Logging   LoggingConfig   `yaml:"logging" mapstructure:"logging"`       // 日志中间件配置
 	CORS      CORSConfig      `yaml:"cors" mapstructure:"cors"`             // CORS配置
 	RateLimit RateLimitConfig `yaml:"rate_limit" mapstructure:"rate_limit"` // 限流配置
+}
+
+// AgentConfig Agent安全配置
+type AgentConfig struct {
+	TokenSecret       string `yaml:"token_secret" mapstructure:"token_secret"`               // 身份鉴权密钥
+	RuleEncryptionKey string `yaml:"rule_encryption_key" mapstructure:"rule_encryption_key"` // 规则加密密钥
 }
 
 // JWTConfig JWT配置

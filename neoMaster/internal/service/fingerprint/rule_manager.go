@@ -23,15 +23,16 @@ import (
 // RuleManager 负责指纹规则的导入导出和生命周期管理
 // 它不参与运行时的匹配逻辑，只负责数据的 I/O
 type RuleManager struct {
-	fingerRepo assetrepo.AssetFingerRepository
-	cpeRepo    assetrepo.AssetCPERepository
-	converter  converters.StandardJSONConverter
-	mu         sync.RWMutex // 读写锁，保护并发操作
-	backupDir  string       // 备份目录
+	fingerRepo    assetrepo.AssetFingerRepository
+	cpeRepo       assetrepo.AssetCPERepository
+	converter     converters.StandardJSONConverter
+	mu            sync.RWMutex // 读写锁，保护并发操作
+	backupDir     string       // 备份目录
+	encryptionKey string       // 规则加密密钥
 }
 
 // NewRuleManager 创建管理器
-func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository) *RuleManager {
+func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository, encryptionKey string) *RuleManager {
 	// 默认备份路径，实际生产环境可配置
 	backupDir := "./data/backups/fingerprint"
 	// 确保目录存在
@@ -42,10 +43,11 @@ func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrep
 	}
 
 	return &RuleManager{
-		fingerRepo: fingerRepo,
-		cpeRepo:    cpeRepo,
-		converter:  *converters.NewStandardJSONConverter(),
-		backupDir:  backupDir,
+		fingerRepo:    fingerRepo,
+		cpeRepo:       cpeRepo,
+		converter:     *converters.NewStandardJSONConverter(),
+		backupDir:     backupDir,
+		encryptionKey: encryptionKey,
 	}
 }
 

@@ -376,3 +376,8 @@ func TestMapPasswordAudit(t *testing.T) {
 	assert.Equal(t, "high", mysqlVuln.Severity)
 	assert.Equal(t, "neosc:neosc-rules:weak-password:mysql", mysqlVuln.IDAlias)
 }
+
+func TestMapProxyDetection(t *testing.T) {
+	// 暂时跳过，等待专门的代理资产表设计
+	t.Skip("Skipping TestMapProxyDetection until specialized proxy table design is implemented")
+}

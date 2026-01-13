@@ -40,10 +40,6 @@ type WebAsset struct {
 // MapToAssetBundles 将通用的 StageResult 映射为标准资产包列表
 // 根据 ResultType 分发到具体的映射逻辑
 func MapToAssetBundles(result *orcModel.StageResult) ([]*AssetBundle, error) {
-	var bundles []*AssetBundle
-	var singleBundle *AssetBundle
-	var err error
-
 	switch result.ResultType {
 	case "ip_alive":
 		return mapIPAlive(result)
@@ -60,29 +56,20 @@ func MapToAssetBundles(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	case "password_audit":
 		return mapPasswordAudit(result)
 	case "proxy_detection":
-		singleBundle, err = mapProxyDetection(result)
+		return mapProxyDetection(result)
 	case "directory_scan":
-		singleBundle, err = mapDirectoryScan(result)
+		return mapDirectoryScan(result)
 	case "subdomain_discovery":
-		singleBundle, err = mapSubdomainDiscovery(result)
+		return mapSubdomainDiscovery(result)
 	case "api_discovery":
-		singleBundle, err = mapApiDiscovery(result)
+		return mapApiDiscovery(result)
 	case "file_discovery":
-		singleBundle, err = mapFileDiscovery(result)
+		return mapFileDiscovery(result)
 	case "other_scan":
-		singleBundle, err = mapOtherScan(result)
+		return mapOtherScan(result)
 	default:
 		return nil, fmt.Errorf("unsupported result type for mapping: %s", result.ResultType)
 	}
-
-	if err != nil {
-		return nil, err
-	}
-	if singleBundle != nil {
-		singleBundle.ProjectID = result.ProjectID
-		bundles = append(bundles, singleBundle)
-	}
-	return bundles, nil
 }
 
 // mapIPAlive 映射探活结果
@@ -710,91 +697,85 @@ func mapPasswordAudit(result *orcModel.StageResult) ([]*AssetBundle, error) {
 }
 
 // mapProxyDetection 映射代理检测结果
-func mapProxyDetection(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapProxyDetection", "", map[string]interface{}{
-		"task_id":      result.TaskID,
+func mapProxyDetection(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	// TODO: 暂时跳过，等待专门的代理资产表设计
+	// var attr ProxyDetectionAttributes
+	// if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+	// 	return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	// }
+
+	// 仅记录日志，不返回 Bundle
+	logger.LogInfo("Skipping proxy detection mapping (pending specialized table design)", result.TaskID, 0, "", "etl.mapper.mapProxyDetection", "", map[string]interface{}{
 		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
 		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
 		"target_value": result.TargetValue,
 	})
-	return nil, err
+
+	return nil, nil
 }
 
 // mapDirectoryScan 映射目录扫描结果
-func mapDirectoryScan(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapDirectoryScan", "", map[string]interface{}{
-		"task_id":      result.TaskID,
+func mapDirectoryScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	// TODO: 暂时跳过，等待专门的目录扫描结果表设计
+	// var attr DirectoryScanAttributes
+	// if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+	// 	return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	// }
+
+	// 仅记录日志，不返回 Bundle
+	logger.LogInfo("Skipping directory scan mapping (pending specialized table design)", result.TaskID, 0, "", "etl.mapper.mapDirectoryScan", "", map[string]interface{}{
 		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
 		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
 		"target_value": result.TargetValue,
 	})
-	return nil, err
+
+	return nil, nil
 }
 
 // mapSubdomainDiscovery 映射子域发现结果
-func mapSubdomainDiscovery(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapSubdomainDiscovery", "", map[string]interface{}{
-		"task_id":      result.TaskID,
+func mapSubdomainDiscovery(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	// TODO: 暂时跳过，等待专门的子域发现表设计
+	// 仅记录日志，不返回 Bundle
+	logger.LogInfo("Skipping subdomain discovery mapping (pending specialized table design)", result.TaskID, 0, "", "etl.mapper.mapSubdomainDiscovery", "", map[string]interface{}{
 		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
 		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
 		"target_value": result.TargetValue,
 	})
-	return nil, err
+	return nil, nil
 }
 
 // mapApiDiscovery 映射API发现结果
-func mapApiDiscovery(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapApiDiscovery", "", map[string]interface{}{
-		"task_id":      result.TaskID,
+func mapApiDiscovery(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	// TODO: 暂时跳过，等待专门的API发现表设计
+	// 仅记录日志，不返回 Bundle
+	logger.LogInfo("Skipping API discovery mapping (pending specialized table design)", result.TaskID, 0, "", "etl.mapper.mapApiDiscovery", "", map[string]interface{}{
 		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
 		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
 		"target_value": result.TargetValue,
 	})
-	return nil, err
+	return nil, nil
 }
 
 // mapFileDiscovery 映射文件发现结果
-func mapFileDiscovery(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapFileDiscovery", "", map[string]interface{}{
-		"task_id":      result.TaskID,
+func mapFileDiscovery(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	// TODO: 暂时跳过，等待专门的文件发现表设计
+	// 仅记录日志，不返回 Bundle
+	logger.LogInfo("Skipping file discovery mapping (pending specialized table design)", result.TaskID, 0, "", "etl.mapper.mapFileDiscovery", "", map[string]interface{}{
 		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
 		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
 		"target_value": result.TargetValue,
 	})
-	return nil, err
+	return nil, nil
 }
 
 // mapOtherScan 映射其他扫描结果
-func mapOtherScan(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapOtherScan", "", map[string]interface{}{
-		"task_id":      result.TaskID,
+func mapOtherScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	// TODO: 暂时跳过，等待专门的其他扫描表设计
+	// 仅记录日志，不返回 Bundle
+	logger.LogInfo("Skipping other scan mapping (pending specialized table design)", result.TaskID, 0, "", "etl.mapper.mapOtherScan", "", map[string]interface{}{
 		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
 		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
 		"target_value": result.TargetValue,
 	})
-	return nil, err
+	return nil, nil
 }

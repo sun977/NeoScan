@@ -43,6 +43,7 @@ func NewAgentUpdateService(cfg *config.Config) AgentUpdateService {
 	return &agentUpdateService{cfg: cfg}
 }
 
+// GetFingerprintSnapshotInfo 获取当前指纹快照的信息，不包含实际的 ZIP 内容
 func (s *agentUpdateService) GetFingerprintSnapshotInfo(ctx context.Context) (*FingerprintSnapshotInfo, error) {
 	snap, err := s.BuildFingerprintSnapshot(ctx)
 	if err != nil {
@@ -51,6 +52,7 @@ func (s *agentUpdateService) GetFingerprintSnapshotInfo(ctx context.Context) (*F
 	return &snap.FingerprintSnapshotInfo, nil
 }
 
+// BuildFingerprintSnapshot 构建指纹快照，包含所有规则文件的 ZIP 压缩包
 func (s *agentUpdateService) BuildFingerprintSnapshot(ctx context.Context) (*FingerprintSnapshot, error) {
 	rulePath := ""
 	if s.cfg != nil {
@@ -88,6 +90,7 @@ func (s *agentUpdateService) BuildFingerprintSnapshot(ctx context.Context) (*Fin
 	return snapshot, nil
 }
 
+// listRuleFiles 递归列出目录下的所有规则文件路径（不包括目录）
 func listRuleFiles(root string) ([]string, error) {
 	stat, err := os.Stat(root)
 	if err != nil {
@@ -122,6 +125,7 @@ func listRuleFiles(root string) ([]string, error) {
 	return relPaths, nil
 }
 
+// buildDeterministicZip 创建确定性的 ZIP 文件，文件顺序和内容都基于 relPaths 排序
 func buildDeterministicZip(ctx context.Context, root string, relPaths []string) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	zw := zip.NewWriter(buf)

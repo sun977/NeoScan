@@ -24,6 +24,10 @@ type AssetFingerRepository interface {
 	Delete(ctx context.Context, id uint64) error
 	// List 获取指纹规则列表(分页 + 简单筛选)
 	List(ctx context.Context, page, pageSize int, name string, tagID uint64) ([]*asset.AssetFinger, int64, error)
+	// ListAll 获取所有指纹规则
+	ListAll(ctx context.Context) ([]*asset.AssetFinger, error)
+	// Upsert 创建或更新指纹规则
+	Upsert(ctx context.Context, rule *asset.AssetFinger) error
 }
 
 // assetFingerRepository 实现
@@ -141,4 +145,41 @@ func (r *assetFingerRepository) List(ctx context.Context, page, pageSize int, na
 	}
 
 	return rules, total, nil
+}
+
+// ListAll 获取所有指纹规则
+func (r *assetFingerRepository) ListAll(ctx context.Context) ([]*asset.AssetFinger, error) {
+	var rules []*asset.AssetFinger
+	if err := r.db.WithContext(ctx).Find(&rules).Error; err != nil {
+		logger.LogError(err, "", 0, "", "list_all_asset_finger", "REPO", map[string]interface{}{
+			"operation": "list_all_asset_finger",
+		})
+		return nil, err
+	}
+	return rules, nil
+}
+
+// Upsert 创建或更新指纹规则
+func (r *assetFingerRepository) Upsert(ctx context.Context, rule *asset.AssetFinger) error {
+	if rule == nil {
+		return errors.New("rule is nil")
+	}
+
+	// 尝试根据名称查找
+	var existing asset.AssetFinger
+	err := r.db.WithContext(ctx).Where("name = ?", rule.Name).First(&existing).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 不存在则创建
+			return r.Create(ctx, rule)
+		}
+		// 其他错误
+		return err
+	}
+
+	// 存在则更新
+	rule.ID = existing.ID
+	rule.CreatedAt = existing.CreatedAt
+	// 更新所有字段
+	return r.Update(ctx, rule)
 }

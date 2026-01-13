@@ -105,7 +105,7 @@ func TestMapWebEndpoint_InferIP(t *testing.T) {
 func TestMapIPAlive(t *testing.T) {
 	jsonAttr := `{
 		"hosts": [
-			{"ip": "192.168.1.10", "rtt": 0.45, "ttl": 64},
+			{"ip": "192.168.1.10", "rtt": 0.45, "ttl": 64, "hostname": "test-host", "os": "Linux"},
 			{"ip": "192.168.1.11", "rtt": 1.20, "ttl": 128}
 		],
 		"summary": {
@@ -127,9 +127,13 @@ func TestMapIPAlive(t *testing.T) {
 
 	// Verify First Bundle
 	assert.Equal(t, "192.168.1.10", bundles[0].Host.IP)
+	assert.Equal(t, "test-host", bundles[0].Host.Hostname)
+	assert.Equal(t, "Linux", bundles[0].Host.OS)
 
 	// Verify Second Bundle
 	assert.Equal(t, "192.168.1.11", bundles[1].Host.IP)
+	assert.Empty(t, bundles[1].Host.Hostname)
+	assert.Empty(t, bundles[1].Host.OS)
 }
 
 func TestMapWebEndpoint_InferIP_FromURLTarget(t *testing.T) {

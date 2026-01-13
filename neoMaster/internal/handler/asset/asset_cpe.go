@@ -15,6 +15,7 @@ import (
 	assetservice "neomaster/internal/service/asset"
 )
 
+// 实际上是 AssetFingerServiceHandler
 type AssetCPEHandler struct {
 	service *assetservice.AssetCPEService
 }

@@ -46,16 +46,17 @@ type Router struct {
 	// Agent管理相关Handler
 	agentHandler *agentHandler.AgentHandler
 	// 资产管理相关Handler
-	assetRawHandler           *assetHandler.RawAssetHandler
-	assetHostHandler          *assetHandler.AssetHostHandler
-	assetNetworkHandler       *assetHandler.AssetNetworkHandler
-	assetPolicyHandler        *assetHandler.AssetPolicyHandler
-	assetFingerCmsHandler     *assetHandler.AssetFingerHandler
-	assetFingerServiceHandler *assetHandler.AssetCPEHandler
-	assetWebHandler           *assetHandler.AssetWebHandler
-	assetVulnHandler          *assetHandler.AssetVulnHandler
-	assetUnifiedHandler       *assetHandler.AssetUnifiedHandler
-	assetScanHandler          *assetHandler.AssetScanHandler
+	assetRawHandler             *assetHandler.RawAssetHandler
+	assetHostHandler            *assetHandler.AssetHostHandler
+	assetNetworkHandler         *assetHandler.AssetNetworkHandler
+	assetPolicyHandler          *assetHandler.AssetPolicyHandler
+	assetFingerCmsHandler       *assetHandler.AssetFingerHandler
+	assetFingerServiceHandler   *assetHandler.AssetCPEHandler
+	assetWebHandler             *assetHandler.AssetWebHandler
+	assetVulnHandler            *assetHandler.AssetVulnHandler
+	assetUnifiedHandler         *assetHandler.AssetUnifiedHandler
+	assetScanHandler            *assetHandler.AssetScanHandler
+	assetFingerprintRuleHandler *assetHandler.FingerprintRuleHandler // 指纹规则的导入导出
 
 	// 编排器相关Handler
 	projectHandler          *orchestratorHandler.ProjectHandler
@@ -145,6 +146,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetVulnHandler := assetModule.AssetVulnHandler
 	assetUnifiedHandler := assetModule.AssetUnifiedHandler
 	assetScanHandler := assetModule.AssetScanHandler
+	assetFingerprintRuleHandler := assetModule.AssetFingerprintRuleHandler
 
 	// 从 TagModule 中获取处理器
 	tagHandler := tagModule.TagHandler
@@ -168,16 +170,17 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		// Agent管理相关Handler
 		agentHandler: agentMgmtHandler,
 		// 资产管理相关Handler
-		assetRawHandler:           assetRawHandler,
-		assetHostHandler:          assetHostHandler,
-		assetNetworkHandler:       assetNetworkHandler,
-		assetPolicyHandler:        assetPolicyHandler,
-		assetFingerCmsHandler:     assetFingerCmsHandler,
-		assetFingerServiceHandler: assetFingerServiceHandler,
-		assetWebHandler:           assetWebHandler,
-		assetVulnHandler:          assetVulnHandler,
-		assetUnifiedHandler:       assetUnifiedHandler,
-		assetScanHandler:          assetScanHandler,
+		assetRawHandler:             assetRawHandler,
+		assetHostHandler:            assetHostHandler,
+		assetNetworkHandler:         assetNetworkHandler,
+		assetPolicyHandler:          assetPolicyHandler,
+		assetFingerCmsHandler:       assetFingerCmsHandler,
+		assetFingerServiceHandler:   assetFingerServiceHandler,
+		assetWebHandler:             assetWebHandler,
+		assetVulnHandler:            assetVulnHandler,
+		assetUnifiedHandler:         assetUnifiedHandler,
+		assetScanHandler:            assetScanHandler,
+		assetFingerprintRuleHandler: assetFingerprintRuleHandler,
 
 		// 扫描编排器相关Handler
 		projectHandler:          projectHandler,

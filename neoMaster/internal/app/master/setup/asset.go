@@ -12,6 +12,7 @@ import (
 	assetHandler "neomaster/internal/handler/asset"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	assetService "neomaster/internal/service/asset"
+	"neomaster/internal/service/fingerprint"
 	tagService "neomaster/internal/service/tag_system"
 
 	"gorm.io/gorm"
@@ -49,6 +50,9 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo, tagSystem)
 	scanService := assetService.NewAssetScanService(scanRepo, networkRepo)
 
+	// 2.1 指纹规则管理
+	fingerprintRuleManager := fingerprint.NewRuleManager(fingerCmsRepo, fingerServiceRepo)
+
 	// 3. Handler 初始化
 	rawHandler := assetHandler.NewRawAssetHandler(rawService)
 	hostHandler := assetHandler.NewAssetHostHandler(hostService)
@@ -60,6 +64,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	vulnHandler := assetHandler.NewAssetVulnHandler(vulnService)
 	unifiedHandler := assetHandler.NewAssetUnifiedHandler(unifiedService)
 	scanHandler := assetHandler.NewAssetScanHandler(scanService)
+	fingerprintRuleHandler := assetHandler.NewFingerprintRuleHandler(fingerprintRuleManager)
 
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
@@ -68,16 +73,17 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	}).Info("资产管理模块初始化完成")
 
 	return &AssetModule{
-		AssetRawHandler:           rawHandler,
-		AssetHostHandler:          hostHandler,
-		AssetNetworkHandler:       networkHandler,
-		AssetPolicyHandler:        policyHandler,
-		AssetFingerCmsHandler:     fingerCmsHandler,
-		AssetFingerServiceHandler: fingerServiceHandler,
-		AssetWebHandler:           webHandler,
-		AssetVulnHandler:          vulnHandler,
-		AssetUnifiedHandler:       unifiedHandler,
-		AssetScanHandler:          scanHandler,
+		AssetRawHandler:             rawHandler,
+		AssetHostHandler:            hostHandler,
+		AssetNetworkHandler:         networkHandler,
+		AssetPolicyHandler:          policyHandler,
+		AssetFingerCmsHandler:       fingerCmsHandler,
+		AssetFingerServiceHandler:   fingerServiceHandler,
+		AssetWebHandler:             webHandler,
+		AssetVulnHandler:            vulnHandler,
+		AssetUnifiedHandler:         unifiedHandler,
+		AssetScanHandler:            scanHandler,
+		AssetFingerprintRuleHandler: fingerprintRuleHandler,
 
 		AssetRawService:           rawService,
 		AssetHostService:          hostService,
@@ -89,5 +95,6 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 		AssetVulnService:          vulnService,
 		AssetUnifiedService:       unifiedService,
 		AssetScanService:          scanService,
+		FingerprintRuleManager:    fingerprintRuleManager,
 	}
 }

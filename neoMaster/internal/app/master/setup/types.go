@@ -140,26 +140,26 @@ type OrchestratorModule struct {
 // - AssetHostService：对应的业务服务实例。
 type AssetModule struct {
 	// Handlers
-	AssetRawHandler     *assetHandler.RawAssetHandler
-	AssetHostHandler    *assetHandler.AssetHostHandler
-	AssetNetworkHandler *assetHandler.AssetNetworkHandler
-	AssetPolicyHandler  *assetHandler.AssetPolicyHandler
-	AssetFingerHandler  *assetHandler.AssetFingerHandler
-	AssetCPEHandler     *assetHandler.AssetCPEHandler
-	AssetWebHandler     *assetHandler.AssetWebHandler
-	AssetVulnHandler    *assetHandler.AssetVulnHandler
-	AssetUnifiedHandler *assetHandler.AssetUnifiedHandler
-	AssetScanHandler    *assetHandler.AssetScanHandler
+	AssetRawHandler           *assetHandler.RawAssetHandler
+	AssetHostHandler          *assetHandler.AssetHostHandler
+	AssetNetworkHandler       *assetHandler.AssetNetworkHandler
+	AssetPolicyHandler        *assetHandler.AssetPolicyHandler
+	AssetFingerCmsHandler     *assetHandler.AssetFingerHandler
+	AssetFingerServiceHandler *assetHandler.AssetCPEHandler
+	AssetWebHandler           *assetHandler.AssetWebHandler
+	AssetVulnHandler          *assetHandler.AssetVulnHandler
+	AssetUnifiedHandler       *assetHandler.AssetUnifiedHandler
+	AssetScanHandler          *assetHandler.AssetScanHandler
 
 	// Services
-	AssetRawService     *assetService.RawAssetService
-	AssetHostService    *assetService.AssetHostService
-	AssetNetworkService *assetService.AssetNetworkService
-	AssetPolicyService  *assetService.AssetPolicyService
-	AssetFingerService  *assetService.AssetFingerService
-	AssetCPEService     *assetService.AssetCPEService
-	AssetWebService     *assetService.AssetWebService
-	AssetVulnService    *assetService.AssetVulnService
-	AssetUnifiedService *assetService.AssetUnifiedService
-	AssetScanService    *assetService.AssetScanService
+	AssetRawService           *assetService.RawAssetService
+	AssetHostService          *assetService.AssetHostService
+	AssetNetworkService       *assetService.AssetNetworkService
+	AssetPolicyService        *assetService.AssetPolicyService
+	AssetFingerCmsService     *assetService.AssetFingerService
+	AssetFingerServiceService *assetService.AssetCPEService
+	AssetWebService           *assetService.AssetWebService
+	AssetVulnService          *assetService.AssetVulnService
+	AssetUnifiedService       *assetService.AssetUnifiedService
+	AssetScanService          *assetService.AssetScanService
 }

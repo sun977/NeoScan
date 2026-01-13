@@ -15,7 +15,7 @@ import (
 	assetservice "neomaster/internal/service/asset"
 )
 
-// AssetFingerHandler 资产指纹规则管理
+// AssetFingerCmsHandler 资产指纹规则管理
 // 负责 asset_finger 表(HTTP 指纹规则)的增删改查接口
 type AssetFingerHandler struct {
 	service *assetservice.AssetFingerService

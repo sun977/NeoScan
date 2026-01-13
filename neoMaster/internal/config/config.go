@@ -22,14 +22,16 @@ type Config struct {
 	ThirdParty ThirdPartyConfig `yaml:"third_party" mapstructure:"third_party"` // 第三方服务配置
 }
 
+// RulesConfig 规则配置
 type RulesConfig struct {
-	RootPath    string        `yaml:"root_path" mapstructure:"root_path"`
-	Fingerprint RuleDirConfig `yaml:"fingerprint" mapstructure:"fingerprint"`
-	POC         RuleDirConfig `yaml:"poc" mapstructure:"poc"`
+	RootPath    string        `yaml:"root_path" mapstructure:"root_path"`         // 规则根路径
+	Fingerprint RuleDirConfig `yaml:"fingerprint" mapstructure:"fingerprint"`     // 指纹规则配置
+	POC         RuleDirConfig `yaml:"poc" mapstructure:"poc"`                     // POC规则配置
 }
 
+// RuleDirConfig 规则目录配置
 type RuleDirConfig struct {
-	Dir string `yaml:"dir" mapstructure:"dir"`
+	Dir string `yaml:"dir" mapstructure:"dir"` // 目录路径
 }
 
 // ServerConfig 服务器配置

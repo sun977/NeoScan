@@ -9,6 +9,7 @@ package setup
 import (
 	"neomaster/internal/pkg/logger"
 
+	"neomaster/internal/config"
 	assetHandler "neomaster/internal/handler/asset"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	assetService "neomaster/internal/service/asset"
@@ -19,7 +20,7 @@ import (
 )
 
 // BuildAssetModule 构建资产管理模块
-func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule {
+func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.TagService) *AssetModule {
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
 		"operation": "build_module",
@@ -51,7 +52,12 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	scanService := assetService.NewAssetScanService(scanRepo, networkRepo)
 
 	// 2.1 指纹规则管理
-	fingerprintRuleManager := fingerprint.NewRuleManager(fingerCmsRepo, fingerServiceRepo)
+	// 从配置中获取规则加密密钥，如果未配置则默认为空
+	ruleEncryptionKey := ""
+	if config != nil {
+		ruleEncryptionKey = config.Security.Agent.RuleEncryptionKey
+	}
+	fingerprintRuleManager := fingerprint.NewRuleManager(fingerCmsRepo, fingerServiceRepo, ruleEncryptionKey)
 
 	// 3. Handler 初始化
 	rawHandler := assetHandler.NewRawAssetHandler(rawService)

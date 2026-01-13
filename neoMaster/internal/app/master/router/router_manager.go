@@ -118,7 +118,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	tagModule := setup.BuildTagSystemModule(db)
 
 	// 通过 setup.BuildAssetModule 初始化资产管理模块
-	assetModule := setup.BuildAssetModule(db, tagModule.TagService)
+	assetModule := setup.BuildAssetModule(db, config, tagModule.TagService)
 
 	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块
 	orchestratorModule := setup.BuildOrchestratorModule(db, config, tagModule.TagService)

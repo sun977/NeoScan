@@ -7,8 +7,10 @@
 
 需要在配置文件中添加加密密钥
 security:
-- agent_token_secret: "your-agent-token-secret-here"
-- encryption_key: "your-encryption-key-here"
+  # Agent 通信与数据安全配置
+  agent:
+    token_secret: "your-agent-token-secret-here"      # 身份鉴权：用于验证 Agent 身份
+    rule_encryption_key: "your-encryption-key-here"   # 规则加密：用于加密规则文件 (AES等)
 
 ## 规则类型
 

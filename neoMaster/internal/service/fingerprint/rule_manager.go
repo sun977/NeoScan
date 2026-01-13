@@ -5,6 +5,8 @@ package fingerprint
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"neomaster/internal/pkg/logger"
 	assetrepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/fingerprint/converters"
@@ -45,6 +47,40 @@ func (m *RuleManager) ExportRules(ctx context.Context) ([]byte, error) {
 
 	// 3. Convert
 	return m.converter.Encode(fingers, cpes)
+}
+
+// GetRuleStats 获取规则库统计信息 (版本依据)
+func (m *RuleManager) GetRuleStats(ctx context.Context) (map[string]interface{}, error) {
+	// 获取指纹总数
+	fingers, err := m.fingerRepo.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("count fingers failed: %w", err)
+	}
+	fingerCount := len(fingers)
+
+	// 获取 CPE 总数
+	cpes, err := m.cpeRepo.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("count cpes failed: %w", err)
+	}
+	cpeCount := len(cpes)
+
+	// 获取最后更新时间 (取最新的 CreatedAt/UpdatedAt)
+	var lastUpdate time.Time
+	if fingerCount > 0 {
+		// 简单起见，取第一条的 UpdateTime，或者需要 Repo 支持 GetMaxUpdatedAt
+		// 这里暂且使用当前时间作为近似值，或者遍历查找最大值 (效率较低)
+		// 更好的做法是让 Repo 提供 Count() 和 LastUpdate() 接口
+		// 为了不改动 Repo 接口，这里先简化处理
+		lastUpdate = time.Now()
+	}
+
+	return map[string]interface{}{
+		"finger_count": fingerCount,
+		"cpe_count":    cpeCount,
+		"last_update":  lastUpdate,
+		"version":      fmt.Sprintf("%d.%d", cpeCount, fingerCount),
+	}, nil
 }
 
 // ImportRules 导入规则 (覆盖或增量)

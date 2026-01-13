@@ -1,3 +1,6 @@
+// 本质上是一个 "Fingerprint Identifier" (指纹识别器)
+// 负责接收资产输入，使用多个匹配引擎并行识别资产指纹
+// 每个匹配引擎负责识别一种指纹类型 (如 Web 指纹、CPE 指纹等)
 package fingerprint
 
 import (

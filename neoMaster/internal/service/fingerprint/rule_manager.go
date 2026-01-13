@@ -33,7 +33,7 @@ type RuleManager struct {
 
 // NewRuleManager 创建管理器
 func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository, encryptionKey string) *RuleManager {
-	// 默认备份路径，实际生产环境可配置
+	// 默认备份路径，实际生产环境可配置 【放在规则目录下】
 	backupDir := "./data/backups/fingerprint"
 	// 确保目录存在
 	if err := os.MkdirAll(backupDir, 0755); err != nil {

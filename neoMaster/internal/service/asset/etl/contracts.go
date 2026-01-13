@@ -112,6 +112,19 @@ type PasswordAuditAttributes struct {
 	} `json:"accounts"`
 }
 
+// ProxyDetectionAttributes 代理检测属性
+type ProxyDetectionAttributes struct {
+	Proxies []struct {
+		IP           string `json:"ip"`
+		Port         int    `json:"port"`
+		Type         string `json:"type"`          // http, socks4, socks5
+		Open         bool   `json:"open"`          // 是否开放代理
+		AuthRequired bool   `json:"auth_required"` // 是否需要认证
+		Banner       string `json:"banner"`        // 响应头或欢迎语
+		Latency      int    `json:"latency"`       // 延迟(ms)
+	} `json:"proxies"`
+}
+
 // SubdomainDiscoveryAttributes 子域发现属性
 type SubdomainDiscoveryAttributes struct {
 	Subdomains []struct {

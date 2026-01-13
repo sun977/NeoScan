@@ -4,10 +4,14 @@ package etl
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	assetModel "neomaster/internal/model/asset"
+	orcModel "neomaster/internal/model/orchestrator"
 	"neomaster/internal/pkg/logger"
+	assetRepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/orchestrator/ingestor"
 )
 
@@ -21,22 +25,24 @@ type ResultProcessor interface {
 
 // resultProcessor 默认实现
 type resultProcessor struct {
-	queue     ingestor.ResultQueue // 结果队列
-	merger    AssetMerger          // 资产合并器
-	wg        sync.WaitGroup       // 等待组
-	ctx       context.Context      // 上下文
-	cancel    context.CancelFunc   // 取消函数
-	workerNum int                  // Worker 数量
+	queue     ingestor.ResultQueue         // 结果队列
+	merger    AssetMerger                  // 资产合并器
+	errorRepo assetRepo.ETLErrorRepository // 错误仓库
+	wg        sync.WaitGroup               // 等待组
+	ctx       context.Context              // 上下文
+	cancel    context.CancelFunc           // 取消函数
+	workerNum int                          // Worker 数量
 }
 
 // NewResultProcessor 创建结果处理器
-func NewResultProcessor(queue ingestor.ResultQueue, merger AssetMerger, workerNum int) ResultProcessor {
+func NewResultProcessor(queue ingestor.ResultQueue, merger AssetMerger, errorRepo assetRepo.ETLErrorRepository, workerNum int) ResultProcessor {
 	if workerNum <= 0 {
 		workerNum = 5 // 默认 5 个 Worker
 	}
 	return &resultProcessor{
 		queue:     queue,
 		merger:    merger,
+		errorRepo: errorRepo,
 		workerNum: workerNum,
 	}
 }
@@ -93,11 +99,12 @@ func (p *resultProcessor) worker(id int) {
 			// 2. 调用 Mapper 进行映射
 			bundles, err := MapToAssetBundles(result)
 			if err != nil {
-				logger.LogError(err, "Failed to map result", 0, "", "etl.processor.worker", "", map[string]interface{}{
+				logger.LogError(err, "", 0, "", "etl.processor.worker", "", map[string]interface{}{
+					"msg":         "Failed to map result",
 					"task_id":     result.TaskID,
 					"result_type": result.ResultType,
 				})
-				// TODO: 记录到死信队列或错误日志表
+				p.logEtlError(p.ctx, result, err, "mapper")
 				continue
 			}
 
@@ -108,12 +115,13 @@ func (p *resultProcessor) worker(id int) {
 			// 3. 调用 Merger 进行合并
 			for _, bundle := range bundles {
 				if err := p.merger.Merge(p.ctx, bundle); err != nil {
-					logger.LogError(err, "Failed to merge asset bundle", 0, "", "etl.processor.worker", "", map[string]interface{}{
+					logger.LogError(err, "", 0, "", "etl.processor.worker", "", map[string]interface{}{
+						"msg":         "Failed to merge asset bundle",
 						"task_id":     result.TaskID,
 						"result_type": result.ResultType,
 						"host_ip":     bundle.Host.IP,
 					})
-					// TODO: 记录到死信队列或错误日志表
+					p.logEtlError(p.ctx, result, err, "merger")
 				}
 			}
 			logger.LogInfo("Processed result successfully", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
@@ -122,5 +130,30 @@ func (p *resultProcessor) worker(id int) {
 				"bundles":     len(bundles),
 			})
 		}
+	}
+}
+
+// logEtlError 记录 ETL 错误到数据库
+func (p *resultProcessor) logEtlError(ctx context.Context, result *orcModel.StageResult, err error, stage string) {
+	if p.errorRepo == nil {
+		logger.LogWarn("ETLErrorRepository is nil, cannot log error to DB", "", 0, "", "etl.processor.logEtlError", "", nil)
+		return
+	}
+
+	etlError := &assetModel.AssetETLError{
+		ProjectID:  result.ProjectID,
+		TaskID:     result.TaskID,
+		ResultType: result.ResultType,
+		RawData:    result.Attributes, // 暂存 Attributes, 如果需要完整 JSON 可以序列化整个 result
+		ErrorMsg:   fmt.Sprintf("%v", err),
+		ErrorStage: stage,
+		Status:     "new",
+	}
+
+	if dbErr := p.errorRepo.Create(ctx, etlError); dbErr != nil {
+		logger.LogError(dbErr, "", 0, "", "etl.processor.logEtlError", "", map[string]interface{}{
+			"msg":            "Failed to log ETL error to DB",
+			"original_error": err.Error(),
+		})
 	}
 }

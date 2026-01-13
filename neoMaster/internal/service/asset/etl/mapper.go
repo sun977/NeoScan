@@ -58,7 +58,7 @@ func MapToAssetBundles(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	case "web_endpoint":
 		return mapWebEndpoint(result)
 	case "password_audit":
-		singleBundle, err = mapPasswordAudit(result)
+		return mapPasswordAudit(result)
 	case "proxy_detection":
 		singleBundle, err = mapProxyDetection(result)
 	case "directory_scan":
@@ -561,18 +561,150 @@ func mapWebEndpoint(result *orcModel.StageResult) ([]*AssetBundle, error) {
 }
 
 // mapPasswordAudit 映射密码审计结果
-func mapPasswordAudit(result *orcModel.StageResult) (*AssetBundle, error) {
-	// TODO: 实现逻辑
-	err := fmt.Errorf("mapper not implemented: %s", result.ResultType)
-	logger.LogError(err, "", 0, "", "etl.mapper.mapPasswordAudit", "", map[string]interface{}{
-		"task_id":      result.TaskID,
-		"project_id":   result.ProjectID,
-		"stage_id":     result.StageID,
-		"result_type":  result.ResultType,
-		"target_type":  result.TargetType,
-		"target_value": result.TargetValue,
-	})
-	return nil, err
+func mapPasswordAudit(result *orcModel.StageResult) ([]*AssetBundle, error) {
+	var attr PasswordAuditAttributes
+	if err := json.Unmarshal([]byte(result.Attributes), &attr); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attributes: %w", err)
+	}
+
+	// Group by IP -> ServiceKey -> Accounts
+	// ServiceKey: "service|port"
+	type accountGroup struct {
+		Service  string
+		Port     int
+		Accounts []map[string]interface{}
+		HasWeak  bool
+	}
+	grouped := make(map[string]map[string]*accountGroup)
+
+	defaultIP := result.TargetValue
+	if strings.Contains(defaultIP, "://") {
+		if uTarget, err := url.Parse(defaultIP); err == nil && uTarget.Hostname() != "" {
+			defaultIP = uTarget.Hostname()
+		}
+	}
+
+	for _, acc := range attr.Accounts {
+		targetIP := acc.Host
+		if targetIP == "" {
+			targetIP = defaultIP
+		}
+
+		// 简单的去除端口逻辑
+		if strings.Contains(targetIP, ":") && !strings.Contains(targetIP, "://") {
+			parts := strings.Split(targetIP, ":")
+			targetIP = parts[0]
+		}
+
+		serviceKey := fmt.Sprintf("%s|%d", acc.Service, acc.Port)
+
+		if _, ok := grouped[targetIP]; !ok {
+			grouped[targetIP] = make(map[string]*accountGroup)
+		}
+		if _, ok := grouped[targetIP][serviceKey]; !ok {
+			grouped[targetIP][serviceKey] = &accountGroup{
+				Service: acc.Service,
+				Port:    acc.Port,
+			}
+		}
+
+		group := grouped[targetIP][serviceKey]
+		if acc.WeakPassword {
+			group.HasWeak = true
+		}
+
+		accDetail := map[string]interface{}{
+			"username":      acc.Username,
+			"credential":    acc.Credential,
+			"weak_password": acc.WeakPassword,
+			"success":       acc.Success,
+		}
+		group.Accounts = append(group.Accounts, accDetail)
+	}
+
+	var bundles []*AssetBundle
+
+	for ip, serviceGroups := range grouped {
+		var vulns []*assetModel.AssetVuln
+
+		for _, group := range serviceGroups {
+			// 构造标准 Attributes
+			stdAttr := map[string]interface{}{
+				"service":  group.Service,
+				"port":     group.Port,
+				"ip":       ip,
+				"accounts": group.Accounts,
+			}
+			stdAttrJSON, _ := json.Marshal(stdAttr)
+
+			// IDAlias: neosc:neosc-rules:weak-password:<service>
+			// 符合 RULE_ID_SOURCES.md 规范
+			serviceName := strings.ToLower(group.Service)
+			if serviceName == "" {
+				serviceName = "unknown"
+			}
+			idAlias := fmt.Sprintf("neosc:neosc-rules:weak-password:%s", serviceName)
+
+			severity := "info"
+			status := "closed"
+			if group.HasWeak {
+				severity = "high"
+				status = "open"
+			}
+
+			// 构造 Evidence (摘要)
+			evidence := map[string]interface{}{
+				"total_accounts": len(group.Accounts),
+				"has_weak":       group.HasWeak,
+			}
+			evidenceJSON, _ := json.Marshal(evidence)
+
+			vuln := &assetModel.AssetVuln{
+				TargetType: "service",
+				// TargetRefID: 0,
+				CVE:          "",
+				IDAlias:      idAlias,
+				Severity:     severity,
+				Confidence:   100.0,
+				Evidence:     string(evidenceJSON), // 具体的账号列表、密码、证据，全部结构化存在其中
+				Attributes:   string(stdAttrJSON),  // 具体的账号列表、密码、证据，全部结构化存在其中
+				Status:       status,
+				VerifyStatus: "verified",
+				VerifiedBy:   "password_audit",
+			}
+
+			if group.Port <= 0 {
+				vuln.TargetType = "host"
+			}
+
+			vulns = append(vulns, vuln)
+		}
+
+		host := &assetModel.AssetHost{
+			IP:             ip,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+			Vulns:     vulns,
+		})
+	}
+
+	if len(bundles) == 0 && defaultIP != "" && !strings.Contains(defaultIP, "/") {
+		host := &assetModel.AssetHost{
+			IP:             defaultIP,
+			Tags:           "{}",
+			SourceStageIDs: "[]",
+		}
+		bundles = append(bundles, &AssetBundle{
+			ProjectID: result.ProjectID,
+			Host:      host,
+		})
+	}
+
+	return bundles, nil
 }
 
 // mapProxyDetection 映射代理检测结果

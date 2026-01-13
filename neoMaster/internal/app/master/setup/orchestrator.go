@@ -95,6 +95,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	webRepo := assetRepo.NewAssetWebRepository(db)
 	vulnRepo := assetRepo.NewAssetVulnRepository(db)
 	unifiedRepo := assetRepo.NewAssetUnifiedRepository(db)
+	etlErrorRepo := assetRepo.NewETLErrorRepository(db)
 	assetMerger := etl.NewAssetMerger(hostRepo, webRepo, vulnRepo, unifiedRepo)
 
 	// 初始化 FingerprintService
@@ -106,7 +107,8 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 	rulePath := cfg.GetFingerprintRulePath()
 	if err := fpService.LoadRules(rulePath); err != nil {
 		// 仅记录错误，不阻断启动，因为可能只使用数据库规则
-		logger.LogError(err, "Failed to load fingerprint rules from file", 0, "", "setup.BuildOrchestratorModule", "", map[string]interface{}{
+		logger.LogError(err, "", 0, "", "setup.BuildOrchestratorModule", "", map[string]interface{}{
+			"msg":  "Failed to load fingerprint rules from file",
 			"path": rulePath,
 		})
 	} else {
@@ -115,7 +117,7 @@ func BuildOrchestratorModule(db *gorm.DB, cfg *config.Config, tagService tag_sys
 		})
 	}
 
-	etlProcessor := etl.NewResultProcessor(resultQueue, assetMerger, etlWorkerNum)
+	etlProcessor := etl.NewResultProcessor(resultQueue, assetMerger, etlErrorRepo, etlWorkerNum)
 	// TODO: 在应用启动时调用 etlProcessor.Start(ctx)
 
 	// 3. Service 初始化

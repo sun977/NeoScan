@@ -18,6 +18,7 @@ import (
 	assetService "neomaster/internal/service/asset"
 	"neomaster/internal/service/asset/etl" // 引入ETL
 	authService "neomaster/internal/service/auth"
+	"neomaster/internal/service/fingerprint" // 引入 fingerprint
 	orchestratorService "neomaster/internal/service/orchestrator"
 	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/ingestor" // 引入ingestor
@@ -140,16 +141,17 @@ type OrchestratorModule struct {
 // - AssetHostService：对应的业务服务实例。
 type AssetModule struct {
 	// Handlers
-	AssetRawHandler           *assetHandler.RawAssetHandler
-	AssetHostHandler          *assetHandler.AssetHostHandler
-	AssetNetworkHandler       *assetHandler.AssetNetworkHandler
-	AssetPolicyHandler        *assetHandler.AssetPolicyHandler
-	AssetFingerCmsHandler     *assetHandler.AssetFingerHandler
-	AssetFingerServiceHandler *assetHandler.AssetCPEHandler
-	AssetWebHandler           *assetHandler.AssetWebHandler
-	AssetVulnHandler          *assetHandler.AssetVulnHandler
-	AssetUnifiedHandler       *assetHandler.AssetUnifiedHandler
-	AssetScanHandler          *assetHandler.AssetScanHandler
+	AssetRawHandler             *assetHandler.RawAssetHandler
+	AssetHostHandler            *assetHandler.AssetHostHandler
+	AssetNetworkHandler         *assetHandler.AssetNetworkHandler
+	AssetPolicyHandler          *assetHandler.AssetPolicyHandler
+	AssetFingerCmsHandler       *assetHandler.AssetFingerHandler
+	AssetFingerServiceHandler   *assetHandler.AssetCPEHandler
+	AssetWebHandler             *assetHandler.AssetWebHandler
+	AssetVulnHandler            *assetHandler.AssetVulnHandler
+	AssetUnifiedHandler         *assetHandler.AssetUnifiedHandler
+	AssetScanHandler            *assetHandler.AssetScanHandler
+	AssetFingerprintRuleHandler *assetHandler.FingerprintRuleHandler
 
 	// Services
 	AssetRawService           *assetService.RawAssetService
@@ -162,4 +164,5 @@ type AssetModule struct {
 	AssetVulnService          *assetService.AssetVulnService
 	AssetUnifiedService       *assetService.AssetUnifiedService
 	AssetScanService          *assetService.AssetScanService
+	FingerprintRuleManager    *fingerprint.RuleManager
 }

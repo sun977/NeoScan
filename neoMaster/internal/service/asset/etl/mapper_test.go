@@ -318,3 +318,61 @@ func TestMapWebEndpoint_Batch(t *testing.T) {
 	assert.Equal(t, 1, ips["1.2.3.4"])
 	assert.Equal(t, 1, ips["10.0.0.1"])
 }
+
+func TestMapPasswordAudit(t *testing.T) {
+	jsonAttr := `{
+		"accounts": [
+			{"username": "admin", "service": "ssh", "host": "192.168.1.10", "port": 22, "weak_password": true, "credential": "admin:123456", "success": true},
+			{"username": "root", "service": "ssh", "host": "192.168.1.10", "port": 22, "weak_password": false, "success": false},
+			{"username": "dbuser", "service": "mysql", "host": "192.168.1.11", "port": 3306, "weak_password": true, "credential": "dbuser:password", "success": true}
+		]
+	}`
+
+	result := &orcModel.StageResult{
+		ResultType:  "password_audit",
+		TargetValue: "192.168.1.0/24",
+		Attributes:  jsonAttr,
+	}
+
+	bundles, err := MapToAssetBundles(result)
+	assert.NoError(t, err)
+	assert.Len(t, bundles, 2)
+
+	// Verify First Bundle (192.168.1.10)
+	var b1 *AssetBundle
+	for _, b := range bundles {
+		if b.Host.IP == "192.168.1.10" {
+			b1 = b
+			break
+		}
+	}
+	assert.NotNil(t, b1)
+	assert.Len(t, b1.Vulns, 1) // Only 1 vuln record (SSH weak password) containing 2 accounts
+
+	sshVuln := b1.Vulns[0]
+	assert.Equal(t, "high", sshVuln.Severity)
+	assert.Equal(t, "open", sshVuln.Status)
+	assert.Equal(t, "neosc:neosc-rules:weak-password:ssh", sshVuln.IDAlias)
+
+	var sshAttr map[string]interface{}
+	err = json.Unmarshal([]byte(sshVuln.Attributes), &sshAttr)
+	assert.NoError(t, err)
+
+	accounts, ok := sshAttr["accounts"].([]interface{})
+	assert.True(t, ok)
+	assert.Len(t, accounts, 2) // admin and root
+
+	// Verify Second Bundle (192.168.1.11)
+	var b2 *AssetBundle
+	for _, b := range bundles {
+		if b.Host.IP == "192.168.1.11" {
+			b2 = b
+			break
+		}
+	}
+	assert.NotNil(t, b2)
+	assert.Len(t, b2.Vulns, 1)
+	mysqlVuln := b2.Vulns[0]
+	assert.Equal(t, "high", mysqlVuln.Severity)
+	assert.Equal(t, "neosc:neosc-rules:weak-password:mysql", mysqlVuln.IDAlias)
+}

@@ -5,6 +5,12 @@ package fingerprint
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"neomaster/internal/pkg/logger"
@@ -18,22 +24,39 @@ type RuleManager struct {
 	fingerRepo assetrepo.AssetFingerRepository
 	cpeRepo    assetrepo.AssetCPERepository
 	converter  converters.StandardJSONConverter // 之前定义的 StandardJSONConverter
+	mu         sync.RWMutex                     // 读写锁，保护并发操作
+	backupDir  string                           // 备份目录
 }
 
 // NewRuleManager 创建管理器
 func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository) *RuleManager {
+	// 默认备份路径，实际生产环境可配置
+	backupDir := "./data/backups/fingerprint"
+	// 确保目录存在
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		logger.LogBusinessError(err, "system", 0, "localhost", "", "mkdir", map[string]interface{}{
+			"path": backupDir,
+		})
+	}
+
 	return &RuleManager{
 		fingerRepo: fingerRepo,
 		cpeRepo:    cpeRepo,
 		converter:  *converters.NewStandardJSONConverter(),
+		backupDir:  backupDir,
 	}
 }
 
 // ExportRules 导出全量规则到 JSON 字节流
-// 流程: Repo(ListAll) -> Converter(Encode) -> []byte
 func (m *RuleManager) ExportRules(ctx context.Context) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.exportRulesInternal(ctx)
+}
+
+// exportRulesInternal 内部导出逻辑，不加锁，供内部调用
+func (m *RuleManager) exportRulesInternal(ctx context.Context) ([]byte, error) {
 	// 1. Fetch All Fingers
-	// 可能需要 repo 增加 ListAll() 方法，或者分页取全量
 	fingers, err := m.fingerRepo.ListAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("fetch fingers failed: %w", err)
@@ -49,8 +72,11 @@ func (m *RuleManager) ExportRules(ctx context.Context) ([]byte, error) {
 	return m.converter.Encode(fingers, cpes)
 }
 
-// GetRuleStats 获取规则库统计信息 (版本依据)
+// GetRuleStats 获取规则库统计信息
 func (m *RuleManager) GetRuleStats(ctx context.Context) (map[string]interface{}, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	// 获取指纹总数
 	fingers, err := m.fingerRepo.ListAll(ctx)
 	if err != nil {
@@ -65,13 +91,9 @@ func (m *RuleManager) GetRuleStats(ctx context.Context) (map[string]interface{},
 	}
 	cpeCount := len(cpes)
 
-	// 获取最后更新时间 (取最新的 CreatedAt/UpdatedAt)
+	// 获取最后更新时间
 	var lastUpdate time.Time
 	if fingerCount > 0 {
-		// 简单起见，取第一条的 UpdateTime，或者需要 Repo 支持 GetMaxUpdatedAt
-		// 这里暂且使用当前时间作为近似值，或者遍历查找最大值 (效率较低)
-		// 更好的做法是让 Repo 提供 Count() 和 LastUpdate() 接口
-		// 为了不改动 Repo 接口，这里先简化处理
 		lastUpdate = time.Now()
 	}
 
@@ -84,30 +106,138 @@ func (m *RuleManager) GetRuleStats(ctx context.Context) (map[string]interface{},
 }
 
 // ImportRules 导入规则 (覆盖或增量)
-// 流程: []byte -> Converter(Decode) -> Repo(Save/Upsert)
+// 包含自动备份和原子锁
 func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bool) error {
-	// 1. Decode & Validate
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// 1. Auto Backup (Snapshot)
+	if err := m.createBackup(ctx); err != nil {
+		// 备份失败是否阻止导入？
+		// 严格模式下应该阻止，保证数据安全
+		return fmt.Errorf("auto backup failed: %w", err)
+	}
+
+	// 2. Decode & Validate
 	fingers, cpes, err := m.converter.Decode(data)
 	if err != nil {
 		return fmt.Errorf("invalid rule format: %w", err)
 	}
 
-	// 2. Save to DB (Transaction recommended)
-	// 这里建议使用事务，要么全成功，要么全失败
-	// 如果没有事务，至少要记录失败的条目
-
-	// 批量插入 Fingers
+	// 3. Save to DB
+	// TODO: 建议后续在 Repo 层实现 Transaction 接口
 	for _, f := range fingers {
 		if err := m.fingerRepo.Upsert(ctx, f); err != nil {
-			// Log error, maybe continue or abort based on strategy
 			logger.LogError(err, "", 0, "", "import_rules", "", map[string]interface{}{"name": f.Name})
 		}
 	}
 
-	// 批量插入 CPEs
 	for _, c := range cpes {
 		if err := m.cpeRepo.Upsert(ctx, c); err != nil {
 			logger.LogError(err, "", 0, "", "import_rules", "", map[string]interface{}{"name": c.Name})
+		}
+	}
+
+	return nil
+}
+
+// createBackup 创建当前规则库的快照
+func (m *RuleManager) createBackup(ctx context.Context) error {
+	data, err := m.exportRulesInternal(ctx)
+	if err != nil {
+		return err
+	}
+
+	// 如果没有数据，是否跳过备份？建议还是备份一个空的，保持逻辑一致
+	if len(data) == 0 {
+		// return nil
+	}
+
+	timestamp := time.Now().Format("20060102_150405")
+	filename := fmt.Sprintf("rules_backup_%s.json", timestamp)
+	filepath := filepath.Join(m.backupDir, filename)
+
+	if err := ioutil.WriteFile(filepath, data, 0644); err != nil {
+		return err
+	}
+
+	logger.LogBusinessOperation("auto_backup", 0, "", "system", "", "success", "auto backup created", map[string]interface{}{
+		"file": filepath,
+		"size": len(data),
+	})
+
+	return nil
+}
+
+// ListBackups 列出所有可用备份
+func (m *RuleManager) ListBackups() ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var backups []string
+	files, err := ioutil.ReadDir(m.backupDir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range files {
+		if !f.IsDir() && strings.HasPrefix(f.Name(), "rules_backup_") && strings.HasSuffix(f.Name(), ".json") {
+			backups = append(backups, f.Name())
+		}
+	}
+
+	// 按时间倒序排列 (最新的在前)
+	sort.Sort(sort.Reverse(sort.StringSlice(backups)))
+
+	return backups, nil
+}
+
+// Rollback 回滚到指定备份
+func (m *RuleManager) Rollback(ctx context.Context, filename string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// 1. Validate Filename
+	// 防止路径穿越攻击
+	baseName := filepath.Base(filename)
+	if baseName != filename {
+		return fmt.Errorf("invalid filename")
+	}
+	targetPath := filepath.Join(m.backupDir, filename)
+
+	// 2. Read Backup File
+	data, err := ioutil.ReadFile(targetPath)
+	if err != nil {
+		return fmt.Errorf("read backup file failed: %w", err)
+	}
+
+	// 3. Import (Use internal logic to avoid deadlock or recursive backup)
+	// 回滚操作本身是否需要再次备份？
+	// 策略：回滚前也备份当前状态（作为 "rollback_from_xxx"），防止回滚错误
+	// 为了简化，这里暂不自动备份回滚前的状态，用户应确保选择正确的备份
+
+	fingers, cpes, err := m.converter.Decode(data)
+	if err != nil {
+		return fmt.Errorf("decode backup file failed: %w", err)
+	}
+
+	// 4. Restore to DB
+	// 回滚通常意味着"恢复到确切状态"，所以这里应该考虑清空现有数据再插入？
+	// 或者使用 Upsert 覆盖？Upsert 无法删除已存在但备份中没有的数据。
+	// 对于指纹库，通常是追加型，但如果之前的错误导入引入了脏数据，Upsert 无法清除。
+	// TODO: 理想情况是 truncate table then insert，或者软删除所有 then insert。
+	// 鉴于目前 Repo 接口限制，我们先使用 Upsert，这至少能恢复已知指纹的正确状态。
+	// 如果需要完全一致，需要 Repo 提供 Reset/Clear 接口。
+
+	for _, f := range fingers {
+		if err := m.fingerRepo.Upsert(ctx, f); err != nil {
+			logger.LogError(err, "", 0, "", "rollback_rules", "", map[string]interface{}{"name": f.Name})
+		}
+	}
+
+	for _, c := range cpes {
+		if err := m.cpeRepo.Upsert(ctx, c); err != nil {
+			logger.LogError(err, "", 0, "", "rollback_rules", "", map[string]interface{}{"name": c.Name})
 		}
 	}
 

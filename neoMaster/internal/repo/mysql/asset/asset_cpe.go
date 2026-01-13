@@ -24,6 +24,10 @@ type AssetCPERepository interface {
 	Delete(ctx context.Context, id uint64) error
 	// List 获取 CPE 指纹规则列表(分页 + 简单筛选)
 	List(ctx context.Context, page, pageSize int, name, vendor, product string, tagID uint64) ([]*asset.AssetCPE, int64, error)
+	// ListAll 获取所有 CPE 指纹规则
+	ListAll(ctx context.Context) ([]*asset.AssetCPE, error)
+	// Upsert 创建或更新 CPE 指纹规则
+	Upsert(ctx context.Context, rule *asset.AssetCPE) error
 }
 
 // assetCPERepository 实现
@@ -142,4 +146,41 @@ func (r *assetCPERepository) List(ctx context.Context, page, pageSize int, name,
 	}
 
 	return rules, total, nil
+}
+
+// ListAll 获取所有 CPE 指纹规则
+func (r *assetCPERepository) ListAll(ctx context.Context) ([]*asset.AssetCPE, error) {
+	var rules []*asset.AssetCPE
+	if err := r.db.WithContext(ctx).Find(&rules).Error; err != nil {
+		logger.LogError(err, "", 0, "", "list_all_asset_cpe", "REPO", map[string]interface{}{
+			"operation": "list_all_asset_cpe",
+		})
+		return nil, err
+	}
+	return rules, nil
+}
+
+// Upsert 创建或更新 CPE 指纹规则
+func (r *assetCPERepository) Upsert(ctx context.Context, rule *asset.AssetCPE) error {
+	if rule == nil {
+		return errors.New("rule is nil")
+	}
+
+	// 尝试根据名称查找
+	var existing asset.AssetCPE
+	err := r.db.WithContext(ctx).Where("name = ?", rule.Name).First(&existing).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 不存在则创建
+			return r.Create(ctx, rule)
+		}
+		// 其他错误
+		return err
+	}
+
+	// 存在则更新
+	rule.ID = existing.ID
+	rule.CreatedAt = existing.CreatedAt
+	// 更新所有字段
+	return r.Update(ctx, rule)
 }

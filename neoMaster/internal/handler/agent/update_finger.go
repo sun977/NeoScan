@@ -10,6 +10,7 @@ import (
 	"neomaster/internal/model/system"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
+	agentService "neomaster/internal/service/agent"
 )
 
 func (h *AgentHandler) GetFingerprintVersion(c *gin.Context) {
@@ -38,7 +39,7 @@ func (h *AgentHandler) GetFingerprintVersion(c *gin.Context) {
 		return
 	}
 
-	info, err := h.agentUpdateService.GetFingerprintSnapshotInfo(c.Request.Context())
+	info, err := h.agentUpdateService.GetSnapshotInfo(c.Request.Context(), agentService.RuleTypeFingerprint)
 	if err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "agent_fingerprint_sync",
@@ -52,31 +53,21 @@ func (h *AgentHandler) GetFingerprintVersion(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
-			Message: "get fingerprint snapshot version failed",
+			Message: "failed to build fingerprint snapshot info",
 			Error:   err.Error(),
 		})
 		return
 	}
 
-	logger.LogBusinessOperation("agent_fingerprint_version", 0, "agent", clientIP, requestID, "success", "get fingerprint snapshot version", map[string]interface{}{
-		"path":         urlPath,
-		"operation":    "agent_fingerprint_sync",
-		"option":       "GetFingerprintVersion",
-		"func_name":    "handler.agent.GetFingerprintVersion",
-		"version_hash": info.VersionHash,
-		"file_count":   info.FileCount,
-		"rule_path":    info.RulePath,
-		"timestamp":    logger.NowFormatted(),
-	})
-
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
 		Status:  "success",
-		Message: "ok",
+		Message: "success",
 		Data:    info,
 	})
 }
 
+// DownloadFingerprintSnapshot 下载指纹库快照
 func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
@@ -103,7 +94,7 @@ func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 		return
 	}
 
-	snapshot, err := h.agentUpdateService.BuildFingerprintSnapshot(c.Request.Context())
+	snapshot, err := h.agentUpdateService.BuildSnapshot(c.Request.Context(), agentService.RuleTypeFingerprint)
 	if err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "agent_fingerprint_sync",

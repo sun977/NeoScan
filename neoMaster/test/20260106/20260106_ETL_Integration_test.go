@@ -83,14 +83,15 @@ func TestETLIntegration_PortScan(t *testing.T) {
 	// 构造测试数据
 	attributes := etl.PortScanAttributes{}
 	attributes.Ports = []struct {
+		IP          string `json:"ip"`
 		Port        int    `json:"port"`
 		Proto       string `json:"proto"`
 		State       string `json:"state"`
 		ServiceHint string `json:"service_hint"`
 		Banner      string `json:"banner"`
 	}{
-		{Port: 80, Proto: "tcp", State: "open", ServiceHint: "http", Banner: "nginx/1.18"},
-		{Port: 22, Proto: "tcp", State: "open", ServiceHint: "ssh", Banner: "OpenSSH 7.9"},
+		{IP: "192.168.1.100", Port: 80, Proto: "tcp", State: "open", ServiceHint: "http", Banner: "nginx/1.18"},
+		{IP: "192.168.1.100", Port: 22, Proto: "tcp", State: "open", ServiceHint: "ssh", Banner: "OpenSSH 7.9"},
 	}
 	attributes.Summary.OpenCount = 2
 
@@ -154,13 +155,14 @@ func TestETLIntegration_PortScan_Upsert(t *testing.T) {
 	// 1. 初始扫描
 	attrJSON1, _ := json.Marshal(etl.PortScanAttributes{
 		Ports: []struct {
+			IP          string `json:"ip"`
 			Port        int    `json:"port"`
 			Proto       string `json:"proto"`
 			State       string `json:"state"`
 			ServiceHint string `json:"service_hint"`
 			Banner      string `json:"banner"`
 		}{
-			{Port: 80, Proto: "tcp", State: "open", ServiceHint: "http"},
+			{IP: "10.0.0.1", Port: 80, Proto: "tcp", State: "open", ServiceHint: "http"},
 		},
 	})
 	queue.Push(ctx, &orcModel.StageResult{
@@ -180,13 +182,14 @@ func TestETLIntegration_PortScan_Upsert(t *testing.T) {
 	// 3. 第二次扫描 (更新)
 	attrJSON2, _ := json.Marshal(etl.PortScanAttributes{
 		Ports: []struct {
+			IP          string `json:"ip"`
 			Port        int    `json:"port"`
 			Proto       string `json:"proto"`
 			State       string `json:"state"`
 			ServiceHint string `json:"service_hint"`
 			Banner      string `json:"banner"`
 		}{
-			{Port: 80, Proto: "tcp", State: "open", ServiceHint: "http-alt"}, // Name 变更
+			{IP: "10.0.0.1", Port: 80, Proto: "tcp", State: "open", ServiceHint: "http-alt"}, // Name 变更
 		},
 	})
 	queue.Push(ctx, &orcModel.StageResult{

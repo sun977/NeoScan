@@ -31,7 +31,7 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	networkRepo := assetRepo.NewAssetNetworkRepository(db)
 	policyRepo := assetRepo.NewAssetPolicyRepository(db)
 	fingerCmsRepo := assetRepo.NewAssetFingerRepository(db)
-	fingerCpeRepo := assetRepo.NewAssetCPERepository(db)
+	fingerServiceRepo := assetRepo.NewAssetCPERepository(db)
 	webRepo := assetRepo.NewAssetWebRepository(db)
 	vulnRepo := assetRepo.NewAssetVulnRepository(db)
 	unifiedRepo := assetRepo.NewAssetUnifiedRepository(db)
@@ -42,8 +42,8 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	hostService := assetService.NewAssetHostService(hostRepo, tagSystem)
 	networkService := assetService.NewAssetNetworkService(networkRepo, tagSystem)
 	policyService := assetService.NewAssetPolicyService(policyRepo, tagSystem)
-	fingerService := assetService.NewAssetFingerService(fingerCmsRepo, tagSystem)
-	cpeService := assetService.NewAssetCPEService(fingerCpeRepo, tagSystem)
+	fingerCmsService := assetService.NewAssetFingerService(fingerCmsRepo, tagSystem)
+	fingerServiceService := assetService.NewAssetCPEService(fingerServiceRepo, tagSystem)
 	webService := assetService.NewAssetWebService(webRepo, tagSystem)
 	vulnService := assetService.NewAssetVulnService(vulnRepo, tagSystem)
 	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo, tagSystem)
@@ -54,8 +54,8 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 	hostHandler := assetHandler.NewAssetHostHandler(hostService)
 	networkHandler := assetHandler.NewAssetNetworkHandler(networkService)
 	policyHandler := assetHandler.NewAssetPolicyHandler(policyService)
-	fingerHandler := assetHandler.NewAssetFingerHandler(fingerService)
-	cpeHandler := assetHandler.NewAssetCPEHandler(cpeService)
+	fingerCmsHandler := assetHandler.NewAssetFingerHandler(fingerCmsService)
+	fingerServiceHandler := assetHandler.NewAssetCPEHandler(fingerServiceService)
 	webHandler := assetHandler.NewAssetWebHandler(webService)
 	vulnHandler := assetHandler.NewAssetVulnHandler(vulnService)
 	unifiedHandler := assetHandler.NewAssetUnifiedHandler(unifiedService)
@@ -72,8 +72,8 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 		AssetHostHandler:    hostHandler,
 		AssetNetworkHandler: networkHandler,
 		AssetPolicyHandler:  policyHandler,
-		AssetFingerHandler:  fingerHandler,
-		AssetCPEHandler:     cpeHandler,
+		AssetFingerHandler:  fingerCmsHandler,
+		AssetCPEHandler:     fingerServiceHandler,
 		AssetWebHandler:     webHandler,
 		AssetVulnHandler:    vulnHandler,
 		AssetUnifiedHandler: unifiedHandler,
@@ -83,8 +83,8 @@ func BuildAssetModule(db *gorm.DB, tagSystem tagService.TagService) *AssetModule
 		AssetHostService:    hostService,
 		AssetNetworkService: networkService,
 		AssetPolicyService:  policyService,
-		AssetFingerService:  fingerService,
-		AssetCPEService:     cpeService,
+		AssetFingerService:  fingerCmsService,
+		AssetCPEService:     fingerServiceService,
 		AssetWebService:     webService,
 		AssetVulnService:    vulnService,
 		AssetUnifiedService: unifiedService,

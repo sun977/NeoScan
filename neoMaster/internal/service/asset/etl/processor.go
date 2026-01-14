@@ -4,6 +4,7 @@ package etl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -112,16 +113,49 @@ func (p *resultProcessor) worker(id int) {
 				continue
 			}
 
-			// 3. 调用 Merger 进行合并
+			// 3. 调用 Merger 进行合并 (带重试)
 			for _, bundle := range bundles {
-				if err := p.merger.Merge(p.ctx, bundle); err != nil {
-					logger.LogError(err, "", 0, "", "etl.processor.worker", "", map[string]interface{}{
-						"msg":         "Failed to merge asset bundle",
+				var mergeErr error
+				maxRetries := 3
+
+				for i := 0; i <= maxRetries; i++ {
+					if mergeErr = p.merger.Merge(p.ctx, bundle); mergeErr == nil {
+						break
+					}
+
+					// 错误分类
+					errType := ClassifyError(mergeErr)
+					if errType == ErrorTypePersistent {
+						logger.LogWarn("Encountered persistent error, skipping retries", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
+							"error":   mergeErr.Error(),
+							"task_id": result.TaskID,
+						})
+						break // 持久错误不重试
+					}
+
+					// 如果是最后一次尝试，则退出
+					if i == maxRetries {
+						break
+					}
+
+					// 指数退避: 100ms, 200ms, 400ms
+					backoff := time.Duration(100*(1<<i)) * time.Millisecond
+					// 仅在 Debug 或 Warn 级别记录重试，避免刷屏，这里用 LogInfo 方便观察
+					logger.LogInfo(fmt.Sprintf("Retrying merge due to transient error (attempt %d/%d)", i+1, maxRetries), "", 0, "", "etl.processor.worker", "", map[string]interface{}{
+						"error":   mergeErr.Error(),
+						"backoff": backoff.String(),
+					})
+					time.Sleep(backoff)
+				}
+
+				if mergeErr != nil {
+					logger.LogError(mergeErr, "", 0, "", "etl.processor.worker", "", map[string]interface{}{
+						"msg":         "Failed to merge asset bundle after retries",
 						"task_id":     result.TaskID,
 						"result_type": result.ResultType,
 						"host_ip":     bundle.Host.IP,
 					})
-					p.logEtlError(p.ctx, result, err, "merger")
+					p.logEtlError(p.ctx, result, mergeErr, "merger")
 				}
 			}
 			logger.LogInfo("Processed result successfully", "", 0, "", "etl.processor.worker", "", map[string]interface{}{
@@ -140,11 +174,15 @@ func (p *resultProcessor) logEtlError(ctx context.Context, result *orcModel.Stag
 		return
 	}
 
+	// 序列化 RawData
+	rawDataBytes, _ := json.Marshal(result.Attributes)
+	rawDataStr := string(rawDataBytes)
+
 	etlError := &assetModel.AssetETLError{
 		ProjectID:  result.ProjectID,
 		TaskID:     result.TaskID,
 		ResultType: result.ResultType,
-		RawData:    result.Attributes, // 暂存 Attributes, 如果需要完整 JSON 可以序列化整个 result
+		RawData:    rawDataStr,
 		ErrorMsg:   fmt.Sprintf("%v", err),
 		ErrorStage: stage,
 		Status:     "new",

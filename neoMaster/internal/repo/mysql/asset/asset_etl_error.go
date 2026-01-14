@@ -16,6 +16,8 @@ type ETLErrorRepository interface {
 	GetByID(ctx context.Context, id uint64) (*assetModel.AssetETLError, error)
 	// FindPending 获取待处理的错误 (status=new/retrying)
 	FindPending(ctx context.Context, limit int) ([]*assetModel.AssetETLError, error)
+	// GetByStatus 根据状态获取错误
+	GetByStatus(ctx context.Context, status string, limit int) ([]*assetModel.AssetETLError, error)
 }
 
 type etlErrorRepository struct {
@@ -54,6 +56,16 @@ func (r *etlErrorRepository) FindPending(ctx context.Context, limit int) ([]*ass
 	var logs []*assetModel.AssetETLError
 	err := r.db.WithContext(ctx).
 		Where("status IN ?", []string{"new", "retrying"}).
+		Order("created_at ASC").
+		Limit(limit).
+		Find(&logs).Error
+	return logs, err
+}
+
+func (r *etlErrorRepository) GetByStatus(ctx context.Context, status string, limit int) ([]*assetModel.AssetETLError, error) {
+	var logs []*assetModel.AssetETLError
+	err := r.db.WithContext(ctx).
+		Where("status = ?", status).
 		Order("created_at ASC").
 		Limit(limit).
 		Find(&logs).Error

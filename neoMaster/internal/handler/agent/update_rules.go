@@ -144,7 +144,7 @@ func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename=\""+snapshot.FileName+"\"")
 	if snapshot.Signature != "" {
 		c.Header("X-Rule-Signature", snapshot.Signature)
-		// 将签名放入 Header 的 X-Rule-Signature 字段中
+		c.Header("X-Content-Encryption", "aes-gcm") // 明确告知 Agent 内容已加密
 	}
 	// 3. 返回加密/签名的指纹库快照
 	c.Data(http.StatusOK, snapshot.ContentType, snapshot.Bytes)

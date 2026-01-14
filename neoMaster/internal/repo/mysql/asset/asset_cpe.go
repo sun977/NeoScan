@@ -26,6 +26,8 @@ type AssetCPERepository interface {
 	List(ctx context.Context, page, pageSize int, name, vendor, product string, tagID uint64) ([]*asset.AssetCPE, int64, error)
 	// ListAll 获取所有 CPE 指纹规则
 	ListAll(ctx context.Context) ([]*asset.AssetCPE, error)
+	// FindEnabled 获取所有已启用的 CPE 指纹规则
+	FindEnabled(ctx context.Context) ([]*asset.AssetCPE, error)
 	// Upsert 创建或更新 CPE 指纹规则
 	Upsert(ctx context.Context, rule *asset.AssetCPE) error
 }
@@ -154,6 +156,18 @@ func (r *assetCPERepository) ListAll(ctx context.Context) ([]*asset.AssetCPE, er
 	if err := r.db.WithContext(ctx).Find(&rules).Error; err != nil {
 		logger.LogError(err, "", 0, "", "list_all_asset_cpe", "REPO", map[string]interface{}{
 			"operation": "list_all_asset_cpe",
+		})
+		return nil, err
+	}
+	return rules, nil
+}
+
+// FindEnabled 获取所有已启用的 CPE 指纹规则
+func (r *assetCPERepository) FindEnabled(ctx context.Context) ([]*asset.AssetCPE, error) {
+	var rules []*asset.AssetCPE
+	if err := r.db.WithContext(ctx).Where("enabled = ?", true).Find(&rules).Error; err != nil {
+		logger.LogError(err, "", 0, "", "find_enabled_asset_cpe", "REPO", map[string]interface{}{
+			"operation": "find_enabled_asset_cpe",
 		})
 		return nil, err
 	}

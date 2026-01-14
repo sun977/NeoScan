@@ -72,6 +72,54 @@ func (m *RuleManager) CalculateSignature(data []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// PublishRulesToDisk 将当前数据库中的规则发布到磁盘文件 (原子操作)
+// 供 Agent 下载使用
+func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// 1. 获取全量数据
+	data, err := m.exportRulesInternal(ctx)
+	if err != nil {
+		return err
+	}
+
+	// 2. 写入临时文件
+	// 默认路径：rules/fingerprint/rules.json (这里简化处理，直接覆盖单个大文件)
+	// TODO: 后续应支持拆分文件，这里保持与 StandardJSONConverter 一致，输出单个 JSON
+	// 为了兼容 Agent 的目录扫描逻辑，我们把这个文件放在 config 中定义的目录，或者默认目录
+	// 这里假设目录结构是: rules/fingerprint/
+	// AgentUpdateService 会扫描该目录下所有文件并打包
+	targetDir := "rules/fingerprint"
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("failed to create rule dir: %w", err)
+	}
+
+	targetFile := filepath.Join(targetDir, "neoscan_fingerprint_rules.json")
+	tmpFile := targetFile + ".tmp"
+
+	if err := ioutil.WriteFile(tmpFile, data, 0644); err != nil {
+		return fmt.Errorf("failed to write tmp file: %w", err)
+	}
+
+	// 3. 原子重命名 (覆盖)
+	if err := os.Rename(tmpFile, targetFile); err != nil {
+		return fmt.Errorf("failed to rename rule file: %w", err)
+	}
+
+	// 4. 更新 mtime (确保 AgentUpdateService 能感知到变化)
+	// Rename 会保留原文件的 mtime (取决于 FS 实现)，为了保险，显式 Touch 一下
+	now := time.Now()
+	if err := os.Chtimes(targetFile, now, now); err != nil {
+		logger.LogBusinessError(err, "system", 0, "localhost", "", "touch", map[string]interface{}{
+			"file": targetFile,
+		})
+		// Touch 失败不影响功能，只是可能延迟生效
+	}
+
+	return nil
+}
+
 // exportRulesInternal 内部导出逻辑，不加锁，供内部调用
 func (m *RuleManager) exportRulesInternal(ctx context.Context) ([]byte, error) {
 	// 1. Fetch All Fingers

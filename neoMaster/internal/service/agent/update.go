@@ -19,6 +19,7 @@ import (
 
 	"neomaster/internal/config"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 )
 
 // RuleType 定义规则库类型
@@ -338,7 +339,7 @@ func (s *agentUpdateService) GetEncryptedSnapshot(ctx context.Context, ruleType 
 	// 3. 加密与签名
 	if secret != "" {
 		// A. 加密 (AES-GCM)
-		encryptedBytes, err := encryptData(secret, snapshot.Bytes)
+		encryptedBytes, err := utils.EncryptDataAESGCM(secret, snapshot.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt snapshot: %w", err)
 		}

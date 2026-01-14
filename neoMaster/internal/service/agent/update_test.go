@@ -2,49 +2,19 @@ package agent
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"neomaster/internal/config"
+	"neomaster/internal/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 )
-
-// decryptData 使用 AES-GCM 解密数据 (用于测试验证)
-func decryptData(key string, ciphertext []byte) ([]byte, error) {
-	k := sha256.Sum256([]byte(key))
-
-	block, err := aes.NewCipher(k[:])
-	if err != nil {
-		return nil, err
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	nonceSize := aesgcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, encryptedMessage := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	plaintext, err := aesgcm.Open(nil, nonce, encryptedMessage, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return plaintext, nil
-}
 
 func TestGetEncryptedSnapshot(t *testing.T) {
 	// 1. Setup Environment
@@ -91,7 +61,7 @@ func TestGetEncryptedSnapshot(t *testing.T) {
 
 	// 3. Verify Signature
 	assert.NotEmpty(t, snapshot.Signature)
-	
+
 	// Verify signature matches the encrypted content
 	h := hmac.New(sha256.New, []byte(secretKey))
 	h.Write(snapshot.Bytes)
@@ -100,11 +70,11 @@ func TestGetEncryptedSnapshot(t *testing.T) {
 
 	// 4. Verify Encryption
 	assert.Equal(t, "application/octet-stream", snapshot.ContentType)
-	
+
 	// Try to decrypt
-	decryptedZip, err := decryptData(secretKey, snapshot.Bytes)
+	decryptedZip, err := utils.DecryptDataAESGCM(secretKey, snapshot.Bytes)
 	assert.NoError(t, err, "Decryption failed")
-	
+
 	// Verify decrypted content is a valid ZIP (starts with PK header)
 	// ZIP file signature is "PK\x03\x04" (0x50 0x4B 0x03 0x04)
 	assert.True(t, len(decryptedZip) > 4)

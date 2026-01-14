@@ -39,9 +39,9 @@ func BuildAgentModule(db *gorm.DB, cfg *config.Config, tagService tag_system.Tag
 
 	// 2) 初始化服务（遵循 Handler → Service → Repository 层级调用约束）
 	managerService := agentService.NewAgentManagerService(agentRepository, tagService)
-	monitorService := agentService.NewAgentMonitorService(agentRepository, tagService)
-	configService := agentService.NewAgentConfigService(agentRepository)
 	updateService := agentService.NewAgentUpdateService(cfg)
+	monitorService := agentService.NewAgentMonitorService(agentRepository, tagService, updateService) // 注入 updateService
+	configService := agentService.NewAgentConfigService(agentRepository)
 	// AgentTaskService 已移至 Orchestrator 模块
 
 	// 执行系统标签初始化与同步 (Bootstrap & Sync)

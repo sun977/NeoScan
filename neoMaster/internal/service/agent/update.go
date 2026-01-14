@@ -4,7 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io/fs"
@@ -50,13 +52,15 @@ type RuleSnapshot struct {
 	FileName    string `json:"file_name"`
 	ContentType string `json:"content_type"`
 	Bytes       []byte `json:"-"`
+	Signature   string `json:"signature,omitempty"` // 规则签名 (HMAC-SHA256)
 }
 
 // AgentUpdateService Agent更新服务接口
 // 负责构建和获取各种类型的规则库快照
 type AgentUpdateService interface {
-	GetSnapshotInfo(ctx context.Context, ruleType RuleType) (*RuleSnapshotInfo, error)
-	BuildSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error)
+	GetSnapshotInfo(ctx context.Context, ruleType RuleType) (*RuleSnapshotInfo, error)  // 获取指定类型规则的快照信息
+	BuildSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error)        // 构建规则快照
+	GetEncryptedSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error) // 获取加密/签名的快照
 }
 
 type agentUpdateService struct {
@@ -202,4 +206,34 @@ func buildDeterministicZip(ctx context.Context, root string, relPaths []string) 
 	}
 
 	return buf.Bytes(), nil
+}
+
+// GetEncryptedSnapshot 获取加密/签名的快照
+// 说明：这里我们只做签名(Signature)，因为规则本身是 JSON/Zip，不需要保密，只需要防篡改。
+// Agent 收到后使用相同的 Secret 验证 HMAC-SHA256 签名即可。
+// Agent 从 Header 中的 X-Rule-Signature 获取签名，与计算结果对比即可。
+func (s *agentUpdateService) GetEncryptedSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error) {
+	// 1. 复用 BuildSnapshot 获取原始快照
+	snapshot, err := s.BuildSnapshot(ctx, ruleType)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 获取签名密钥
+	secret := ""
+	if s.cfg != nil {
+		secret = s.cfg.Security.Agent.RuleEncryptionKey
+	}
+
+	// 如果没有配置密钥，则不签名（或者报错，取决于策略）
+	// 为了兼容性，如果没有密钥，Signature 为空
+	if secret != "" {
+		// 3. 计算 HMAC-SHA256 签名
+		h := hmac.New(sha256.New, []byte(secret))
+		h.Write(snapshot.Bytes)
+		signature := hex.EncodeToString(h.Sum(nil))
+		snapshot.Signature = signature
+	}
+
+	return snapshot, nil
 }

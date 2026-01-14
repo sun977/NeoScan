@@ -44,10 +44,20 @@ func ReadFileLines(filePath string) ([]string, error) {
 	return result, nil
 }
 
-// 从csv文件读取指定列返回列表
-// filePath: csv文件路径
-// column: 列索引(从0开始)
-// 返回: 列内容列表, 错误信息
+// WriteFile 写入文件内容
+// filePath: 文件路径
+// content: 文件内容
+// perm: 文件权限
+func WriteFile(filePath string, content []byte, perm os.FileMode) error {
+	return ioutil.WriteFile(filePath, content, perm)
+}
+
+// ReadFile 读取文件内容
+// filePath: 文件路径
+// 返回: 文件内容, 错误信息
+func ReadFile(filePath string) ([]byte, error) {
+	return ioutil.ReadFile(filePath)
+}
 func ReadCSVColumn(filePath string, column int) ([]string, error) {
 	// 检查文件是否存在
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {

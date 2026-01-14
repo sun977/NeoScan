@@ -3,9 +3,10 @@ package asset
 import (
 	"context"
 	"errors"
-	"gorm.io/gorm"
 	assetmodel "neomaster/internal/model/asset"
 	"neomaster/internal/pkg/logger"
+
+	"gorm.io/gorm"
 )
 
 // RawAssetRepository 原始资产仓库
@@ -76,12 +77,15 @@ func (r *RawAssetRepository) UpdateRawAssetStatus(ctx context.Context, id uint64
 }
 
 // ListRawAssets 获取原始资产列表 (支持按批次和状态筛选)
-func (r *RawAssetRepository) ListRawAssets(ctx context.Context, page, pageSize int, batchID string, status string) ([]*assetmodel.RawAsset, int64, error) {
+func (r *RawAssetRepository) ListRawAssets(ctx context.Context, page, pageSize int, batchID string, status string, rawAssetIDs []uint64) ([]*assetmodel.RawAsset, int64, error) {
 	var raws []*assetmodel.RawAsset
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&assetmodel.RawAsset{})
 
+	if len(rawAssetIDs) > 0 {
+		query = query.Where("id IN ?", rawAssetIDs)
+	}
 	if batchID != "" {
 		query = query.Where("import_batch_id = ?", batchID)
 	}

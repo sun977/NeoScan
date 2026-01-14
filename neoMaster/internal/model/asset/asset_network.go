@@ -17,7 +17,6 @@ type AssetNetwork struct {
 	Round       int        `json:"round" gorm:"default:0;comment:扫描轮次"`
 	NetworkType string     `json:"network_type" gorm:"size:20;default:'internal';comment:网络类型(internal/external/dmz)"`
 	Priority    int        `json:"priority" gorm:"default:0;comment:调度优先级(0-100)"`
-	Tags        string     `json:"tags" gorm:"type:json;comment:标签(JSON)"`
 	SourceRef   string     `json:"source_ref" gorm:"size:100;comment:来源引用"`
 	Status      string     `json:"status" gorm:"size:20;default:'active';comment:调度状态(active/paused/disabled)"`
 	ScanStatus  string     `json:"scan_status" gorm:"size:20;default:'idle';comment:扫描状态(idle/scanning/finished)"`

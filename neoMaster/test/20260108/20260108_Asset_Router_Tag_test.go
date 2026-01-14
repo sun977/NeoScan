@@ -197,7 +197,7 @@ func TestAssetTagRoutes(t *testing.T) {
 
 	// --- 1. Network Tagging ---
 	t.Run("Network Tagging", func(t *testing.T) {
-		network := &assetModel.AssetNetwork{CIDR: "10.0.0.0/24", Status: "active", Tags: "{}"}
+		network := &assetModel.AssetNetwork{CIDR: "10.0.0.0/24", Status: "active"}
 		db.Create(network)
 		defer db.Delete(network)
 
@@ -225,7 +225,7 @@ func TestAssetTagRoutes(t *testing.T) {
 
 	// --- 2. Host Tagging ---
 	t.Run("Host Tagging", func(t *testing.T) {
-		host := &assetModel.AssetHost{IP: "10.0.0.1", Tags: "{}", SourceStageIDs: "[]"}
+		host := &assetModel.AssetHost{IP: "10.0.0.1", SourceStageIDs: "[]"}
 		db.Create(host)
 		defer db.Delete(host)
 
@@ -253,7 +253,7 @@ func TestAssetTagRoutes(t *testing.T) {
 		// Need a host first
 		host := &assetModel.AssetHost{IP: "10.0.0.2", Tags: "{}", SourceStageIDs: "[]"}
 		db.Create(host)
-		service := &assetModel.AssetService{HostID: host.ID, Port: 80, Name: "http", Tags: "{}", Fingerprint: "{}"}
+		service := &assetModel.AssetService{HostID: host.ID, Port: 80, Name: "http", Fingerprint: "{}"}
 		db.Create(service)
 		defer func() {
 			db.Delete(service)

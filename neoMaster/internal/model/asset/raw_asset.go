@@ -43,7 +43,6 @@ type RawAssetNetwork struct {
 	SecurityZone     string `json:"security_zone" gorm:"size:50;comment:安全区域"`
 	NetworkType      string `json:"network_type" gorm:"size:20;comment:网络类型"`
 	Priority         int    `json:"priority" gorm:"default:0;comment:调度优先级"`
-	Tags             string `json:"tags" gorm:"type:json;comment:标签(JSON)"`
 	SourceType       string `json:"source_type" gorm:"size:50;comment:数据来源类型"`
 	SourceIdentifier string `json:"source_identifier" gorm:"size:100;comment:来源标识"`
 	Status           string `json:"status" gorm:"size:20;default:'pending';comment:状态(pending/approved/rejected)"`

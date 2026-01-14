@@ -640,7 +640,6 @@ func TestRawAssetRoutes(t *testing.T) {
 			"payload":           `{"ip": "192.168.1.1", "type": "server"}`,
 			"priority":          1,
 			"asset_metadata":    "{}",
-			"tags":              "{}",
 			"processing_config": "{}",
 			"imported_at":       time.Now(),
 		}
@@ -717,7 +716,6 @@ func TestRawNetworkRoutes(t *testing.T) {
 		network := map[string]interface{}{
 			"network": "10.10.10.0/24",
 			"name":    "Test Raw Network",
-			"tags":    "{}",
 		}
 		body, _ := json.Marshal(network)
 		req, _ := http.NewRequest("POST", "/api/v1/asset/raw-networks", bytes.NewBuffer(body))
@@ -895,7 +893,6 @@ func TestNetworkRoutes(t *testing.T) {
 		network := map[string]interface{}{
 			"cidr": "192.168.100.0/24",
 			"name": "Test Network",
-			"tags": "{}",
 		}
 		body, _ := json.Marshal(network)
 		req, _ := http.NewRequest("POST", "/api/v1/asset/networks", bytes.NewBuffer(body))

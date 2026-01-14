@@ -16,7 +16,6 @@ type AssetWeb struct {
 	AssetType  string     `json:"asset_type" gorm:"size:50;default:'web';comment:资产类型(web/api/domain)"`
 	TechStack  string     `json:"tech_stack" gorm:"type:json;comment:技术栈信息(JSON)"`
 	Status     string     `json:"status" gorm:"size:20;default:'active';comment:资产状态"`
-	Tags       string     `json:"tags" gorm:"type:json;comment:标签信息(JSON)"`
 	BasicInfo  string     `json:"basic_info" gorm:"type:json;comment:基础Web信息(Title/Headers等)(JSON)"`
 	ScanLevel  int        `json:"scan_level" gorm:"default:0;comment:扫描级别"`
 	LastSeenAt *time.Time `json:"last_seen_at" gorm:"comment:最后发现时间"`

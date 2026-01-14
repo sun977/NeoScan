@@ -119,8 +119,9 @@ func (s *agentUpdateService) BuildSnapshot(ctx context.Context, ruleType RuleTyp
 
 	// 5. 计算 Hash
 	h := md5.Sum(zipBytes)
-	version := hex.EncodeToString(h[:])
+	version := hex.EncodeToString(h[:]) // 版本哈希
 
+	// 6. 构建 RuleSnapshot
 	snapshot := &RuleSnapshot{
 		RuleSnapshotInfo: RuleSnapshotInfo{
 			Type:        ruleType,
@@ -135,6 +136,7 @@ func (s *agentUpdateService) BuildSnapshot(ctx context.Context, ruleType RuleTyp
 	return snapshot, nil
 }
 
+// listRuleFiles 递归列出目录下所有文件的相对路径（不包含目录）
 func listRuleFiles(root string) ([]string, error) {
 	stat, err := os.Stat(root)
 	if err != nil {
@@ -169,6 +171,7 @@ func listRuleFiles(root string) ([]string, error) {
 	return relPaths, nil
 }
 
+// buildDeterministicZip 构建确定性 ZIP 文件
 func buildDeterministicZip(ctx context.Context, root string, relPaths []string) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	zw := zip.NewWriter(buf)
@@ -235,5 +238,6 @@ func (s *agentUpdateService) GetEncryptedSnapshot(ctx context.Context, ruleType 
 		snapshot.Signature = signature
 	}
 
+	// 返回加密/签名的快照
 	return snapshot, nil
 }

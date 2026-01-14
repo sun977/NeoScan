@@ -48,7 +48,6 @@ func TestAssetMerger_WebAssets_CreateWebAndDetail(t *testing.T) {
 		ProjectID: 1,
 		Host: &assetModel.AssetHost{
 			IP:             "10.0.0.1",
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		},
 		WebAssets: []*WebAsset{
@@ -58,7 +57,6 @@ func TestAssetMerger_WebAssets_CreateWebAndDetail(t *testing.T) {
 					Domain:    "example.com",
 					TechStack: "[\"nginx\"]",
 					BasicInfo: "{\"title\":\"Login\"}",
-					Tags:      "{}",
 				},
 				Detail: &assetModel.AssetWebDetail{
 					ContentDetails: "{\"url\":\"http://example.com/login\"}",
@@ -99,7 +97,6 @@ func TestAssetMerger_Vuln_ServiceTargetCreatesStubService(t *testing.T) {
 		ProjectID: 1,
 		Host: &assetModel.AssetHost{
 			IP:             "10.0.0.2",
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		},
 		Vulns: []*assetModel.AssetVuln{

@@ -53,11 +53,20 @@ func (h *AgentHandler) GetFingerprintVersion(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, system.APIResponse{
 			Code:    http.StatusInternalServerError,
 			Status:  "failed",
-			Message: "failed to build fingerprint snapshot info",
+			Message: "get fingerprint version failed",
 			Error:   err.Error(),
 		})
 		return
 	}
+
+	logger.LogBusinessOperation("agent_fingerprint_version", 0, "agent", clientIP, requestID, "success", "get fingerprint version", map[string]interface{}{
+		"path":         urlPath,
+		"operation":    "agent_fingerprint_sync",
+		"option":       "GetFingerprintVersion",
+		"func_name":    "handler.agent.GetFingerprintVersion",
+		"version_hash": info.VersionHash,
+		"timestamp":    logger.NowFormatted(),
+	})
 
 	c.JSON(http.StatusOK, system.APIResponse{
 		Code:    http.StatusOK,
@@ -68,12 +77,14 @@ func (h *AgentHandler) GetFingerprintVersion(c *gin.Context) {
 }
 
 // DownloadFingerprintSnapshot 下载指纹库快照
+// 说明：这里使用 GetEncryptedSnapshot 以提供签名保护，确保 Agent 接收数据的完整性。
 func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")
 	requestID := c.GetHeader("X-Request-ID")
 	urlPath := c.Request.URL.String()
 
+	// 1. 检查服务是否初始化
 	if h.agentUpdateService == nil {
 		err := errors.New("agent update service is nil")
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
@@ -94,7 +105,9 @@ func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 		return
 	}
 
-	snapshot, err := h.agentUpdateService.BuildSnapshot(c.Request.Context(), agentService.RuleTypeFingerprint)
+	// 使用 GetEncryptedSnapshot 获取带签名的指纹快照
+	// 2. 获取加密/签名的指纹库快照 agentService.RuleTypeFingerprint = "fingerprint"
+	snapshot, err := h.agentUpdateService.GetEncryptedSnapshot(c.Request.Context(), agentService.RuleTypeFingerprint)
 	if err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
 			"operation":  "agent_fingerprint_sync",
@@ -122,10 +135,15 @@ func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 		"version_hash": snapshot.VersionHash,
 		"file_count":   snapshot.FileCount,
 		"rule_path":    snapshot.RulePath,
+		"signature":    snapshot.Signature, // 记录签名
 		"timestamp":    logger.NowFormatted(),
 	})
 
 	c.Header("Content-Type", snapshot.ContentType)
 	c.Header("Content-Disposition", "attachment; filename=\""+snapshot.FileName+"\"")
+	if snapshot.Signature != "" {
+		c.Header("X-Rule-Signature", snapshot.Signature)
+		// 将签名放入 Header 的 X-Rule-Signature 字段中
+	}
 	c.Data(http.StatusOK, snapshot.ContentType, snapshot.Bytes)
 }

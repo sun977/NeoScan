@@ -13,6 +13,7 @@ import (
 	assetHandler "neomaster/internal/handler/asset"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	assetService "neomaster/internal/service/asset"
+	"neomaster/internal/service/asset/etl"
 	"neomaster/internal/service/fingerprint"
 	tagService "neomaster/internal/service/tag_system"
 
@@ -20,7 +21,7 @@ import (
 )
 
 // BuildAssetModule 构建资产管理模块
-func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.TagService) *AssetModule {
+func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.TagService, etlProcessor etl.ResultProcessor) *AssetModule {
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
 		"operation": "build_module",
@@ -38,6 +39,7 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	vulnRepo := assetRepo.NewAssetVulnRepository(db)
 	unifiedRepo := assetRepo.NewAssetUnifiedRepository(db)
 	scanRepo := assetRepo.NewAssetScanRepository(db)
+	etlErrorRepo := assetRepo.NewETLErrorRepository(db)
 
 	// 2. Service 初始化
 	rawService := assetService.NewRawAssetService(rawRepo, tagSystem)
@@ -50,6 +52,7 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	vulnService := assetService.NewAssetVulnService(vulnRepo, tagSystem)
 	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo, tagSystem)
 	scanService := assetService.NewAssetScanService(scanRepo, networkRepo)
+	etlErrorService := assetService.NewAssetETLErrorService(etlErrorRepo, etlProcessor)
 
 	// 2.1 指纹规则管理
 	// 从配置中获取规则加密密钥，如果未配置则默认为空
@@ -71,6 +74,7 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	unifiedHandler := assetHandler.NewAssetUnifiedHandler(unifiedService)
 	scanHandler := assetHandler.NewAssetScanHandler(scanService)
 	fingerprintRuleHandler := assetHandler.NewFingerprintRuleHandler(fingerprintRuleManager)
+	etlErrorHandler := assetHandler.NewETLErrorHandler(etlErrorService)
 
 	logger.WithFields(map[string]interface{}{
 		"path":      "setup.asset",
@@ -79,17 +83,18 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	}).Info("资产管理模块初始化完成")
 
 	return &AssetModule{
-		AssetRawHandler:             rawHandler,
-		AssetHostHandler:            hostHandler,
-		AssetNetworkHandler:         networkHandler,
-		AssetPolicyHandler:          policyHandler,
-		AssetFingerCmsHandler:       fingerCmsHandler,
-		AssetFingerServiceHandler:   fingerServiceHandler,
-		AssetWebHandler:             webHandler,
-		AssetVulnHandler:            vulnHandler,
-		AssetUnifiedHandler:         unifiedHandler,
-		AssetScanHandler:            scanHandler,
-		AssetFingerprintRuleHandler: fingerprintRuleHandler,
+		AssetRawHandler:           rawHandler,
+		AssetHostHandler:          hostHandler,
+		AssetNetworkHandler:       networkHandler,
+		AssetPolicyHandler:        policyHandler,
+		AssetFingerCmsHandler:     fingerCmsHandler,
+		AssetFingerServiceHandler: fingerServiceHandler,
+		AssetWebHandler:           webHandler,
+		AssetVulnHandler:          vulnHandler,
+		AssetUnifiedHandler:       unifiedHandler,
+		AssetScanHandler:          scanHandler,
+		FingerprintRuleHandler:    fingerprintRuleHandler,
+		ETLErrorHandler:           etlErrorHandler,
 
 		AssetRawService:           rawService,
 		AssetHostService:          hostService,
@@ -102,5 +107,6 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 		AssetUnifiedService:       unifiedService,
 		AssetScanService:          scanService,
 		FingerprintRuleManager:    fingerprintRuleManager,
+		AssetETLErrorService:      etlErrorService,
 	}
 }

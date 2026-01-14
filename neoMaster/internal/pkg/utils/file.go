@@ -6,9 +6,9 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 )
 
 // 从文件读取内容返回列表
@@ -21,7 +21,7 @@ func ReadFileLines(filePath string) ([]string, error) {
 	}
 
 	// 读取文件内容
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("读取文件内容失败: %v", err)
 	}
@@ -49,15 +49,45 @@ func ReadFileLines(filePath string) ([]string, error) {
 // content: 文件内容
 // perm: 文件权限
 func WriteFile(filePath string, content []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(filePath, content, perm)
+	return os.WriteFile(filePath, content, perm)
 }
 
 // ReadFile 读取文件内容
 // filePath: 文件路径
 // 返回: 文件内容, 错误信息
 func ReadFile(filePath string) ([]byte, error) {
-	return ioutil.ReadFile(filePath)
+	return os.ReadFile(filePath)
 }
+
+// MkdirAll 创建目录
+// path: 目录路径
+// perm: 目录权限
+func MkdirAll(path string, perm os.FileMode) error {
+	return os.MkdirAll(path, perm)
+}
+
+// Rename 重命名文件或移动文件
+// oldPath: 原路径
+// newPath: 新路径
+func Rename(oldPath, newPath string) error {
+	return os.Rename(oldPath, newPath)
+}
+
+// Chtimes 修改文件访问和修改时间
+// name: 文件路径
+// atime: 访问时间
+// mtime: 修改时间
+func Chtimes(name string, atime time.Time, mtime time.Time) error {
+	return os.Chtimes(name, atime, mtime)
+}
+
+// ReadDir 读取目录内容
+// name: 目录路径
+// 返回: 目录项列表, 错误信息
+func ReadDir(name string) ([]os.DirEntry, error) {
+	return os.ReadDir(name)
+}
+
 func ReadCSVColumn(filePath string, column int) ([]string, error) {
 	// 检查文件是否存在
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {

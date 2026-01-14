@@ -150,10 +150,11 @@ type AgentVersionResponse struct {
 // HeartbeatResponse 心跳响应结构
 // 返回心跳处理结果
 type HeartbeatResponse struct {
-	AgentID   string    `json:"agent_id"`  // Agent唯一标识ID
-	Status    string    `json:"status"`    // 处理状态
-	Message   string    `json:"message"`   // 响应消息
-	Timestamp time.Time `json:"timestamp"` // 响应时间戳
+	AgentID      string            `json:"agent_id"`                // Agent唯一标识ID
+	Status       string            `json:"status"`                  // 处理状态
+	Message      string            `json:"message"`                 // 响应消息
+	Timestamp    time.Time         `json:"timestamp"`               // 响应时间戳
+	RuleVersions map[string]string `json:"rule_versions,omitempty"` // 规则版本信息 {"fingerprint": "hash...", "poc": "hash..."}
 }
 
 // AgentDeleteResponse Agent删除响应结构

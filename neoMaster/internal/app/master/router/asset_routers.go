@@ -250,10 +250,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			scans.GET("/latest/:network_id", r.assetScanHandler.GetLatestScanByNetworkID) // 获取指定网络ID的最新扫描记录
 		}
 
-		// ETL 错误管理
+		// ETL 错误管理(资产清理系统 - 死信队列DB管理)
 		etlErrors := assetGroup.Group("/etl/errors")
 		{
 			etlErrors.GET("", r.etlErrorHandler.ListErrors)            // 获取错误列表
+			etlErrors.GET("/:id", r.etlErrorHandler.GetError)          // 获取错误详情
 			etlErrors.POST("/replay", r.etlErrorHandler.TriggerReplay) // 触发重放
 		}
 	}

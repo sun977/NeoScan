@@ -173,6 +173,28 @@ func (s *AssetCPEService) RemoveTagFromCPERule(ctx context.Context, ruleID uint6
 	return nil
 }
 
+// UpdateCPERuleStatus 更新 CPE 指纹规则状态
+// 启用或者禁用 CPE 指纹规则
+func (s *AssetCPEService) UpdateCPERuleStatus(ctx context.Context, id uint64, enabled bool) error {
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return errors.New("cpe rule not found")
+	}
+
+	if err := s.repo.UpdateStatus(ctx, id, enabled); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "update_cpe_rule_status", "SERVICE", map[string]interface{}{
+			"operation": "update_cpe_rule_status",
+			"id":        id,
+			"enabled":   enabled,
+		})
+		return err
+	}
+	return nil
+}
+
 func (s *AssetCPEService) GetCPERuleTags(ctx context.Context, ruleID uint64) ([]tagsystem.SysTag, error) {
 	rule, err := s.repo.GetByID(ctx, ruleID)
 	if err != nil {

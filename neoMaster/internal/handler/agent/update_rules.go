@@ -106,7 +106,7 @@ func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 	}
 
 	// 使用 GetEncryptedSnapshot 获取带签名的指纹快照
-	// 2. 获取加密/签名的指纹库快照 agentService.RuleTypeFingerprint = "fingerprint"
+	// 2. 获取加密/签名的指纹库快照 常量：agentService.RuleTypeFingerprint = "fingerprint"
 	snapshot, err := h.agentUpdateService.GetEncryptedSnapshot(c.Request.Context(), agentService.RuleTypeFingerprint)
 	if err != nil {
 		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
@@ -145,5 +145,6 @@ func (h *AgentHandler) DownloadFingerprintSnapshot(c *gin.Context) {
 		c.Header("X-Rule-Signature", snapshot.Signature)
 		// 将签名放入 Header 的 X-Rule-Signature 字段中
 	}
+	// 3. 返回加密/签名的指纹库快照
 	c.Data(http.StatusOK, snapshot.ContentType, snapshot.Bytes)
 }

@@ -81,6 +81,53 @@ func TestAssetMerger_WebAssets_CreateWebAndDetail(t *testing.T) {
 	assert.Equal(t, "mock", detail.Screenshot)
 }
 
+func TestAssetMerger_Host_MergeSourceStageIDs(t *testing.T) {
+	db := newTestDB(t)
+	hostRepo := assetRepo.NewAssetHostRepository(db)
+	webRepo := assetRepo.NewAssetWebRepository(db)
+	vulnRepo := assetRepo.NewAssetVulnRepository(db)
+	unifiedRepo := assetRepo.NewAssetUnifiedRepository(db)
+
+	merger := NewAssetMerger(hostRepo, webRepo, vulnRepo, unifiedRepo)
+	ctx := context.Background()
+
+	// 1. Initial Merge: Stage [1, 2]
+	bundle1 := &AssetBundle{
+		ProjectID: 1,
+		Host: &assetModel.AssetHost{
+			IP:             "10.0.0.5",
+			SourceStageIDs: "[1, 2]",
+		},
+	}
+	err := merger.Merge(ctx, bundle1)
+	assert.NoError(t, err)
+
+	host, err := hostRepo.GetHostByIP(ctx, "10.0.0.5")
+	assert.NoError(t, err)
+	assert.JSONEq(t, "[1, 2]", host.SourceStageIDs)
+
+	// 2. Second Merge: Stage [2, 3] -> Expect [1, 2, 3]
+	bundle2 := &AssetBundle{
+		ProjectID: 1,
+		Host: &assetModel.AssetHost{
+			IP:             "10.0.0.5",
+			SourceStageIDs: "[2, 3]",
+		},
+	}
+	err = merger.Merge(ctx, bundle2)
+	assert.NoError(t, err)
+
+	host, err = hostRepo.GetHostByIP(ctx, "10.0.0.5")
+	assert.NoError(t, err)
+
+	// Check contains all IDs (order may vary)
+	assert.Contains(t, host.SourceStageIDs, "1")
+	assert.Contains(t, host.SourceStageIDs, "2")
+	assert.Contains(t, host.SourceStageIDs, "3")
+	// Length check (approximate due to JSON formatting)
+	// Or parse and check set
+}
+
 func TestAssetMerger_Vuln_ServiceTargetCreatesStubService(t *testing.T) {
 	db := newTestDB(t)
 	hostRepo := assetRepo.NewAssetHostRepository(db)

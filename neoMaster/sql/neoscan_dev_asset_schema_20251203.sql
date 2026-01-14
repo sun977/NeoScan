@@ -350,3 +350,27 @@ CREATE TABLE `raw_asset_networks` (
   KEY `idx_raw_asset_networks_network` (`network`),
   KEY `idx_raw_asset_networks_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='待确认网段表';
+
+-- ----------------------------
+-- Table structure for asset_etl_errors
+-- ----------------------------
+DROP TABLE IF EXISTS `asset_etl_errors`;
+CREATE TABLE `asset_etl_errors` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  `deleted_at` datetime(3) DEFAULT NULL,
+  `project_id` bigint unsigned NOT NULL COMMENT '所属项目ID',
+  `task_id` varchar(64) NOT NULL COMMENT '任务ID',
+  `result_type` varchar(64) NOT NULL COMMENT '结果类型',
+  `raw_data` text COMMENT '原始 StageResult JSON',
+  `error_msg` text COMMENT '错误堆栈信息',
+  `error_stage` varchar(20) DEFAULT NULL COMMENT '出错阶段: mapper, merger',
+  `retry_count` int DEFAULT '0' COMMENT '重试次数',
+  `status` varchar(20) DEFAULT 'new' COMMENT '状态: new, retrying, resolved, ignored',
+  PRIMARY KEY (`id`),
+  KEY `idx_asset_etl_errors_deleted_at` (`deleted_at`),
+  KEY `idx_asset_etl_errors_project_id` (`project_id`),
+  KEY `idx_asset_etl_errors_task_id` (`task_id`),
+  KEY `idx_asset_etl_errors_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='ETL错误记录表(死信队列)';

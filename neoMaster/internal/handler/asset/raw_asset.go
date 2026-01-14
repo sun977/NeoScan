@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -211,7 +212,20 @@ func (h *RawAssetHandler) ListRawAssets(c *gin.Context) {
 	batchID := c.Query("batch_id")
 	status := c.Query("status")
 
-	rawAssets, total, err := h.service.ListRawAssets(c.Request.Context(), page, pageSize, batchID, status)
+	// 处理标签过滤
+	var tagIDs []uint64
+	tagIDsStr := c.Query("tag_ids")
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, idStr := range ids {
+			id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
+			if err == nil {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	rawAssets, total, err := h.service.ListRawAssets(c.Request.Context(), page, pageSize, batchID, status, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_raw_assets",
@@ -243,6 +257,165 @@ func (h *RawAssetHandler) ListRawAssets(c *gin.Context) {
 		Status:  "success",
 		Message: "Raw assets retrieved successfully",
 		Data:    pagination,
+	})
+}
+
+// AddRawAssetTagRequest 添加标签请求
+type AddRawAssetTagRequest struct {
+	TagID uint64 `json:"tag_id" binding:"required"`
+}
+
+// AddRawAssetTag 添加原始资产标签
+func (h *RawAssetHandler) AddRawAssetTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req AddRawAssetTagRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToRawAsset(c.Request.Context(), id, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_raw_asset_tag",
+			"id":        id,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to raw asset",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_raw_asset_tag", 0, "", clientIP, XRequestID, "success", "Tag added to raw asset successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to raw asset successfully",
+	})
+}
+
+// RemoveRawAssetTag 删除原始资产标签
+func (h *RawAssetHandler) RemoveRawAssetTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromRawAsset(c.Request.Context(), id, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_raw_asset_tag",
+			"id":        id,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from raw asset",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_raw_asset_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from raw asset successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from raw asset successfully",
+	})
+}
+
+// GetRawAssetTags 获取原始资产标签
+func (h *RawAssetHandler) GetRawAssetTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetRawAssetTags(c.Request.Context(), id)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_raw_asset_tags",
+			"id":        id,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get raw asset tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Raw asset tags retrieved successfully",
+		Data:    tags,
 	})
 }
 

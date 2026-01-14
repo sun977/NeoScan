@@ -30,6 +30,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			rawAssets.GET("/:id", r.assetRawHandler.GetRawAsset)                   // 获取原始资产详情
 			rawAssets.PATCH("/:id/status", r.assetRawHandler.UpdateRawAssetStatus) // 更新原始资产状态
 			rawAssets.GET("", r.assetRawHandler.ListRawAssets)                     // 获取原始资产列表
+
+			// 原始资产标签管理
+			rawAssets.GET("/:id/tags", r.assetRawHandler.GetRawAssetTags)              // 获取原始资产标签
+			rawAssets.POST("/:id/tags", r.assetRawHandler.AddRawAssetTag)              // 添加原始资产标签
+			rawAssets.DELETE("/:id/tags/:tag_id", r.assetRawHandler.RemoveRawAssetTag) // 删除原始资产标签
 		}
 
 		// 待处理网段管理

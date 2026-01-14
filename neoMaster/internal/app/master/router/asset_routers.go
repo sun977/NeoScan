@@ -45,6 +45,11 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			rawNetworks.POST("/:id/approve", r.assetRawHandler.ApproveRawNetwork) // 批准待处理网段
 			rawNetworks.POST("/:id/reject", r.assetRawHandler.RejectRawNetwork)   // 拒绝待处理网段
 			rawNetworks.GET("", r.assetRawHandler.ListRawNetworks)                // 获取待处理网段列表
+
+			// 待处理网段标签管理
+			rawNetworks.GET("/:id/tags", r.assetRawHandler.GetRawNetworkTags)              // 获取待处理网段标签
+			rawNetworks.POST("/:id/tags", r.assetRawHandler.AddRawNetworkTag)              // 添加待处理网段标签
+			rawNetworks.DELETE("/:id/tags/:tag_id", r.assetRawHandler.RemoveRawNetworkTag) // 删除待处理网段标签
 		}
 
 		// 网段管理

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"neomaster/internal/model/asset"
 	"neomaster/internal/pkg/logger"
 	assetrepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/fingerprint/converters"
@@ -51,11 +52,11 @@ func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrep
 	}
 }
 
-// ExportRules 导出全量规则到 JSON 字节流
+// ExportRules 导出所有规则 (Admin Backup)
 func (m *RuleManager) ExportRules(ctx context.Context) ([]byte, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.exportRulesInternal(ctx)
+	return m.exportRulesInternal(ctx, false) // 导出所有，包括禁用的
 }
 
 // ExportRulesWithSignature 导出规则并附带签名 (HMAC 或 SHA256)
@@ -72,14 +73,14 @@ func (m *RuleManager) CalculateSignature(data []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// PublishRulesToDisk 将当前数据库中的规则发布到磁盘文件 (原子操作)
-// 供 Agent 下载使用
+// PublishRulesToDisk 发布规则到磁盘 (Agent Download) 将当前数据库中的规则发布到磁盘文件 (原子操作)
+// 只发布 Enabled=true 的规则
 func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// 1. 获取全量数据
-	data, err := m.exportRulesInternal(ctx)
+	// 1. Export Data (Only Enabled)
+	data, err := m.exportRulesInternal(ctx, true)
 	if err != nil {
 		return err
 	}
@@ -121,15 +122,27 @@ func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
 }
 
 // exportRulesInternal 内部导出逻辑，不加锁，供内部调用
-func (m *RuleManager) exportRulesInternal(ctx context.Context) ([]byte, error) {
-	// 1. Fetch All Fingers
-	fingers, err := m.fingerRepo.ListAll(ctx)
+func (m *RuleManager) exportRulesInternal(ctx context.Context, onlyEnabled bool) ([]byte, error) {
+	var err error
+	var fingers []*asset.AssetFinger
+	var cpes []*asset.AssetCPE
+
+	// 1. Fetch Fingers
+	if onlyEnabled {
+		fingers, err = m.fingerRepo.FindEnabled(ctx)
+	} else {
+		fingers, err = m.fingerRepo.ListAll(ctx)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("fetch fingers failed: %w", err)
 	}
 
-	// 2. Fetch All CPEs
-	cpes, err := m.cpeRepo.ListAll(ctx)
+	// 2. Fetch CPEs
+	if onlyEnabled {
+		cpes, err = m.cpeRepo.FindEnabled(ctx)
+	} else {
+		cpes, err = m.cpeRepo.ListAll(ctx)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("fetch cpes failed: %w", err)
 	}
@@ -218,7 +231,7 @@ func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bo
 
 // createBackup 创建当前规则库的快照
 func (m *RuleManager) createBackup(ctx context.Context) error {
-	data, err := m.exportRulesInternal(ctx)
+	data, err := m.exportRulesInternal(ctx, false) // 备份全量数据 true 只导出 Enabled false 导出所有
 	if err != nil {
 		return err
 	}

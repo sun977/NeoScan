@@ -21,6 +21,7 @@ type AssetFinger struct {
 	XPoweredBy string `json:"x_powered_by" gorm:"size:255;default:'';comment:X-Powered-By头"`
 	Body       string `json:"body" gorm:"size:255;comment:HTTP响应体"`
 	Match      string `json:"match" gorm:"size:255;comment:匹配模式(如正则)"`
+	Enabled    bool   `json:"enabled" gorm:"default:true;comment:是否启用"`
 }
 
 // TableName 定义数据库表名

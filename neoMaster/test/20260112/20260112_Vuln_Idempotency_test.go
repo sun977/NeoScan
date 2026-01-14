@@ -72,6 +72,7 @@ func TestVulnIdempotency_UpsertSameIdentity(t *testing.T) {
 	host := &assetModel.AssetHost{
 		IP:             ip,
 		OS:             "Linux",
+		Tags:           "{}",
 		SourceStageIDs: "[]",
 	}
 	if err := hostRepo.CreateHost(ctx, host); err != nil {

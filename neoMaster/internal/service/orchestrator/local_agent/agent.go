@@ -286,10 +286,22 @@ func (w *LocalAgent) processAssetNetwork(ctx context.Context, payload TagPropaga
 	var assets []assetModel.AssetNetwork
 
 	err := w.db.WithContext(ctx).Model(&assetModel.AssetNetwork{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		// 0. 批量获取标签
+		var assetIDs []string
+		for _, asset := range assets {
+			assetIDs = append(assetIDs, strconv.FormatUint(asset.ID, 10))
+		}
+		tagsMap, _ := w.fetchTagsForAssets(ctx, "network", assetIDs)
+
 		for _, asset := range assets {
 			assetData, err := structToMap(asset)
 			if err != nil {
 				continue
+			}
+
+			// 注入标签数据
+			if tags, ok := tagsMap[strconv.FormatUint(asset.ID, 10)]; ok {
+				assetData["tags"] = tags
 			}
 
 			matched, err := matcher.Match(assetData, payload.Rule)
@@ -384,10 +396,22 @@ func (w *LocalAgent) processCleanupWeb(ctx context.Context, payload AssetCleanup
 	var assets []assetModel.AssetWeb
 
 	err := w.db.WithContext(ctx).Model(&assetModel.AssetWeb{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		// 0. 批量获取标签
+		var assetIDs []string
+		for _, asset := range assets {
+			assetIDs = append(assetIDs, strconv.FormatUint(asset.ID, 10))
+		}
+		tagsMap, _ := w.fetchTagsForAssets(ctx, "web", assetIDs)
+
 		for _, asset := range assets {
 			assetData, err := structToMap(asset)
 			if err != nil {
 				continue
+			}
+
+			// 注入标签数据
+			if tags, ok := tagsMap[strconv.FormatUint(asset.ID, 10)]; ok {
+				assetData["tags"] = tags
 			}
 
 			matched, err := matcher.Match(assetData, payload.Rule)
@@ -415,10 +439,22 @@ func (w *LocalAgent) processCleanupNetwork(ctx context.Context, payload AssetCle
 	var assets []assetModel.AssetNetwork
 
 	err := w.db.WithContext(ctx).Model(&assetModel.AssetNetwork{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		// 0. 批量获取标签
+		var assetIDs []string
+		for _, asset := range assets {
+			assetIDs = append(assetIDs, strconv.FormatUint(asset.ID, 10))
+		}
+		tagsMap, _ := w.fetchTagsForAssets(ctx, "network", assetIDs)
+
 		for _, asset := range assets {
 			assetData, err := structToMap(asset)
 			if err != nil {
 				continue
+			}
+
+			// 注入标签数据
+			if tags, ok := tagsMap[strconv.FormatUint(asset.ID, 10)]; ok {
+				assetData["tags"] = tags
 			}
 
 			matched, err := matcher.Match(assetData, payload.Rule)
@@ -466,6 +502,35 @@ func (w *LocalAgent) syncEntityTags(ctx context.Context, entityType string, enti
 			entityType, entityID, payload.TagIDs).
 			Delete(&tag_system.SysEntityTag{})
 	}
+}
+
+// fetchTagsForAssets 批量获取资产标签
+func (w *LocalAgent) fetchTagsForAssets(ctx context.Context, entityType string, entityIDs []string) (map[string][]string, error) {
+	if len(entityIDs) == 0 {
+		return nil, nil
+	}
+
+	type AssetTag struct {
+		EntityID string
+		Name     string
+	}
+	var results []AssetTag
+
+	err := w.db.WithContext(ctx).Table("sys_entity_tags").
+		Select("sys_entity_tags.entity_id, sys_tags.name").
+		Joins("JOIN sys_tags ON sys_entity_tags.tag_id = sys_tags.id").
+		Where("sys_entity_tags.entity_type = ? AND sys_entity_tags.entity_id IN ?", entityType, entityIDs).
+		Scan(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	tagMap := make(map[string][]string)
+	for _, r := range results {
+		tagMap[r.EntityID] = append(tagMap[r.EntityID], r.Name)
+	}
+	return tagMap, nil
 }
 
 // structToMap 辅助函数：结构体转Map

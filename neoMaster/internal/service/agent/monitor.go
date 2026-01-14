@@ -40,16 +40,18 @@ type AgentMonitorService interface {
 
 // agentMonitorService Agent监控服务实现
 type agentMonitorService struct {
-	agentRepo  agentRepository.AgentRepository // Agent数据访问层
-	tagService tag_system.TagService           // Tag服务
+	agentRepo     agentRepository.AgentRepository // Agent数据访问层
+	tagService    tag_system.TagService           // Tag服务
+	updateService AgentUpdateService              // 规则更新服务,用于获取规则版本信息返回给Agent
 }
 
 // NewAgentMonitorService 创建Agent监控服务实例
 // 遵循依赖注入原则，保持代码的可测试性
-func NewAgentMonitorService(agentRepo agentRepository.AgentRepository, tagService tag_system.TagService) AgentMonitorService {
+func NewAgentMonitorService(agentRepo agentRepository.AgentRepository, tagService tag_system.TagService, updateService AgentUpdateService) AgentMonitorService {
 	return &agentMonitorService{
-		agentRepo:  agentRepo,
-		tagService: tagService,
+		agentRepo:     agentRepo,
+		tagService:    tagService,
+		updateService: updateService,
 	}
 }
 
@@ -116,12 +118,28 @@ func (s *agentMonitorService) ProcessHeartbeat(req *agentModel.HeartbeatRequest)
 		"status":    string(req.Status),
 	})
 
+	// 获取规则版本信息
+	// 这里的 GetSnapshotInfo 已经实现了内存缓存 (Lazy Cache)，所以调用开销非常小
+	// 我们目前只关注 Fingerprint，后续可扩展
+	ruleVersions := make(map[string]string)
+
+	// 指纹规则
+	if info, err := s.updateService.GetSnapshotInfo(context.Background(), RuleTypeFingerprint); err == nil && info != nil {
+		ruleVersions[string(RuleTypeFingerprint)] = info.VersionHash
+	}
+
+	// POC规则 (如果有)
+	// if info, err := s.updateService.GetSnapshotInfo(context.Background(), RuleTypePOC); err == nil && info != nil {
+	// 	ruleVersions[string(RuleTypePOC)] = info.VersionHash
+	// }
+
 	// 构造响应
 	response := &agentModel.HeartbeatResponse{
-		AgentID:   req.AgentID,
-		Status:    "success",
-		Message:   "Heartbeat processed successfully",
-		Timestamp: time.Now(),
+		AgentID:      req.AgentID,
+		Status:       "success",
+		Message:      "Heartbeat processed successfully",
+		Timestamp:    time.Now(),
+		RuleVersions: ruleVersions, // 规则版本信息
 	}
 
 	return response, nil

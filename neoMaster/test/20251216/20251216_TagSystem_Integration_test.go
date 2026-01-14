@@ -186,7 +186,7 @@ func TestTagSystemIntegration(t *testing.T) {
 	network := &assetModel.AssetNetwork{
 		CIDR:    testCIDR,
 		Network: testCIDR, // Network 字段也填上，避免非空约束
-		Tags:    "[]",     // Tags 字段是 JSON 类型，不能为空字符串
+		// Tags:    "[]",     // Tags 字段是 JSON 类型，不能为空字符串
 		// Name: "Test Network", // AssetNetwork 结构体中没有 Name 字段
 	}
 	if err2 := db.Create(network).Error; err2 != nil {

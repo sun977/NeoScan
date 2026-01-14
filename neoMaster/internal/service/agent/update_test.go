@@ -30,7 +30,7 @@ func TestGetEncryptedSnapshot(t *testing.T) {
 	}
 
 	testFileContent := []byte(`{"test": "content"}`)
-	if err2 := ioutil.WriteFile(filepath.Join(ruleDir, "test.json"), testFileContent, 0644); err2 != nil {
+	if err2 := utils.WriteFile(filepath.Join(ruleDir, "test.json"), testFileContent, 0644); err2 != nil {
 		t.Fatal(err2)
 	}
 

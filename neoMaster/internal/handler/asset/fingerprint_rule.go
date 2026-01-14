@@ -65,6 +65,39 @@ func (h *FingerprintRuleHandler) ExportRules(c *gin.Context) {
 	c.Data(http.StatusOK, "application/json", data)
 }
 
+// PublishRules 发布规则 (将数据库中的规则同步到磁盘文件，供 Agent 下载)
+// POST /api/v1/asset/fingerprint/rules/publish
+func (h *FingerprintRuleHandler) PublishRules(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	requestID := c.GetHeader("X-Request-ID")
+	urlPath := c.Request.URL.String()
+
+	if h.ruleManager == nil {
+		h.handleError(c, http.StatusInternalServerError, "rule manager not initialized", nil, requestID, clientIP, urlPath, "PublishRules")
+		return
+	}
+
+	// 1. 调用 Manager 执行发布逻辑 (DB -> Disk)
+	// 这个操作会：
+	// 1. 从 DB 读取最新规则
+	// 2. 生成 JSON 文件并覆盖磁盘上的规则文件
+	// 3. 更新文件 mtime，触发 AgentUpdateService 的缓存失效
+	if err := h.ruleManager.PublishRulesToDisk(c.Request.Context()); err != nil {
+		h.handleError(c, http.StatusInternalServerError, "failed to publish rules", err, requestID, clientIP, urlPath, "PublishRules")
+		return
+	}
+
+	logger.LogBusinessOperation("publish_fingerprint_rules", 0, "", clientIP, requestID, "success", "publish fingerprint rules to disk", map[string]interface{}{
+		"timestamp": logger.NowFormatted(),
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Rules published successfully. Agents will receive updates shortly.",
+	})
+}
+
 // ImportRules 导入规则 (Admin)
 // POST /api/v1/asset/fingerprint/rules/import
 func (h *FingerprintRuleHandler) ImportRules(c *gin.Context) {

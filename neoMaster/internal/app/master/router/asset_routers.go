@@ -195,13 +195,19 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 		}
 
 		// 指纹库规则管理 (Import/Export/Version/Rollback)
-		fingerprintRules := assetGroup.Group("/finger/rules")
+		fingerprintRules := assetGroup.Group("/fingerprint/rules")
 		{
-			fingerprintRules.GET("/version", r.assetFingerprintRuleHandler.GetVersion)      // 获取规则库版本
+			// 版本与状态
+			fingerprintRules.GET("/version", r.assetFingerprintRuleHandler.GetVersion)  // 获取规则库版本
+			fingerprintRules.GET("/backups", r.assetFingerprintRuleHandler.ListBackups) // 获取备份列表
+
+			// 核心操作
 			fingerprintRules.GET("/export", r.assetFingerprintRuleHandler.ExportRules)      // 导出规则库
 			fingerprintRules.POST("/import", r.assetFingerprintRuleHandler.ImportRules)     // 导入规则库
-			fingerprintRules.GET("/backups", r.assetFingerprintRuleHandler.ListBackups)     // 获取备份列表
 			fingerprintRules.POST("/rollback", r.assetFingerprintRuleHandler.RollbackRules) // 回滚规则库
+
+			// 发布 (Admin) - 将 DB 中的规则同步到 Agent 下载目录
+			fingerprintRules.POST("/publish", r.assetFingerprintRuleHandler.PublishRules)
 		}
 
 		// 统一资产视图

@@ -14,9 +14,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"neomaster/internal/config"
+	"neomaster/internal/pkg/logger"
 )
 
 // RuleType 定义规则库类型
@@ -55,6 +57,15 @@ type RuleSnapshot struct {
 	Signature   string `json:"signature,omitempty"` // 规则签名 (HMAC-SHA256)
 }
 
+// SnapshotCacheItem 缓存项
+// - 缓存结构 ： SnapshotCacheItem 存储了 {快照数据, 目录最后修改时间} 。
+// - 命中逻辑 ：每次请求时，先快速遍历一遍目录树获取最新的 mtime （这个操作比读取内容快几个数量级）。如果 mtime 没变，直接返回内存中的快照。
+// - 自动更新 ：一旦检测到 mtime 变大，立即触发重建流程，并更新缓存。
+type SnapshotCacheItem struct {
+	Snapshot    *RuleSnapshot // 缓存的快照
+	LastModTime time.Time     // 缓存对应的目录最后修改时间
+}
+
 // AgentUpdateService Agent更新服务接口
 // 负责构建和获取各种类型的规则库快照
 type AgentUpdateService interface {
@@ -64,14 +75,20 @@ type AgentUpdateService interface {
 }
 
 type agentUpdateService struct {
-	cfg *config.Config
+	cfg   *config.Config
+	cache map[RuleType]*SnapshotCacheItem // 内存缓存 缓存了 规则快照
+	mu    sync.RWMutex                    // 读写锁保护缓存
 }
 
 func NewAgentUpdateService(cfg *config.Config) AgentUpdateService {
-	return &agentUpdateService{cfg: cfg}
+	return &agentUpdateService{
+		cfg:   cfg,
+		cache: make(map[RuleType]*SnapshotCacheItem),
+	}
 }
 
 // GetSnapshotInfo 获取指定类型规则的快照信息
+// 优化：优先读取缓存，如果文件系统有变动才重新构建
 func (s *agentUpdateService) GetSnapshotInfo(ctx context.Context, ruleType RuleType) (*RuleSnapshotInfo, error) {
 	snap, err := s.BuildSnapshot(ctx, ruleType)
 	if err != nil {
@@ -81,47 +98,78 @@ func (s *agentUpdateService) GetSnapshotInfo(ctx context.Context, ruleType RuleT
 }
 
 // BuildSnapshot 构建指定类型规则的快照
+// 优化：实现基于目录 mtime 的惰性缓存
+// 有缓存规则 -- 校验缓存规则有效性 --- 有效 --- 直接返回缓存规则快照
+//
+//	--- 无效 --- 删除旧缓存规则并重新构建规则快照返回(同时更新缓存规则)
+//
+// 无缓存规则 -- 构建规则快照返回(同时更新缓存规则)
 func (s *agentUpdateService) BuildSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error) {
-	// 1. 获取基础路径
-	// 优先从配置获取，如果配置没有特定的，则使用默认映射
-	// 目前配置似乎只针对 fingerprint 做了特殊处理，未来可以扩展配置结构
-	rulePath := ""
-	if s.cfg != nil {
-		if ruleType == RuleTypeFingerprint {
-			rulePath = s.cfg.GetFingerprintRulePath()
-		}
-		// TODO: 支持其他类型的自定义配置路径
+	// 1. 解析规则路径
+	resolvedPath := s.resolveRulePath(ruleType)
+
+	// 2. 获取目录的最新修改时间 (Latest ModTime)
+	// 注意：仅检查根目录的 ModTime 是不够的，因为修改子文件不一定会更新根目录的 mtime (取决于 OS 和文件系统)
+	// 严谨的做法是遍历所有文件取最大的 mtime。
+	// 为了性能平衡，我们采用 "快速检查" 策略：
+	// 如果目录下的文件变动频繁，建议用 fsnotify 或后台定时轮询。
+	// 这里为了简单且高效，我们遍历目录树获取最新的 ModTime，因为 List 操作比 Read+Zip+Hash 快得多。
+	latestModTime, err := getLatestModTime(resolvedPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check rule directory time: %w", err)
 	}
 
-	// 2. 如果配置为空，使用默认映射
-	resolvedPath := strings.TrimSpace(rulePath)
-	if resolvedPath == "" {
-		defaultPath, ok := rulePathMap[ruleType]
-		if !ok {
-			// 如果是未知的规则类型，我们可以报错，或者默认尝试 rules/{type}
-			defaultPath = filepath.Join("rules", string(ruleType))
+	// 3. 检查缓存
+	s.mu.RLock()
+	cachedItem, exists := s.cache[ruleType] // 如果缓存存在，则尝试获取快照
+	s.mu.RUnlock()
+
+	if exists && cachedItem.Snapshot != nil {
+		// 如果缓存存在，且目录最后修改时间没有晚于缓存记录的时间，直接返回缓存
+		// Equal 判断可能因为精度问题不准，使用 !After 更稳妥
+		if !latestModTime.After(cachedItem.LastModTime) {
+			// logger.LogInfo("Hit rule snapshot cache", "type", ruleType)
+			// 缓存规则有效,就直接返回
+			return cachedItem.Snapshot, nil
 		}
-		resolvedPath = defaultPath
 	}
 
-	// 3. 检查目录是否存在，不存在则尝试创建（或者报错，取决于策略）
-	// 这里我们选择只读，如果目录不存在 listRuleFiles 会报错
+	// 4. 缓存未命中或已过期，重新构建 (加锁防止并发重复构建)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 双重检查 (Double Check)
+	cachedItem, exists = s.cache[ruleType]
+	if exists && cachedItem.Snapshot != nil {
+		if !latestModTime.After(cachedItem.LastModTime) {
+			return cachedItem.Snapshot, nil
+		}
+	}
+
+	logger.LogBusinessOperation("rebuild_rule_snapshot", 0, "system", "localhost", "", "info", "rule files changed, rebuilding snapshot", map[string]interface{}{
+		"rule_type":       ruleType,
+		"latest_mod_time": latestModTime,
+	})
+
+	// --- 执行构建逻辑 (原逻辑) ---
+
+	// 检查目录是否存在
 	filePaths, err := listRuleFiles(resolvedPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list rule files for type %s at %s: %w", ruleType, resolvedPath, err)
 	}
 
-	// 4. 构建确定性 ZIP
+	// 构建确定性 ZIP
 	zipBytes, err := buildDeterministicZip(ctx, resolvedPath, filePaths)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build zip for type %s: %w", ruleType, err)
 	}
 
-	// 5. 计算 Hash
+	// 计算 Hash
 	h := md5.Sum(zipBytes)
-	version := hex.EncodeToString(h[:]) // 版本哈希
+	version := hex.EncodeToString(h[:])
 
-	// 6. 构建 RuleSnapshot
+	// 构建 RuleSnapshot
 	snapshot := &RuleSnapshot{
 		RuleSnapshotInfo: RuleSnapshotInfo{
 			Type:        ruleType,
@@ -133,7 +181,61 @@ func (s *agentUpdateService) BuildSnapshot(ctx context.Context, ruleType RuleTyp
 		ContentType: "application/zip",
 		Bytes:       zipBytes,
 	}
+
+	// 5. 更新缓存
+	s.cache[ruleType] = &SnapshotCacheItem{
+		Snapshot:    snapshot,
+		LastModTime: latestModTime,
+	}
+
 	return snapshot, nil
+}
+
+// resolveRulePath 解析规则路径
+func (s *agentUpdateService) resolveRulePath(ruleType RuleType) string {
+	rulePath := ""
+	if s.cfg != nil {
+		if ruleType == RuleTypeFingerprint {
+			rulePath = s.cfg.GetFingerprintRulePath()
+		}
+	}
+	resolvedPath := strings.TrimSpace(rulePath)
+	if resolvedPath == "" {
+		defaultPath, ok := rulePathMap[ruleType]
+		if !ok {
+			defaultPath = filepath.Join("rules", string(ruleType))
+		}
+		resolvedPath = defaultPath
+	}
+	return resolvedPath
+}
+
+// getLatestModTime 递归获取目录中所有文件最新的修改时间
+func getLatestModTime(root string) (time.Time, error) {
+	var latest time.Time
+
+	// 如果根目录不存在，直接返回错误，由上层处理
+	info, err := os.Stat(root)
+	if err != nil {
+		return latest, err
+	}
+	latest = info.ModTime()
+
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return nil // 忽略无法获取信息的文件
+		}
+		if info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+		return nil
+	})
+
+	return latest, err
 }
 
 // listRuleFiles 递归列出目录下所有文件的相对路径（不包含目录）

@@ -25,13 +25,13 @@ func TestGetEncryptedSnapshot(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	ruleDir := filepath.Join(tmpDir, "fingerprint")
-	if err := os.MkdirAll(ruleDir, 0755); err != nil {
-		t.Fatal(err)
+	if err1 := os.MkdirAll(ruleDir, 0755); err1 != nil {
+		t.Fatal(err1)
 	}
 
 	testFileContent := []byte(`{"test": "content"}`)
-	if err := ioutil.WriteFile(filepath.Join(ruleDir, "test.json"), testFileContent, 0644); err != nil {
-		t.Fatal(err)
+	if err2 := ioutil.WriteFile(filepath.Join(ruleDir, "test.json"), testFileContent, 0644); err2 != nil {
+		t.Fatal(err2)
 	}
 
 	secretKey := "test-secret-key-123456"

@@ -22,6 +22,8 @@ type ResultProcessor interface {
 	Start(ctx context.Context)
 	// Stop 停止处理
 	Stop()
+	// ReplayErrors 重放错误 (CLI/API 触发)
+	ReplayErrors(ctx context.Context) (int, error)
 }
 
 // resultProcessor 默认实现
@@ -174,8 +176,8 @@ func (p *resultProcessor) logEtlError(ctx context.Context, result *orcModel.Stag
 		return
 	}
 
-	// 序列化 RawData
-	rawDataBytes, _ := json.Marshal(result.Attributes)
+	// 序列化 RawData (保存完整 StageResult 上下文以便重放)
+	rawDataBytes, _ := json.Marshal(result)
 	rawDataStr := string(rawDataBytes)
 
 	etlError := &assetModel.AssetETLError{
@@ -194,4 +196,69 @@ func (p *resultProcessor) logEtlError(ctx context.Context, result *orcModel.Stag
 			"original_error": err.Error(),
 		})
 	}
+}
+
+// ReplayErrors 重放错误 (死信重放)
+func (p *resultProcessor) ReplayErrors(ctx context.Context) (int, error) {
+	if p.errorRepo == nil {
+		return 0, fmt.Errorf("error repository is nil")
+	}
+
+	count := 0
+	batchSize := 100
+
+	for {
+		// 1. 获取待处理错误 (status='new')
+		errors, err := p.errorRepo.GetByStatus(ctx, "new", batchSize)
+		if err != nil {
+			logger.LogError(err, "", 0, "", "etl.processor.ReplayErrors", "", map[string]interface{}{
+				"msg": "Failed to fetch pending errors",
+			})
+			return count, err
+		}
+
+		if len(errors) == 0 {
+			break
+		}
+
+		for _, etlError := range errors {
+			// 2. 反序列化 StageResult
+			var stageResult orcModel.StageResult
+			if err := json.Unmarshal([]byte(etlError.RawData), &stageResult); err != nil {
+				logger.LogError(err, "", 0, "", "etl.processor.ReplayErrors", "", map[string]interface{}{
+					"msg":      "Failed to unmarshal RawData",
+					"error_id": etlError.ID,
+				})
+				// 标记为 Ignored (数据损坏，无法重放)
+				p.errorRepo.UpdateStatus(ctx, etlError.ID, "ignored")
+				continue
+			}
+
+			// 3. 重新投递到队列
+			// 注意：这里我们选择投递到队列，让 Processor 重新消费。
+			// 这样做的好处是复用了 Processor 的所有逻辑（Mapper, Merger, Retry, Error Handling）。
+			if err := p.queue.Push(ctx, &stageResult); err != nil {
+				logger.LogError(err, "", 0, "", "etl.processor.ReplayErrors", "", map[string]interface{}{
+					"msg":      "Failed to push result to queue",
+					"error_id": etlError.ID,
+				})
+				continue // 保持状态为 new，下次再试
+			}
+
+			// 4. 更新状态为 retrying
+			if err := p.errorRepo.UpdateStatus(ctx, etlError.ID, "retrying"); err != nil {
+				logger.LogError(err, "", 0, "", "etl.processor.ReplayErrors", "", map[string]interface{}{
+					"msg":      "Failed to update error status",
+					"error_id": etlError.ID,
+				})
+			}
+			count++
+		}
+	}
+
+	logger.LogInfo("Replayed ETL errors", "", 0, "", "etl.processor.ReplayErrors", "", map[string]interface{}{
+		"replayed_count": count,
+	})
+
+	return count, nil
 }

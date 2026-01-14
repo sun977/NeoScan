@@ -30,10 +30,10 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentPullGroup := v1.Group("/agent")
 	agentPullGroup.Use(r.middlewareManager.GinAgentAuthMiddleware())
 	{
-		fingerprintGroup := agentPullGroup.Group("/fingerprint")
+		fingerprintGroup := agentPullGroup.Group("/rules")
 		{
 			fingerprintGroup.GET("/version", r.agentHandler.GetFingerprintVersion)
-			fingerprintGroup.GET("/download", r.agentHandler.DownloadFingerprintSnapshot)
+			fingerprintGroup.GET("/download", r.agentHandler.DownloadFingerprintSnapshot) // 下载指纹库快照(仅下载指纹快照-其他的规则后续补充)
 		}
 	}
 

@@ -28,6 +28,8 @@ type AssetFingerRepository interface {
 	ListAll(ctx context.Context) ([]*asset.AssetFinger, error)
 	// FindEnabled 获取所有已启用的指纹规则
 	FindEnabled(ctx context.Context) ([]*asset.AssetFinger, error)
+	// UpdateStatus 更新指纹规则状态
+	UpdateStatus(ctx context.Context, id uint64, enabled bool) error
 	// Upsert 创建或更新指纹规则
 	Upsert(ctx context.Context, rule *asset.AssetFinger) error
 }
@@ -171,6 +173,20 @@ func (r *assetFingerRepository) FindEnabled(ctx context.Context) ([]*asset.Asset
 		return nil, err
 	}
 	return rules, nil
+}
+
+// UpdateStatus 更新指纹规则状态
+// 启用或者禁用指纹规则
+func (r *assetFingerRepository) UpdateStatus(ctx context.Context, id uint64, enabled bool) error {
+	if err := r.db.WithContext(ctx).Model(&asset.AssetFinger{}).Where("id = ?", id).Update("enabled", enabled).Error; err != nil {
+		logger.LogError(err, "", 0, "", "update_asset_finger_status", "REPO", map[string]interface{}{
+			"operation": "update_asset_finger_status",
+			"id":        id,
+			"enabled":   enabled,
+		})
+		return err
+	}
+	return nil
 }
 
 // Upsert 创建或更新指纹规则

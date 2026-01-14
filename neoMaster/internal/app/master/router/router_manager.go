@@ -57,6 +57,7 @@ type Router struct {
 	assetUnifiedHandler         *assetHandler.AssetUnifiedHandler
 	assetScanHandler            *assetHandler.AssetScanHandler
 	assetFingerprintRuleHandler *assetHandler.FingerprintRuleHandler // 指纹规则的导入导出
+	etlErrorHandler             *assetHandler.ETLErrorHandler        // ETL错误管理
 
 	// 编排器相关Handler
 	projectHandler          *orchestratorHandler.ProjectHandler
@@ -117,11 +118,12 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	// 通过 setup.BuildTagSystemModule 初始化标签系统模块
 	tagModule := setup.BuildTagSystemModule(db)
 
-	// 通过 setup.BuildAssetModule 初始化资产管理模块
-	assetModule := setup.BuildAssetModule(db, config, tagModule.TagService)
-
 	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块
 	orchestratorModule := setup.BuildOrchestratorModule(db, config, tagModule.TagService)
+
+	// 通过 setup.BuildAssetModule 初始化资产管理模块
+	// 注意：BuildAssetModule 依赖 OrchestratorModule.ETLProcessor，所以必须在 OrchestratorModule 之后初始化
+	assetModule := setup.BuildAssetModule(db, config, tagModule.TagService, orchestratorModule.ETLProcessor)
 
 	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
 	// TaskDispatcher 现已完全由 Orchestrator 管理，AgentModule 不再需要注入
@@ -146,7 +148,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	assetVulnHandler := assetModule.AssetVulnHandler
 	assetUnifiedHandler := assetModule.AssetUnifiedHandler
 	assetScanHandler := assetModule.AssetScanHandler
-	assetFingerprintRuleHandler := assetModule.AssetFingerprintRuleHandler
+	assetFingerprintRuleHandler := assetModule.FingerprintRuleHandler
+	etlErrorHandler := assetModule.ETLErrorHandler
 
 	// 从 TagModule 中获取处理器
 	tagHandler := tagModule.TagHandler
@@ -181,6 +184,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		assetUnifiedHandler:         assetUnifiedHandler,
 		assetScanHandler:            assetScanHandler,
 		assetFingerprintRuleHandler: assetFingerprintRuleHandler,
+		etlErrorHandler:             etlErrorHandler,
 
 		// 扫描编排器相关Handler
 		projectHandler:          projectHandler,

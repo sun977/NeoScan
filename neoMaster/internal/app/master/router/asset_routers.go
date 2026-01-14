@@ -249,6 +249,13 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			scans.GET("", r.assetScanHandler.ListScans)                                   // 获取扫描记录列表
 			scans.GET("/latest/:network_id", r.assetScanHandler.GetLatestScanByNetworkID) // 获取指定网络ID的最新扫描记录
 		}
+
+		// ETL 错误管理
+		etlErrors := assetGroup.Group("/etl/errors")
+		{
+			etlErrors.GET("", r.etlErrorHandler.ListErrors)            // 获取错误列表
+			etlErrors.POST("/replay", r.etlErrorHandler.TriggerReplay) // 触发重放
+		}
 	}
 
 	logger.WithFields(map[string]interface{}{

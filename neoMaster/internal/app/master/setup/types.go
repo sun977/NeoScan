@@ -141,17 +141,18 @@ type OrchestratorModule struct {
 // - AssetHostService：对应的业务服务实例。
 type AssetModule struct {
 	// Handlers
-	AssetRawHandler             *assetHandler.RawAssetHandler
-	AssetHostHandler            *assetHandler.AssetHostHandler
-	AssetNetworkHandler         *assetHandler.AssetNetworkHandler
-	AssetPolicyHandler          *assetHandler.AssetPolicyHandler
-	AssetFingerCmsHandler       *assetHandler.AssetFingerHandler
-	AssetFingerServiceHandler   *assetHandler.AssetCPEHandler
-	AssetWebHandler             *assetHandler.AssetWebHandler
-	AssetVulnHandler            *assetHandler.AssetVulnHandler
-	AssetUnifiedHandler         *assetHandler.AssetUnifiedHandler
-	AssetScanHandler            *assetHandler.AssetScanHandler
-	AssetFingerprintRuleHandler *assetHandler.FingerprintRuleHandler
+	AssetRawHandler           *assetHandler.RawAssetHandler
+	AssetHostHandler          *assetHandler.AssetHostHandler
+	AssetNetworkHandler       *assetHandler.AssetNetworkHandler
+	AssetPolicyHandler        *assetHandler.AssetPolicyHandler
+	AssetFingerCmsHandler     *assetHandler.AssetFingerHandler
+	AssetFingerServiceHandler *assetHandler.AssetCPEHandler
+	AssetWebHandler           *assetHandler.AssetWebHandler
+	AssetVulnHandler          *assetHandler.AssetVulnHandler
+	AssetUnifiedHandler       *assetHandler.AssetUnifiedHandler
+	AssetScanHandler          *assetHandler.AssetScanHandler
+	FingerprintRuleHandler    *assetHandler.FingerprintRuleHandler
+	ETLErrorHandler           *assetHandler.ETLErrorHandler
 
 	// Services
 	AssetRawService           *assetService.RawAssetService
@@ -165,4 +166,5 @@ type AssetModule struct {
 	AssetUnifiedService       *assetService.AssetUnifiedService
 	AssetScanService          *assetService.AssetScanService
 	FingerprintRuleManager    *fingerprint.RuleManager
+	AssetETLErrorService      assetService.AssetETLErrorService
 }

@@ -13,6 +13,7 @@ import (
 	agentService "neomaster/internal/service/agent"
 )
 
+// GetFingerprintVersion 获取指纹库版本
 func (h *AgentHandler) GetFingerprintVersion(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	userAgent := c.GetHeader("User-Agent")

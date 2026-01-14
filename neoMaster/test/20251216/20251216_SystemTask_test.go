@@ -170,8 +170,8 @@ func TestSystemTaskExecution(t *testing.T) {
 
 	// 1. Seed Asset
 	host := &assetModel.AssetHost{
-		IP:   "192.168.1.100",
-		Tags: "[]",
+		IP: "192.168.1.100",
+		// Tags: "[]",
 	}
 	db.Create(host)
 
@@ -240,8 +240,8 @@ func TestSystemTaskCleanup(t *testing.T) {
 
 	// 1. Seed Asset
 	host := &assetModel.AssetHost{
-		IP:   "192.168.1.200",
-		Tags: "[\"deprecated\"]",
+		IP: "192.168.1.200",
+		// Tags: "[\"deprecated\"]",
 	}
 	db.Create(host)
 

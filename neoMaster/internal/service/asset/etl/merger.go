@@ -241,7 +241,19 @@ func (m *assetMerger) upsertHost(ctx context.Context, host *assetModel.AssetHost
 		if host.OS != "" {
 			existing.OS = host.OS
 		}
-		// TODO: 合并 SourceStageIDs
+
+		// 合并 SourceStageIDs
+		mergedIDs, err := mergeJSONIDs(existing.SourceStageIDs, host.SourceStageIDs)
+		if err != nil {
+			// 仅记录错误但不阻断流程，优先保证资产更新
+			// logger.LogWarn("failed to merge source_stage_ids", ...)
+			// 保持原样或使用新的
+			if existing.SourceStageIDs == "" || existing.SourceStageIDs == "[]" {
+				existing.SourceStageIDs = host.SourceStageIDs
+			}
+		} else {
+			existing.SourceStageIDs = mergedIDs
+		}
 
 		if err := m.hostRepo.UpdateHost(ctx, existing); err != nil {
 			return 0, fmt.Errorf("update host failed: %w", err)
@@ -515,4 +527,45 @@ func extractURLFromVulnAttributes(raw string) string {
 
 func timePtr(t time.Time) *time.Time {
 	return &t
+}
+
+// mergeJSONIDs 合并两个 JSON 数组形式的 ID 列表
+// 确保 ID 唯一且不丢失
+func mergeJSONIDs(oldJSON, newJSON string) (string, error) {
+	// 1. 解析旧 ID
+	idSet := make(map[string]struct{})
+
+	if oldJSON != "" && oldJSON != "[]" {
+		var oldIDs []interface{} // 使用 interface{} 以兼容 string 或 number 类型的 ID
+		if err := json.Unmarshal([]byte(oldJSON), &oldIDs); err != nil {
+			return "", err
+		}
+		for _, id := range oldIDs {
+			idSet[fmt.Sprintf("%v", id)] = struct{}{}
+		}
+	}
+
+	// 2. 解析新 ID
+	if newJSON != "" && newJSON != "[]" {
+		var newIDs []interface{}
+		if err := json.Unmarshal([]byte(newJSON), &newIDs); err != nil {
+			return "", err
+		}
+		for _, id := range newIDs {
+			idSet[fmt.Sprintf("%v", id)] = struct{}{}
+		}
+	}
+
+	// 3. 重新构建列表
+	mergedIDs := make([]string, 0, len(idSet))
+	for id := range idSet {
+		mergedIDs = append(mergedIDs, id)
+	}
+
+	// 4. 序列化
+	bytes, err := json.Marshal(mergedIDs)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }

@@ -165,12 +165,15 @@ func (r *RawAssetRepository) UpdateRawNetworkStatus(ctx context.Context, id uint
 }
 
 // ListRawNetworks 获取待确认网段列表
-func (r *RawAssetRepository) ListRawNetworks(ctx context.Context, page, pageSize int, status string, sourceType string) ([]*assetmodel.RawAssetNetwork, int64, error) {
+func (r *RawAssetRepository) ListRawNetworks(ctx context.Context, page, pageSize int, status string, sourceType string, rawNetworkIDs []uint64) ([]*assetmodel.RawAssetNetwork, int64, error) {
 	var networks []*assetmodel.RawAssetNetwork
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&assetmodel.RawAssetNetwork{})
 
+	if len(rawNetworkIDs) > 0 {
+		query = query.Where("id IN ?", rawNetworkIDs)
+	}
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}

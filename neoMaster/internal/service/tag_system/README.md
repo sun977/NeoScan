@@ -11,6 +11,8 @@
 - agent 任务：其他 Agent 执行的任务
 
 #### 资产相关的实体支持打标实体：
+- RawAsset
+- RawNetwork
 - AssetHost
 - AssetService
 - AssetWeb

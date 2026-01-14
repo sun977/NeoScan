@@ -628,7 +628,20 @@ func (h *RawAssetHandler) ListRawNetworks(c *gin.Context) {
 	status := c.Query("status")
 	sourceType := c.Query("source_type")
 
-	networks, total, err := h.service.ListRawNetworks(c.Request.Context(), page, pageSize, status, sourceType)
+	// 处理标签过滤
+	var tagIDs []uint64
+	tagIDsStr := c.Query("tag_ids")
+	if tagIDsStr != "" {
+		ids := strings.Split(tagIDsStr, ",")
+		for _, idStr := range ids {
+			id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
+			if err == nil {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	networks, total, err := h.service.ListRawNetworks(c.Request.Context(), page, pageSize, status, sourceType, tagIDs)
 	if err != nil {
 		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
 			"operation": "list_raw_networks",
@@ -660,5 +673,164 @@ func (h *RawAssetHandler) ListRawNetworks(c *gin.Context) {
 		Status:  "success",
 		Message: "Raw networks retrieved successfully",
 		Data:    pagination,
+	})
+}
+
+// AddRawNetworkTagRequest 添加标签请求
+type AddRawNetworkTagRequest struct {
+	TagID uint64 `json:"tag_id" binding:"required"`
+}
+
+// AddRawNetworkTag 添加待确认网段标签
+func (h *RawAssetHandler) AddRawNetworkTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req AddRawNetworkTagRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.AddTagToRawNetwork(c.Request.Context(), id, req.TagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "POST", map[string]interface{}{
+			"operation": "add_raw_network_tag",
+			"id":        id,
+			"tag_id":    req.TagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to add tag to raw network",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("add_raw_network_tag", 0, "", clientIP, XRequestID, "success", "Tag added to raw network successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": req.TagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag added to raw network successfully",
+	})
+}
+
+// RemoveRawNetworkTag 删除待确认网段标签
+func (h *RawAssetHandler) RemoveRawNetworkTag(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tagIDStr := c.Param("tag_id")
+	tagID, err := strconv.ParseUint(tagIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid Tag ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.RemoveTagFromRawNetwork(c.Request.Context(), id, tagID); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "DELETE", map[string]interface{}{
+			"operation": "remove_raw_network_tag",
+			"id":        id,
+			"tag_id":    tagID,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to remove tag from raw network",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("remove_raw_network_tag", 0, "", clientIP, XRequestID, "success", "Tag removed from raw network successfully", map[string]interface{}{
+		"id":     id,
+		"tag_id": tagID,
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Tag removed from raw network successfully",
+	})
+}
+
+// GetRawNetworkTags 获取待确认网段标签
+func (h *RawAssetHandler) GetRawNetworkTags(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	tags, err := h.service.GetRawNetworkTags(c.Request.Context(), id)
+	if err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "GET", map[string]interface{}{
+			"operation": "get_raw_network_tags",
+			"id":        id,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "Failed to get raw network tags",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Raw network tags retrieved successfully",
+		Data:    tags,
 	})
 }

@@ -231,6 +231,124 @@ func (s *RawAssetService) RejectRawNetwork(ctx context.Context, id uint64) error
 }
 
 // ListRawNetworks 获取待确认网段列表
-func (s *RawAssetService) ListRawNetworks(ctx context.Context, page, pageSize int, status string, sourceType string) ([]*assetmodel.RawAssetNetwork, int64, error) {
-	return s.repo.ListRawNetworks(ctx, page, pageSize, status, sourceType)
+func (s *RawAssetService) ListRawNetworks(ctx context.Context, page, pageSize int, status string, sourceType string, tagIDs []uint64) ([]*assetmodel.RawAssetNetwork, int64, error) {
+	var rawNetworkIDs []uint64
+
+	// 如果指定了标签，先从标签系统获取对应的 RawNetworkID 列表
+	if len(tagIDs) > 0 {
+		entityIDsStr, err := s.tagService.GetEntityIDsByTagIDs(ctx, "raw_network", tagIDs)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "list_raw_networks_get_tags", "SERVICE", map[string]interface{}{
+				"operation": "list_raw_networks_get_tags",
+				"tag_ids":   tagIDs,
+			})
+			return nil, 0, err
+		}
+
+		if len(entityIDsStr) == 0 {
+			return []*assetmodel.RawAssetNetwork{}, 0, nil
+		}
+
+		// 转换 ID 类型
+		for _, idStr := range entityIDsStr {
+			id, err := strconv.ParseUint(idStr, 10, 64)
+			if err != nil {
+				continue
+			}
+			rawNetworkIDs = append(rawNetworkIDs, id)
+		}
+
+		if len(rawNetworkIDs) == 0 {
+			return []*assetmodel.RawAssetNetwork{}, 0, nil
+		}
+	}
+
+	return s.repo.ListRawNetworks(ctx, page, pageSize, status, sourceType, rawNetworkIDs)
+}
+
+// AddTagToRawNetwork 添加标签到待确认网段
+func (s *RawAssetService) AddTagToRawNetwork(ctx context.Context, rawNetworkID uint64, tagID uint64) error {
+	// 检查待确认网段是否存在
+	rawNetwork, err := s.repo.GetRawNetworkByID(ctx, rawNetworkID)
+	if err != nil {
+		return err
+	}
+	if rawNetwork == nil {
+		return errors.New("raw network not found")
+	}
+
+	// 添加标签 (Source=manual)
+	err = s.tagService.AddEntityTag(ctx, "raw_network", strconv.FormatUint(rawNetworkID, 10), tagID, "manual", 0)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "add_tag_to_raw_network", "SERVICE", map[string]interface{}{
+			"operation":      "add_tag_to_raw_network",
+			"raw_network_id": rawNetworkID,
+			"tag_id":         tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// RemoveTagFromRawNetwork 从待确认网段移除标签
+func (s *RawAssetService) RemoveTagFromRawNetwork(ctx context.Context, rawNetworkID uint64, tagID uint64) error {
+	// 检查待确认网段是否存在
+	rawNetwork, err := s.repo.GetRawNetworkByID(ctx, rawNetworkID)
+	if err != nil {
+		return err
+	}
+	if rawNetwork == nil {
+		return errors.New("raw network not found")
+	}
+
+	err = s.tagService.RemoveEntityTag(ctx, "raw_network", strconv.FormatUint(rawNetworkID, 10), tagID)
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "remove_tag_from_raw_network", "SERVICE", map[string]interface{}{
+			"operation":      "remove_tag_from_raw_network",
+			"raw_network_id": rawNetworkID,
+			"tag_id":         tagID,
+		})
+		return err
+	}
+	return nil
+}
+
+// GetRawNetworkTags 获取待确认网段标签
+func (s *RawAssetService) GetRawNetworkTags(ctx context.Context, rawNetworkID uint64) ([]tagsystem.SysTag, error) {
+	// 检查待确认网段是否存在
+	rawNetwork, err := s.repo.GetRawNetworkByID(ctx, rawNetworkID)
+	if err != nil {
+		return nil, err
+	}
+	if rawNetwork == nil {
+		return nil, errors.New("raw network not found")
+	}
+
+	// 1. 获取实体关联关系
+	entityTags, err := s.tagService.GetEntityTags(ctx, "raw_network", strconv.FormatUint(rawNetworkID, 10))
+	if err != nil {
+		logger.LogBusinessError(err, "", 0, "", "get_raw_network_tags", "SERVICE", map[string]interface{}{
+			"operation":      "get_raw_network_tags",
+			"raw_network_id": rawNetworkID,
+		})
+		return nil, err
+	}
+
+	if len(entityTags) == 0 {
+		return []tagsystem.SysTag{}, nil
+	}
+
+	// 2. 提取TagIDs
+	var tagIDs []uint64
+	for _, et := range entityTags {
+		tagIDs = append(tagIDs, et.TagID)
+	}
+
+	// 3. 批量获取标签详情
+	tags, err := s.tagService.GetTagsByIDs(ctx, tagIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 }

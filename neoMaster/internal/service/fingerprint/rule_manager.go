@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,6 +16,7 @@ import (
 
 	"neomaster/internal/model/asset"
 	"neomaster/internal/pkg/logger"
+	"neomaster/internal/pkg/utils"
 	assetrepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/fingerprint/converters"
 )
@@ -99,7 +99,7 @@ func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
 	targetFile := filepath.Join(targetDir, "neoscan_fingerprint_rules.json")
 	tmpFile := targetFile + ".tmp"
 
-	if err := ioutil.WriteFile(tmpFile, data, 0644); err != nil {
+	if err := utils.WriteFile(tmpFile, data, 0644); err != nil {
 		return fmt.Errorf("failed to write tmp file: %w", err)
 	}
 
@@ -245,7 +245,7 @@ func (m *RuleManager) createBackup(ctx context.Context) error {
 	filename := fmt.Sprintf("rules_backup_%s.json", timestamp)
 	filepath := filepath.Join(m.backupDir, filename)
 
-	if err := ioutil.WriteFile(filepath, data, 0644); err != nil {
+	if err := utils.WriteFile(filepath, data, 0644); err != nil {
 		return err
 	}
 
@@ -263,7 +263,7 @@ func (m *RuleManager) ListBackups() ([]string, error) {
 	defer m.mu.RUnlock()
 
 	var backups []string
-	files, err := ioutil.ReadDir(m.backupDir)
+	files, err := os.ReadDir(m.backupDir)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (m *RuleManager) Rollback(ctx context.Context, filename string) error {
 	targetPath := filepath.Join(m.backupDir, filename)
 
 	// 2. Read Backup File
-	data, err := ioutil.ReadFile(targetPath)
+	data, err := utils.ReadFile(targetPath)
 	if err != nil {
 		return fmt.Errorf("read backup file failed: %w", err)
 	}

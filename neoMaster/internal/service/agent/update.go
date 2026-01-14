@@ -314,26 +314,39 @@ func buildDeterministicZip(ctx context.Context, root string, relPaths []string) 
 }
 
 // GetEncryptedSnapshot 获取加密/签名的快照
-// 说明：这里我们只做签名(Signature)，因为规则本身是 JSON/Zip，不需要保密，只需要防篡改。
-// Agent 收到后使用相同的 Secret 验证 HMAC-SHA256 签名即可。
-// Agent 从 Header 中的 X-Rule-Signature 获取签名，与计算结果对比即可。
+// 流程: 原始数据 -> AES-GCM 加密 -> HMAC-SHA256 签名
+// Agent 流程: 验证签名 -> AES-GCM 解密 -> 解压 ZIP
 func (s *agentUpdateService) GetEncryptedSnapshot(ctx context.Context, ruleType RuleType) (*RuleSnapshot, error) {
 	// 1. 复用 BuildSnapshot 获取原始快照
-	snapshot, err := s.BuildSnapshot(ctx, ruleType)
+	// 注意：BuildSnapshot 返回的是缓存对象的指针，不能直接修改其 Bytes 字段，否则会污染缓存！
+	// 必须拷贝一份 RuleSnapshot 对象
+	cachedSnapshot, err := s.BuildSnapshot(ctx, ruleType)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. 获取签名密钥
+	// 浅拷贝结构体
+	snapshot := *cachedSnapshot
+	// 此时 snapshot.Bytes 仍然指向缓存的切片，后续加密会生成新的切片，所以这里是安全的
+
+	// 2. 获取密钥
 	secret := ""
 	if s.cfg != nil {
 		secret = s.cfg.Security.Agent.RuleEncryptionKey
 	}
 
-	// 如果没有配置密钥，则不签名（或者报错，取决于策略）
-	// 为了兼容性，如果没有密钥，Signature 为空
+	// 3. 加密与签名
 	if secret != "" {
-		// 3. 计算 HMAC-SHA256 签名
+		// A. 加密 (AES-GCM)
+		encryptedBytes, err := encryptData(secret, snapshot.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt snapshot: %w", err)
+		}
+		snapshot.Bytes = encryptedBytes
+		snapshot.ContentType = "application/octet-stream" // 更改内容类型为二进制流
+		// 文件名增加后缀以示区分，或者保持不变由 Agent 处理，这里建议保持不变或加 .enc
+
+		// B. 签名 (HMAC-SHA256) - 对加密后的数据签名
 		h := hmac.New(sha256.New, []byte(secret))
 		h.Write(snapshot.Bytes)
 		signature := hex.EncodeToString(h.Sum(nil))
@@ -341,5 +354,5 @@ func (s *agentUpdateService) GetEncryptedSnapshot(ctx context.Context, ruleType 
 	}
 
 	// 返回加密/签名的快照
-	return snapshot, nil
+	return &snapshot, nil
 }

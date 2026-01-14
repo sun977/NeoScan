@@ -42,17 +42,17 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	etlErrorRepo := assetRepo.NewETLErrorRepository(db)
 
 	// 2. Service 初始化
-	rawService := assetService.NewRawAssetService(rawRepo, tagSystem)
-	hostService := assetService.NewAssetHostService(hostRepo, tagSystem)
-	networkService := assetService.NewAssetNetworkService(networkRepo, tagSystem)
-	policyService := assetService.NewAssetPolicyService(policyRepo, tagSystem)
-	fingerCmsService := assetService.NewAssetFingerService(fingerCmsRepo, tagSystem)
-	fingerServiceService := assetService.NewAssetCPEService(fingerServiceRepo, tagSystem)
-	webService := assetService.NewAssetWebService(webRepo, tagSystem)
-	vulnService := assetService.NewAssetVulnService(vulnRepo, tagSystem)
-	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo, tagSystem)
-	scanService := assetService.NewAssetScanService(scanRepo, networkRepo)
-	etlErrorService := assetService.NewAssetETLErrorService(etlErrorRepo, etlProcessor)
+	rawService := assetService.NewRawAssetService(rawRepo, tagSystem)                     // 原始资产管理服务
+	hostService := assetService.NewAssetHostService(hostRepo, tagSystem)                  // 主机资产服务
+	networkService := assetService.NewAssetNetworkService(networkRepo, tagSystem)         // 网络资产服务
+	policyService := assetService.NewAssetPolicyService(policyRepo, tagSystem)            // 策略执行服务
+	fingerCmsService := assetService.NewAssetFingerService(fingerCmsRepo, tagSystem)      // CMS指纹服务
+	fingerServiceService := assetService.NewAssetCPEService(fingerServiceRepo, tagSystem) // CPE指纹服务
+	webService := assetService.NewAssetWebService(webRepo, tagSystem)                     // Web资产服务
+	vulnService := assetService.NewAssetVulnService(vulnRepo, tagSystem)                  // 漏洞资产服务
+	unifiedService := assetService.NewAssetUnifiedService(unifiedRepo, tagSystem)         // 汇总资产服务
+	scanService := assetService.NewAssetScanService(scanRepo, networkRepo)                // 扫描记录服务(记录扫描记录)
+	etlErrorService := assetService.NewAssetETLErrorService(etlErrorRepo, etlProcessor)   // ETL错误处理服务
 
 	// 2.1 指纹规则管理
 	// 从配置中获取规则加密密钥，如果未配置则默认为空

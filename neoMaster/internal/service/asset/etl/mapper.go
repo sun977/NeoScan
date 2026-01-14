@@ -93,7 +93,6 @@ func mapIPAlive(result *orcModel.StageResult) ([]*AssetBundle, error) {
 			IP:             h.IP,
 			Hostname:       h.Hostname,
 			OS:             h.OS,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 
@@ -135,7 +134,6 @@ func mapPortScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
 			Proto:       p.Proto,
 			Name:        p.ServiceHint,
 			Fingerprint: "{}",
-			Tags:        "{}",
 		}
 		servicesByIP[targetIP] = append(servicesByIP[targetIP], svc)
 	}
@@ -145,7 +143,6 @@ func mapPortScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	for ip, services := range servicesByIP {
 		host := &assetModel.AssetHost{
 			IP:             ip,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -159,7 +156,6 @@ func mapPortScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
 		host := &assetModel.AssetHost{
 			IP:             defaultIP,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -196,7 +192,6 @@ func mapServiceFingerprint(result *orcModel.StageResult) ([]*AssetBundle, error)
 			CPE:         s.CPE,
 			Banner:      s.Banner,
 			Fingerprint: "{}",
-			Tags:        "{}",
 		}
 		servicesByIP[targetIP] = append(servicesByIP[targetIP], svc)
 	}
@@ -206,7 +201,6 @@ func mapServiceFingerprint(result *orcModel.StageResult) ([]*AssetBundle, error)
 	for ip, services := range servicesByIP {
 		host := &assetModel.AssetHost{
 			IP:             ip,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -219,7 +213,6 @@ func mapServiceFingerprint(result *orcModel.StageResult) ([]*AssetBundle, error)
 	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
 		host := &assetModel.AssetHost{
 			IP:             defaultIP,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -302,7 +295,6 @@ func mapVulnFinding(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	for ip, vulns := range vulnsByIP {
 		host := &assetModel.AssetHost{
 			IP:             ip,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -315,7 +307,6 @@ func mapVulnFinding(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
 		host := &assetModel.AssetHost{
 			IP:             defaultIP,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -415,7 +406,6 @@ func mapPocScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	for ip, vulns := range vulnsByIP {
 		host := &assetModel.AssetHost{
 			IP:             ip,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -428,7 +418,6 @@ func mapPocScan(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
 		host := &assetModel.AssetHost{
 			IP:             defaultIP,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -496,7 +485,6 @@ func mapWebEndpoint(result *orcModel.StageResult) ([]*AssetBundle, error) {
 			Domain:    u.Hostname(),
 			TechStack: string(techStackJSON),
 			BasicInfo: string(basicInfoJSON),
-			Tags:      "{}", // Tags 字段留空，后续删除,已经使用TagSystem支持打标
 		}
 
 		// 3. 构建 AssetWebDetail
@@ -522,7 +510,6 @@ func mapWebEndpoint(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	for ip, webAssets := range webAssetsByIP {
 		host := &assetModel.AssetHost{
 			IP:             ip,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -535,7 +522,6 @@ func mapWebEndpoint(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	if len(bundles) == 0 && !strings.Contains(defaultIP, "/") {
 		host := &assetModel.AssetHost{
 			IP:             defaultIP,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -614,7 +600,7 @@ func mapPasswordAudit(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	var bundles []*AssetBundle
 
 	for ip, serviceGroups := range grouped {
-		var vulns []*assetModel.AssetVuln
+		vulns := make([]*assetModel.AssetVuln, 0, len(serviceGroups))
 
 		for _, group := range serviceGroups {
 			// 构造标准 Attributes
@@ -671,7 +657,6 @@ func mapPasswordAudit(result *orcModel.StageResult) ([]*AssetBundle, error) {
 
 		host := &assetModel.AssetHost{
 			IP:             ip,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{
@@ -684,7 +669,6 @@ func mapPasswordAudit(result *orcModel.StageResult) ([]*AssetBundle, error) {
 	if len(bundles) == 0 && defaultIP != "" && !strings.Contains(defaultIP, "/") {
 		host := &assetModel.AssetHost{
 			IP:             defaultIP,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		}
 		bundles = append(bundles, &AssetBundle{

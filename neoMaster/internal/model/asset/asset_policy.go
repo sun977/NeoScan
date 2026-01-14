@@ -18,7 +18,6 @@ type AssetWhitelist struct {
 	ValidFrom     *time.Time `json:"valid_from" gorm:"comment:生效开始时间"`
 	ValidTo       *time.Time `json:"valid_to" gorm:"comment:生效结束时间"`
 	CreatedBy     string     `json:"created_by" gorm:"size:100;comment:创建人"`
-	Tags          string     `json:"tags" gorm:"type:json;comment:标签信息"`
 	Scope         string     `json:"scope" gorm:"type:json;comment:作用域配置"`
 	Enabled       bool       `json:"enabled" gorm:"default:true;comment:是否启用"`
 	Note          string     `json:"note" gorm:"type:text;comment:备注信息"`
@@ -43,7 +42,6 @@ type AssetSkipPolicy struct {
 	Priority       int        `json:"priority" gorm:"default:0;comment:优先级"`
 	Enabled        bool       `json:"enabled" gorm:"default:true;comment:是否启用"`
 	CreatedBy      string     `json:"created_by" gorm:"size:100;comment:创建人"`
-	Tags           string     `json:"tags" gorm:"type:json;comment:标签信息"`
 	ValidFrom      *time.Time `json:"valid_from" gorm:"comment:生效开始时间"`
 	ValidTo        *time.Time `json:"valid_to" gorm:"comment:生效结束时间"`
 	Note           string     `json:"note" gorm:"type:text;comment:备注信息"`

@@ -241,7 +241,7 @@ func (m *assetMerger) upsertHost(ctx context.Context, host *assetModel.AssetHost
 		if host.OS != "" {
 			existing.OS = host.OS
 		}
-		// TODO: 合并 Tags 和 SourceStageIDs
+		// TODO: 合并 SourceStageIDs
 
 		if err := m.hostRepo.UpdateHost(ctx, existing); err != nil {
 			return 0, fmt.Errorf("update host failed: %w", err)
@@ -454,7 +454,6 @@ func (m *assetMerger) resolveVulnTarget(ctx context.Context, hostID uint64, targ
 				HostID:     hostID,
 				URL:        rawURL,
 				Domain:     domain,
-				Tags:       "{}",
 				LastSeenAt: timePtr(time.Now()),
 			}
 			if err := m.webRepo.CreateWeb(ctx, stub); err != nil {

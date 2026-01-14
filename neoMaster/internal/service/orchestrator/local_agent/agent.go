@@ -239,14 +239,8 @@ func (w *LocalAgent) processAssetHost(ctx context.Context, payload TagPropagatio
 			}
 
 			if matched {
-				// 3. 更新标签
-				newTags := updateTags(asset.Tags, payload.Tags, payload.Action)
-				if newTags != asset.Tags {
-					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
-						count++
-						w.syncEntityTags(ctx, "host", strconv.FormatUint(asset.ID, 10), payload)
-					}
-				}
+				count++
+				w.syncEntityTags(ctx, "host", strconv.FormatUint(asset.ID, 10), payload)
 			}
 		}
 		return nil
@@ -275,13 +269,8 @@ func (w *LocalAgent) processAssetWeb(ctx context.Context, payload TagPropagation
 			}
 
 			if matched {
-				newTags := updateTags(asset.Tags, payload.Tags, payload.Action)
-				if newTags != asset.Tags {
-					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
-						count++
-						w.syncEntityTags(ctx, "web", strconv.FormatUint(asset.ID, 10), payload)
-					}
-				}
+				count++
+				w.syncEntityTags(ctx, "web", strconv.FormatUint(asset.ID, 10), payload)
 			}
 		}
 		return nil
@@ -310,13 +299,8 @@ func (w *LocalAgent) processAssetNetwork(ctx context.Context, payload TagPropaga
 			}
 
 			if matched {
-				newTags := updateTags(asset.Tags, payload.Tags, payload.Action)
-				if newTags != asset.Tags {
-					if err := w.db.Model(&asset).Update("tags", newTags).Error; err == nil {
-						count++
-						w.syncEntityTags(ctx, "network", strconv.FormatUint(asset.ID, 10), payload)
-					}
-				}
+				count++
+				w.syncEntityTags(ctx, "network", strconv.FormatUint(asset.ID, 10), payload)
 			}
 		}
 		return nil
@@ -493,34 +477,4 @@ func structToMap(v interface{}) (map[string]interface{}, error) {
 	var res map[string]interface{}
 	err = json.Unmarshal(data, &res)
 	return res, err
-}
-
-// updateTags 辅助函数：更新标签JSON字符串
-func updateTags(currentTagsJSON string, newTags []string, action string) string {
-	var tags []string
-	if currentTagsJSON != "" {
-		_ = json.Unmarshal([]byte(currentTagsJSON), &tags)
-	}
-
-	tagSet := make(map[string]struct{})
-	for _, t := range tags {
-		tagSet[t] = struct{}{}
-	}
-
-	for _, t := range newTags {
-		switch action {
-		case "add":
-			tagSet[t] = struct{}{}
-		case "remove":
-			delete(tagSet, t)
-		}
-	}
-
-	result := make([]string, 0, len(tagSet))
-	for t := range tagSet {
-		result = append(result, t)
-	}
-
-	b, _ := json.Marshal(result)
-	return string(b)
 }

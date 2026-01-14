@@ -757,7 +757,7 @@ func TestRawNetworkRoutes(t *testing.T) {
 		// 4. RejectRawNetwork (Create a new one to reject)
 		t.Run("RejectRawNetwork", func(t *testing.T) {
 			// Create another one first
-			net := assetmodel.RawAssetNetwork{Network: "10.10.20.0/24", Status: "pending", Tags: "{}"}
+			net := assetmodel.RawAssetNetwork{Network: "10.10.20.0/24", Status: "pending"}
 			db.Create(&net)
 			defer db.Delete(&net)
 
@@ -1256,9 +1256,9 @@ func TestVulnAssetRoutes(t *testing.T) {
 
 	// 准备前置数据：主机资产
 	host := assetmodel.AssetHost{
-		IP:             "192.168.1.200",
-		OS:             "Linux",
-		Tags:           "{}",
+		IP: "192.168.1.200",
+		OS: "Linux",
+		// Tags:           "{}",
 		SourceStageIDs: "[]",
 	}
 	if err := db.Create(&host).Error; err != nil {
@@ -1549,7 +1549,7 @@ func TestScanAssetRoutes(t *testing.T) {
 		Network: "192.168.20.0/24",
 		CIDR:    "192.168.20.0/24",
 		Status:  "active",
-		Tags:    "{}",
+		// Tags:    "{}",
 	}
 	if err := db.Create(&network).Error; err != nil {
 		t.Fatalf("Failed to create prerequisite network: %v", err)

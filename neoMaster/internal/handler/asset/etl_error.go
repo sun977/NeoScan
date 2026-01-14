@@ -82,6 +82,66 @@ func (h *ETLErrorHandler) ListErrors(c *gin.Context) {
 	})
 }
 
+// GetError 获取错误详情
+// GET /api/v1/asset/etl/errors/:id
+func (h *ETLErrorHandler) GetError(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	requestID := c.GetHeader("X-Request-ID")
+	urlPath := c.Request.URL.String()
+
+	if h.service == nil {
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "service not initialized",
+		})
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "invalid id",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	etlError, err := h.service.GetError(c.Request.Context(), id)
+	if err != nil {
+		logger.LogBusinessError(err, requestID, 0, clientIP, urlPath, "GET", map[string]interface{}{
+			"operation": "get_etl_error",
+			"id":        id,
+		})
+		c.JSON(http.StatusInternalServerError, system.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "failed to get etl error",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if etlError == nil {
+		c.JSON(http.StatusNotFound, system.APIResponse{
+			Code:    http.StatusNotFound,
+			Status:  "failed",
+			Message: "etl error not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "success",
+		Data:    etlError,
+	})
+}
+
 // TriggerReplay 触发重放
 // POST /api/v1/asset/etl/errors/replay
 func (h *ETLErrorHandler) TriggerReplay(c *gin.Context) {

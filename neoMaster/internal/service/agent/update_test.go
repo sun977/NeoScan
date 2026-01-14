@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,14 +17,14 @@ import (
 
 func TestGetEncryptedSnapshot(t *testing.T) {
 	// 1. Setup Environment
-	tmpDir, err := ioutil.TempDir("", "neoscan_rules_test")
+	tmpDir, err := os.MkdirTemp("", "neoscan_rules_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
 	ruleDir := filepath.Join(tmpDir, "fingerprint")
-	if err1 := os.MkdirAll(ruleDir, 0755); err1 != nil {
+	if err1 := utils.MkdirAll(ruleDir, 0755); err1 != nil {
 		t.Fatal(err1)
 	}
 

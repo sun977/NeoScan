@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -37,7 +36,7 @@ func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrep
 	// 默认备份路径，实际生产环境可配置 【放在规则目录下】
 	backupDir := "./data/backups/fingerprint"
 	// 确保目录存在
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
+	if err := utils.MkdirAll(backupDir, 0755); err != nil {
 		logger.LogBusinessError(err, "system", 0, "localhost", "", "mkdir", map[string]interface{}{
 			"path": backupDir,
 		})
@@ -92,7 +91,7 @@ func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
 	// 这里假设目录结构是: rules/fingerprint/
 	// AgentUpdateService 会扫描该目录下所有文件并打包
 	targetDir := "rules/fingerprint"
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := utils.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create rule dir: %w", err)
 	}
 
@@ -104,14 +103,14 @@ func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
 	}
 
 	// 3. 原子重命名 (覆盖)
-	if err := os.Rename(tmpFile, targetFile); err != nil {
+	if err := utils.Rename(tmpFile, targetFile); err != nil {
 		return fmt.Errorf("failed to rename rule file: %w", err)
 	}
 
 	// 4. 更新 mtime (确保 AgentUpdateService 能感知到变化)
 	// Rename 会保留原文件的 mtime (取决于 FS 实现)，为了保险，显式 Touch 一下
 	now := time.Now()
-	if err := os.Chtimes(targetFile, now, now); err != nil {
+	if err := utils.Chtimes(targetFile, now, now); err != nil {
 		logger.LogBusinessError(err, "system", 0, "localhost", "", "touch", map[string]interface{}{
 			"file": targetFile,
 		})
@@ -263,7 +262,7 @@ func (m *RuleManager) ListBackups() ([]string, error) {
 	defer m.mu.RUnlock()
 
 	var backups []string
-	files, err := os.ReadDir(m.backupDir)
+	files, err := utils.ReadDir(m.backupDir)
 	if err != nil {
 		return nil, err
 	}

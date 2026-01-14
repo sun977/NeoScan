@@ -26,6 +26,8 @@ type AssetFingerRepository interface {
 	List(ctx context.Context, page, pageSize int, name string, tagID uint64) ([]*asset.AssetFinger, int64, error)
 	// ListAll 获取所有指纹规则
 	ListAll(ctx context.Context) ([]*asset.AssetFinger, error)
+	// FindEnabled 获取所有已启用的指纹规则
+	FindEnabled(ctx context.Context) ([]*asset.AssetFinger, error)
 	// Upsert 创建或更新指纹规则
 	Upsert(ctx context.Context, rule *asset.AssetFinger) error
 }
@@ -153,6 +155,18 @@ func (r *assetFingerRepository) ListAll(ctx context.Context) ([]*asset.AssetFing
 	if err := r.db.WithContext(ctx).Find(&rules).Error; err != nil {
 		logger.LogError(err, "", 0, "", "list_all_asset_finger", "REPO", map[string]interface{}{
 			"operation": "list_all_asset_finger",
+		})
+		return nil, err
+	}
+	return rules, nil
+}
+
+// FindEnabled 获取所有已启用的指纹规则
+func (r *assetFingerRepository) FindEnabled(ctx context.Context) ([]*asset.AssetFinger, error) {
+	var rules []*asset.AssetFinger
+	if err := r.db.WithContext(ctx).Where("enabled = ?", true).Find(&rules).Error; err != nil {
+		logger.LogError(err, "", 0, "", "find_enabled_asset_finger", "REPO", map[string]interface{}{
+			"operation": "find_enabled_asset_finger",
 		})
 		return nil, err
 	}

@@ -222,6 +222,67 @@ func (h *AssetCPEHandler) DeleteCPERule(c *gin.Context) {
 	})
 }
 
+// UpdateCPERuleStatus 更新 CPE 指纹规则状态
+func (h *AssetCPEHandler) UpdateCPERuleStatus(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.UpdateCPERuleStatus(c.Request.Context(), id, req.Enabled); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "PUT", map[string]interface{}{
+			"operation": "update_cpe_rule_status",
+			"id":        id,
+			"enabled":   req.Enabled,
+		})
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Failed to update CPE rule status",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("update_cpe_rule_status", 0, "", clientIP, XRequestID, "success", "CPE rule status updated successfully", map[string]interface{}{
+		"id":        id,
+		"enabled":   req.Enabled,
+		"func_name": "handler.asset.asset_cpe.UpdateCPERuleStatus",
+		"path":      pathUrl,
+		"method":    "PUT",
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "CPE rule status updated successfully",
+	})
+}
+
 func (h *AssetCPEHandler) ListCPERules(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	XRequestID := c.GetHeader("X-Request-ID")

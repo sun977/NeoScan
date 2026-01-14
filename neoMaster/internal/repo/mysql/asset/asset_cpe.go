@@ -28,6 +28,8 @@ type AssetCPERepository interface {
 	ListAll(ctx context.Context) ([]*asset.AssetCPE, error)
 	// FindEnabled 获取所有已启用的 CPE 指纹规则
 	FindEnabled(ctx context.Context) ([]*asset.AssetCPE, error)
+	// UpdateStatus 更新 CPE 指纹规则状态
+	UpdateStatus(ctx context.Context, id uint64, enabled bool) error
 	// Upsert 创建或更新 CPE 指纹规则
 	Upsert(ctx context.Context, rule *asset.AssetCPE) error
 }
@@ -172,6 +174,20 @@ func (r *assetCPERepository) FindEnabled(ctx context.Context) ([]*asset.AssetCPE
 		return nil, err
 	}
 	return rules, nil
+}
+
+// UpdateStatus 更新 CPE 指纹规则状态
+// 启用或者禁用 CPE 指纹规则
+func (r *assetCPERepository) UpdateStatus(ctx context.Context, id uint64, enabled bool) error {
+	if err := r.db.WithContext(ctx).Model(&asset.AssetCPE{}).Where("id = ?", id).Update("enabled", enabled).Error; err != nil {
+		logger.LogError(err, "", 0, "", "update_asset_cpe_status", "REPO", map[string]interface{}{
+			"operation": "update_asset_cpe_status",
+			"id":        id,
+			"enabled":   enabled,
+		})
+		return err
+	}
+	return nil
 }
 
 // Upsert 创建或更新 CPE 指纹规则

@@ -169,11 +169,12 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 		fingers := assetGroup.Group("/fingers")
 		{
 			// 指纹规则管理
-			fingers.POST("", r.assetFingerCmsHandler.CreateFingerRule)       // 创建指纹规则
-			fingers.GET("/:id", r.assetFingerCmsHandler.GetFingerRule)       // 获取指纹规则详情
-			fingers.PUT("/:id", r.assetFingerCmsHandler.UpdateFingerRule)    // 更新指纹规则
-			fingers.DELETE("/:id", r.assetFingerCmsHandler.DeleteFingerRule) // 删除指纹规则
-			fingers.GET("", r.assetFingerCmsHandler.ListFingerRules)         // 获取指纹规则列表
+			fingers.POST("", r.assetFingerCmsHandler.CreateFingerRule)                   // 创建指纹规则
+			fingers.GET("/:id", r.assetFingerCmsHandler.GetFingerRule)                   // 获取指纹规则详情
+			fingers.PUT("/:id", r.assetFingerCmsHandler.UpdateFingerRule)                // 更新指纹规则
+			fingers.PATCH("/:id/status", r.assetFingerCmsHandler.UpdateFingerRuleStatus) // 更新指纹规则状态
+			fingers.DELETE("/:id", r.assetFingerCmsHandler.DeleteFingerRule)             // 删除指纹规则
+			fingers.GET("", r.assetFingerCmsHandler.ListFingerRules)                     // 获取指纹规则列表
 			// 指纹规则标签管理
 			fingers.GET("/:id/tags", r.assetFingerCmsHandler.GetFingerRuleTags)              // 获取指纹规则标签
 			fingers.POST("/:id/tags", r.assetFingerCmsHandler.AddFingerRuleTag)              // 添加指纹规则标签
@@ -183,11 +184,12 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 		// 指纹资产管理 - CPE指纹规则
 		cpes := assetGroup.Group("/cpes")
 		{
-			cpes.POST("", r.assetFingerServiceHandler.CreateCPERule)       // 创建CPE指纹规则
-			cpes.GET("/:id", r.assetFingerServiceHandler.GetCPERule)       // 获取CPE指纹规则详情
-			cpes.PUT("/:id", r.assetFingerServiceHandler.UpdateCPERule)    // 更新CPE指纹规则
-			cpes.DELETE("/:id", r.assetFingerServiceHandler.DeleteCPERule) // 删除CPE指纹规则
-			cpes.GET("", r.assetFingerServiceHandler.ListCPERules)         // 获取CPE指纹规则列表
+			cpes.POST("", r.assetFingerServiceHandler.CreateCPERule)                   // 创建CPE指纹规则
+			cpes.GET("/:id", r.assetFingerServiceHandler.GetCPERule)                   // 获取CPE指纹规则详情
+			cpes.PUT("/:id", r.assetFingerServiceHandler.UpdateCPERule)                // 更新CPE指纹规则
+			cpes.PATCH("/:id/status", r.assetFingerServiceHandler.UpdateCPERuleStatus) // 更新CPE指纹规则状态
+			cpes.DELETE("/:id", r.assetFingerServiceHandler.DeleteCPERule)             // 删除CPE指纹规则
+			cpes.GET("", r.assetFingerServiceHandler.ListCPERules)                     // 获取CPE指纹规则列表
 			// CPE指纹规则标签管理
 			cpes.GET("/:id/tags", r.assetFingerServiceHandler.GetCPERuleTags)              // 获取CPE指纹规则标签
 			cpes.POST("/:id/tags", r.assetFingerServiceHandler.AddCPERuleTag)              // 添加CPE指纹规则标签
@@ -207,6 +209,7 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			fingerprintRules.POST("/rollback", r.assetFingerprintRuleHandler.RollbackRules) // 回滚规则库
 
 			// 发布 (Admin) - 将 DB 中的规则同步到 Agent 下载目录
+			// 指纹资产发生变更后，需要触发发布操作，系统才会将最新规则同步到 Agent 下载目录，Agent 才会生效
 			fingerprintRules.POST("/publish", r.assetFingerprintRuleHandler.PublishRules)
 		}
 

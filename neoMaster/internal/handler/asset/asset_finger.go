@@ -226,6 +226,67 @@ func (h *AssetFingerHandler) DeleteFingerRule(c *gin.Context) {
 	})
 }
 
+// UpdateFingerRuleStatus 更新指纹规则状态
+func (h *AssetFingerHandler) UpdateFingerRuleStatus(c *gin.Context) {
+	clientIP := utils.GetClientIP(c)
+	XRequestID := c.GetHeader("X-Request-ID")
+	pathUrl := c.Request.URL.String()
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid ID",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	if err := h.service.UpdateFingerRuleStatus(c.Request.Context(), id, req.Enabled); err != nil {
+		logger.LogBusinessError(err, XRequestID, 0, clientIP, pathUrl, "PUT", map[string]interface{}{
+			"operation": "update_finger_rule_status",
+			"id":        id,
+			"enabled":   req.Enabled,
+		})
+		c.JSON(http.StatusBadRequest, system.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "Failed to update fingerprint rule status",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	logger.LogBusinessOperation("update_finger_rule_status", 0, "", clientIP, XRequestID, "success", "Fingerprint rule status updated successfully", map[string]interface{}{
+		"id":        id,
+		"enabled":   req.Enabled,
+		"func_name": "handler.asset.asset_finger.UpdateFingerRuleStatus",
+		"path":      pathUrl,
+		"method":    "PUT",
+	})
+
+	c.JSON(http.StatusOK, system.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "Fingerprint rule status updated successfully",
+	})
+}
+
 // ListFingerRules 获取指纹规则列表
 func (h *AssetFingerHandler) ListFingerRules(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)

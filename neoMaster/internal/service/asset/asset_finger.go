@@ -181,6 +181,28 @@ func (s *AssetFingerService) RemoveTagFromFingerRule(ctx context.Context, ruleID
 	return nil
 }
 
+// UpdateFingerRuleStatus 更新指纹规则状态
+// 启用或者禁用指纹规则
+func (s *AssetFingerService) UpdateFingerRuleStatus(ctx context.Context, id uint64, enabled bool) error {
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return errors.New("fingerprint rule not found")
+	}
+
+	if err := s.repo.UpdateStatus(ctx, id, enabled); err != nil {
+		logger.LogBusinessError(err, "", 0, "", "update_finger_rule_status", "SERVICE", map[string]interface{}{
+			"operation": "update_finger_rule_status",
+			"id":        id,
+			"enabled":   enabled,
+		})
+		return err
+	}
+	return nil
+}
+
 // GetFingerRuleTags 获取指纹规则标签
 func (s *AssetFingerService) GetFingerRuleTags(ctx context.Context, ruleID uint64) ([]tagsystem.SysTag, error) {
 	// 检查指纹规则是否存在

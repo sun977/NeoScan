@@ -26,11 +26,13 @@ func NewFingerprintRuleHandler(ruleManager *fingerprint.RuleManager) *Fingerprin
 }
 
 // ExportRules 导出规则 (Admin)
-// GET /api/v1/asset/fingerprint/rules/export
+// GET /api/v1/asset/fingerprint/rules/export?type=web|service
 func (h *FingerprintRuleHandler) ExportRules(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	requestID := c.GetHeader("X-Request-ID")
 	urlPath := c.Request.URL.String()
+
+	ruleType := c.Query("type") // "web", "service", or empty for all
 
 	if h.ruleManager == nil {
 		h.handleError(c, http.StatusInternalServerError, "rule manager not initialized", nil, requestID, clientIP, urlPath, "ExportRules")
@@ -38,7 +40,7 @@ func (h *FingerprintRuleHandler) ExportRules(c *gin.Context) {
 	}
 
 	// 1. 调用 Manager 导出数据
-	data, err := h.ruleManager.ExportRules(c.Request.Context())
+	data, err := h.ruleManager.ExportRules(c.Request.Context(), ruleType)
 	if err != nil {
 		h.handleError(c, http.StatusInternalServerError, "failed to export rules", err, requestID, clientIP, urlPath, "ExportRules")
 		return
@@ -49,11 +51,20 @@ func (h *FingerprintRuleHandler) ExportRules(c *gin.Context) {
 
 	// 3. 生成文件名
 	timestamp := time.Now().Format("20060102_150405")
-	filename := fmt.Sprintf("neoscan_fingerprint_rules_%s.json", timestamp)
+	var filename string
+	switch ruleType {
+	case "web":
+		filename = fmt.Sprintf("neoscan_fingerprint_web_rules_%s.json", timestamp)
+	case "service":
+		filename = fmt.Sprintf("neoscan_fingerprint_service_rules_%s.json", timestamp)
+	default:
+		filename = fmt.Sprintf("neoscan_fingerprint_rules_%s.json", timestamp)
+	}
 
 	// 4. 记录审计日志
 	logger.LogBusinessOperation("export_fingerprint_rules", 0, "", clientIP, requestID, "success", "export fingerprint rules", map[string]interface{}{
 		"filename":  filename,
+		"rule_type": ruleType,
 		"size":      len(data),
 		"signature": signature,
 		"timestamp": logger.NowFormatted(),
@@ -66,11 +77,13 @@ func (h *FingerprintRuleHandler) ExportRules(c *gin.Context) {
 }
 
 // PublishRules 发布规则 (将数据库中的规则同步到磁盘文件，供 Agent 下载)
-// POST /api/v1/asset/fingerprint/rules/publish
+// POST /api/v1/asset/fingerprint/rules/publish?type=web|service
 func (h *FingerprintRuleHandler) PublishRules(c *gin.Context) {
 	clientIP := utils.GetClientIP(c)
 	requestID := c.GetHeader("X-Request-ID")
 	urlPath := c.Request.URL.String()
+
+	ruleType := c.Query("type") // "web", "service", or empty for all
 
 	if h.ruleManager == nil {
 		h.handleError(c, http.StatusInternalServerError, "rule manager not initialized", nil, requestID, clientIP, urlPath, "PublishRules")
@@ -82,12 +95,13 @@ func (h *FingerprintRuleHandler) PublishRules(c *gin.Context) {
 	// 1. 从 DB 读取最新规则
 	// 2. 生成 JSON 文件并覆盖磁盘上的规则文件
 	// 3. 更新文件 mtime，触发 AgentUpdateService 的缓存失效
-	if err := h.ruleManager.PublishRulesToDisk(c.Request.Context()); err != nil {
+	if err := h.ruleManager.PublishRulesToDisk(c.Request.Context(), ruleType); err != nil {
 		h.handleError(c, http.StatusInternalServerError, "failed to publish rules", err, requestID, clientIP, urlPath, "PublishRules")
 		return
 	}
 
 	logger.LogBusinessOperation("publish_fingerprint_rules", 0, "", clientIP, requestID, "success", "publish fingerprint rules to disk", map[string]interface{}{
+		"rule_type": ruleType,
 		"timestamp": logger.NowFormatted(),
 	})
 
@@ -140,11 +154,11 @@ func (h *FingerprintRuleHandler) ImportRules(c *gin.Context) {
 	// 4. 调用 Manager 导入数据
 	// 默认 overwrite=true (根据需求可改为参数控制)
 	overwrite := c.Query("overwrite") == "true"
-	
+
 	// 从 Query 中获取 Source，默认为 "custom" (API 导入默认为自定义)
 	// Admin 也可以指定 source=system 用于恢复系统规则
 	source := c.DefaultQuery("source", "custom")
-	
+
 	if err := h.ruleManager.ImportRules(c.Request.Context(), data, overwrite, expectedSignature, source); err != nil {
 		h.handleError(c, http.StatusInternalServerError, "failed to import rules", err, requestID, clientIP, urlPath, "ImportRules")
 		return

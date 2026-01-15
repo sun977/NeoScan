@@ -140,7 +140,12 @@ func (h *FingerprintRuleHandler) ImportRules(c *gin.Context) {
 	// 4. 调用 Manager 导入数据
 	// 默认 overwrite=true (根据需求可改为参数控制)
 	overwrite := c.Query("overwrite") == "true"
-	if err := h.ruleManager.ImportRules(c.Request.Context(), data, overwrite, expectedSignature); err != nil {
+	
+	// 从 Query 中获取 Source，默认为 "custom" (API 导入默认为自定义)
+	// Admin 也可以指定 source=system 用于恢复系统规则
+	source := c.DefaultQuery("source", "custom")
+	
+	if err := h.ruleManager.ImportRules(c.Request.Context(), data, overwrite, expectedSignature, source); err != nil {
 		h.handleError(c, http.StatusInternalServerError, "failed to import rules", err, requestID, clientIP, urlPath, "ImportRules")
 		return
 	}
@@ -150,6 +155,7 @@ func (h *FingerprintRuleHandler) ImportRules(c *gin.Context) {
 		"filename":  file.Filename,
 		"size":      len(data),
 		"overwrite": overwrite,
+		"source":    source,
 		"signature": expectedSignature, // Log what was provided
 		"timestamp": logger.NowFormatted(),
 	})

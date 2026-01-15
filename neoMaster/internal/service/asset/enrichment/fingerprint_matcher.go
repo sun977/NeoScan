@@ -14,9 +14,9 @@ import (
 
 // FingerprintMatcher 离线指纹匹配服务
 type FingerprintMatcher struct {
-	assetRepo  *repo.AssetHostRepository
-	fpService  fingerprint.Service
-	tagService tag_system.TagService
+	assetRepo  *repo.AssetHostRepository // 资产仓库示例
+	fpService  fingerprint.Service       // 指纹识别服务示例
+	tagService tag_system.TagService     // 标签服务示例
 }
 
 // NewFingerprintMatcher 创建实例
@@ -37,20 +37,24 @@ func NewFingerprintMatcher(
 // enableTagLinkage: 是否启用标签联动
 func (s *FingerprintMatcher) ProcessBatch(ctx context.Context, limit int, enableTagLinkage bool) (int, error) {
 	// 1. 获取待处理服务 (Product为空且Banner不为空)
+	// 这其实信息补齐,找到所有Product为空,但Banner不为空的服务然后二次识别并补充一些缺失的信息 或 打标签
 	services, err := s.assetRepo.GetServicesPendingFingerprint(ctx, limit)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get pending services: %w", err)
 	}
 
+	// 检查是否有待处理的服务
 	if len(services) == 0 {
 		return 0, nil
 	}
 
+	// 初始化已处理计数器
 	processedCount := 0
 
+	// 遍历所有待处理服务
 	for _, svc := range services {
 		// 2. 获取 Host IP (用于指纹识别输入)
-		host, err := s.assetRepo.GetHostByID(ctx, svc.HostID)
+		host, err := s.assetRepo.GetHostByID(ctx, svc.HostID) // 根据 Host.ID 获取Host信息
 		if err != nil {
 			logger.LogError(err, "", 0, "", "fingerprint_matcher.process", "GOVERNANCE", map[string]interface{}{
 				"service_id": svc.ID,
@@ -59,11 +63,12 @@ func (s *FingerprintMatcher) ProcessBatch(ctx context.Context, limit int, enable
 			continue
 		}
 		if host == nil {
-			// Host not found? 可能是孤儿数据，跳过
+			// 主机不存在? 可能是孤儿数据，跳过
 			continue
 		}
 
 		// 3. 构造识别输入
+		// Input 结构体定义在 fingerprint/input.go 中，包含了指纹识别所需的所有字段，后续可以根据需要添加其他字段
 		input := &fingerprint.Input{
 			Target:   host.IP,
 			Port:     svc.Port,
@@ -84,9 +89,10 @@ func (s *FingerprintMatcher) ProcessBatch(ctx context.Context, limit int, enable
 
 		// 5. 处理结果
 		if result != nil && result.Best != nil {
+			// 有最佳匹配结果
 			best := result.Best
 
-			// 更新服务字段
+			// 更新服务字段 - 填充识别出的产品、版本、CPE 等信息
 			svc.Product = best.Product
 			svc.Version = best.Version
 			svc.CPE = best.CPE // 假设指纹服务返回的是标准CPE
@@ -104,6 +110,7 @@ func (s *FingerprintMatcher) ProcessBatch(ctx context.Context, limit int, enable
 				continue
 			}
 
+			// 增加已处理计数器
 			processedCount++
 
 			// 6. 标签联动 (可选)
@@ -128,20 +135,8 @@ func (s *FingerprintMatcher) ProcessBatch(ctx context.Context, limit int, enable
 				}
 			}
 		} else {
-			// 没识别出来?
-			// 策略: 标记为已处理，避免重复扫描?
-			// 目前查询条件是 product is null. 如果没识别出来，product 还是 null，下次还会查出来。
-			// 这是一个死循环风险。
-			// 解决方案:
-			// A. 增加 `fingerprint_status` 字段 (schema变更)
-			// B. 填入 "unknown" 到 product (简单粗暴)
-			// C. 依赖 `Fingerprint` 字段非空来判断 (如果指纹服务返回空result，我们存什么?)
-			//
-			// 既然是离线治理，建议填入一个特殊值或者更新 LastSeenAt 防止立即被再次选中?
-			// 或者在 Query 中增加 LastSeenAt < X minutes ago?
-			//
-			// 这里采用方案 B: 如果识别失败，Product = "unknown" 或保留原样但记录日志?
-			// 为了防止死循环，我们应该更新 Product 为 "unknown" 或者 "unidentified"
+			// 如果指纹识别失败或没有匹配结果
+			// 防止无限循环处理未识别的服务，将其标记为"unknown"
 
 			svc.Product = "unknown"
 			if err := s.assetRepo.UpdateService(ctx, svc); err != nil {

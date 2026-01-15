@@ -24,14 +24,14 @@ import (
 // RuleManager 负责指纹规则的导入导出和生命周期管理
 // 它不参与运行时的匹配逻辑，只负责数据的 I/O
 type RuleManager struct {
-	ruleRepo         assetrepo.RuleRepository
-	fingerRepo       assetrepo.AssetFingerRepository
-	cpeRepo          assetrepo.AssetCPERepository
-	converterFactory *converters.Factory
-	mu               sync.RWMutex   // 读写锁，保护并发操作
-	backupDir        string         // 备份目录
-	encryptionKey    string         // 规则加密密钥
-	config           *config.Config // 全局配置
+	ruleRepo          assetrepo.RuleRepository
+	fingerRepo        assetrepo.AssetFingerRepository
+	cpeRepo           assetrepo.AssetCPERepository
+	converterRegistry *converters.Registry
+	mu                sync.RWMutex   // 读写锁，保护并发操作
+	backupDir         string         // 备份目录
+	encryptionKey     string         // 规则加密密钥
+	config            *config.Config // 全局配置
 }
 
 // NewRuleManager 创建管理器
@@ -62,13 +62,13 @@ func NewRuleManager(ruleRepo assetrepo.RuleRepository, fingerRepo assetrepo.Asse
 	}
 
 	return &RuleManager{
-		ruleRepo:         ruleRepo,
-		fingerRepo:       fingerRepo,
-		cpeRepo:          cpeRepo,
-		converterFactory: converters.NewFactory(),
-		backupDir:        backupDir,
-		encryptionKey:    encryptionKey,
-		config:           cfg,
+		ruleRepo:          ruleRepo,
+		fingerRepo:        fingerRepo,
+		cpeRepo:           cpeRepo,
+		converterRegistry: converters.NewRegistry(),
+		backupDir:         backupDir,
+		encryptionKey:     encryptionKey,
+		config:            cfg,
 	}
 }
 
@@ -169,7 +169,7 @@ func (m *RuleManager) exportRulesInternal(ctx context.Context, onlyEnabled bool)
 
 	// 3. Convert
 	// Export 默认使用 StandardJSON 格式
-	converter, err := m.converterFactory.Get(converters.TypeStandard)
+	converter, err := m.converterRegistry.Get(converters.TypeStandard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get standard converter: %w", err)
 	}
@@ -238,7 +238,7 @@ func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bo
 	if format == "" {
 		format = converters.TypeStandard
 	}
-	converter, err := m.converterFactory.Get(format)
+	converter, err := m.converterRegistry.Get(format)
 	if err != nil {
 		return fmt.Errorf("failed to get converter for format %s: %w", format, err)
 	}
@@ -333,7 +333,7 @@ func (m *RuleManager) Rollback(ctx context.Context, filename string) error {
 	}
 
 	// 备份文件始终是 StandardJSON 格式
-	converter, err := m.converterFactory.Get(converters.TypeStandard)
+	converter, err := m.converterRegistry.Get(converters.TypeStandard)
 	if err != nil {
 		return fmt.Errorf("failed to get standard converter: %w", err)
 	}

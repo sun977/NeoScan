@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-01-15T12:00:00Z",
+  "source": "NeoScan Export",
+  "fingers": [
+    {
+      "name": "WordPress",
+      "status_code": "200",
+      "url": "/wp-login.php",
+      "title": "Log In",
+      "match": "regex:wp-.*",
+      "enabled": true,
+      "source": "system"
+    },
+    {
+      "name": "CustomApp",
+      "title": "My Corp Login",
+      "header": "X-Corp-Auth",
+      "enabled": true,
+      "source": "custom"
+    }
+  ],
+  "cpes": [
+    {
+      "name": "Nginx",
+      "match_str": "^nginx/(.*)$",
+      "vendor": "nginx",
+      "product": "nginx",
+      "version": "$1",
+      "part": "a",
+      "cpe": "cpe:/a:nginx:nginx:$1",
+      "enabled": true,
+      "source": "system"
+    },
+    {
+      "name": "Apache",
+      "match_str": "^Apache/([\\d\\.]+)$",
+      "vendor": "apache",
+      "product": "http_server",
+      "version": "$1",
+      "part": "a",
+      "cpe": "cpe:/a:apache:http_server:$1",
+      "enabled": true,
+      "source": "system"
+    }
+  ]
+}

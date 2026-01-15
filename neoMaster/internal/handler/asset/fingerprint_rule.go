@@ -13,6 +13,7 @@ import (
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
 	"neomaster/internal/service/fingerprint"
+	"neomaster/internal/service/fingerprint/converters"
 )
 
 // FingerprintRuleHandler 指纹规则管理控制器
@@ -145,7 +146,19 @@ func (h *FingerprintRuleHandler) ImportRules(c *gin.Context) {
 	// Admin 也可以指定 source=system 用于恢复系统规则
 	source := c.DefaultQuery("source", "custom")
 
-	if err := h.ruleManager.ImportRules(c.Request.Context(), data, overwrite, expectedSignature, source); err != nil {
+	// 默认格式为 StandardJSON，可以通过查询参数 format 指定 (e.g. ?format=goby)
+	formatStr := c.DefaultQuery("format", "standard")
+	var format converters.ConverterType
+	switch formatStr {
+	case "goby":
+		format = converters.TypeGoby
+	case "ehole":
+		format = converters.TypeEHole
+	default:
+		format = converters.TypeStandard
+	}
+
+	if err := h.ruleManager.ImportRules(c.Request.Context(), data, overwrite, expectedSignature, source, format); err != nil {
 		h.handleError(c, http.StatusInternalServerError, "failed to import rules", err, requestID, clientIP, urlPath, "ImportRules")
 		return
 	}

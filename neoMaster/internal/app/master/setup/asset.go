@@ -33,6 +33,7 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	hostRepo := assetRepo.NewAssetHostRepository(db)
 	networkRepo := assetRepo.NewAssetNetworkRepository(db)
 	policyRepo := assetRepo.NewAssetPolicyRepository(db)
+	ruleRepo := assetRepo.NewRuleRepository(db) // 规则仓库,规则包括指纹(CPE、CMS指纹) 和 POC等
 	fingerCmsRepo := assetRepo.NewAssetFingerRepository(db)
 	fingerServiceRepo := assetRepo.NewAssetCPERepository(db)
 	webRepo := assetRepo.NewAssetWebRepository(db)
@@ -60,7 +61,7 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	if config != nil {
 		ruleEncryptionKey = config.Security.Agent.RuleEncryptionKey
 	}
-	fingerprintRuleManager := fingerprint.NewRuleManager(db, fingerCmsRepo, fingerServiceRepo, ruleEncryptionKey, config)
+	fingerprintRuleManager := fingerprint.NewRuleManager(ruleRepo, fingerCmsRepo, fingerServiceRepo, ruleEncryptionKey, config)
 
 	// 3. Handler 初始化
 	rawHandler := assetHandler.NewRawAssetHandler(rawService)

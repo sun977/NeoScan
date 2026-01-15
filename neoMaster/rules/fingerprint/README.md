@@ -159,6 +159,8 @@ CPE 指纹主要用于识别端口服务协议、版本号等 (类似 Nmap)。
 
 
 ### 2.2 Agent使用的内部通用格式示例 (`example_neoscan_finger_cpe_rules`)
+说明：Master -- DB -- json -- zip -- Agent
+Master DB 中的数据导出 json 文件，并生成zip文件，供Agent使用
 ```json
 {
   "version": "1.0",

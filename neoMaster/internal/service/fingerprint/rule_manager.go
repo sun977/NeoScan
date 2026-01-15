@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"neomaster/internal/config"
 	"neomaster/internal/model/asset"
 	"neomaster/internal/pkg/logger"
 	"neomaster/internal/pkg/utils"
@@ -26,15 +27,32 @@ type RuleManager struct {
 	fingerRepo    assetrepo.AssetFingerRepository
 	cpeRepo       assetrepo.AssetCPERepository
 	converter     converters.StandardJSONConverter
-	mu            sync.RWMutex // 读写锁，保护并发操作
-	backupDir     string       // 备份目录
-	encryptionKey string       // 规则加密密钥
+	mu            sync.RWMutex   // 读写锁，保护并发操作
+	backupDir     string         // 备份目录
+	encryptionKey string         // 规则加密密钥
+	config        *config.Config // 全局配置
 }
 
 // NewRuleManager 创建管理器
-func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository, encryptionKey string) *RuleManager {
-	// 默认备份路径，实际生产环境可配置 【放在规则目录下】
-	backupDir := "./data/backups/fingerprint"
+func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository, encryptionKey string, cfg *config.Config) *RuleManager {
+	// 获取备份路径，优先使用配置，否则使用默认值
+	// 默认结构: rules/backups/fingerprint
+	backupDir := "rules/backups/fingerprint"
+
+	if cfg != nil {
+		rulesRoot := "rules"
+		if cfg.App.Rules.RootPath != "" {
+			rulesRoot = cfg.App.Rules.RootPath
+		}
+
+		backupRoot := "backups"
+		if cfg.App.Rules.Backup.Dir != "" {
+			backupRoot = cfg.App.Rules.Backup.Dir
+		}
+		// 规则备份目录: ROOT_DIR/BACKUP_DIR/ + fingerprint 【以后可以扩充 poc 配置】
+		backupDir = filepath.Join(rulesRoot, backupRoot, "fingerprint")
+	}
+
 	// 确保目录存在
 	if err := utils.MkdirAll(backupDir, 0755); err != nil {
 		logger.LogBusinessError(err, "system", 0, "localhost", "", "mkdir", map[string]interface{}{
@@ -48,6 +66,7 @@ func NewRuleManager(fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrep
 		converter:     *converters.NewStandardJSONConverter(),
 		backupDir:     backupDir,
 		encryptionKey: encryptionKey,
+		config:        cfg,
 	}
 }
 

@@ -179,13 +179,15 @@ app:
   debug: false
   timezone: "UTC"
   language: "en-US"
-
+# 规则目录配置
   rules:
     root_path: "rules"
     fingerprint:
       dir: "fingerprint"
     poc:
       dir: "poc"
+    backup:
+      dir: "backups"
   
   # 功能开关
   features:

@@ -257,6 +257,33 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 			etlErrors.GET("/:id", r.etlErrorHandler.GetError)          // 获取错误详情
 			etlErrors.POST("/replay", r.etlErrorHandler.TriggerReplay) // 触发重放
 		}
+
+		// poc 管理(预留) - 和 指纹库规则管理 结构类似 同时提供给 Agent 端下载
+		// pocRules := assetGroup.Group("/poc/rules")
+		// {
+		// 	// CRUD 操作
+		// 	pocRules.POST("", r.assetPocRuleHandler.CreatePocRule)                   // 创建POC规则
+		// 	pocRules.GET("/:id", r.assetPocRuleHandler.GetPocRule)                   // 获取POC规则详情
+		// 	pocRules.PUT("/:id", r.assetPocRuleHandler.UpdatePocRule)                // 更新POC规则
+		// 	pocRules.PATCH("/:id/status", r.assetPocRuleHandler.UpdatePocRuleStatus) // 更新POC规则状态
+		// 	pocRules.DELETE("/:id", r.assetPocRuleHandler.DeletePocRule)             // 删除POC规则
+		// 	pocRules.GET("", r.assetPocRuleHandler.ListPocRules)                     // 获取POC规则列表
+		// 	// POC规则标签管理
+		// 	pocRules.GET("/:id/tags", r.assetPocRuleHandler.GetPocRuleTags)              // 获取POC规则标签
+		// 	pocRules.POST("/:id/tags", r.assetPocRuleHandler.AddPocRuleTag)              // 添加POC规则标签
+		// 	pocRules.DELETE("/:id/tags/:tag_id", r.assetPocRuleHandler.RemovePocRuleTag) // 删除POC规则标签
+		// 	// 版本与状态
+		// 	pocRules.GET("/version", r.assetPocRuleHandler.GetVersion)  // 获取POC规则库版本
+		// 	pocRules.GET("/backups", r.assetPocRuleHandler.ListBackups) // 获取POC规则库备份列表
+		// 	// 核心操作
+		// 	pocRules.GET("/export", r.assetPocRuleHandler.ExportRules)      // 导出POC规则库
+		// 	pocRules.POST("/import", r.assetPocRuleHandler.ImportRules)     // 导入POC规则库
+		// 	pocRules.POST("/rollback", r.assetPocRuleHandler.RollbackRules) // 回滚POC规则库
+
+		// 	// POC 发布 - 将 DB 中的规则同步到 Agent 下载目录
+		// 	pocRules.POST("/publish", r.assetPocRuleHandler.PublishPocRule) // 发布POC规则
+		// }
+
 	}
 
 	logger.WithFields(map[string]interface{}{
@@ -264,3 +291,27 @@ func (r *Router) setupAssetRoutes(v1 *gin.RouterGroup) {
 		"func": "setupAssetRoutes",
 	}).Info("资产管理路由注册完成")
 }
+
+// =========================================================================================
+// Future Architecture Planning: POC & WebShell Rules
+// =========================================================================================
+// 为了保持架构的统一性，POC (Proof of Concept) 和 WebShell 规则管理也将归类于资产管理模块。
+// 建议在未来版本中实现以下路由结构：
+//
+// 1. POC 规则管理 (Asset Domain)
+//    - 路由组: /api/v1/asset/poc
+//    - 功能点:
+//      * 发布: POST /api/v1/asset/poc/rules/publish (生成 neoscan_poc_rules.json 或 .zip)
+//      * 下载: GET /api/v1/agent/rules/poc (供 Agent 下载)
+//
+// 2. WebShell 规则管理 (Asset Domain)
+//    - 路由组: /api/v1/asset/webshell
+//    - 功能点:
+//      * 发布: POST /api/v1/asset/webshell/rules/publish
+//      * 下载: GET /api/v1/agent/rules/webshell
+//
+// 3. 病毒库/YARA 规则管理 (Asset Domain)
+//    - 路由组: /api/v1/asset/virus
+//
+// 这种设计遵循"大资产"概念，将所有扫描规则视为资产检测的一部分。
+// =========================================================================================

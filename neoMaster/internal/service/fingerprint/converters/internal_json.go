@@ -40,6 +40,7 @@ type FingerRuleDTO struct {
 	Body       string `json:"body,omitempty"`
 	Match      string `json:"match,omitempty"`
 	Enabled    bool   `json:"enabled"` // 默认为 true，omitempty 可能导致 false 丢失，所以不加 omitempty
+	Source     string `json:"source,omitempty"`
 }
 
 // CPERuleDTO 是 AssetCPE 的数据传输对象 (DTO)
@@ -56,6 +57,7 @@ type CPERuleDTO struct {
 	Part     string `json:"part,omitempty"`
 	CPE      string `json:"cpe,omitempty"`
 	Enabled  bool   `json:"enabled"`
+	Source   string `json:"source,omitempty"`
 }
 
 // StandardJSONConverter 实现 RuleConverter 接口
@@ -86,6 +88,7 @@ func (c *StandardJSONConverter) Encode(fingers []*asset.AssetFinger, cpes []*ass
 			Body:       f.Body,
 			Match:      f.Match,
 			Enabled:    f.Enabled,
+			Source:     f.Source,
 		})
 	}
 
@@ -105,6 +108,7 @@ func (c *StandardJSONConverter) Encode(fingers []*asset.AssetFinger, cpes []*ass
 			Part:     c.Part,
 			CPE:      c.CPE,
 			Enabled:  c.Enabled,
+			Source:   c.Source,
 		})
 	}
 
@@ -145,6 +149,7 @@ func (c *StandardJSONConverter) Decode(data []byte) ([]*asset.AssetFinger, []*as
 			Body:       dto.Body,
 			Match:      dto.Match,
 			Enabled:    dto.Enabled,
+			Source:     dto.Source,
 		})
 	}
 
@@ -164,6 +169,7 @@ func (c *StandardJSONConverter) Decode(data []byte) ([]*asset.AssetFinger, []*as
 			Part:     dto.Part,
 			CPE:      dto.CPE,
 			Enabled:  dto.Enabled,
+			Source:   dto.Source,
 		})
 	}
 

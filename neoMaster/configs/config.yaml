@@ -41,9 +41,11 @@ app:
   rules:
     root_path: "rules"
     fingerprint:
-      dir: "fingerprint"
+      dir: "fingerprint"  # 指纹规则目录
     poc:
-      dir: "poc"
+      dir: "poc"         # POC规则目录
+    backup:
+      dir: "backups"  # 规则备份目录
 
   # 功能开关  [需要在路由注册时检查避免运行开销-待实现]
   features:

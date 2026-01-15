@@ -24,9 +24,10 @@ type Config struct {
 
 // RulesConfig 规则配置
 type RulesConfig struct {
-	RootPath    string        `yaml:"root_path" mapstructure:"root_path"`         // 规则根路径
-	Fingerprint RuleDirConfig `yaml:"fingerprint" mapstructure:"fingerprint"`     // 指纹规则配置
-	POC         RuleDirConfig `yaml:"poc" mapstructure:"poc"`                     // POC规则配置
+	RootPath    string        `yaml:"root_path" mapstructure:"root_path"`     // 规则根路径
+	Fingerprint RuleDirConfig `yaml:"fingerprint" mapstructure:"fingerprint"` // 指纹规则配置
+	POC         RuleDirConfig `yaml:"poc" mapstructure:"poc"`                 // POC规则配置
+	Backup      RuleDirConfig `yaml:"backup" mapstructure:"backup"`           // 规则备份配置
 }
 
 // RuleDirConfig 规则目录配置

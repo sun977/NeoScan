@@ -60,7 +60,7 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	if config != nil {
 		ruleEncryptionKey = config.Security.Agent.RuleEncryptionKey
 	}
-	fingerprintRuleManager := fingerprint.NewRuleManager(fingerCmsRepo, fingerServiceRepo, ruleEncryptionKey)
+	fingerprintRuleManager := fingerprint.NewRuleManager(fingerCmsRepo, fingerServiceRepo, ruleEncryptionKey, config)
 
 	// 3. Handler 初始化
 	rawHandler := assetHandler.NewRawAssetHandler(rawService)

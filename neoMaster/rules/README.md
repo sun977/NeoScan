@@ -21,7 +21,7 @@ security:
 - POC文件（yaml格式）
 
 
-## 文件目录说明
+## 文件目录说明【作废】
 rules/
 ├── fingerprint/
 │   ├── system/

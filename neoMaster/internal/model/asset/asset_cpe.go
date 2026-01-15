@@ -21,6 +21,7 @@ type AssetCPE struct {
 	Part     string `json:"part" gorm:"size:1;default:'a';comment:Part (a/o/h)"`                 // CPE类型 (a: Application, o: OS, h: Hardware)
 	CPE      string `json:"cpe" gorm:"size:500;default:'';comment:完整 CPE 模板"`
 	Enabled  bool   `json:"enabled" gorm:"default:true;comment:是否启用"`
+	Source   string `json:"source" gorm:"size:20;default:'system';comment:来源(system/custom)"`
 }
 
 // TableName 定义数据库表名

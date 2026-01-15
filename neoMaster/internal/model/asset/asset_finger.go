@@ -22,6 +22,7 @@ type AssetFinger struct {
 	Body       string `json:"body" gorm:"size:255;comment:HTTP响应体"`
 	Match      string `json:"match" gorm:"size:255;comment:匹配模式(如正则)"`
 	Enabled    bool   `json:"enabled" gorm:"default:true;comment:是否启用"`
+	Source     string `json:"source" gorm:"size:20;default:'system';comment:来源(system/custom)"`
 }
 
 // TableName 定义数据库表名

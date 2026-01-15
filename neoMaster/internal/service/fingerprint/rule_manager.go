@@ -19,14 +19,12 @@ import (
 	"neomaster/internal/pkg/utils"
 	assetrepo "neomaster/internal/repo/mysql/asset"
 	"neomaster/internal/service/fingerprint/converters"
-
-	"gorm.io/gorm"
 )
 
 // RuleManager 负责指纹规则的导入导出和生命周期管理
 // 它不参与运行时的匹配逻辑，只负责数据的 I/O
 type RuleManager struct {
-	db            *gorm.DB // 用于事务支持
+	ruleRepo      assetrepo.RuleRepository
 	fingerRepo    assetrepo.AssetFingerRepository
 	cpeRepo       assetrepo.AssetCPERepository
 	converter     converters.StandardJSONConverter
@@ -37,7 +35,7 @@ type RuleManager struct {
 }
 
 // NewRuleManager 创建管理器
-func NewRuleManager(db *gorm.DB, fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository, encryptionKey string, cfg *config.Config) *RuleManager {
+func NewRuleManager(ruleRepo assetrepo.RuleRepository, fingerRepo assetrepo.AssetFingerRepository, cpeRepo assetrepo.AssetCPERepository, encryptionKey string, cfg *config.Config) *RuleManager {
 	// 获取备份路径，优先使用配置，否则使用默认值
 	// 默认结构: rules/backups/fingerprint
 	backupDir := "rules/backups/fingerprint"
@@ -64,6 +62,7 @@ func NewRuleManager(db *gorm.DB, fingerRepo assetrepo.AssetFingerRepository, cpe
 	}
 
 	return &RuleManager{
+		ruleRepo:      ruleRepo,
 		fingerRepo:    fingerRepo,
 		cpeRepo:       cpeRepo,
 		converter:     *converters.NewStandardJSONConverter(),
@@ -234,48 +233,19 @@ func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bo
 		return fmt.Errorf("invalid rule format: %w", err)
 	}
 
-	// 3. Save to DB with Transaction
-	return m.db.Transaction(func(tx *gorm.DB) error {
-		// 使用 Transaction 的 Repo 方法 (如果 Repo 支持)
-		// 或者直接使用 tx 操作，但这破坏了 Repo 封装。
-		// 理想情况：Repo 提供 UpsertBatch 或 WithTx 方法。
-		// 这里暂且假设我们必须逐个 Upsert，但都在事务中。
-
-		// 标记 Source
-		if source != "" {
-			for _, f := range fingers {
-				f.Source = source
-			}
-			for _, c := range cpes {
-				c.Source = source
-			}
-		}
-
+	// 3. Save to DB with Transaction (Delegate to Repository)
+	// 标记 Source
+	if source != "" {
 		for _, f := range fingers {
-			// 注意：这里仍然调用的是 m.fingerRepo，它可能使用的是非事务的 DB 实例。
-			// 如果 Repo 没有事务支持，这里的事务是无效的。
-			// 必须重构 Repo 以支持事务传递，或者直接在 Service 层操作 DB。
-			// 既然我们有 m.db，我们可以尝试直接操作，但这违反分层原则。
-			// 妥协方案：逐个插入，如果不涉及删除操作，事务性要求相对较低。
-			// 但对于 True Rollback，事务是必须的。
-			// 假设 Repo 方法是简单的 Create/Save，我们先用着。
-			// TODO: Refactor Repo to support context-based transaction propagation or WithTx().
-
-			if err := m.fingerRepo.Upsert(ctx, f); err != nil {
-				logger.LogError(err, "", 0, "", "import_rules", "", map[string]interface{}{"name": f.Name})
-				return err // Fail fast in transaction
-			}
+			f.Source = source
 		}
-
 		for _, c := range cpes {
-			if err := m.cpeRepo.Upsert(ctx, c); err != nil {
-				logger.LogError(err, "", 0, "", "import_rules", "", map[string]interface{}{"name": c.Name})
-				return err
-			}
+			c.Source = source
 		}
+	}
 
-		return nil
-	})
+	// 遵循分层架构，事务控制下沉到 Repository
+	return m.ruleRepo.ImportRules(ctx, fingers, cpes)
 }
 
 // createBackup 创建当前规则库的快照
@@ -353,37 +323,6 @@ func (m *RuleManager) Rollback(ctx context.Context, filename string) error {
 	}
 
 	// 3. Execute Rollback with Transaction (Diff & Sync)
-	return m.db.Transaction(func(tx *gorm.DB) error {
-		// 3.1 Clear Existing Data (Simple Strategy: Truncate/Delete All then Re-insert)
-		// For true rollback, we want to restore the exact state.
-		// Since we don't have complex foreign keys on rules yet, deleting all and re-inserting is safe and clean.
-		// It ensures no "dirty" rules from bad imports remain.
-
-		// Note: Use Unscoped to hard delete if you want to completely remove traces,
-		// or normal delete for soft delete. Here we use Unscoped for clean slate.
-
-		if err := tx.Unscoped().Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&asset.AssetFinger{}).Error; err != nil {
-			return fmt.Errorf("failed to clear asset_finger table: %w", err)
-		}
-
-		if err := tx.Unscoped().Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&asset.AssetCPE{}).Error; err != nil {
-			return fmt.Errorf("failed to clear asset_cpe table: %w", err)
-		}
-
-		// 3.2 Insert Backup Data
-		// Batch insert is more efficient
-		if len(targetFingers) > 0 {
-			if err := tx.CreateInBatches(targetFingers, 100).Error; err != nil {
-				return fmt.Errorf("failed to restore fingers: %w", err)
-			}
-		}
-
-		if len(targetCPEs) > 0 {
-			if err := tx.CreateInBatches(targetCPEs, 100).Error; err != nil {
-				return fmt.Errorf("failed to restore cpes: %w", err)
-			}
-		}
-
-		return nil
-	})
+	// 遵循分层架构，事务控制下沉到 Repository
+	return m.ruleRepo.RestoreRules(ctx, targetFingers, targetCPEs)
 }

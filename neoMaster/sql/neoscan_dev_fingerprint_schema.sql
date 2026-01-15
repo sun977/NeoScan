@@ -27,6 +27,7 @@ CREATE TABLE `asset_cpe` (
   `part` varchar(1) DEFAULT 'a' COMMENT 'CPE类型 (a: Application, o: OS, h: Hardware)',
   `cpe` varchar(500) DEFAULT '' COMMENT '完整 CPE 模板',
   `enabled` boolean DEFAULT true COMMENT '是否启用',
+  `source` varchar(20) DEFAULT 'system' COMMENT '来源(system/custom)',
   
   PRIMARY KEY (`id`),
   KEY `idx_asset_cpe_deleted_at` (`deleted_at`),
@@ -58,6 +59,7 @@ CREATE TABLE `asset_finger` (
   `body` varchar(255) DEFAULT '' COMMENT 'HTTP响应体',
   `match` varchar(255) DEFAULT '' COMMENT '匹配模式(如正则)',
   `enabled` boolean DEFAULT true COMMENT '是否启用',
+  `source` varchar(20) DEFAULT 'system' COMMENT '来源(system/custom)',
   
   PRIMARY KEY (`id`),
   KEY `idx_asset_finger_deleted_at` (`deleted_at`),

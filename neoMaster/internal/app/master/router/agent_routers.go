@@ -31,11 +31,19 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentPullGroup := v1.Group("/agent")
 	agentPullGroup.Use(r.middlewareManager.GinAgentAuthMiddleware())
 	{
+		// 指纹规则下载接口
 		fingerprintGroup := agentPullGroup.Group("/rules")
 		{
 			fingerprintGroup.GET("/version", r.agentHandler.GetFingerprintVersion)
 			fingerprintGroup.GET("/download", r.agentHandler.DownloadFingerprintSnapshot) // 下载指纹库快照(仅下载指纹快照-其他的规则后续补充)
 		}
+		// POC规则下载接口(预留)
+		// pocGroup := agentPullGroup.Group("/poc")
+		// {
+		// 	pocGroup.GET("/version", r.agentHandler.GetPocVersion)
+		// 	pocGroup.GET("/download", r.agentHandler.DownloadPocSnapshot) // 下载POC规则库快照(仅下载POC快照-其他的规则后续补充)
+		// }
+		// 其他规则下载接口(预留)
 	}
 
 	// Agent管理路由组（需要认证）

@@ -24,14 +24,14 @@ import (
 // RuleManager 负责指纹规则的导入导出和生命周期管理
 // 它不参与运行时的匹配逻辑，只负责数据的 I/O
 type RuleManager struct {
-	ruleRepo      assetrepo.RuleRepository
-	fingerRepo    assetrepo.AssetFingerRepository
-	cpeRepo       assetrepo.AssetCPERepository
-	converter     converters.StandardJSONConverter
-	mu            sync.RWMutex   // 读写锁，保护并发操作
-	backupDir     string         // 备份目录
-	encryptionKey string         // 规则加密密钥
-	config        *config.Config // 全局配置
+	ruleRepo         assetrepo.RuleRepository
+	fingerRepo       assetrepo.AssetFingerRepository
+	cpeRepo          assetrepo.AssetCPERepository
+	converterFactory *converters.Factory
+	mu               sync.RWMutex   // 读写锁，保护并发操作
+	backupDir        string         // 备份目录
+	encryptionKey    string         // 规则加密密钥
+	config           *config.Config // 全局配置
 }
 
 // NewRuleManager 创建管理器
@@ -62,13 +62,13 @@ func NewRuleManager(ruleRepo assetrepo.RuleRepository, fingerRepo assetrepo.Asse
 	}
 
 	return &RuleManager{
-		ruleRepo:      ruleRepo,
-		fingerRepo:    fingerRepo,
-		cpeRepo:       cpeRepo,
-		converter:     *converters.NewStandardJSONConverter(),
-		backupDir:     backupDir,
-		encryptionKey: encryptionKey,
-		config:        cfg,
+		ruleRepo:         ruleRepo,
+		fingerRepo:       fingerRepo,
+		cpeRepo:          cpeRepo,
+		converterFactory: converters.NewFactory(),
+		backupDir:        backupDir,
+		encryptionKey:    encryptionKey,
+		config:           cfg,
 	}
 }
 
@@ -168,8 +168,12 @@ func (m *RuleManager) exportRulesInternal(ctx context.Context, onlyEnabled bool)
 	}
 
 	// 3. Convert
-	// 转换为标准 JSON 格式
-	return m.converter.Encode(fingers, cpes)
+	// Export 默认使用 StandardJSON 格式
+	converter, err := m.converterFactory.Get(converters.TypeStandard)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get standard converter: %w", err)
+	}
+	return converter.Encode(fingers, cpes)
 }
 
 // GetRuleStats 获取规则库统计信息
@@ -209,7 +213,8 @@ func (m *RuleManager) GetRuleStats(ctx context.Context) (map[string]interface{},
 // 包含自动备份和原子锁
 // expectedSignature: 如果不为空，则进行完整性校验
 // source: 规则来源 (system/custom)，如果不为空，则强制覆盖规则中的 Source 字段
-func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bool, expectedSignature string, source string) error {
+// format: 规则文件格式 (如 standard, goby)，默认为 standard(默认NeoScan内部指纹格式)
+func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bool, expectedSignature string, source string, format converters.ConverterType) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -229,7 +234,16 @@ func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bo
 	}
 
 	// 2. Decode & Validate
-	fingers, cpes, err := m.converter.Decode(data)
+	// 获取指定格式的转换器
+	if format == "" {
+		format = converters.TypeStandard
+	}
+	converter, err := m.converterFactory.Get(format)
+	if err != nil {
+		return fmt.Errorf("failed to get converter for format %s: %w", format, err)
+	}
+
+	fingers, cpes, err := converter.Decode(data)
 	if err != nil {
 		return fmt.Errorf("invalid rule format: %w", err)
 	}
@@ -318,7 +332,13 @@ func (m *RuleManager) Rollback(ctx context.Context, filename string) error {
 		return fmt.Errorf("read backup file failed: %w", err)
 	}
 
-	targetFingers, targetCPEs, err := m.converter.Decode(data)
+	// 备份文件始终是 StandardJSON 格式
+	converter, err := m.converterFactory.Get(converters.TypeStandard)
+	if err != nil {
+		return fmt.Errorf("failed to get standard converter: %w", err)
+	}
+
+	targetFingers, targetCPEs, err := converter.Decode(data)
 	if err != nil {
 		return fmt.Errorf("decode backup file failed: %w", err)
 	}

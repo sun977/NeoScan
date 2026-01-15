@@ -72,12 +72,11 @@ func NewRuleManager(ruleRepo assetrepo.RuleRepository, fingerRepo assetrepo.Asse
 	}
 }
 
-// ExportRules 导出规则 (Admin Backup)
-// ruleType: "" 表示全部, "web" 表示指纹, "service" 表示 CPE
-func (m *RuleManager) ExportRules(ctx context.Context, ruleType string) ([]byte, error) {
+// ExportRules 导出所有规则 (Admin Backup)
+func (m *RuleManager) ExportRules(ctx context.Context) ([]byte, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.exportRulesInternal(ctx, false, ruleType) // 导出所有，包括禁用的
+	return m.exportRulesInternal(ctx, false) // 导出所有，包括禁用的
 }
 
 // ExportRulesWithSignature 导出规则并附带签名 (HMAC 或 SHA256)
@@ -96,35 +95,28 @@ func (m *RuleManager) CalculateSignature(data []byte) string {
 
 // PublishRulesToDisk 发布规则到磁盘 (Agent Download) 将当前数据库中的规则发布到磁盘文件 (原子操作)
 // 只发布 Enabled=true 的规则
-// ruleType: "" 表示全部, "web" 表示指纹, "service" 表示 CPE
-func (m *RuleManager) PublishRulesToDisk(ctx context.Context, ruleType string) error {
+func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	// 1. Export Data (Only Enabled)
-	data, err := m.exportRulesInternal(ctx, true, ruleType)
+	data, err := m.exportRulesInternal(ctx, true)
 	if err != nil {
 		return err
 	}
 
 	// 2. 写入临时文件
-	// 根据 ruleType 决定文件名
+	// 默认路径：rules/fingerprint/rules.json (这里简化处理，直接覆盖单个大文件)
+	// TODO: 后续应支持拆分文件，这里保持与 StandardJSONConverter 一致，输出单个 JSON
+	// 为了兼容 Agent 的目录扫描逻辑，我们把这个文件放在 config 中定义的目录，或者默认目录
+	// 这里假设目录结构是: rules/fingerprint/
+	// AgentUpdateService 会扫描该目录下所有文件并打包
 	targetDir := "rules/fingerprint"
 	if err := utils.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create rule dir: %w", err)
 	}
 
-	var filename string
-	switch ruleType {
-	case "web":
-		filename = "neoscan_fingerprint_web_rules.json"
-	case "service":
-		filename = "neoscan_fingerprint_service_rules.json"
-	default: // "" or "all"
-		filename = "neoscan_fingerprint_rules.json"
-	}
-
-	targetFile := filepath.Join(targetDir, filename)
+	targetFile := filepath.Join(targetDir, "neoscan_fingerprint_rules.json")
 	tmpFile := targetFile + ".tmp"
 
 	if err := utils.WriteFile(tmpFile, data, 0644); err != nil {
@@ -150,34 +142,29 @@ func (m *RuleManager) PublishRulesToDisk(ctx context.Context, ruleType string) e
 }
 
 // exportRulesInternal 内部导出逻辑，不加锁，供内部调用
-// ruleType: "" 表示全部, "web" 表示指纹, "service" 表示 CPE
-func (m *RuleManager) exportRulesInternal(ctx context.Context, onlyEnabled bool, ruleType string) ([]byte, error) {
+func (m *RuleManager) exportRulesInternal(ctx context.Context, onlyEnabled bool) ([]byte, error) {
 	var err error
 	var fingers []*asset.AssetFinger
 	var cpes []*asset.AssetCPE
 
-	// 1. Fetch Fingers (Only if needed)
-	if ruleType == "" || ruleType == "web" {
-		if onlyEnabled {
-			fingers, err = m.fingerRepo.FindEnabled(ctx)
-		} else {
-			fingers, err = m.fingerRepo.ListAll(ctx)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("fetch fingers failed: %w", err)
-		}
+	// 1. Fetch Fingers
+	if onlyEnabled {
+		fingers, err = m.fingerRepo.FindEnabled(ctx)
+	} else {
+		fingers, err = m.fingerRepo.ListAll(ctx)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("fetch fingers failed: %w", err)
 	}
 
-	// 2. Fetch CPEs (Only if needed)
-	if ruleType == "" || ruleType == "service" {
-		if onlyEnabled {
-			cpes, err = m.cpeRepo.FindEnabled(ctx)
-		} else {
-			cpes, err = m.cpeRepo.ListAll(ctx)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("fetch cpes failed: %w", err)
-		}
+	// 2. Fetch CPEs
+	if onlyEnabled {
+		cpes, err = m.cpeRepo.FindEnabled(ctx)
+	} else {
+		cpes, err = m.cpeRepo.ListAll(ctx)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("fetch cpes failed: %w", err)
 	}
 
 	// 3. Convert
@@ -235,8 +222,6 @@ func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bo
 	}
 
 	// 1. Auto Backup (Snapshot)
-	// 备份时我们导出全量数据，这里 ruleType 可以为空，表示备份所有类型，或者根据 source 推断
-	// 为了简单起见，全量备份是最安全的
 	if err := m.createBackup(ctx); err != nil {
 		// 备份失败是否阻止导入？
 		// 严格模式下应该阻止，保证数据安全
@@ -266,7 +251,7 @@ func (m *RuleManager) ImportRules(ctx context.Context, data []byte, overwrite bo
 
 // createBackup 创建当前规则库的快照
 func (m *RuleManager) createBackup(ctx context.Context) error {
-	data, err := m.exportRulesInternal(ctx, false, "") // 备份全量数据 true 只导出 Enabled false 导出所有, ruleType="" 导出所有类型
+	data, err := m.exportRulesInternal(ctx, false) // 备份全量数据 true 只导出 Enabled false 导出所有
 	if err != nil {
 		return err
 	}
@@ -340,7 +325,5 @@ func (m *RuleManager) Rollback(ctx context.Context, filename string) error {
 
 	// 3. Execute Rollback with Transaction (Diff & Sync)
 	// 遵循分层架构，事务控制下沉到 Repository
-	// 回滚是全量操作，所以 ruleType 传空字符串，表示恢复所有类型
-	// TODO: 如果需要支持部分回滚（例如只回滚 Web 指纹），需要在参数中增加 ruleType
-	return m.ruleRepo.RestoreRules(ctx, targetFingers, targetCPEs, "")
+	return m.ruleRepo.RestoreRules(ctx, targetFingers, targetCPEs)
 }

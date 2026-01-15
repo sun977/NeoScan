@@ -15,8 +15,7 @@ type RuleRepository interface {
 	// ImportRules 批量导入规则 (事务支持)
 	ImportRules(ctx context.Context, fingers []*asset.AssetFinger, cpes []*asset.AssetCPE) error
 	// RestoreRules 恢复规则 (清空并重新插入)
-	// ruleType: "" 表示全部, "web" 表示指纹, "service" 表示 CPE
-	RestoreRules(ctx context.Context, fingers []*asset.AssetFinger, cpes []*asset.AssetCPE, ruleType string) error
+	RestoreRules(ctx context.Context, fingers []*asset.AssetFinger, cpes []*asset.AssetCPE) error
 }
 
 type ruleRepository struct {
@@ -50,33 +49,28 @@ func (r *ruleRepository) ImportRules(ctx context.Context, fingers []*asset.Asset
 }
 
 // RestoreRules 恢复规则
-func (r *ruleRepository) RestoreRules(ctx context.Context, fingers []*asset.AssetFinger, cpes []*asset.AssetCPE, ruleType string) error {
+func (r *ruleRepository) RestoreRules(ctx context.Context, fingers []*asset.AssetFinger, cpes []*asset.AssetCPE) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Clear Existing Data
 		// 使用 Unscoped 硬删除以确保环境干净
-		if ruleType == "" || ruleType == "web" {
-			if err := tx.Unscoped().Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&asset.AssetFinger{}).Error; err != nil {
-				logger.LogError(err, "", 0, "", "restore_rules_clear_fingers", "REPO", nil)
-				return err
-			}
+		if err := tx.Unscoped().Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&asset.AssetFinger{}).Error; err != nil {
+			logger.LogError(err, "", 0, "", "restore_rules_clear_fingers", "REPO", nil)
+			return err
 		}
-
-		if ruleType == "" || ruleType == "service" {
-			if err := tx.Unscoped().Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&asset.AssetCPE{}).Error; err != nil {
-				logger.LogError(err, "", 0, "", "restore_rules_clear_cpes", "REPO", nil)
-				return err
-			}
+		if err := tx.Unscoped().Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&asset.AssetCPE{}).Error; err != nil {
+			logger.LogError(err, "", 0, "", "restore_rules_clear_cpes", "REPO", nil)
+			return err
 		}
 
 		// 2. Insert Backup Data
-		if (ruleType == "" || ruleType == "web") && len(fingers) > 0 {
+		if len(fingers) > 0 {
 			if err := tx.CreateInBatches(fingers, 100).Error; err != nil {
 				logger.LogError(err, "", 0, "", "restore_rules_insert_fingers", "REPO", nil)
 				return err
 			}
 		}
 
-		if (ruleType == "" || ruleType == "service") && len(cpes) > 0 {
+		if len(cpes) > 0 {
 			if err := tx.CreateInBatches(cpes, 100).Error; err != nil {
 				logger.LogError(err, "", 0, "", "restore_rules_insert_cpes", "REPO", nil)
 				return err

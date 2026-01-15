@@ -126,7 +126,8 @@ func (s *FingerprintMatcher) ProcessBatch(ctx context.Context, limit int, enable
 				}
 
 				// 调用 AutoTag
-				// 传入 "service" 作为 entityType,系统打标规则中的 entityType 为 "service",
+				// 传入 "service" 作为 entityType,系统打标规则中的 entityType 为 "service",会调用 service 相关的系统打标规则
+				// AutoTag 默认会根据 entityType 来调用对应的打标规则
 				err := s.tagService.AutoTag(ctx, "service", strconv.FormatUint(svc.ID, 10), attributes)
 				if err != nil {
 					logger.LogError(err, "", 0, "", "fingerprint_matcher.auto_tag", "GOVERNANCE", map[string]interface{}{

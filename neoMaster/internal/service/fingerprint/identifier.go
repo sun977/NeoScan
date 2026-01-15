@@ -14,34 +14,44 @@ import (
 
 // Service 指纹识别服务接口
 type Service interface {
-	Identify(ctx context.Context, input *Input) (*Result, error)
-	LoadRules(dir string) error
-	GetStats() map[string]int
+	Identify(ctx context.Context, input *Input) (*Result, error) //	识别资产指纹
+	LoadRules(dir string) error                                  // 加载规则目录下的所有规则文件【？哪里的规则文件】
+	GetStats() map[string]int                                    // 获取每个匹配引擎的统计信息
 }
 
+// serviceImpl 指纹识别服务实现
 type serviceImpl struct {
-	engines []MatchEngine
-	mu      sync.RWMutex
+	engines []MatchEngine // 匹配引擎列表
+	mu      sync.RWMutex  // 读写锁，保护 engines 列表的并发访问
 }
 
+// NewFingerprintService 创建指纹识别服务实例
+// 接受多个匹配引擎作为参数，每个引擎负责识别一种指纹类型
 func NewFingerprintService(engines ...MatchEngine) Service {
 	return &serviceImpl{
 		engines: engines,
 	}
 }
 
+// Identify 识别资产指纹
+// 1. 并行调用所有匹配引擎(每个引擎在独立的 goroutine 中运行,目前是串行调用)
+// 2. 合并所有匹配结果
+// 3. 选择最佳匹配（如果有）
 func (s *serviceImpl) Identify(ctx context.Context, input *Input) (*Result, error) {
+	// 获取读取锁，确保在并发场景下，engines 列表不会被修改
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	// 存储所有匹配结果
 	var allMatches []Match
 
 	// 并行或串行调用引擎
 	// 简单起见，目前串行调用，未来可优化为并行
+	// 目前是 循环调用每个引擎的 Match 方法
 	for _, engine := range s.engines {
 		matches, err := engine.Match(input)
 		if err != nil {
-			// Log error but continue
+			// 记录错误日志，但继续处理其他引擎
 			fmt.Printf("Engine %s error: %v\n", engine.Type(), err)
 			continue
 		}
@@ -54,7 +64,7 @@ func (s *serviceImpl) Identify(ctx context.Context, input *Input) (*Result, erro
 		return nil, nil
 	}
 
-	// 排序和去重
+	// 排序和去重,选出最佳匹配
 	best := selectBestMatch(allMatches)
 
 	return &Result{
@@ -63,6 +73,10 @@ func (s *serviceImpl) Identify(ctx context.Context, input *Input) (*Result, erro
 	}, nil
 }
 
+// LoadRules 加载规则目录下的所有规则文件
+// 1. 遍历目录下的所有文件
+// 2. 过滤出 JSON 文件
+// 3. 并行调用每个匹配引擎的 LoadRules 方法
 func (s *serviceImpl) LoadRules(dir string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -125,12 +139,17 @@ func (s *serviceImpl) LoadRules(dir string) error {
 	return nil
 }
 
+// GetStats 获取当前加载的匹配引擎数量
 func (s *serviceImpl) GetStats() map[string]int {
 	return map[string]int{
 		"engines": len(s.engines),
 	}
 }
 
+// selectBestMatch 选择最佳匹配
+// 1. 置信度最高的第一个
+// 2. 置信度相同，CPE 优先
+// 3. CPE 相同，版本号详细优先
 func selectBestMatch(matches []Match) *Match {
 	if len(matches) == 0 {
 		return nil

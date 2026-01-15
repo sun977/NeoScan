@@ -52,7 +52,7 @@ HTTP 指纹主要用于识别 Web 应用、CMS、框架等。
 }
 ```
 
-### 1.2 内部通用格式示例 (`custom.json`)
+### 1.2 Master使用的内部通用格式示例 (`custom.json`)
 直接对应数据库 `asset_finger` 表结构。
 文件结构包含 `samples` 数组，每个元素包含 `name` 和 `rule` 对象。
 类型 type: http (HTTP fingerprint) 区分为 HTTP 指纹。
@@ -156,3 +156,55 @@ CPE 指纹主要用于识别端口服务协议、版本号等 (类似 Nmap)。
 - `vendor`: 厂商名称
 - `product`: 产品名称
 - `part`: 类型 (a: Application, o: OS, h: Hardware)
+
+
+### 2.2 Agent使用的内部通用格式示例 (`example_neoscan_finger_cpe_rules`)
+```json
+{
+  "version": "1.0",
+  "timestamp": "2026-01-15T12:00:00Z",
+  "source": "NeoScan Export",
+  "fingers": [
+    {
+      "name": "WordPress",
+      "status_code": "200",
+      "url": "/wp-login.php",
+      "title": "Log In",
+      "match": "regex:wp-.*",
+      "enabled": true,
+      "source": "system"
+    },
+    {
+      "name": "CustomApp",
+      "title": "My Corp Login",
+      "header": "X-Corp-Auth",
+      "enabled": true,
+      "source": "custom"
+    }
+  ],
+  "cpes": [
+    {
+      "name": "Nginx",
+      "match_str": "^nginx/(.*)$",
+      "vendor": "nginx",
+      "product": "nginx",
+      "version": "$1",
+      "part": "a",
+      "cpe": "cpe:/a:nginx:nginx:$1",
+      "enabled": true,
+      "source": "system"
+    },
+    {
+      "name": "Apache",
+      "match_str": "^Apache/([\\d\\.]+)$",
+      "vendor": "apache",
+      "product": "http_server",
+      "version": "$1",
+      "part": "a",
+      "cpe": "cpe:/a:apache:http_server:$1",
+      "enabled": true,
+      "source": "system"
+    }
+  ]
+}
+```

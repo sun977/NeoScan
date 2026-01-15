@@ -17,11 +17,11 @@ import (
 // StandardJSON 结构定义了 NeoScan 内部标准指纹文件的格式
 // 用于管理员导入/导出，包含完整元数据
 type StandardJSON struct {
-	Version   string          `json:"version"`           // 格式版本 (e.g. "1.0")
-	Timestamp time.Time       `json:"timestamp"`         // 导出时间
-	Source    string          `json:"source"`            // 来源说明 (e.g. "NeoScan Export")
-	Fingers   []FingerRuleDTO `json:"fingers,omitempty"` // Web 指纹列表
-	CPEs      []CPERuleDTO    `json:"cpes,omitempty"`    // CPE 指纹列表
+	Version   string          `json:"version"`   // 格式版本 (e.g. "1.0")
+	Timestamp time.Time       `json:"timestamp"` // 导出时间
+	Source    string          `json:"source"`    // 来源说明 (e.g. "NeoScan Export")
+	Fingers   []FingerRuleDTO `json:"fingers"`   // Web 指纹列表
+	CPEs      []CPERuleDTO    `json:"cpes"`      // CPE 指纹列表
 }
 
 // FingerRuleDTO 是 AssetFinger 的数据传输对象 (DTO)
@@ -70,51 +70,46 @@ func NewStandardJSONConverter() *StandardJSONConverter {
 }
 
 // Encode 将 DB 模型列表序列化为标准 JSON 字节流
-// 如果 fingers 或 cpes 为 nil 或空，则生成的 JSON 对应字段也将被省略
 func (c *StandardJSONConverter) Encode(fingers []*asset.AssetFinger, cpes []*asset.AssetCPE) ([]byte, error) {
-	var fingerDTOs []FingerRuleDTO
-	if len(fingers) > 0 {
-		fingerDTOs = make([]FingerRuleDTO, 0, len(fingers))
-		for _, f := range fingers {
-			fingerDTOs = append(fingerDTOs, FingerRuleDTO{
-				Name:       f.Name,
-				StatusCode: f.StatusCode,
-				URL:        f.URL,
-				Title:      f.Title,
-				Subtitle:   f.Subtitle,
-				Footer:     f.Footer,
-				Header:     f.Header,
-				Response:   f.Response,
-				Server:     f.Server,
-				XPoweredBy: f.XPoweredBy,
-				Body:       f.Body,
-				Match:      f.Match,
-				Enabled:    f.Enabled,
-				Source:     f.Source,
-			})
-		}
+	// 1. 转换 Fingers -> DTOs
+	fingerDTOs := make([]FingerRuleDTO, 0, len(fingers))
+	for _, f := range fingers {
+		fingerDTOs = append(fingerDTOs, FingerRuleDTO{
+			Name:       f.Name,
+			StatusCode: f.StatusCode,
+			URL:        f.URL,
+			Title:      f.Title,
+			Subtitle:   f.Subtitle,
+			Footer:     f.Footer,
+			Header:     f.Header,
+			Response:   f.Response,
+			Server:     f.Server,
+			XPoweredBy: f.XPoweredBy,
+			Body:       f.Body,
+			Match:      f.Match,
+			Enabled:    f.Enabled,
+			Source:     f.Source,
+		})
 	}
 
-	var cpeDTOs []CPERuleDTO
-	if len(cpes) > 0 {
-		cpeDTOs = make([]CPERuleDTO, 0, len(cpes))
-		for _, c := range cpes {
-			cpeDTOs = append(cpeDTOs, CPERuleDTO{
-				Name:     c.Name,
-				Probe:    c.Probe,
-				MatchStr: c.MatchStr,
-				Vendor:   c.Vendor,
-				Product:  c.Product,
-				Version:  c.Version,
-				Update:   c.Update,
-				Edition:  c.Edition,
-				Language: c.Language,
-				Part:     c.Part,
-				CPE:      c.CPE,
-				Enabled:  c.Enabled,
-				Source:   c.Source,
-			})
-		}
+	// 2. 转换 CPEs -> DTOs
+	cpeDTOs := make([]CPERuleDTO, 0, len(cpes))
+	for _, c := range cpes {
+		cpeDTOs = append(cpeDTOs, CPERuleDTO{
+			Name:     c.Name,
+			Probe:    c.Probe,
+			MatchStr: c.MatchStr,
+			Vendor:   c.Vendor,
+			Product:  c.Product,
+			Version:  c.Version,
+			Update:   c.Update,
+			Edition:  c.Edition,
+			Language: c.Language,
+			Part:     c.Part,
+			CPE:      c.CPE,
+			Enabled:  c.Enabled,
+			Source:   c.Source,
+		})
 	}
 
 	// 3. 构建标准结构

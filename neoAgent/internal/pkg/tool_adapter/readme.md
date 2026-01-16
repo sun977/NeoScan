@@ -19,8 +19,6 @@
 
 # Tool Adapter Layer Design (Linus Style)
 
-这个模块在 Agent 端也需要有，Agent 才是运行工具和数据处理的地方
-
 ## 1. 核心理念 (Core Philosophy)
 
 **"Good programmers worry about data structures."**

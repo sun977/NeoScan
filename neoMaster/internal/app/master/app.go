@@ -27,18 +27,20 @@ import (
 	"neomaster/internal/pkg/logger"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
 )
 
 // App 应用程序结构体
 type App struct {
-	router     *router.Router
 	db         *gorm.DB
+	router     *router.Router
 	redis      *redis.Client
 	config     *config.Config
 	scheduler  scheduler.SchedulerService
 	localAgent *local_agent.LocalAgent
 	etl        etl.ResultProcessor
+	cron       *cron.Cron // 系统级 Cron，用于后台维护任务
 }
 
 // NewApp 创建新的应用程序实例
@@ -161,8 +163,8 @@ func NewApp() (*App, error) {
 	etlProcessor := router.GetETLProcessor()
 
 	return &App{
-		router:     router,
 		db:         db,
+		router:     router,
 		redis:      redisClient,
 		config:     cfg,
 		scheduler:  schedulerService,
@@ -183,19 +185,30 @@ func (a *App) GetConfig() *config.Config {
 
 // StartScheduler 启动调度引擎及后台服务
 func (a *App) StartScheduler(ctx context.Context) {
+	// 调度器服务启动
 	if a.scheduler != nil {
 		a.scheduler.Start(ctx)
 	}
+	// localAgent服务启动
 	if a.localAgent != nil {
 		a.localAgent.Start()
 	}
+	// ETL服务启动(Master本地数据清洗服务)
 	if a.etl != nil {
 		a.etl.Start(ctx)
+	}
+	// 系统级Cron服务启动
+	if a.cron != nil {
+		a.cron.Start()
+		logger.LogInfo("System Cron started", "", 0, "", "app.StartScheduler", "SYSTEM", nil)
 	}
 }
 
 // StopScheduler 停止调度引擎及后台服务
 func (a *App) StopScheduler() {
+	if a.cron != nil {
+		a.cron.Stop()
+	}
 	if a.scheduler != nil {
 		a.scheduler.Stop()
 	}

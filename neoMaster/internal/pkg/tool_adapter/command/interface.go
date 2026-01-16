@@ -1,4 +1,4 @@
-package factory
+package command
 
 // CommandBuilder 定义命令构建接口
 // 它的职责是将抽象的配置转换为具体的操作系统命令

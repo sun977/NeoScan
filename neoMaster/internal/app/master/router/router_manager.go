@@ -9,6 +9,7 @@ package router
 
 import (
 	setup "neomaster/internal/app/master/setup"
+	"neomaster/internal/service/asset/enrichment"
 	"neomaster/internal/service/asset/etl"
 	"neomaster/internal/service/orchestrator/core/scheduler"
 	"neomaster/internal/service/orchestrator/local_agent"
@@ -75,6 +76,8 @@ type Router struct {
 	localAgent *local_agent.LocalAgent
 	// ETL 处理器
 	etlProcessor etl.ResultProcessor
+	// 指纹治理服务(资产富化 - Master端二次指纹治理服务)
+	fingerprintGovernance *enrichment.FingerprintMatcher
 }
 
 // NewRouter 创建路由管理器实例
@@ -202,6 +205,8 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 		localAgent: orchestratorModule.LocalAgent,
 		// ETL 处理器
 		etlProcessor: orchestratorModule.ETLProcessor,
+		// 指纹治理服务
+		fingerprintGovernance: assetModule.FingerprintGovernance,
 	}
 }
 

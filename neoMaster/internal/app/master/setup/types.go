@@ -16,7 +16,8 @@ import (
 	tagHandler "neomaster/internal/handler/tag_system"
 	agentService "neomaster/internal/service/agent"
 	assetService "neomaster/internal/service/asset"
-	"neomaster/internal/service/asset/etl" // 引入ETL
+	"neomaster/internal/service/asset/enrichment" // 引入资产富化 enrichment
+	"neomaster/internal/service/asset/etl"        // 引入ETL
 	authService "neomaster/internal/service/auth"
 	"neomaster/internal/service/fingerprint" // 引入 fingerprint
 	orchestratorService "neomaster/internal/service/orchestrator"
@@ -141,30 +142,31 @@ type OrchestratorModule struct {
 // - AssetHostService：对应的业务服务实例。
 type AssetModule struct {
 	// Handlers
-	AssetRawHandler           *assetHandler.RawAssetHandler
-	AssetHostHandler          *assetHandler.AssetHostHandler
-	AssetNetworkHandler       *assetHandler.AssetNetworkHandler
-	AssetPolicyHandler        *assetHandler.AssetPolicyHandler
-	AssetFingerCmsHandler     *assetHandler.AssetFingerHandler
-	AssetFingerServiceHandler *assetHandler.AssetCPEHandler
-	AssetWebHandler           *assetHandler.AssetWebHandler
-	AssetVulnHandler          *assetHandler.AssetVulnHandler
-	AssetUnifiedHandler       *assetHandler.AssetUnifiedHandler
-	AssetScanHandler          *assetHandler.AssetScanHandler
-	FingerprintRuleHandler    *assetHandler.FingerprintRuleHandler
-	ETLErrorHandler           *assetHandler.ETLErrorHandler
+	AssetRawHandler           *assetHandler.RawAssetHandler        // 原始资产处理器
+	AssetHostHandler          *assetHandler.AssetHostHandler       // 主机资产处理器
+	AssetNetworkHandler       *assetHandler.AssetNetworkHandler    // 网络资产处理器
+	AssetPolicyHandler        *assetHandler.AssetPolicyHandler     // 策略执行处理器
+	AssetFingerCmsHandler     *assetHandler.AssetFingerHandler     // CMS指纹资产处理器
+	AssetFingerServiceHandler *assetHandler.AssetCPEHandler        // CPE指纹资产处理器
+	AssetWebHandler           *assetHandler.AssetWebHandler        // Web资产处理器
+	AssetVulnHandler          *assetHandler.AssetVulnHandler       // 漏洞资产处理器
+	AssetUnifiedHandler       *assetHandler.AssetUnifiedHandler    // 统一资产视图处理器
+	AssetScanHandler          *assetHandler.AssetScanHandler       // 扫描记录处理器
+	FingerprintRuleHandler    *assetHandler.FingerprintRuleHandler // 指纹规则处理器 - 规则指纹供Agent使用
+	ETLErrorHandler           *assetHandler.ETLErrorHandler        // ETL资产清洗错误处理器 - 用于处理ETL过程中出现的错误资产(dB充当"死信队列")
 
 	// Services
-	AssetRawService           *assetService.RawAssetService
-	AssetHostService          *assetService.AssetHostService
-	AssetNetworkService       *assetService.AssetNetworkService
-	AssetPolicyService        *assetService.AssetPolicyService
-	AssetFingerCmsService     *assetService.AssetFingerService
-	AssetFingerServiceService *assetService.AssetCPEService
-	AssetWebService           *assetService.AssetWebService
-	AssetVulnService          *assetService.AssetVulnService
-	AssetUnifiedService       *assetService.AssetUnifiedService
-	AssetScanService          *assetService.AssetScanService
-	FingerprintRuleManager    *fingerprint.RuleManager
-	AssetETLErrorService      assetService.AssetETLErrorService
+	AssetRawService           *assetService.RawAssetService     // 原始资产服务
+	AssetHostService          *assetService.AssetHostService    // 主机资产服务
+	AssetNetworkService       *assetService.AssetNetworkService // 网络资产服务
+	AssetPolicyService        *assetService.AssetPolicyService  // 策略执行服务
+	AssetFingerCmsService     *assetService.AssetFingerService  // CMS指纹资产服务
+	AssetFingerServiceService *assetService.AssetCPEService     // CPE指纹资产服务
+	AssetWebService           *assetService.AssetWebService     // Web资产服务
+	AssetVulnService          *assetService.AssetVulnService    // 漏洞资产服务
+	AssetUnifiedService       *assetService.AssetUnifiedService // 统一资产视图服务
+	AssetScanService          *assetService.AssetScanService    // 扫描记录服务
+	FingerprintRuleManager    *fingerprint.RuleManager          // 指纹规则管理器 - 用于管理指纹规则
+	AssetETLErrorService      assetService.AssetETLErrorService // ETL资产清洗错误服务 - 用于处理ETL过程中出现的错误资产(dB充当"死信队列")
+	FingerprintGovernance     *enrichment.FingerprintMatcher    // 资产富化 - 指纹治理服务(用于Master端离线二次指纹识别)
 }

@@ -13,8 +13,11 @@ import (
 	assetHandler "neomaster/internal/handler/asset"
 	assetRepo "neomaster/internal/repo/mysql/asset"
 	assetService "neomaster/internal/service/asset"
+	"neomaster/internal/service/asset/enrichment"
 	"neomaster/internal/service/asset/etl"
 	"neomaster/internal/service/fingerprint"
+	"neomaster/internal/service/fingerprint/engines/http"
+	"neomaster/internal/service/fingerprint/engines/service"
 	tagService "neomaster/internal/service/tag_system"
 
 	"gorm.io/gorm"
@@ -63,6 +66,31 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	}
 	fingerprintRuleManager := fingerprint.NewRuleManager(ruleRepo, fingerCmsRepo, fingerServiceRepo, ruleEncryptionKey, config)
 
+	// 2.2 初始化指纹识别服务 (Runtime Identifier)
+	// Master 本地运行时指纹识别服务，用于资产二次指纹识别
+	httpEngine := http.NewHTTPEngine(fingerCmsRepo)
+	serviceEngine := service.NewServiceEngine(fingerServiceRepo)
+	fpService := fingerprint.NewFingerprintService(httpEngine, serviceEngine)
+
+	// 加载规则 (尝试从默认目录加载)
+	// TODO: 路径应从配置中获取，与 RuleManager 保持一致
+	ruleDir := "rules/fingerprint"
+	if config != nil && config.App.Rules.RootPath != "" {
+		// 这里简单拼接，实际应保持一致
+		// 暂且使用硬编码的 rules/fingerprint，因为 RuleManager 默认也是发布到这里
+	}
+
+	// 尝试加载规则，如果失败仅记录日志（可能是初次启动无规则）
+	if err := fpService.LoadRules(ruleDir); err != nil {
+		logger.LogBusinessError(err, "system", 0, "localhost", "", "load_rules", map[string]interface{}{
+			"path": ruleDir,
+			"msg":  "failed to load fingerprint rules (non-fatal)",
+		})
+	}
+
+	// 2.3 初始化指纹治理服务 (Governance)
+	fingerprintGovernance := enrichment.NewFingerprintMatcher(hostRepo, fpService, tagSystem)
+
 	// 3. Handler 初始化
 	rawHandler := assetHandler.NewRawAssetHandler(rawService)
 	hostHandler := assetHandler.NewAssetHostHandler(hostService)
@@ -84,18 +112,18 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 	}).Info("资产管理模块初始化完成")
 
 	return &AssetModule{
-		AssetRawHandler:           rawHandler,
-		AssetHostHandler:          hostHandler,
-		AssetNetworkHandler:       networkHandler,
-		AssetPolicyHandler:        policyHandler,
-		AssetFingerCmsHandler:     fingerCmsHandler,
-		AssetFingerServiceHandler: fingerServiceHandler,
-		AssetWebHandler:           webHandler,
-		AssetVulnHandler:          vulnHandler,
-		AssetUnifiedHandler:       unifiedHandler,
-		AssetScanHandler:          scanHandler,
-		FingerprintRuleHandler:    fingerprintRuleHandler,
-		ETLErrorHandler:           etlErrorHandler,
+		AssetRawHandler:           rawHandler,             // 原始资产Handler - 用于处理原始资产数据
+		AssetHostHandler:          hostHandler,            // 主机资产Handler - 用于处理主机资产数据
+		AssetNetworkHandler:       networkHandler,         // 网络资产Handler - 用于处理网络资产数据
+		AssetPolicyHandler:        policyHandler,          // 策略执行Handler - 用于处理策略执行数据
+		AssetFingerCmsHandler:     fingerCmsHandler,       // CMS指纹Handler - 用于处理CMS指纹数据
+		AssetFingerServiceHandler: fingerServiceHandler,   // CPE指纹Handler - 用于处理CPE指纹数据
+		AssetWebHandler:           webHandler,             // Web资产Handler - 用于处理Web资产数据
+		AssetVulnHandler:          vulnHandler,            // 漏洞资产Handler - 用于处理漏洞资产数据
+		AssetUnifiedHandler:       unifiedHandler,         // 汇总资产Handler - 用于处理汇总资产数据
+		AssetScanHandler:          scanHandler,            // 扫描记录Handler - 用于处理扫描记录数据
+		FingerprintRuleHandler:    fingerprintRuleHandler, // 添加指纹规则管理Handler - 用于资产指纹规则管理(指纹规则下发给Agent)
+		ETLErrorHandler:           etlErrorHandler,        // 添加 ETL 错误处理Handler - 用于处理资产 ETL 过程中的错误
 
 		AssetRawService:           rawService,
 		AssetHostService:          hostService,
@@ -107,7 +135,8 @@ func BuildAssetModule(db *gorm.DB, config *config.Config, tagSystem tagService.T
 		AssetVulnService:          vulnService,
 		AssetUnifiedService:       unifiedService,
 		AssetScanService:          scanService,
-		FingerprintRuleManager:    fingerprintRuleManager,
-		AssetETLErrorService:      etlErrorService,
+		FingerprintRuleManager:    fingerprintRuleManager, // 添加指纹规则管理服务 - 用于资产指纹规则管理(指纹规则下发给Agent)
+		AssetETLErrorService:      etlErrorService,        // 添加 ETL 错误处理服务 - 用于处理资产 ETL 过程中的错误
+		FingerprintGovernance:     fingerprintGovernance,  // 添加指纹治理服务 - 用于资产二次指纹识别(Master本地运行时)
 	}
 }

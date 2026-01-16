@@ -1,3 +1,5 @@
+# 目录结构
+```
 ├── pkg/                      # [通用库] - 嵌入基础设施
 │   ├── tool_adapter/         # [新增] 工具适配层 (Infrastructure)   # 这个包在agent端也需要有
 │   │   ├── command/          # [重构] 命令生成模块 (原 factory)
@@ -13,6 +15,7 @@
 │   │   └── models/           # [New] 中间数据模型
 │   │       └── result.go          # 统一的解析结果结构
 │   │   └── readme.md
+```
 
 # Tool Adapter Layer Design (Linus Style)
 

@@ -1,6 +1,10 @@
 # NeoAgent
 
-NeoAgent 是 NeoScan 分布式扫描系统的 Agent 节点，负责执行具体的扫描任务、插件管理和系统监控。Agent 节点通过 gRPC 与 Master 节点通信，接收任务分发并上报执行结果。
+NeoAgent 是 NeoScan 分布式扫描系统的 Agent 节点，负责执行具体的扫描任务、插件管理和系统监控。Agent 节点通过 http 与 Master 节点通信，接收任务分发并上报执行结果。
+
+Agent 运行模式有两种：
+- **集群模式**: Master 节点负责任务分配、结果上报、任务管理，Agent 节点只负责执行任务。
+- 单机模式：Agent 充当扫描器，执行任务并返回结果（人工命令行操作 Agent）。
 
 ## 核心特性
 
@@ -13,9 +17,9 @@ NeoAgent 是 NeoScan 分布式扫描系统的 Agent 节点，负责执行具体�
 
 ## 技术栈
 
-- **核心框架**: Go 1.22+, Gin (HTTP服务), gRPC (RPC通信)
-- **数据存储**: SQLite (本地数据), Redis (缓存)
-- **扫描工具**: Nmap, Masscan, Nuclei, YARA
+- **核心框架**: Go 1.22+, Gin (HTTP服务)
+- **数据存储**: SQLite (本地数据)
+- **扫描工具**: Nmap, Masscan, Nuclei, HTTPx,YARA
 - **配置管理**: YAML + 环境变量
 - **容器化**: Docker + Docker Compose
 

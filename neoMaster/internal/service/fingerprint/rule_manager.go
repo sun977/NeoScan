@@ -112,6 +112,19 @@ func (m *RuleManager) PublishRulesToDisk(ctx context.Context) error {
 	// 这里假设目录结构是: rules/fingerprint/
 	// AgentUpdateService 会扫描该目录下所有文件并打包
 	targetDir := "rules/fingerprint"
+	if m.config != nil {
+		rulesRoot := "rules"
+		if m.config.App.Rules.RootPath != "" {
+			rulesRoot = m.config.App.Rules.RootPath
+		}
+
+		fingerDir := "fingerprint"
+		if m.config.App.Rules.Fingerprint.Dir != "" {
+			fingerDir = m.config.App.Rules.Fingerprint.Dir
+		}
+		targetDir = filepath.Join(rulesRoot, fingerDir)
+	}
+
 	if err := utils.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create rule dir: %w", err)
 	}

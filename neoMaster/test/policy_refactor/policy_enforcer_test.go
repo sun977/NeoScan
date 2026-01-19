@@ -73,15 +73,15 @@ func TestPolicyEnforcer_Whitelist(t *testing.T) {
 
 	// 1. 插入白名单规则
 	rules := []asset.AssetWhitelist{
-		{WhitelistName: "Block Localhost", TargetType: "ip", TargetValue: "127.0.0.1", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block Range", TargetType: "ip", TargetValue: "192.168.1.1-192.168.1.5", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block Large Range", TargetType: "ip_range", TargetValue: "192.168.1.0-192.168.2.255", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block CIDR", TargetType: "cidr", TargetValue: "10.0.0.0/8", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block Domain Suffix", TargetType: "domain", TargetValue: ".gov.cn", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block Domain Pattern", TargetType: "domain_pattern", TargetValue: "*.bad.com", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block Specific Domain", TargetType: "domain", TargetValue: "forbidden.com", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block URL Prefix", TargetType: "url", TargetValue: "http://malicious.com/api", Enabled: true, Tags: "[]", Scope: "{}"},
-		{WhitelistName: "Block Keyword", TargetType: "keyword", TargetValue: "sensitive", Enabled: true, Tags: "[]", Scope: "{}"},
+		{WhitelistName: "Block Localhost", TargetType: "ip", TargetValue: "127.0.0.1", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block Range", TargetType: "ip", TargetValue: "192.168.1.1-192.168.1.5", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block Large Range", TargetType: "ip_range", TargetValue: "192.168.1.0-192.168.2.255", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block CIDR", TargetType: "cidr", TargetValue: "10.0.0.0/8", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block Domain Suffix", TargetType: "domain", TargetValue: ".gov.cn", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block Domain Pattern", TargetType: "domain_pattern", TargetValue: "*.bad.com", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block Specific Domain", TargetType: "domain", TargetValue: "forbidden.com", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block URL Prefix", TargetType: "url", TargetValue: "http://malicious.com/api", Enabled: true, Scope: "{}"},
+		{WhitelistName: "Block Keyword", TargetType: "keyword", TargetValue: "sensitive", Enabled: true, Scope: "{}"},
 	}
 	for _, r := range rules {
 		if err := db.Create(&r).Error; err != nil {
@@ -169,7 +169,6 @@ func TestPolicyEnforcer_SkipLogic(t *testing.T) {
 		Enabled:        true,
 		ActionConfig:   "{}",
 		Scope:          "{}",
-		Tags:           "[]",
 	})
 
 	// 2. 测试 1.1.1.1 应被跳过

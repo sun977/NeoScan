@@ -72,7 +72,6 @@ func TestVulnIdempotency_UpsertSameIdentity(t *testing.T) {
 	host := &assetModel.AssetHost{
 		IP:             ip,
 		OS:             "Linux",
-		Tags:           "{}",
 		SourceStageIDs: "[]",
 	}
 	if err := hostRepo.CreateHost(ctx, host); err != nil {
@@ -154,7 +153,6 @@ func TestVulnIdempotency_UpsertDifferentAlias(t *testing.T) {
 	host := &assetModel.AssetHost{
 		IP:             ip,
 		OS:             "Linux",
-		Tags:           "{}",
 		SourceStageIDs: "[]",
 	}
 	if err := hostRepo.CreateHost(ctx, host); err != nil {
@@ -214,7 +212,6 @@ func TestVulnIdempotency_CreateVulnBlockedByUniqueConstraint(t *testing.T) {
 	host := &assetModel.AssetHost{
 		IP:             ip,
 		OS:             "Linux",
-		Tags:           "{}",
 		SourceStageIDs: "[]",
 	}
 	if err := hostRepo.CreateHost(ctx, host); err != nil {
@@ -282,7 +279,6 @@ func TestVulnIdempotency_ETLMergeTwiceNoDuplicate(t *testing.T) {
 		ProjectID: projectID,
 		Host: &assetModel.AssetHost{
 			IP:             ip,
-			Tags:           "{}",
 			SourceStageIDs: "[]",
 		},
 		Vulns: []*assetModel.AssetVuln{v},
@@ -332,7 +328,6 @@ func TestVulnIdempotency_ConcurrentUpsertSameIdentity(t *testing.T) {
 	host := &assetModel.AssetHost{
 		IP:             ip,
 		OS:             "Linux",
-		Tags:           "{}",
 		SourceStageIDs: "[]",
 	}
 	if err := hostRepo.CreateHost(ctx, host); err != nil {

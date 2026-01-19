@@ -43,9 +43,9 @@ func (SysMatchRule) TableName() string {
 // 注意：这里使用 ID 作为主键，而不是联合主键，方便 GORM 管理
 type SysEntityTag struct {
 	ID         uint64 `gorm:"primaryKey;autoIncrement"`
-	EntityType string `json:"entity_type" gorm:"size:50;index:idx_entity;not null"`
-	EntityID   string `json:"entity_id" gorm:"size:100;index:idx_entity;not null"` // 统一使用字符串ID
-	TagID      uint64 `json:"tag_id" gorm:"index;not null"`
+	EntityType string `json:"entity_type" gorm:"size:50;index:idx_entity;not null;uniqueIndex:idx_entity_tag"`
+	EntityID   string `json:"entity_id" gorm:"size:100;index:idx_entity;not null;uniqueIndex:idx_entity_tag"` // 统一使用字符串ID
+	TagID      uint64 `json:"tag_id" gorm:"index;not null;uniqueIndex:idx_entity_tag"`
 	Source     string `json:"source" gorm:"size:50;default:'manual'"` // manual, auto, api
 	RuleID     uint64 `json:"rule_id" gorm:"default:0"`               // 如果是 auto，记录命中的规则ID
 	CreatedAt  int64  `json:"created_at" gorm:"autoCreateTime"`       // 创建时间,没有使用时间格式而是int64,方便性能

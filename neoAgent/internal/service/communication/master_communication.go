@@ -11,31 +11,33 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	modelComm "neoagent/internal/model/communication"
 )
 
 // MasterCommunicationService Master通信服务接口
 type MasterCommunicationService interface {
 	// ==================== Agent注册和认证 ====================
-	RegisterToMaster(ctx context.Context, info *AgentInfo) error    // 向Master注册Agent
-	UnregisterFromMaster(ctx context.Context) error                 // 从Master注销Agent
-	AuthenticateWithMaster(ctx context.Context, token string) error // 与Master进行认证
+	RegisterToMaster(ctx context.Context, info *modelComm.AgentInfo) error // 向Master注册Agent
+	UnregisterFromMaster(ctx context.Context) error                        // 从Master注销Agent
+	AuthenticateWithMaster(ctx context.Context, token string) error        // 与Master进行认证
 
 	// ==================== 心跳和状态同步 ====================
-	SendHeartbeat(ctx context.Context) error                   // 发送心跳到Master
-	SyncStatus(ctx context.Context, status *AgentStatus) error // 同步Agent状态到Master
+	SendHeartbeat(ctx context.Context) error                             // 发送心跳到Master
+	SyncStatus(ctx context.Context, status *modelComm.AgentStatus) error // 同步Agent状态到Master
 
 	// ==================== 数据上报 ====================
-	ReportMetrics(ctx context.Context, metrics *PerformanceMetrics) error // 上报性能指标
-	ReportTaskResult(ctx context.Context, result *TaskResult) error       // 上报任务执行结果
-	ReportAlert(ctx context.Context, alert *Alert) error                  // 上报告警信息
+	ReportMetrics(ctx context.Context, metrics *modelComm.PerformanceMetrics) error // 上报性能指标
+	ReportTaskResult(ctx context.Context, result *modelComm.TaskResult) error       // 上报任务执行结果
+	ReportAlert(ctx context.Context, alert *modelComm.Alert) error                  // 上报告警信息
 
 	// ==================== 配置同步 ====================
-	FetchConfig(ctx context.Context) (*AgentConfig, error) // 从Master获取配置
-	SyncConfigFromMaster(ctx context.Context) error        // 同步Master端配置
+	FetchConfig(ctx context.Context) (*modelComm.AgentConfig, error) // 从Master获取配置
+	SyncConfigFromMaster(ctx context.Context) error                  // 同步Master端配置
 
 	// ==================== 命令接收和响应 ====================
-	ReceiveCommands(ctx context.Context) (<-chan *Command, error)             // 接收Master端命令
-	SendCommandResponse(ctx context.Context, response *CommandResponse) error // 发送命令执行响应
+	ReceiveCommands(ctx context.Context) (<-chan *modelComm.Command, error)             // 接收Master端命令
+	SendCommandResponse(ctx context.Context, response *modelComm.CommandResponse) error // 发送命令执行响应
 
 	// ==================== 连接管理 ====================
 	Connect(ctx context.Context) error    // 连接到Master
@@ -65,7 +67,7 @@ func NewMasterCommunicationService() MasterCommunicationService {
 // ==================== Agent注册和认证实现 ====================
 
 // RegisterToMaster 向Master注册Agent
-func (s *masterCommunicationService) RegisterToMaster(ctx context.Context, info *AgentInfo) error {
+func (s *masterCommunicationService) RegisterToMaster(ctx context.Context, info *modelComm.AgentInfo) error {
 	// TODO: 实现Agent注册逻辑
 	// 1. 准备Agent基本信息（ID、版本、能力等）
 	// 2. 通过gRPC或HTTP向Master发送注册请求
@@ -109,7 +111,7 @@ func (s *masterCommunicationService) SendHeartbeat(ctx context.Context) error {
 }
 
 // SyncStatus 同步Agent状态到Master
-func (s *masterCommunicationService) SyncStatus(ctx context.Context, status *AgentStatus) error {
+func (s *masterCommunicationService) SyncStatus(ctx context.Context, status *modelComm.AgentStatus) error {
 	// TODO: 实现状态同步逻辑
 	// 1. 格式化Agent状态信息
 	// 2. 发送状态更新到Master
@@ -120,7 +122,7 @@ func (s *masterCommunicationService) SyncStatus(ctx context.Context, status *Age
 // ==================== 数据上报实现 ====================
 
 // ReportMetrics 上报性能指标
-func (s *masterCommunicationService) ReportMetrics(ctx context.Context, metrics *PerformanceMetrics) error {
+func (s *masterCommunicationService) ReportMetrics(ctx context.Context, metrics *modelComm.PerformanceMetrics) error {
 	// TODO: 实现指标上报逻辑
 	// 1. 格式化性能指标数据
 	// 2. 批量或实时上报到Master
@@ -130,7 +132,7 @@ func (s *masterCommunicationService) ReportMetrics(ctx context.Context, metrics 
 }
 
 // ReportTaskResult 上报任务执行结果
-func (s *masterCommunicationService) ReportTaskResult(ctx context.Context, result *TaskResult) error {
+func (s *masterCommunicationService) ReportTaskResult(ctx context.Context, result *modelComm.TaskResult) error {
 	// TODO: 实现任务结果上报逻辑
 	// 1. 格式化任务执行结果
 	// 2. 发送结果到Master
@@ -140,7 +142,7 @@ func (s *masterCommunicationService) ReportTaskResult(ctx context.Context, resul
 }
 
 // ReportAlert 上报告警信息
-func (s *masterCommunicationService) ReportAlert(ctx context.Context, alert *Alert) error {
+func (s *masterCommunicationService) ReportAlert(ctx context.Context, alert *modelComm.Alert) error {
 	// TODO: 实现告警上报逻辑
 	// 1. 格式化告警信息
 	// 2. 立即发送告警到Master
@@ -152,15 +154,14 @@ func (s *masterCommunicationService) ReportAlert(ctx context.Context, alert *Ale
 // ==================== 配置同步实现 ====================
 
 // FetchConfig 从Master获取配置
-func (s *masterCommunicationService) FetchConfig(ctx context.Context) (*AgentConfig, error) {
+func (s *masterCommunicationService) FetchConfig(ctx context.Context) (*modelComm.AgentConfig, error) {
 	// TODO: 实现配置获取逻辑
 	// 1. 向Master请求最新配置
 	// 2. 验证配置有效性
 	// 3. 返回配置信息
-	return &AgentConfig{
-		ID:      "placeholder-config",
+	return &modelComm.AgentConfig{
 		Version: "1.0.0",
-		Data: map[string]interface{}{
+		Custom: map[string]interface{}{
 			"message": "FetchConfig功能待实现",
 		},
 	}, fmt.Errorf("FetchConfig功能待实现 - 需要实现配置获取逻辑")
@@ -179,22 +180,22 @@ func (s *masterCommunicationService) SyncConfigFromMaster(ctx context.Context) e
 // ==================== 命令接收和响应实现 ====================
 
 // ReceiveCommands 接收Master端命令
-func (s *masterCommunicationService) ReceiveCommands(ctx context.Context) (<-chan *Command, error) {
+func (s *masterCommunicationService) ReceiveCommands(ctx context.Context) (<-chan *modelComm.Command, error) {
 	// TODO: 实现命令接收逻辑
 	// 1. 建立与Master的命令通道
 	// 2. 监听Master发送的命令
 	// 3. 解析和验证命令
 	// 4. 通过通道返回命令
-	cmdChan := make(chan *Command, 100)
+	cmdChan := make(chan *modelComm.Command, 100)
 
 	// 占位符实现
 	go func() {
 		defer close(cmdChan)
 		// 模拟接收命令
-		cmdChan <- &Command{
+		cmdChan <- &modelComm.Command{
 			ID:        "placeholder-cmd-1",
 			Type:      "test",
-			Params:    map[string]interface{}{"message": "ReceiveCommands功能待实现"},
+			Payload:   map[string]interface{}{"message": "ReceiveCommands功能待实现"},
 			Timestamp: time.Now(),
 		}
 	}()
@@ -203,7 +204,7 @@ func (s *masterCommunicationService) ReceiveCommands(ctx context.Context) (<-cha
 }
 
 // SendCommandResponse 发送命令执行响应
-func (s *masterCommunicationService) SendCommandResponse(ctx context.Context, response *CommandResponse) error {
+func (s *masterCommunicationService) SendCommandResponse(ctx context.Context, response *modelComm.CommandResponse) error {
 	// TODO: 实现命令响应发送逻辑
 	// 1. 格式化命令执行响应
 	// 2. 发送响应到Master
@@ -254,73 +255,6 @@ func (s *masterCommunicationService) Reconnect(ctx context.Context) error {
 
 // ==================== 数据模型定义 ====================
 
-// AgentInfo Agent基本信息
-type AgentInfo struct {
-	ID           string            `json:"id"`            // Agent唯一标识
-	Name         string            `json:"name"`          // Agent名称
-	Version      string            `json:"version"`       // Agent版本
-	Capabilities []string          `json:"capabilities"`  // Agent能力列表
-	Tags         map[string]string `json:"tags"`          // Agent标签
-	RegisteredAt time.Time         `json:"registered_at"` // 注册时间
-	// TODO: 添加更多Agent信息字段
-	// HostInfo    *HostInfo `json:"host_info"`    // 主机信息
-	// Config      *Config   `json:"config"`       // 配置信息
-}
-
-// AgentStatus Agent状态信息
-type AgentStatus struct {
-	Status    string    `json:"status"`    // Agent状态：online, offline, busy, error
-	Message   string    `json:"message"`   // 状态描述
-	Timestamp time.Time `json:"timestamp"` // 状态更新时间
-	// TODO: 添加更多状态字段
-}
-
-// AgentConfig Agent配置信息
-type AgentConfig struct {
-	ID      string                 `json:"id"`      // 配置ID
-	Version string                 `json:"version"` // 配置版本
-	Data    map[string]interface{} `json:"data"`    // 配置数据
-}
-
-// PerformanceMetrics 性能指标
-type PerformanceMetrics struct {
-	Timestamp   time.Time `json:"timestamp"`    // 指标时间戳
-	CPUUsage    float64   `json:"cpu_usage"`    // CPU使用率
-	MemoryUsage float64   `json:"memory_usage"` // 内存使用率
-	// TODO: 添加更多指标字段
-}
-
-// TaskResult 任务执行结果
-type TaskResult struct {
-	TaskID    string    `json:"task_id"`   // 任务ID
-	Status    string    `json:"status"`    // 执行状态
-	Message   string    `json:"message"`   // 结果描述
-	Timestamp time.Time `json:"timestamp"` // 结果时间戳
-	// TODO: 添加更多结果字段
-}
-
-// Alert 告警信息
-type Alert struct {
-	ID        string    `json:"id"`        // 告警ID
-	Type      string    `json:"type"`      // 告警类型
-	Level     string    `json:"level"`     // 告警级别
-	Message   string    `json:"message"`   // 告警消息
-	Timestamp time.Time `json:"timestamp"` // 告警时间
-}
-
-// Command Master端发送的命令
-type Command struct {
-	ID        string                 `json:"id"`        // 命令ID
-	Type      string                 `json:"type"`      // 命令类型
-	Params    map[string]interface{} `json:"params"`    // 命令参数
-	Timestamp time.Time              `json:"timestamp"` // 命令时间戳
-}
-
-// CommandResponse 命令执行响应
-type CommandResponse struct {
-	CommandID string    `json:"command_id"` // 命令ID
-	Status    string    `json:"status"`     // 执行状态：success, failed, running
-	Message   string    `json:"message"`    // 响应消息
-	Data      any       `json:"data"`       // 响应数据
-	Timestamp time.Time `json:"timestamp"`  // 响应时间戳
-}
+// 移除本地定义的模型，统一使用 neomaster/internal/model/communication 中的模型
+// AgentInfo, AgentStatus, AgentConfig, PerformanceMetrics, TaskResult, Alert, Command, CommandResponse 等
+// 均已在 model 包中定义

@@ -88,6 +88,19 @@ func (s *fakeTagService) GetEntityIDsByTagIDs(ctx context.Context, entityType st
 	return []string{}, nil
 }
 
+// -------------------- 测试桩：假 UpdateService --------------------
+type fakeUpdateService struct{}
+
+func (s *fakeUpdateService) GetSnapshotInfo(ctx context.Context, ruleType agentService.RuleType) (*agentService.RuleSnapshotInfo, error) {
+	return nil, nil
+}
+func (s *fakeUpdateService) BuildSnapshot(ctx context.Context, ruleType agentService.RuleType) (*agentService.RuleSnapshot, error) {
+	return nil, nil
+}
+func (s *fakeUpdateService) GetEncryptedSnapshot(ctx context.Context, ruleType agentService.RuleType) (*agentService.RuleSnapshot, error) {
+	return nil, nil
+}
+
 // -------------------- 测试桩：假仓储 --------------------
 // fakeRepo 实现 agentRepository.AgentRepository，用内存数据支撑分析逻辑
 type fakeRepo struct {
@@ -243,7 +256,7 @@ func almostEqual(a, b, eps float64) bool {
 func Test_GetAgentStatistics_WithAndWithoutTag(t *testing.T) {
 	now := time.Now()
 	repo := newFakeRepoWithData(now)
-	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{}, &fakeUpdateService{})
 
 	// 无标签过滤：3台，总数=3；窗口180s内在线A1/A2=2，离线=1
 	respAll, err := svc.GetAgentStatistics(180, nil)
@@ -312,7 +325,7 @@ func Test_GetAgentLoadBalance_TagTopN(t *testing.T) {
 func Test_GetAgentPerformanceAnalysis_TopLists(t *testing.T) {
 	now := time.Now()
 	repo := newFakeRepoWithData(now)
-	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{}, &fakeUpdateService{})
 
 	resp, err := svc.GetAgentPerformanceAnalysis(310, 2, nil) // 窗口放宽至包含A3
 	if err != nil {

@@ -16,7 +16,7 @@ NeoScan Agent节点是分布式扫描系统的执行单元，负责接收Master�
 ### 1.3 技术架构
 - **开发语言**：Go语言
 - **Web框架**：Gin框架
-- **通信协议**：gRPC + RESTful API
+- **通信协议**：http + RESTful API
 - **本地存储**：SQLite（轻量级数据库）
 - **缓存系统**：本地内存缓存
 - **消息队列**：RabbitMQ客户端

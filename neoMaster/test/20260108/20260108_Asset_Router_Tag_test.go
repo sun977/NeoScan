@@ -64,7 +64,7 @@ func setupRouter(t *testing.T) (*gin.Engine, *gorm.DB, *tagsystem.SysTag) {
 	scanRepo := assetRepo.NewAssetScanRepository(db)
 
 	// Services
-	rawS := assetService.NewRawAssetService(rawRepo)
+	rawS := assetService.NewRawAssetService(rawRepo, tagS)
 	hostS := assetService.NewAssetHostService(hostRepo, tagS)
 	networkS := assetService.NewAssetNetworkService(networkRepo, tagS)
 	policyS := assetService.NewAssetPolicyService(policyRepo, tagS)
@@ -251,7 +251,7 @@ func TestAssetTagRoutes(t *testing.T) {
 	// --- 3. Host Service Tagging ---
 	t.Run("Host Service Tagging", func(t *testing.T) {
 		// Need a host first
-		host := &assetModel.AssetHost{IP: "10.0.0.2", Tags: "{}", SourceStageIDs: "[]"}
+		host := &assetModel.AssetHost{IP: "10.0.0.2", SourceStageIDs: "[]"}
 		db.Create(host)
 		service := &assetModel.AssetService{HostID: host.ID, Port: 80, Name: "http", Fingerprint: "{}"}
 		db.Create(service)
@@ -283,7 +283,7 @@ func TestAssetTagRoutes(t *testing.T) {
 
 	// --- 4. Web Tagging ---
 	t.Run("Web Tagging", func(t *testing.T) {
-		web := &assetModel.AssetWeb{URL: "http://example.com", TechStack: "{}", Tags: "{}", BasicInfo: "{}"}
+		web := &assetModel.AssetWeb{URL: "http://example.com", TechStack: "{}", BasicInfo: "{}"}
 		db.Create(web)
 		defer db.Delete(web)
 
@@ -305,7 +305,7 @@ func TestAssetTagRoutes(t *testing.T) {
 
 	// --- 5. Whitelist Tagging ---
 	t.Run("Whitelist Tagging", func(t *testing.T) {
-		wl := &assetModel.AssetWhitelist{TargetType: "ip", TargetValue: "1.2.3.4", WhitelistName: "Test WL", Tags: "{}", Scope: "{}"}
+		wl := &assetModel.AssetWhitelist{TargetType: "ip", TargetValue: "1.2.3.4", WhitelistName: "Test WL", Scope: "{}"}
 		db.Create(wl)
 		defer db.Delete(wl)
 
@@ -328,7 +328,7 @@ func TestAssetTagRoutes(t *testing.T) {
 
 	// --- 6. SkipPolicy Tagging ---
 	t.Run("SkipPolicy Tagging", func(t *testing.T) {
-		sp := &assetModel.AssetSkipPolicy{PolicyName: "Test SP", PolicyType: "host", ConditionRules: "{}", ActionConfig: "{}", Scope: "{}", Tags: "{}"}
+		sp := &assetModel.AssetSkipPolicy{PolicyName: "Test SP", PolicyType: "host", ConditionRules: "{}", ActionConfig: "{}", Scope: "{}"}
 		db.Create(sp)
 		defer db.Delete(sp)
 

@@ -9,6 +9,7 @@ import (
 	"neomaster/internal/config"
 	assetModel "neomaster/internal/model/asset"
 	orcModel "neomaster/internal/model/orchestrator"
+	tagSystemModel "neomaster/internal/model/tag_system"
 	agentRepo "neomaster/internal/repo/mysql/agent"
 	orcRepo "neomaster/internal/repo/mysql/orchestrator"
 	"neomaster/internal/service/orchestrator/core/scheduler"
@@ -36,6 +37,9 @@ func SetupTestEnv() (*gorm.DB, error) {
 		&orcModel.ProjectWorkflow{},
 		&assetModel.AssetWhitelist{},
 		&assetModel.AssetSkipPolicy{},
+		&tagSystemModel.SysTag{},
+		&tagSystemModel.SysMatchRule{},
+		&tagSystemModel.SysEntityTag{},
 	)
 	if err != nil {
 		return nil, err
@@ -178,6 +182,9 @@ func TestSystemTaskExecution(t *testing.T) {
 	// 2. Create System Task
 	taskRepo := orcRepo.NewTaskRepository(db)
 
+	// Pre-create the tag "internal" so agent can resolve it
+	db.Create(&tagSystemModel.SysTag{Name: "internal", Category: "asset"})
+
 	payload := `{"target_type": "host", "action": "add", "tags": ["internal"], "rule": {"field": "ip", "operator": "cidr", "value": "192.168.1.0/24"}}`
 
 	task := &orcModel.AgentTask{
@@ -223,7 +230,14 @@ func TestSystemTaskExecution(t *testing.T) {
 	var updatedHost assetModel.AssetHost
 	db.First(&updatedHost, host.ID)
 
-	assert.Contains(t, updatedHost.Tags, "internal")
+	// Verify tag exists
+	var tag tagSystemModel.SysTag
+	db.Where("name = ?", "internal").First(&tag)
+	assert.NotZero(t, tag.ID, "Tag 'internal' should exist")
+
+	var entityTag tagSystemModel.SysEntityTag
+	result := db.Where("entity_type = ? AND entity_id = ? AND tag_id = ?", "host", fmt.Sprintf("%d", host.ID), tag.ID).First(&entityTag)
+	assert.NoError(t, result.Error, "Host should be tagged with 'internal'")
 
 	// Verify Task Status
 	var updatedTask orcModel.AgentTask
@@ -241,9 +255,18 @@ func TestSystemTaskCleanup(t *testing.T) {
 	// 1. Seed Asset
 	host := &assetModel.AssetHost{
 		IP: "192.168.1.200",
-		// Tags: "[\"deprecated\"]",
 	}
 	db.Create(host)
+
+	// Seed tag and link
+	tag := &tagSystemModel.SysTag{Name: "deprecated", Category: "asset"}
+	db.Create(tag)
+	db.Create(&tagSystemModel.SysEntityTag{
+		EntityType: "host",
+		EntityID:   fmt.Sprintf("%d", host.ID),
+		TagID:      tag.ID,
+		Source:     "manual",
+	})
 
 	// 2. Create Cleanup Task
 	taskRepo := orcRepo.NewTaskRepository(db)

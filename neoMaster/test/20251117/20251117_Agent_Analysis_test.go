@@ -297,7 +297,7 @@ func Test_GetAgentStatistics_WithAndWithoutTag(t *testing.T) {
 func Test_GetAgentLoadBalance_TagTopN(t *testing.T) {
 	now := time.Now()
 	repo := newFakeRepoWithData(now)
-	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{}, &fakeUpdateService{})
 
 	// 负载评分 A1≈100, A3≈75, A2≈10；TopBusy取前2：A1,A3；TopIdle取前2(最小)：A2,A3
 	resp, err := svc.GetAgentLoadBalance(310, 2, nil)
@@ -361,7 +361,7 @@ func Test_GetAgentCapacityAnalysis_BottlenecksAndScore(t *testing.T) {
 	repo := newFakeRepoWithData(now)
 	repo.metrics[2].Timestamp = now.Add(-30 * time.Second) // A3 调整为窗口内
 
-	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{})
+	svc := agentService.NewAgentMonitorService(repo, &fakeTagService{}, &fakeUpdateService{})
 	// 阈值：CPU/Mem/Disk=80
 	// 标签Tag-1: A1(90/90/40), A3(70/30/60)
 	resp, err := svc.GetAgentCapacityAnalysis(180, 80, 80, 80, []uint64{1})

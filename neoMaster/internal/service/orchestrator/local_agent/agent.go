@@ -192,6 +192,18 @@ func (w *LocalAgent) handleTagPropagation(ctx context.Context, task *orchestrato
 		payload.Action = "add"
 	}
 
+	// Resolve Tags to TagIDs
+	if len(payload.Tags) > 0 {
+		var tags []tag_system.SysTag
+		if err := w.db.Where("name IN ?", payload.Tags).Find(&tags).Error; err == nil {
+			for _, t := range tags {
+				// Avoid duplicates if already in TagIDs?
+				// Simple append for now
+				payload.TagIDs = append(payload.TagIDs, t.ID)
+			}
+		}
+	}
+
 	var count int64
 	var err error
 
@@ -224,11 +236,22 @@ func (w *LocalAgent) processAssetHost(ctx context.Context, payload TagPropagatio
 	var assets []assetModel.AssetHost
 
 	err := w.db.WithContext(ctx).Model(&assetModel.AssetHost{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		// 0. 批量获取标签
+		var assetIDs []string
 		for _, asset := range assets {
-			// 1. 转换为 Map 用于匹配
+			assetIDs = append(assetIDs, strconv.FormatUint(asset.ID, 10))
+		}
+		tagsMap, _ := w.fetchTagsForAssets(ctx, "host", assetIDs)
+
+		for _, asset := range assets {
 			assetData, err := structToMap(asset)
 			if err != nil {
 				continue
+			}
+
+			// 注入标签数据
+			if tags, ok := tagsMap[strconv.FormatUint(asset.ID, 10)]; ok {
+				assetData["tags"] = tags
 			}
 
 			// 2. 执行匹配
@@ -365,10 +388,22 @@ func (w *LocalAgent) processCleanupHost(ctx context.Context, payload AssetCleanu
 	var assets []assetModel.AssetHost
 
 	err := w.db.WithContext(ctx).Model(&assetModel.AssetHost{}).FindInBatches(&assets, batchSize, func(tx *gorm.DB, batch int) error {
+		// 0. 批量获取标签
+		var assetIDs []string
+		for _, asset := range assets {
+			assetIDs = append(assetIDs, strconv.FormatUint(asset.ID, 10))
+		}
+		tagsMap, _ := w.fetchTagsForAssets(ctx, "host", assetIDs)
+
 		for _, asset := range assets {
 			assetData, err := structToMap(asset)
 			if err != nil {
 				continue
+			}
+
+			// 注入标签数据
+			if tags, ok := tagsMap[strconv.FormatUint(asset.ID, 10)]; ok {
+				assetData["tags"] = tags
 			}
 
 			matched, err := matcher.Match(assetData, payload.Rule)

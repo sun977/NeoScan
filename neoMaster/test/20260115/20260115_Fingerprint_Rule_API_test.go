@@ -18,8 +18,8 @@ import (
 	"neomaster/internal/service/fingerprint"
 
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -32,8 +32,8 @@ func setupFingerprintRuleEnv(t *testing.T) (*gin.Engine, *gorm.DB, string) {
 	}
 
 	// AutoMigrate
-	if err := db.AutoMigrate(&assetModel.AssetFinger{}, &assetModel.AssetCPE{}); err != nil {
-		t.Fatalf("failed to migrate database: %v", err)
+	if err1 := db.AutoMigrate(&assetModel.AssetFinger{}, &assetModel.AssetCPE{}); err1 != nil {
+		t.Fatalf("failed to migrate database: %v", err1)
 	}
 
 	// 2. Setup Config & Dirs
@@ -65,7 +65,8 @@ func setupFingerprintRuleEnv(t *testing.T) (*gin.Engine, *gorm.DB, string) {
 	// 3. Setup Components
 	fingerRepo := assetRepo.NewAssetFingerRepository(db)
 	cpeRepo := assetRepo.NewAssetCPERepository(db)
-	ruleManager := fingerprint.NewRuleManager(db, fingerRepo, cpeRepo, cfg.Security.Agent.RuleEncryptionKey, cfg)
+	ruleRepo := assetRepo.NewRuleRepository(db)
+	ruleManager := fingerprint.NewRuleManager(ruleRepo, fingerRepo, cpeRepo, cfg.Security.Agent.RuleEncryptionKey, cfg)
 	handler := asset.NewFingerprintRuleHandler(ruleManager)
 
 	// 4. Setup Router
@@ -93,20 +94,18 @@ func TestFingerprintRuleAPI_ImportExport(t *testing.T) {
 
 	// 1. 准备测试数据 (JSON 文件)
 	ruleContent := `{
-		"name": "Test Rules",
 		"version": "1.0",
-		"type": "http",
-		"samples": [
+		"source": "NeoScan Export",
+		"fingers": [
 			{
 				"name": "TestCMS",
-				"rule": {
-					"product": "TestCMS",
-					"title": "Test CMS Home",
-					"body": "Powered by TestCMS",
-					"source": "custom"
-				}
+				"title": "Test CMS Home",
+				"body": "Powered by TestCMS",
+				"source": "custom",
+				"enabled": true
 			}
-		]
+		],
+		"cpes": []
 	}`
 
 	// 2. 测试 Import (Custom Upload)
@@ -166,18 +165,17 @@ func TestFingerprintRuleAPI_Rollback(t *testing.T) {
 
 	// 构造 V1 备份数据
 	v1Data := `{
-		"name": "Backup V1",
 		"version": "1.0",
-		"type": "http",
-		"samples": [
+		"source": "System Backup",
+		"fingers": [
 			{
 				"name": "RuleV1",
-				"rule": {
-					"title": "V1",
-					"source": "system"
-				}
+				"title": "V1",
+				"source": "system",
+				"enabled": true
 			}
-		]
+		],
+		"cpes": []
 	}`
 	backupFile := "rules_backup_20260115_100000.json"
 	utils.WriteFile(filepath.Join(backupDir, backupFile), []byte(v1Data), 0644)
@@ -220,7 +218,8 @@ func TestFingerprintRuleAPI_Publish(t *testing.T) {
 
 	// 1. 准备 DB 数据
 	db.Create(&assetModel.AssetFinger{Name: "PublishRule", Title: "Publish", Enabled: true})
-	db.Create(&assetModel.AssetFinger{Name: "DisabledRule", Title: "Disabled", Enabled: false})
+	db.Create(&assetModel.AssetFinger{Name: "DisabledRule", Title: "Disabled"})
+	db.Model(&assetModel.AssetFinger{}).Where("name = ?", "DisabledRule").Update("enabled", false)
 
 	// 2. 调用 Publish
 	req := httptest.NewRequest("POST", "/api/v1/asset/fingerprint/rules/publish", nil)

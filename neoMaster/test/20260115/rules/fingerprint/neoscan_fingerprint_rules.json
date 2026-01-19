@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-01-19T10:58:11.7248896+08:00",
+  "source": "NeoScan Export",
+  "fingers": [
+    {
+      "name": "PublishRule",
+      "title": "Publish",
+      "enabled": true,
+      "source": "system"
+    },
+    {
+      "name": "DisabledRule",
+      "title": "Disabled",
+      "enabled": true,
+      "source": "system"
+    }
+  ],
+  "cpes": []
+}

@@ -16,18 +16,18 @@ import (
 // AgentTaskService Agent任务管理服务接口
 type AgentTaskService interface {
 	// ==================== Agent任务管理（🔴 需要响应Master端命令） ====================
-	GetTaskList(ctx context.Context) ([]*Task, error)                    // 获取Agent任务列表 [响应Master端GET /:id/tasks]
-	CreateTask(ctx context.Context, task *Task) (*Task, error)           // 创建新任务 [响应Master端POST /:id/tasks]
-	GetTask(ctx context.Context, taskID string) (*Task, error)           // 获取特定任务信息 [响应Master端GET /:id/tasks/:task_id]
-	DeleteTask(ctx context.Context, taskID string) error                 // 删除任务 [响应Master端DELETE /:id/tasks/:task_id]
-	
+	GetTaskList(ctx context.Context) ([]*Task, error)          // 获取Agent任务列表 [响应Master端GET /:id/tasks]
+	CreateTask(ctx context.Context, task *Task) (*Task, error) // 创建新任务 [响应Master端POST /:id/tasks]
+	GetTask(ctx context.Context, taskID string) (*Task, error) // 获取特定任务信息 [响应Master端GET /:id/tasks/:task_id]
+	DeleteTask(ctx context.Context, taskID string) error       // 删除任务 [响应Master端DELETE /:id/tasks/:task_id]
+
 	// ==================== 任务执行控制 ====================
-	StartTask(ctx context.Context, taskID string) error                  // 启动任务执行
-	StopTask(ctx context.Context, taskID string) error                   // 停止任务执行
-	PauseTask(ctx context.Context, taskID string) error                  // 暂停任务执行
-	ResumeTask(ctx context.Context, taskID string) error                 // 恢复任务执行
+	StartTask(ctx context.Context, taskID string) error                    // 启动任务执行
+	StopTask(ctx context.Context, taskID string) error                     // 停止任务执行
+	PauseTask(ctx context.Context, taskID string) error                    // 暂停任务执行
+	ResumeTask(ctx context.Context, taskID string) error                   // 恢复任务执行
 	GetTaskStatus(ctx context.Context, taskID string) (*TaskStatus, error) // 获取任务执行状态
-	
+
 	// ==================== 任务结果管理 ====================
 	GetTaskResult(ctx context.Context, taskID string) (*TaskResult, error) // 获取任务执行结果
 	GetTaskLog(ctx context.Context, taskID string) ([]string, error)       // 获取任务执行日志
@@ -80,7 +80,7 @@ func (s *agentTaskService) CreateTask(ctx context.Context, task *Task) (*Task, e
 	task.ID = fmt.Sprintf("task-%d", time.Now().Unix())
 	task.Status = "created"
 	task.CreatedAt = time.Now()
-	
+
 	return task, fmt.Errorf("CreateTask功能待实现 - 需要实现任务创建逻辑")
 }
 

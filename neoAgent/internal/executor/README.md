@@ -90,3 +90,60 @@ func (e *MasscanExecutor) Start() error {
 2.  将 `executor.go` 中的命令拼接逻辑移动到 `adapter.Build`。
 3.  将 `executor.go` 中的结果解析逻辑（及相关 Struct）移动到 `adapter.Parse`。
 4.  在 `executor.go` 中调用 `adapter` 的方法。
+
+## 7. 扩展指南：如何添加新执行器 (Adding a New Executor)
+
+如果你想接入一个新的安全工具（例如 `httpx`），请遵循以下步骤：
+
+### Step 1: 创建目录结构
+在 `internal/executor/` 下创建新目录 `httpx/`。
+
+### Step 2: 实现适配器 (The Brain)
+创建 `httpx/adapter.go`，实现 `core.CommandBuilder` 和 `core.Parser` 接口。
+
+```go
+type HttpxAdapter struct {}
+
+// Build: 将 Task Config 转换为 httpx 命令行参数
+func (a *HttpxAdapter) Build(target string, config map[string]interface{}) (string, []string, error) {
+    // 示例: httpx -u target -json -o output.json
+    return "httpx", []string{"-u", target, "-json"}, nil
+}
+
+// Parse: 将 httpx 的 JSON Lines 输出解析为 core.ToolScanResult
+func (a *HttpxAdapter) Parse(output string) (*core.ToolScanResult, error) {
+    // 解析逻辑...
+    return &core.ToolScanResult{
+        ToolName: "httpx",
+        Webs: []core.WebInfo{...},
+    }, nil
+}
+```
+
+### Step 3: 实现执行器 (The Muscle)
+创建 `httpx/executor.go`，实现 `base.Executor` 接口。
+你可以直接复制现有的 `Executor` 代码，只需修改 `Start` 方法以使用新的 `HttpxAdapter`。
+
+```go
+type HttpxExecutor struct {
+    adapter *HttpxAdapter
+    // ... 其他运行时字段
+}
+
+func NewHttpxExecutor() *HttpxExecutor {
+    return &HttpxExecutor{
+        adapter: &HttpxAdapter{},
+    }
+}
+```
+
+### Step 4: 注册执行器
+在 `internal/executor/manager/executor_manager.go` (或其他工厂类) 中注册新的 Executor 类型。
+
+```go
+// 伪代码
+Register("httpx", func() Executor { return httpx.NewHttpxExecutor() })
+```
+
+### Step 5: 验证
+编写单元测试 `httpx/adapter_test.go`，验证 `Build` 生成的命令是否符合预期，以及 `Parse` 是否能正确解析示例输出。

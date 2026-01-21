@@ -29,7 +29,9 @@ type TaskResult struct {
 
 建议在 `internal/model/payloads` 包（或各 Executor 内部）定义具体的 Payload 结构体。
 
-### 3.1 定义 Payload 结构体
+**重要提示**: 根据 `Master-Agent 数据契约`，`TaskResult.Result` 顶层必须包含 `attributes` 和 `evidence`。以下定义的 DTO 仅对应 `attributes` 字段的内容。
+
+### 3.1 定义 Payload 结构体 (对应 attributes)
 
 根据 `Master_Agent_Data_Contract.md` 文档，为每种 Result Type 定义对应的 Go Struct。
 
@@ -87,17 +89,28 @@ func (e *NmapExecutor) Execute(ctx context.Context, task *Task) (*TaskResult, er
         }
     }
     
-    // 3. 安全转换为 map[string]interface{} (序列化再反序列化，或使用 structs 库)
-    // 推荐方式：使用 json 转换确保 tag 生效
-    var resultMap map[string]interface{}
-    bytes, _ := json.Marshal(payload)
-    json.Unmarshal(bytes, &resultMap)
+    // 3. 构造 Top-Level Result
+    // 契约要求：Result 必须包含 attributes 和 evidence 两个字段
+    
+    // 序列化 attributes
+    var attributesMap map[string]interface{}
+    attrBytes, _ := json.Marshal(payload)
+    _ = json.Unmarshal(attrBytes, &attributesMap)
+
+    // 构造顶层 Map
+    topLevelResult := map[string]interface{}{
+        "attributes": attributesMap,
+        "evidence": map[string]interface{}{
+            "raw_output": nmapOutput.RawXML, // 示例：保留原始输出
+            // "screenshots": ...
+        },
+    }
 
     // 4. 构造 TaskResult
     return &TaskResult{
         TaskID: task.ID,
         Status: "completed",
-        Result: resultMap, // 此时 Result 严格符合契约
+        Result: topLevelResult, // 此时 Result 严格符合契约 (attributes + evidence)
     }, nil
 }
 ```
@@ -114,8 +127,15 @@ func TestNmapExecutor_Output(t *testing.T) {
     // ... mock execution ...
     result, _ := executor.Execute(...)
     
-    // 验证关键字段是否存在且类型正确
-    ports, ok := result.Result["ports"].([]interface{})
+    // 1. 验证顶层结构
+    attributes, ok := result.Result["attributes"].(map[string]interface{})
+    assert.True(t, ok, "attributes field missing or invalid")
+    
+    _, ok = result.Result["evidence"].(map[string]interface{})
+    assert.True(t, ok, "evidence field missing or invalid")
+
+    // 2. 验证 attributes 内容
+    ports, ok := attributes["ports"].([]interface{})
     assert.True(t, ok)
     assert.NotEmpty(t, ports)
     

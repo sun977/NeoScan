@@ -65,8 +65,8 @@ func runServer() {
 	}
 
 	// 启动Agent应用
-	if err := app.Start(); err != nil {
-		log.Fatalf("Failed to start agent app: %v", err)
+	if err2 := app.Start(); err2 != nil {
+		log.Fatalf("Failed to start agent app: %v", err2)
 	}
 
 	// 等待中断信号以优雅地关闭服务器
@@ -80,8 +80,8 @@ func runServer() {
 	defer cancel()
 
 	// 停止Agent应用
-	if err := app.Stop(ctx); err != nil {
-		log.Fatal("Agent forced to shutdown:", err)
+	if err1 := app.Stop(ctx); err1 != nil {
+		log.Fatal("Agent forced to shutdown:", err1)
 	}
 
 	// 强制退出以防万一

@@ -7,7 +7,11 @@
  */
 package communication
 
-import "time"
+import (
+	"time"
+
+	"neoagent/internal/core/model"
+)
 
 // ==================== 任务相关 ====================
 
@@ -27,6 +31,32 @@ type Task struct {
 	RetryCount int                    `json:"retry_count"` // 重试次数
 	CreatedAt  time.Time              `json:"created_at"`  // 创建时间
 	UpdatedAt  time.Time              `json:"updated_at"`  // 更新时间
+}
+
+// ToCoreTask 将通信层 DTO 转换为核心层 Domain Object
+func (t *Task) ToCoreTask() *model.Task {
+	coreTask := &model.Task{
+		ID:        t.ID,
+		Type:      model.TaskType(t.Type),
+		Priority:  t.Priority,
+		Timeout:   t.Timeout,
+		CreatedAt: t.CreatedAt,
+		Params:    t.Config,
+	}
+
+	// 尝试提取核心字段
+	if val, ok := t.Config["target"]; ok {
+		if target, ok := val.(string); ok {
+			coreTask.Target = target
+		}
+	}
+	if val, ok := t.Config["port_range"]; ok {
+		if portRange, ok := val.(string); ok {
+			coreTask.PortRange = portRange
+		}
+	}
+
+	return coreTask
 }
 
 // TaskResult 任务结果
@@ -54,4 +84,26 @@ type TaskMetrics struct {
 	DiskWrite    int64         `json:"disk_write"`    // 磁盘写入
 	NetworkRead  int64         `json:"network_read"`  // 网络读取
 	NetworkWrite int64         `json:"network_write"` // 网络写入
+}
+
+// FromCoreResult 将核心层结果转换为通信层 DTO
+func FromCoreResult(cr *model.TaskResult, agentID string) *TaskResult {
+	// TODO: TaskMetrics 目前在 core 中还没有定义，暂时为空
+	return &TaskResult{
+		TaskID:    cr.TaskID,
+		AgentID:   agentID,
+		Status:    string(cr.Status),
+		Error:     cr.Error,
+		StartTime: cr.StartTime,
+		EndTime:   cr.EndTime,
+		Duration:  cr.EndTime.Sub(cr.StartTime),
+		Timestamp: time.Now(),
+		// Result 需要特殊处理，可能需要序列化
+		Result: func() map[string]interface{} {
+			if m, ok := cr.Data.(map[string]interface{}); ok {
+				return m
+			}
+			return nil // 或者做反射/JSON转换
+		}(),
+	}
 }

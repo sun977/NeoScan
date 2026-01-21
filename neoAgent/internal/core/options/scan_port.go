@@ -12,6 +12,7 @@ type PortScanOptions struct {
 	Port          string
 	Rate          int
 	ServiceDetect bool
+	Output        OutputOptions
 }
 
 func NewPortScanOptions() *PortScanOptions {
@@ -35,9 +36,11 @@ func (o *PortScanOptions) ToTask() *model.Task {
 	task := model.NewTask(model.TaskTypePortScan, o.Target)
 	task.PortRange = o.Port
 	task.Timeout = 1 * time.Hour
-	
+
 	task.Params["rate"] = o.Rate
 	task.Params["service_detect"] = o.ServiceDetect
-	
+
+	o.Output.ApplyToParams(task.Params)
+
 	return task
 }

@@ -11,6 +11,7 @@ type VulnScanOptions struct {
 	Target    string
 	Templates string
 	Severity  string
+	Output    OutputOptions
 }
 
 func NewVulnScanOptions() *VulnScanOptions {
@@ -32,6 +33,8 @@ func (o *VulnScanOptions) ToTask() *model.Task {
 
 	task.Params["templates"] = o.Templates
 	task.Params["severity"] = o.Severity
+
+	o.Output.ApplyToParams(task.Params)
 
 	return task
 }

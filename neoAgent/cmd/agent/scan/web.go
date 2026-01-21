@@ -20,6 +20,10 @@ func NewWebScanCmd() *cobra.Command {
 			if err := opts.Validate(); err != nil {
 				return err
 			}
+
+			// 注入全局输出参数
+			opts.Output = globalOutputOptions
+
 			task := opts.ToTask()
 			taskJSON, _ := json.MarshalIndent(task, "", "  ")
 			fmt.Printf("Web Scan Task Created:\n%s\n", string(taskJSON))

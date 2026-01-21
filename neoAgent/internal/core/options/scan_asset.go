@@ -13,6 +13,7 @@ type AssetScanOptions struct {
 	Rate     int
 	OSDetect bool
 	Ping     bool
+	Output   OutputOptions
 }
 
 func NewAssetScanOptions() *AssetScanOptions {
@@ -38,6 +39,8 @@ func (o *AssetScanOptions) ToTask() *model.Task {
 	task.Params["rate"] = o.Rate
 	task.Params["os_detect"] = o.OSDetect
 	task.Params["ping"] = o.Ping
+
+	o.Output.ApplyToParams(task.Params)
 
 	return task
 }

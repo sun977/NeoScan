@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"neoagent/internal/core/options"
+
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,10 @@ func NewVulnScanCmd() *cobra.Command {
 			if err := opts.Validate(); err != nil {
 				return err
 			}
+
+			// 注入全局输出参数
+			opts.Output = globalOutputOptions
+
 			task := opts.ToTask()
 			taskJSON, _ := json.MarshalIndent(task, "", "  ")
 			fmt.Printf("Vuln Scan Task Created:\n%s\n", string(taskJSON))
@@ -30,7 +35,7 @@ func NewVulnScanCmd() *cobra.Command {
 	flags.StringVarP(&opts.Target, "target", "t", opts.Target, "扫描目标")
 	flags.StringVar(&opts.Templates, "templates", opts.Templates, "模板路径")
 	flags.StringVar(&opts.Severity, "severity", opts.Severity, "漏洞等级过滤")
-	
+
 	cmd.MarkFlagRequired("target")
 
 	return cmd

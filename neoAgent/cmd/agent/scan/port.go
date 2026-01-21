@@ -21,6 +21,9 @@ func NewPortScanCmd() *cobra.Command {
 				return err
 			}
 
+			// 注入全局输出参数
+			opts.Output = globalOutputOptions
+
 			task := opts.ToTask()
 
 			taskJSON, _ := json.MarshalIndent(task, "", "  ")

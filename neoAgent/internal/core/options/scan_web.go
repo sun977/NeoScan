@@ -12,6 +12,7 @@ type WebScanOptions struct {
 	Ports  string
 	Path   string
 	Method string
+	Output OutputOptions
 }
 
 func NewWebScanOptions() *WebScanOptions {
@@ -36,6 +37,8 @@ func (o *WebScanOptions) ToTask() *model.Task {
 
 	task.Params["path"] = o.Path
 	task.Params["method"] = o.Method
+
+	o.Output.ApplyToParams(task.Params)
 
 	return task
 }

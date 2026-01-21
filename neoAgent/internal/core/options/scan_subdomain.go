@@ -11,6 +11,7 @@ type SubdomainScanOptions struct {
 	Domain  string
 	Dict    string
 	Threads int
+	Output  OutputOptions
 }
 
 func NewSubdomainScanOptions() *SubdomainScanOptions {
@@ -32,6 +33,8 @@ func (o *SubdomainScanOptions) ToTask() *model.Task {
 
 	task.Params["dict"] = o.Dict
 	task.Params["threads"] = o.Threads
+
+	o.Output.ApplyToParams(task.Params)
 
 	return task
 }

@@ -33,11 +33,11 @@ var rootCmd = &cobra.Command{
   # 启动服务模式 (默认)
   neoAgent server
 
+  # 加入服务集群
+  neoAgent server --master 10.0.0.1:8080 --token mysecrettoken
+
   # 运行单次扫描
   neoAgent scan -t 192.168.1.1 -p 80,443
-
-  # 加入集群
-  neoAgent join 10.0.0.1:8080 --token abcdef
 `,
 	// 默认行为：如果不带参数，显示帮助信息，而不是启动 Server。
 	// 这是一个设计变更：显式优于隐式。

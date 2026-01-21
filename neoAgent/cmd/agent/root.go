@@ -8,7 +8,10 @@ package main
 
 import (
 	"fmt"
+	"neoagent/cmd/agent/scan"
 	"os"
+
+	"neoagent/cmd/agent/proxy"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -59,6 +62,10 @@ func init() {
 
 	// 绑定 Viper
 	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
+
+	// 注册子命令
+	rootCmd.AddCommand(proxy.NewProxyCmd())
+	rootCmd.AddCommand(scan.NewScanCmd())
 }
 
 // initConfig 读取配置文件和环境变量

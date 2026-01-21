@@ -15,10 +15,14 @@ import (
 type TaskType string
 
 const (
-	TaskTypeAssetScan TaskType = "asset_scan" // 资产扫描 (Ping/Port)
-	TaskTypeWebScan   TaskType = "web_scan"   // Web 指纹/爬虫
+	TaskTypeAssetScan TaskType = "asset_scan" // 资产扫描 (IP存活/端口/指纹)
+	TaskTypePortScan  TaskType = "port_scan"  // 端口扫描 (独立)
+	TaskTypeWebScan   TaskType = "web_scan"   // Web 综合扫描
+	TaskTypeDirScan   TaskType = "dir_scan"   // 目录扫描
 	TaskTypeVulnScan  TaskType = "vuln_scan"  // 漏洞扫描 (Nuclei)
-	TaskTypeRawCmd    TaskType = "raw_cmd"    // 原始命令执行 (慎用)
+	TaskTypeSubdomain TaskType = "subdomain"  // 子域名扫描
+	TaskTypeProxy     TaskType = "proxy"      // 代理服务 (Socks5/HTTP/Forward)
+	TaskTypeRawCmd    TaskType = "raw_cmd"    // 原始命令执行
 )
 
 // TaskStatus 定义任务状态

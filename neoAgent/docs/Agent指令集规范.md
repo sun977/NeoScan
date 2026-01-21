@@ -35,30 +35,34 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 | `ping` | `--ping` | bool | No | true | 是否先进行 Ping 存活检测 |
 | `tech_detect` | `--tech-detect` | bool | No | true | 是否进行服务指纹识别 |
 
-**Cluster Payload 示例**:
-```json
-{
-  "type": "scan_start",
-  "action": "asset_scan",
-  "payload": {
-    "target": "192.168.1.0/24",
-    "port_range": "80,443,8080",
-    "rate": 2000
-  }
-}
-```
+### 3.2 端口扫描 (port_scan)
+**描述**: 仅执行端口扫描，不进行其他检测。
 
-### 3.2 Web 扫描 (web_scan)
-**描述**: 针对 HTTP/HTTPS 服务的深度扫描。
+| 参数 (JSON) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `target` | `--target, -t` | string | **Yes** | - | 目标 IP/CIDR |
+| `port_range` | `--port, -p` | string | No | "top1000" | 端口范围 |
+| `rate` | `--rate` | int | No | 1000 | 速率 |
+
+### 3.3 Web 扫描 (web_scan)
+**描述**: 针对 HTTP/HTTPS 服务的深度扫描（指纹、爬虫）。
 
 | 参数 (JSON) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `target` | `--target, -t` | string | **Yes** | - | URL 或 Domain |
 | `spider` | `--spider` | bool | No | false | 是否开启爬虫 |
-| `headless` | `--headless` | bool | No | false | 是否使用浏览器渲染 (Chrome) |
-| `poc` | `--poc` | []string | No | [] | 指定 POC 标签 (e.g., "cve,oa") |
+| `headless` | `--headless` | bool | No | false | 是否使用浏览器渲染 |
 
-### 3.3 漏洞扫描 (vuln_scan)
+### 3.4 目录扫描 (dir_scan)
+**描述**: Web 目录爆破。
+
+| 参数 (JSON) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `target` | `--target, -t` | string | **Yes** | - | 目标 URL |
+| `wordlist` | `--wordlist` | string | No | "default" | 字典文件路径或内置字典名 |
+| `extensions` | `--ext` | string | No | "php,jsp,asp" | 文件扩展名 |
+
+### 3.5 漏洞扫描 (vuln_scan)
 **描述**: 调用 Nuclei 等工具进行 POC 验证。
 
 | 参数 (JSON) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
@@ -66,6 +70,24 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 | `target` | `--target, -t` | string | **Yes** | - | 目标 |
 | `templates` | `--templates` | []string | No | ["cve"] | 指定扫描模板目录/标签 |
 | `severity` | `--severity` | []string | No | ["critical","high"] | 漏洞等级过滤 |
+
+### 3.6 子域名扫描 (subdomain)
+**描述**: 子域名枚举。
+
+| 参数 (JSON) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `domain` | `--domain, -d` | string | **Yes** | - | 根域名 |
+| `brute` | `--brute` | bool | No | false | 是否启用暴力枚举 |
+
+### 3.7 穿透代理 (proxy)
+**描述**: 开启 SOCKS5/HTTP 代理服务或端口转发。
+
+| 参数 (JSON) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `mode` | `--mode` | string | **Yes** | "socks5" | 模式: socks5, http, port_forward |
+| `listen` | `--listen, -l` | string | **Yes** | ":1080" | 监听地址 |
+| `auth` | `--auth` | string | No | - | 认证信息 (user:pass) |
+| `forward` | `--forward, -f` | string | No | - | 转发目标 (仅 port_forward 模式) |
 
 ---
 

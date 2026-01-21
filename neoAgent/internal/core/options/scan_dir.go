@@ -12,6 +12,7 @@ type DirScanOptions struct {
 	Dict       string
 	Extensions string
 	Threads    int
+	Output     OutputOptions
 }
 
 func NewDirScanOptions() *DirScanOptions {
@@ -34,6 +35,8 @@ func (o *DirScanOptions) ToTask() *model.Task {
 	task.Params["dict"] = o.Dict
 	task.Params["extensions"] = o.Extensions
 	task.Params["threads"] = o.Threads
+
+	o.Output.ApplyToParams(task.Params)
 
 	return task
 }

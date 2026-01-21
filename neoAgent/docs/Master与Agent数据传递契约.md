@@ -10,15 +10,39 @@ Master 端的编排器（Orchestrator）和 ETL 引擎强依赖于此结构进�
 2.  严禁缺失关键字段（如 `ip`, `port` 等）。
 3.  严禁更改数据类型（如将 `port` 从 `int` 改为 `string`）。
 
-所有 Agent 的 `TaskResult.Result` (即 Master 端的 `StageResult.Attributes`) 必须严格符合以下 JSON Schema。
+所有 Agent 的 `TaskResult.Result` 必须严格符合以下 JSON Schema。
+
+**重要变更**：`TaskResult.Result` 不再直接作为 `attributes`，而是包含 `attributes` 和 `evidence` 两个顶层字段。
 
 ---
 
-## 2. 结果类型定义 (Result Types)
+## 2. 顶层结构 (Root Structure)
 
-Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
+Agent 上报的 `TaskResult.Result` 必须包含以下两个字段：
 
-### 2.1 探活扫描 (ip_alive)
+```json
+{
+  "attributes": {
+    // 结构化结果 (具体结构见下文)
+  },
+  "evidence": {
+    // 原始证据 (如工具原始输出、截图Base64等)
+    "raw_output": "...",
+    "screenshots": [...]
+  }
+}
+```
+
+*   `attributes`: (必选) 供 Master 进行逻辑判断、数据清洗和入库。
+*   `evidence`: (可选) 供审计和人工复查，Master 会将其归档。
+
+---
+
+## 3. 结果类型定义 (Attributes Definitions)
+
+以下定义的是 `TaskResult.Result["attributes"]` 的内部结构。
+
+### 3.1 探活扫描 (ip_alive)
 
 *   **对应工具**: ICMP Ping, ARP Scan
 *   **Master 接收字段**: `attributes`
@@ -43,7 +67,7 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
-### 2.2 端口扫描 (port_scan)
+### 3.2 端口扫描 (port_scan)
 
 *   **对应工具**: Nmap, Masscan
 *   **适用类型**: `fast_port_scan` (快速), `full_port_scan` (全量)
@@ -69,7 +93,7 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
-### 2.3 服务指纹识别 (service_fingerprint)
+### 3.3 服务指纹识别 (service_fingerprint)
 
 *   **对应工具**: Nmap (-sV), Goby
 *   **Master 接收字段**: `attributes`
@@ -92,7 +116,7 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
-### 2.4 Web 端点发现 (web_endpoint)
+### 3.4 Web 端点发现 (web_endpoint)
 
 *   **对应工具**: Nuclei, HTTPX, FingerprintHub
 *   **Master 接收字段**: `attributes`
@@ -119,7 +143,7 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
-### 2.5 漏洞发现 (vuln_finding)
+### 3.5 漏洞发现 (vuln_finding)
 
 *   **对应工具**: Nuclei, Xray, Nessus
 *   **Master 接收字段**: `attributes`
@@ -144,7 +168,7 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
-### 2.6 PoC 验证 (poc_scan)
+### 3.6 PoC 验证 (poc_scan)
 
 *   **对应工具**: Custom PoC Runner
 *   **Master 接收字段**: `attributes`
@@ -165,7 +189,7 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
-### 2.7 密码审计 (password_audit)
+### 3.7 密码审计 (password_audit)
 
 *   **对应工具**: Hydra, Medusa
 *   **Master 接收字段**: `attributes`
@@ -189,7 +213,7 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
-### 2.8 域名/子域发现 (subdomain_discovery)
+### 3.8 域名/子域发现 (subdomain_discovery)
 
 *   **对应工具**: Subfinder, OneForAll
 *   **Master 接收字段**: `attributes`
@@ -208,9 +232,102 @@ Agent 必须根据执行的任务类型，填充对应的 Payload 结构。
 }
 ```
 
+### 3.9 代理检测 (proxy_detection)
+
+*   **对应工具**: Custom Proxy Checker
+*   **Master 接收字段**: `attributes`
+
+```json
+{
+  "proxies": [
+    {
+      "ip": "1.2.3.4",                                // [必须] 代理IP
+      "port": 8080,                                   // [必须] 端口
+      "type": "http",                                 // [必须] 类型 (http/socks4/socks5)
+      "open": true,                                   // [必须] 是否开放
+      "auth_required": false                          // [可选] 是否需要认证
+    }
+  ]
+}
+```
+
+### 3.10 目录扫描 (directory_scan)
+
+*   **对应工具**: Gobuster, Dirsearch, Feroxbuster
+*   **Master 接收字段**: `attributes`
+
+```json
+{
+  "paths": [
+    {
+      "url": "https://example.com/.git",              // [必须] 完整URL
+      "status": 200,                                  // [必须] HTTP状态码
+      "length": 1024,                                 // [可选] 响应长度
+      "sensitive": true                               // [可选] 是否敏感文件
+    }
+  ]
+}
+```
+
+### 3.11 API 发现 (api_discovery)
+
+*   **对应工具**: Kiterunner, Custom Scripts
+*   **Master 接收字段**: `attributes`
+
+```json
+{
+  "apis": [
+    {
+      "method": "GET",                                // [必须] HTTP方法
+      "path": "/v1/users",                            // [必须] API路径
+      "status": 200,                                  // [必须] 状态码
+      "auth_required": true                           // [可选] 是否需要认证
+    }
+  ],
+  "spec": {
+    "format": "OpenAPI",                              // [可选] 规范格式
+    "version": "3.0"                                  // [可选] 版本
+  }
+}
+```
+
+### 3.12 文件发现 (file_discovery)
+
+*   **对应工具**: Custom Scripts
+*   **Master 接收字段**: `attributes`
+
+```json
+{
+  "files": [
+    {
+      "url": "https://example.com/backup.zip",        // [必须] 文件URL
+      "path": "/backup.zip",                          // [可选] 相对路径
+      "size": 1048576,                                // [可选] 文件大小(bytes)
+      "mime": "application/zip",                      // [可选] MIME类型
+      "sensitive": true                               // [可选] 是否敏感
+    }
+  ]
+}
+```
+
+### 3.13 其他扫描 (other_scan)
+
+*   **对应工具**: Custom Tools
+*   **Master 接收字段**: `attributes`
+
+```json
+{
+  "summary": "Custom scan output",                    // [可选] 摘要
+  "data": {                                           // [可选] 任意结构化数据
+    "key": "value", 
+    "note": "free-form data"
+  }
+}
+```
+
 ---
 
-## 3. 字段类型规范
+## 4. 字段类型规范
 
 *   **IP 地址**: 必须是标准 IPv4 或 IPv6 字符串。
 *   **Port**: 必须是整数 (Integer)。

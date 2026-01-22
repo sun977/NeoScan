@@ -94,16 +94,16 @@ func FromCoreResult(cr *model.TaskResult, agentID string) *TaskResult {
 		AgentID:   agentID,
 		Status:    string(cr.Status),
 		Error:     cr.Error,
-		StartTime: cr.StartTime,
-		EndTime:   cr.EndTime,
-		Duration:  cr.EndTime.Sub(cr.StartTime),
+		StartTime: cr.ExecutedAt,
+		EndTime:   cr.CompletedAt,
+		Duration:  cr.CompletedAt.Sub(cr.ExecutedAt),
 		Timestamp: time.Now(),
-		// Result 需要特殊处理，可能需要序列化
+		// Result 字段需要根据 cr.Result 类型进行处理
 		Result: func() map[string]interface{} {
-			if m, ok := cr.Data.(map[string]interface{}); ok {
+			if m, ok := cr.Result.(map[string]interface{}); ok {
 				return m
 			}
-			return nil // 或者做反射/JSON转换
+			return nil
 		}(),
 	}
 }

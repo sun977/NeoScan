@@ -36,8 +36,13 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	// 并发控制
-	sem := make(chan struct{}, 100)
+	// 并发控制 (Semaphore)
+	// 确保并发数至少为 1，防止死锁
+	concurrency := opts.Concurrency
+	if concurrency <= 0 {
+		concurrency = 1000
+	}
+	sem := make(chan struct{}, concurrency)
 
 	// 获取本地 IP 用于拓扑判断 (缓存一下)
 	localAddrs, _ := getLocalAddrs()
@@ -120,6 +125,14 @@ func parseOptions(params map[string]interface{}) *options.IpAliveScanOptions {
 			if len(ports) > 0 {
 				opts.TcpPorts = ports
 			}
+		}
+	}
+
+	if v, ok := params["concurrency"]; ok {
+		if i, ok := v.(int); ok {
+			opts.Concurrency = i
+		} else if f, ok := v.(float64); ok {
+			opts.Concurrency = int(f)
 		}
 	}
 

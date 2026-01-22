@@ -32,6 +32,8 @@ func NewScanCmd() *cobra.Command {
 	// 注册子命令
 	cmd.AddCommand(NewIpAliveScanCmd())
 	cmd.AddCommand(NewPortScanCmd())
+	cmd.AddCommand(NewServiceScanCmd())
+	cmd.AddCommand(NewOsScanCmd())
 	cmd.AddCommand(NewWebScanCmd())
 	cmd.AddCommand(NewDirScanCmd())
 	cmd.AddCommand(NewSubdomainScanCmd())

@@ -29,9 +29,9 @@ var (
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "启动 Agent 服务模式 (Cluster Worker)",
-	Long: `以守护进程方式启动 Agent，连接 Master 节点并监听任务下发。
+	Long: `以守护进程方式启动 Agent,连接 Master 节点并监听任务下发。
 
-可以通过命令行参数指定 Master 地址和认证 Token，也可以通过配置文件指定。
+可以通过命令行参数指定 Master 地址和认证 Token,也可以通过配置文件指定。
 命令行参数优先级高于配置文件。
 
 示例:

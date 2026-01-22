@@ -27,7 +27,7 @@ var rootCmd = &cobra.Command{
 	Short: "NeoScan 分布式安全扫描代理",
 	Long: `NeoAgent 是 NeoScan 系统的执行单元。
 它可以作为分布式 Worker 连接到 Master 集群，
-也可以作为独立的命令行扫描工具运行。
+也可以作为独立的命令行扫描工具运行.
 
 示例:
   # 启动服务模式 (默认)

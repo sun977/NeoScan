@@ -62,9 +62,9 @@ func NewIpAliveScanCmd() *cobra.Command {
 	// 不带协议参数 -- 自动模式(根据是否同网段智能选择协议探测帧)
 	// 带协议参数 -- 使用指定协议的探测帧
 	flags.StringVarP(&opts.Target, "target", "t", "", "扫描目标 (IP/CIDR)")
-	flags.BoolVarP(&opts.EnableArp, "arp", "a", opts.EnableArp, "使用 ARP 探测 (仅同广播域有效)")
-	flags.BoolVarP(&opts.EnableIcmp, "icmp", "i", opts.EnableIcmp, "使用 ICMP 探测 (可根据TTL映射OS)")
-	flags.BoolVarP(&opts.EnableTcp, "tcp", "t", opts.EnableTcp, "使用 TCP Connect 探测")
+	flags.BoolVarP(&opts.EnableArp, "arp", "A", opts.EnableArp, "使用 ARP 探测 (仅同广播域有效)")
+	flags.BoolVarP(&opts.EnableIcmp, "icmp", "I", opts.EnableIcmp, "使用 ICMP 探测 (可根据TTL映射OS)")
+	flags.BoolVarP(&opts.EnableTcp, "tcp", "T", opts.EnableTcp, "使用 TCP Connect 探测")
 	flags.IntSliceVarP(&opts.TcpPorts, "tcp-ports", "p", opts.TcpPorts, "TCP 探测端口列表")
 	flags.IntVarP(&opts.Concurrency, "concurrency", "c", opts.Concurrency, "并发数")
 	flags.BoolVarP(&opts.ResolveHostname, "resolve-hostname", "r", opts.ResolveHostname, "启用 Hostname 反向解析 (DNS PTR)")

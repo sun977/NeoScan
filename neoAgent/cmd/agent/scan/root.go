@@ -30,7 +30,7 @@ func NewScanCmd() *cobra.Command {
 	pFlags.Lookup("oj").Hidden = true
 
 	// 注册子命令
-	cmd.AddCommand(NewAssetScanCmd())
+	cmd.AddCommand(NewIpAliveScanCmd())
 	cmd.AddCommand(NewPortScanCmd())
 	cmd.AddCommand(NewWebScanCmd())
 	cmd.AddCommand(NewDirScanCmd())

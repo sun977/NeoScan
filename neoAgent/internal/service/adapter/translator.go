@@ -23,15 +23,15 @@ func (t *TaskTranslator) ToCoreTask(mt protocol.MasterTask) *model.Task {
 
 	switch mt.Type {
 	case protocol.MasterTypeIpAliveScan:
-		task = model.NewTask(model.TaskTypeAssetScan, mt.Target)
+		task = model.NewTask(model.TaskTypeIpAliveScan, mt.Target)
 		task.Params["ping"] = true
 		task.Params["port"] = "" // 不扫端口
 
 	case protocol.MasterTypeFastPortScan:
-		task = model.NewTask(model.TaskTypeAssetScan, mt.Target)
-		task.Params["ping"] = false
+		// 快速端口扫描：直接进行端口扫描，不默认强制先探活
+		task = model.NewTask(model.TaskTypePortScan, mt.Target)
 		task.Params["port"] = "top100"
-		task.Params["os_detect"] = false
+		task.Params["service_detect"] = false
 
 	case protocol.MasterTypeFullPortScan:
 		task = model.NewTask(model.TaskTypePortScan, mt.Target)

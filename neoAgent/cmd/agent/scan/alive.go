@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"neoagent/internal/core/options"
+	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
 	"neoagent/internal/core/scanner/alive"
 
@@ -43,16 +44,9 @@ func NewIpAliveScanCmd() *cobra.Command {
 				return err
 			}
 
-			// 4. 输出结果
-			if len(results) == 0 {
-				fmt.Println("[-] No alive hosts found.")
-			} else {
-				fmt.Printf("[+] Found %d alive hosts:\n", len(results))
-				for _, res := range results {
-					jsonBytes, _ := json.Marshal(res.Result)
-					fmt.Printf("    %s\n", string(jsonBytes))
-				}
-			}
+			// 4. 输出结果 (使用 ConsoleReporter)
+			console := reporter.NewConsoleReporter()
+			console.PrintResults(results)
 
 			// TODO: 实现 OutputReporter (CSV/JSON/Excel)
 			if opts.Output.OutputJson != "" {

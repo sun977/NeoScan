@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"runtime"
 	"sync"
 	"time"
 
 	"neoagent/internal/core/model"
-
-	probing "github.com/prometheus-community/pro-bing"
+	"neoagent/internal/core/options"
 )
 
 // IpAliveScanner 实现 IP 存活扫描
@@ -25,20 +23,24 @@ func (s *IpAliveScanner) Name() model.TaskType {
 }
 
 func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error) {
-	// 1. 解析目标 (支持 CIDR 和 单个IP)
-	// 这里简化处理，假设 Target 是单个IP或CIDR
-	// 实际生产中需要 IP 解析库
+	// 1. 解析目标
 	ips, err := parseTarget(task.Target)
 	if err != nil {
 		return nil, err
 	}
 
+	// 2. 解析参数
+	opts := parseOptions(task.Params)
+
 	var results []*model.TaskResult
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	// 并发控制 (Semaphore)
-	sem := make(chan struct{}, 100) // 限制并发数为100
+	// 并发控制
+	sem := make(chan struct{}, 100)
+
+	// 获取本地 IP 用于拓扑判断 (缓存一下)
+	localAddrs, _ := getLocalAddrs()
 
 	for _, ip := range ips {
 		wg.Add(1)
@@ -48,11 +50,22 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			if isAlive(targetIP) {
+			// 3. 根据策略选择探测器
+			prober := s.getProber(targetIP, opts, localAddrs)
+
+			// 4. 执行探测
+			// 超时时间取 task.Timeout 或默认短超时 (例如单IP探测给 2s足够了，总超时由 task.Timeout 控制)
+			// 但这里的 task.Timeout 是整个任务的。
+			// 单个 IP 的探测不宜过长。
+			probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			defer cancel()
+
+			alive, _ := prober.Probe(probeCtx, targetIP, 3*time.Second)
+
+			if alive {
 				resultData := model.IpAliveResult{
 					IP:    targetIP,
 					Alive: true,
-					// Latency: ... (probing 库目前没直接返回 RTT，后续优化)
 				}
 
 				result := &model.TaskResult{
@@ -73,6 +86,125 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 	return results, nil
 }
 
+// parseOptions 从任务参数中解析选项
+func parseOptions(params map[string]interface{}) *options.IpAliveScanOptions {
+	opts := options.NewIpAliveScanOptions()
+
+	if v, ok := params["strategy"].(string); ok {
+		opts.Strategy = v
+	}
+	if v, ok := params["enable_arp"].(bool); ok {
+		opts.EnableArp = v
+	}
+	if v, ok := params["enable_icmp"].(bool); ok {
+		opts.EnableIcmp = v
+	}
+	if v, ok := params["enable_tcp"].(bool); ok {
+		opts.EnableTcp = v
+	}
+	if v, ok := params["enable_tcp_syn"].(bool); ok {
+		opts.EnableTcpSyn = v
+	}
+
+	// 处理端口列表，注意类型转换
+	if v, ok := params["tcp_ports"]; ok {
+		// 可能是 []int 或 []interface{} (JSON反序列化后)
+		if ports, ok := v.([]int); ok {
+			opts.TcpPorts = ports
+		} else if portsIf, ok := v.([]interface{}); ok {
+			var ports []int
+			for _, p := range portsIf {
+				if f, ok := p.(float64); ok {
+					ports = append(ports, int(f))
+				} else if i, ok := p.(int); ok {
+					ports = append(ports, int(i))
+				}
+			}
+			if len(ports) > 0 {
+				opts.TcpPorts = ports
+			}
+		}
+	}
+
+	return opts
+}
+
+// getProber 根据策略构建探测器
+func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOptions, localAddrs []net.Addr) Prober {
+	var probers []Prober
+
+	if opts.Strategy == "manual" {
+		if opts.EnableArp {
+			probers = append(probers, NewArpProber())
+		}
+		if opts.EnableIcmp {
+			probers = append(probers, NewIcmpProber())
+		}
+		if opts.EnableTcp {
+			probers = append(probers, NewTcpConnectProber(opts.TcpPorts))
+		}
+		if opts.EnableTcpSyn {
+			probers = append(probers, NewTcpSynProber(opts.TcpPorts))
+		}
+		// 如果什么都没选，默认回退到 Ping
+		if len(probers) == 0 {
+			probers = append(probers, NewIcmpProber())
+		}
+	} else {
+		// Auto Strategy
+		isLocal := isLocalIP(targetIP, localAddrs)
+
+		if isLocal {
+			// 同广播域：优先 ARP
+			// 为了保险，也可以组合 ICMP，但 ARP 只要通了就是通了
+			probers = append(probers, NewArpProber())
+		} else {
+			// 跨网段：ICMP + TCP Connect
+			probers = append(probers, NewIcmpProber())
+			probers = append(probers, NewTcpConnectProber(opts.TcpPorts))
+		}
+	}
+
+	return NewMultiProber(probers...)
+}
+
+func getLocalAddrs() ([]net.Addr, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	var addrs []net.Addr
+	for _, i := range ifaces {
+		if i.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if i.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		as, err := i.Addrs()
+		if err == nil {
+			addrs = append(addrs, as...)
+		}
+	}
+	return addrs, nil
+}
+
+func isLocalIP(targetIP string, localAddrs []net.Addr) bool {
+	ip := net.ParseIP(targetIP)
+	if ip == nil {
+		return false
+	}
+
+	for _, addr := range localAddrs {
+		if ipNet, ok := addr.(*net.IPNet); ok {
+			if ipNet.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // parseTarget 解析目标 IP (简化版)
 func parseTarget(target string) ([]string, error) {
 	// 如果是 CIDR
@@ -81,7 +213,7 @@ func parseTarget(target string) ([]string, error) {
 		for ip := ipNet.IP.Mask(ipNet.Mask); ipNet.Contains(ip); inc(ip) {
 			ips = append(ips, ip.String())
 		}
-		// 移除网络地址和广播地址 (通常是第一个和最后一个)
+		// 移除网络地址和广播地址
 		if len(ips) > 2 {
 			return ips[1 : len(ips)-1], nil
 		}
@@ -109,30 +241,4 @@ func inc(ip net.IP) {
 			break
 		}
 	}
-}
-
-// isAlive 使用 ICMP Ping 探测
-func isAlive(ip string) bool {
-	pinger, err := probing.NewPinger(ip)
-	if err != nil {
-		return false
-	}
-
-	// Windows 下需要特权模式或设置非特权
-	if runtime.GOOS == "windows" {
-		pinger.SetPrivileged(true)
-	} else {
-		// Linux 下通常也需要 true，取决于 sysctl 设置
-		pinger.SetPrivileged(true)
-	}
-
-	pinger.Count = 1
-	pinger.Timeout = 1 * time.Second
-
-	err = pinger.Run()
-	if err != nil {
-		return false
-	}
-
-	return pinger.Statistics().PacketsRecv > 0
 }

@@ -60,7 +60,12 @@ func NewIpAliveScanCmd() *cobra.Command {
 	// 绑定 Flags
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.Target, "target", "t", "", "扫描目标 (IP/CIDR)")
-	flags.BoolVar(&opts.Ping, "ping", opts.Ping, "启用 Ping 存活探测")
+	flags.StringVar(&opts.Strategy, "strategy", opts.Strategy, "探测策略: auto (自动), manual (手动)")
+	flags.BoolVar(&opts.EnableArp, "arp", opts.EnableArp, "手动模式: 启用 ARP 探测")
+	flags.BoolVar(&opts.EnableIcmp, "icmp", opts.EnableIcmp, "手动模式: 启用 ICMP 探测")
+	flags.BoolVar(&opts.EnableTcp, "tcp", opts.EnableTcp, "手动模式: 启用 TCP 全连接探测")
+	flags.BoolVar(&opts.EnableTcpSyn, "tcp-syn", opts.EnableTcpSyn, "手动模式: 启用 TCP SYN 探测 (Linux/Unix)")
+	flags.IntSliceVar(&opts.TcpPorts, "tcp-ports", opts.TcpPorts, "TCP 探测端口列表")
 
 	return cmd
 }

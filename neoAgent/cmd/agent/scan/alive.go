@@ -72,6 +72,11 @@ func NewIpAliveScanCmd() *cobra.Command {
 	flags.BoolVarP(&opts.ResolveHostname, "resolve-hostname", "r", opts.ResolveHostname, "启用 Hostname 反向解析 (DNS PTR)")
 
 	// NeoScan-agent scan alive -t 127.0.0.1 -T -p 90,445
+	// 隐式逻辑：如果指定参数 -p,但是没有指定 -T 的情况下隐式开启 TCP 探测,此时 NeoScan-agent scan alive -t 127.0.0.1 -p 90,445 等同于 NeoScan-agent scan alive -t 127.0.0.1 -T -p 90,445
+	// 如果指定参数 -p 和其他协议参数(icmp/arp) 则表示TCP协议和指定参数协议同时开启探测,但是结果取决于谁先返回。但这个时候TCP探测的端口只有 -p 参数指定的端口。
+	// 例如：NeoScan-agent scan alive -t 127.0.0.1 -p 90,445 -I 表示同时开启 TCP 和 ICMP 探测,但是结果取决于谁先返回。
+	// 如果携带了多个协议参数,则表示同时开启多个协议探测,但是结果取决于谁先返回。
+	// IP存活探测会根据TTL粗略的映射OS,但仅作为参考。只有ICMP协议(ping)会携带TTL,其他协议(ARP/TCP)不会携带TTL,因此使用别的协议是大概率OS为空。OS探测交给后续单独的扫描。
 
 	return cmd
 }

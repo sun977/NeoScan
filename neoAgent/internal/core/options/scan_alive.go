@@ -10,13 +10,28 @@ import (
 // IpAliveScanOptions 对应 IP存活扫描 的参数
 type IpAliveScanOptions struct {
 	Target string
-	Ping   bool
+	// 策略配置
+	Strategy string // "auto" (默认), "manual"
+
+	// 协议开关 (Manual模式或特定需求下使用)
+	EnableArp    bool // --arp
+	EnableIcmp   bool // --icmp
+	EnableTcp    bool // --tcp (TCP Full Connect)
+	EnableTcpSyn bool // --tcp-syn (Linux only, Windows fallback to Tcp Connect)
+
+	// TCP探测端口
+	TcpPorts []int // --tcp-ports
+
 	Output OutputOptions
 }
 
+// 默认探测端口
+var DefaultAliveTcpPorts = []int{22, 23, 80, 139, 512, 443, 445, 3389}
+
 func NewIpAliveScanOptions() *IpAliveScanOptions {
 	return &IpAliveScanOptions{
-		Ping: true,
+		Strategy: "auto",
+		TcpPorts: DefaultAliveTcpPorts,
 	}
 }
 
@@ -31,7 +46,13 @@ func (o *IpAliveScanOptions) ToTask() *model.Task {
 	task := model.NewTask(model.TaskTypeIpAliveScan, o.Target)
 	task.Timeout = 1 * time.Hour // 默认超时时间
 
-	task.Params["ping"] = o.Ping
+	// 序列化参数
+	task.Params["strategy"] = o.Strategy
+	task.Params["enable_arp"] = o.EnableArp
+	task.Params["enable_icmp"] = o.EnableIcmp
+	task.Params["enable_tcp"] = o.EnableTcp
+	task.Params["enable_tcp_syn"] = o.EnableTcpSyn
+	task.Params["tcp_ports"] = o.TcpPorts
 
 	o.Output.ApplyToParams(task.Params)
 

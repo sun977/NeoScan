@@ -153,7 +153,7 @@ func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOpt
 	var probers []Prober
 
 	// 智能策略推断
-	// 如果用户指定了任意协议开关，则进入 Manual 模式
+	// 如果用户指定了任意协议开关，则进入 Manual 模式 ，用户输入优先
 	isManual := opts.EnableArp || opts.EnableIcmp || opts.EnableTcp
 
 	if isManual {
@@ -167,7 +167,7 @@ func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOpt
 			probers = append(probers, NewTcpConnectProber(opts.TcpPorts))
 		}
 	} else {
-		// Auto Strategy (默认)
+		// Auto Strategy (默认) 用户没有指定协议的时候
 		isLocal := isLocalIP(targetIP, localAddrs)
 
 		if isLocal {

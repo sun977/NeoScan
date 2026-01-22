@@ -60,10 +60,10 @@ func NewIpAliveScanCmd() *cobra.Command {
 	// 绑定 Flags
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.Target, "target", "t", "", "扫描目标 (IP/CIDR)")
-	flags.StringVar(&opts.Strategy, "strategy", opts.Strategy, "探测策略: auto (自动), manual (手动)")
-	flags.BoolVar(&opts.EnableArp, "arp", opts.EnableArp, "手动模式: 启用 ARP 探测")
-	flags.BoolVar(&opts.EnableIcmp, "icmp", opts.EnableIcmp, "手动模式: 启用 ICMP 探测")
-	flags.BoolVar(&opts.EnableTcp, "tcp", opts.EnableTcp, "手动模式: 启用 TCP 全连接探测")
+	// flags.StringVar(&opts.Strategy, "strategy", opts.Strategy, "探测策略: auto (自动), manual (手动)") // 废弃
+	flags.BoolVar(&opts.EnableArp, "arp", opts.EnableArp, "启用 ARP 探测 (开启后自动切换为 Manual 模式)")
+	flags.BoolVar(&opts.EnableIcmp, "icmp", opts.EnableIcmp, "启用 ICMP 探测 (开启后自动切换为 Manual 模式)")
+	flags.BoolVar(&opts.EnableTcp, "tcp", opts.EnableTcp, "启用 TCP 全连接探测 (开启后自动切换为 Manual 模式)")
 	flags.IntSliceVar(&opts.TcpPorts, "tcp-ports", opts.TcpPorts, "TCP 探测端口列表")
 	flags.IntVarP(&opts.Concurrency, "concurrency", "c", opts.Concurrency, "并发数")
 	flags.BoolVar(&opts.ResolveHostname, "resolve-hostname", opts.ResolveHostname, "启用 Hostname 反向解析 (DNS PTR)")

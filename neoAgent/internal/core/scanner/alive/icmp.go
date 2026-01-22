@@ -65,8 +65,13 @@ func parsePingOutput(output string, osType string) (time.Duration, int) {
 		// Windows: "Reply from 1.1.1.1: bytes=32 time=13ms TTL=56"
 		// 兼容中文: "来自 127.0.0.1 的回复: 字节=32 时间<1ms TTL=128"
 		// 忽略 "time" 或 "时间" 前缀，直接匹配 = 或 < 后面的数字 + ms
-		reTime := regexp.MustCompile(`[<>=]([\d\.]+) ?ms`)
-		reTTL := regexp.MustCompile(`TTL=(\d+)`)
+		// 注意：Windows 中文版输出可能是 "时间<1ms"，也可能是 "时间=13ms"
+		// 使用 (?i) 忽略大小写
+		// 使用 (?:...)? 忽略前缀
+		// 关键匹配: ([<>=])(\d+)ms
+		// 但是更稳健的方式是直接找 "ms" 前面的数字，并且前面有 = 或 <
+		reTime := regexp.MustCompile(`[=<]([\d\.]+)ms`)
+		reTTL := regexp.MustCompile(`(?i)TTL=(\d+)`)
 
 		if matches := reTime.FindStringSubmatch(output); len(matches) > 1 {
 			if ms, err := strconv.ParseFloat(matches[1], 64); err == nil {

@@ -1,10 +1,14 @@
 package scan
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"neoagent/internal/core/options"
+	"neoagent/internal/core/runner"
+	"neoagent/internal/core/scanner/alive"
 
 	"github.com/spf13/cobra"
 )
@@ -27,8 +31,34 @@ func NewIpAliveScanCmd() *cobra.Command {
 
 			task := opts.ToTask()
 
-			taskJSON, _ := json.MarshalIndent(task, "", "  ")
-			fmt.Printf("IP Alive Scan Task Created:\n%s\n", string(taskJSON))
+			// 1. 初始化 RunnerManager
+			manager := runner.NewRunnerManager()
+			// 2. 注册 IpAliveScanner
+			manager.Register(alive.NewIpAliveScanner())
+
+			// 3. 执行任务
+			fmt.Printf("[*] Starting IP Alive Scan on %s...\n", task.Target)
+			results, err := manager.Execute(context.Background(), task)
+			if err != nil {
+				return err
+			}
+
+			// 4. 输出结果
+			if len(results) == 0 {
+				fmt.Println("[-] No alive hosts found.")
+			} else {
+				fmt.Printf("[+] Found %d alive hosts:\n", len(results))
+				for _, res := range results {
+					jsonBytes, _ := json.Marshal(res.Result)
+					fmt.Printf("    %s\n", string(jsonBytes))
+				}
+			}
+
+			// TODO: 实现 OutputReporter (CSV/JSON/Excel)
+			if opts.Output.OutputJson != "" {
+				saveJsonResult(opts.Output.OutputJson, results)
+			}
+
 			return nil
 		},
 	}
@@ -39,4 +69,20 @@ func NewIpAliveScanCmd() *cobra.Command {
 	flags.BoolVar(&opts.Ping, "ping", opts.Ping, "启用 Ping 存活探测")
 
 	return cmd
+}
+
+func saveJsonResult(path string, data interface{}) {
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Printf("[-] Failed to create output file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
+		fmt.Printf("[-] Failed to write json output: %v\n", err)
+	}
+	fmt.Printf("[+] Results saved to %s\n", path)
 }

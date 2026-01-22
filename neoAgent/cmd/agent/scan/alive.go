@@ -65,9 +65,13 @@ func NewIpAliveScanCmd() *cobra.Command {
 	flags.BoolVarP(&opts.EnableArp, "arp", "A", opts.EnableArp, "使用 ARP 探测 (仅同广播域有效)")
 	flags.BoolVarP(&opts.EnableIcmp, "icmp", "I", opts.EnableIcmp, "使用 ICMP 探测 (可根据TTL映射OS)")
 	flags.BoolVarP(&opts.EnableTcp, "tcp", "T", opts.EnableTcp, "使用 TCP Connect 探测")
-	flags.IntSliceVarP(&opts.TcpPorts, "tcp-ports", "p", opts.TcpPorts, "TCP 探测端口列表")
+	// 默认值传入 nil 以避免 Help 信息显示冗长的端口列表
+	// 实际默认值会在 parseOptions 阶段注入 (见 internal/core/options/scan_alive.go)
+	flags.IntSliceVarP(&opts.TcpPorts, "tcp-ports", "p", nil, "TCP 探测端口列表 (默认内置 Top 端口)")
 	flags.IntVarP(&opts.Concurrency, "concurrency", "c", opts.Concurrency, "并发数")
 	flags.BoolVarP(&opts.ResolveHostname, "resolve-hostname", "r", opts.ResolveHostname, "启用 Hostname 反向解析 (DNS PTR)")
+
+	// NeoScan-agent scan alive -t 127.0.0.1 -T -p 90,445
 
 	return cmd
 }

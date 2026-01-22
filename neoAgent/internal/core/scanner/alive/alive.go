@@ -121,7 +121,11 @@ func parseOptions(params map[string]interface{}) *options.IpAliveScanOptions {
 	if v, ok := params["tcp_ports"]; ok {
 		// 可能是 []int 或 []interface{} (JSON反序列化后)
 		if ports, ok := v.([]int); ok {
-			opts.TcpPorts = ports
+			// 如果 CLI 传了参数，这里就是具体的列表；如果没传，Cobra 传进来 nil
+			// 如果是 nil，我们应该回退到 Default
+			if len(ports) > 0 {
+				opts.TcpPorts = ports
+			}
 		} else if portsIf, ok := v.([]interface{}); ok {
 			var ports []int
 			for _, p := range portsIf {
@@ -135,6 +139,11 @@ func parseOptions(params map[string]interface{}) *options.IpAliveScanOptions {
 				opts.TcpPorts = ports
 			}
 		}
+	}
+
+	// 确保 TcpPorts 不为空 (Double Check)
+	if len(opts.TcpPorts) == 0 {
+		opts.TcpPorts = options.DefaultAliveTcpPorts
 	}
 
 	if v, ok := params["concurrency"]; ok {
@@ -154,6 +163,12 @@ func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOpt
 
 	// 智能策略推断
 	// 如果用户指定了任意协议开关，则进入 Manual 模式 ，用户输入优先
+	// 优化：如果用户指定了自定义 TcpPorts (即非默认列表)，则隐式认为想要开启 TCP 探测
+	isCustomPorts := isCustomTcpPorts(opts.TcpPorts)
+	if isCustomPorts && !opts.EnableTcp {
+		opts.EnableTcp = true
+	}
+
 	isManual := opts.EnableArp || opts.EnableIcmp || opts.EnableTcp
 
 	if isManual {
@@ -185,6 +200,20 @@ func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOpt
 	}
 
 	return NewMultiProber(probers...)
+}
+
+func isCustomTcpPorts(ports []int) bool {
+	// 如果长度不同，肯定是自定义
+	if len(ports) != len(options.DefaultAliveTcpPorts) {
+		return true
+	}
+	// 逐个比较
+	for i, p := range ports {
+		if p != options.DefaultAliveTcpPorts[i] {
+			return true
+		}
+	}
+	return false
 }
 
 func getLocalAddrs() ([]net.Addr, error) {

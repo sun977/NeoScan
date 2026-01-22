@@ -14,15 +14,17 @@ import (
 // TaskType 定义任务类型
 type TaskType string
 
+// 定义支持的 7 种扫描任务类型和 2 种非扫描任务类型
 const (
-	TaskTypeAssetScan TaskType = "asset_scan" // 资产扫描 (IP存活/端口/指纹)
-	TaskTypePortScan  TaskType = "port_scan"  // 端口扫描 (独立)
-	TaskTypeWebScan   TaskType = "web_scan"   // Web 综合扫描
-	TaskTypeDirScan   TaskType = "dir_scan"   // 目录扫描
-	TaskTypeVulnScan  TaskType = "vuln_scan"  // 漏洞扫描 (Nuclei)
-	TaskTypeSubdomain TaskType = "subdomain"  // 子域名扫描
-	TaskTypeProxy     TaskType = "proxy"      // 代理服务 (Socks5/HTTP/Forward)
-	TaskTypeRawCmd    TaskType = "raw_cmd"    // 原始命令执行
+	TaskTypeAssetScan   TaskType = "asset_scan"   // 资产扫描 (IP存活/端口/指纹)
+	TaskTypePortScan    TaskType = "port_scan"    // 端口扫描 (独立)
+	TaskTypeServiceScan TaskType = "service_scan" // 服务扫描 (深度识别)
+	TaskTypeWebScan     TaskType = "web_scan"     // Web 综合扫描
+	TaskTypeDirScan     TaskType = "dir_scan"     // 目录扫描
+	TaskTypeVulnScan    TaskType = "vuln_scan"    // 漏洞扫描 (Nuclei)
+	TaskTypeSubdomain   TaskType = "subdomain"    // 子域名扫描
+	TaskTypeProxy       TaskType = "proxy"        // 代理服务 (Socks5/HTTP/Forward)
+	TaskTypeRawCmd      TaskType = "raw_cmd"      // 原始命令执行
 )
 
 // TaskStatus 定义任务状态

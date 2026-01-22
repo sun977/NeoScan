@@ -15,7 +15,7 @@ func NewSubdomainScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "subdomain",
 		Short: "子域名扫描",
-		Long:  `使用字典或 API 进行子域名枚举。`,
+		Long:  `使用字典进行子域名枚举.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

@@ -18,8 +18,8 @@ type TaskType string
 const (
 	TaskTypeIpAliveScan TaskType = "ip_alive_scan" // IP存活扫描 (ICMP/ARP等)
 	TaskTypePortScan    TaskType = "port_scan"     // 端口扫描 (独立)
-	TaskTypeServiceScan TaskType = "service_scan"  // 服务扫描 (深度识别)
-	TaskTypeWebScan     TaskType = "web_scan"      // Web 综合扫描
+	TaskTypeServiceScan TaskType = "service_scan"  // 服务扫描 (深度识别) + CPE指纹识别
+	TaskTypeWebScan     TaskType = "web_scan"      // Web 综合扫描 + web指纹识别
 	TaskTypeDirScan     TaskType = "dir_scan"      // 目录扫描
 	TaskTypeVulnScan    TaskType = "vuln_scan"     // 漏洞扫描 (Nuclei)
 	TaskTypeSubdomain   TaskType = "subdomain"     // 子域名扫描

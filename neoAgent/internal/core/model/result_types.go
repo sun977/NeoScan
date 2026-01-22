@@ -16,7 +16,7 @@ type IpAliveResult struct {
 }
 
 // Headers 实现 TabularData 接口
-// TTL 和 RTT 单位 毫秒 ms
+// RTT 单位 毫秒 ms
 // IP        | Status | OS    | RTT  | TTL | Hostname
 // 127.0.0.1 | UP     | Linux | 10ms | 64  | localhost
 func (r IpAliveResult) Headers() []string {

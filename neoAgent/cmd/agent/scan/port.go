@@ -15,7 +15,7 @@ func NewPortScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "port",
 		Short: "详细端口扫描",
-		Long:  `对指定目标的特定端口进行详细扫描和服务版本识别。`,
+		Long:  `对指定目标的特定端口进行详细扫描和服务版本识别.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

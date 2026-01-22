@@ -14,9 +14,9 @@ func NewIpAliveScanCmd() *cobra.Command {
 	opts := options.NewIpAliveScanOptions()
 
 	var cmd = &cobra.Command{
-		Use:   "alive", // 改为 alive，更贴切
-		Short: "IP存活扫描 (Ping/ARP)",
-		Long:  `仅对目标进行存活探测，不扫描端口。使用 ICMP 或 ARP 协议。`,
+		Use:   "alive",             // 改为 alive，更贴切
+		Short: "IP存活扫描 (ICMP/ARP)", // 后续实现多种协议探测 SYN 等
+		Long:  `仅对目标进行存活探测.使用 ICMP 或 ARP 协议。`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

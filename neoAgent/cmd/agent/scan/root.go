@@ -13,8 +13,8 @@ func NewScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scan",
 		Short: "执行扫描任务",
-		Long: `执行各类扫描任务，如资产发现、端口扫描、Web 扫描等。
-请使用具体的子命令。`,
+		Long: `执行各类扫描任务,如IP探活,端口扫描,服务扫描,OS识别,Web扫描,漏洞扫描,目录/子域名挖掘等。
+请使用具体的子命令.`,
 	}
 
 	// 定义持久化 Flags (所有子命令都可用)

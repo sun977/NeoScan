@@ -14,8 +14,8 @@ func NewVulnScanCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "vuln",
-		Short: "漏洞扫描 (Nuclei)",
-		Long:  `使用 Nuclei 模板进行漏洞扫描。`,
+		Short: "漏洞扫描 (YAML模板)",
+		Long:  `使用 Nuclei 模板进行漏洞扫描。`, // 原生支持 YAML 模板漏洞扫描，同时支持调用 Nuclei 进行扫描(工具调用不属于原生支持)
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

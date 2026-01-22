@@ -102,9 +102,6 @@ func parseOptions(params map[string]interface{}) *options.IpAliveScanOptions {
 	if v, ok := params["enable_tcp"].(bool); ok {
 		opts.EnableTcp = v
 	}
-	if v, ok := params["enable_tcp_syn"].(bool); ok {
-		opts.EnableTcpSyn = v
-	}
 
 	// 处理端口列表，注意类型转换
 	if v, ok := params["tcp_ports"]; ok {
@@ -143,9 +140,6 @@ func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOpt
 		if opts.EnableTcp {
 			probers = append(probers, NewTcpConnectProber(opts.TcpPorts))
 		}
-		if opts.EnableTcpSyn {
-			probers = append(probers, NewTcpSynProber(opts.TcpPorts))
-		}
 		// 如果什么都没选，默认回退到 Ping
 		if len(probers) == 0 {
 			probers = append(probers, NewIcmpProber())
@@ -156,8 +150,11 @@ func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOpt
 
 		if isLocal {
 			// 同广播域：优先 ARP
-			// 为了保险，也可以组合 ICMP，但 ARP 只要通了就是通了
+			// 为了防止 Linux 下无 Root/arping 导致 ARP 失败，
+			// 我们同时开启 ICMP Ping 作为兜底。
+			// MultiProber 会并发执行，只要有一个成功就返回 True。
 			probers = append(probers, NewArpProber())
+			probers = append(probers, NewIcmpProber())
 		} else {
 			// 跨网段：ICMP + TCP Connect
 			probers = append(probers, NewIcmpProber())

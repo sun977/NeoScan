@@ -9,18 +9,19 @@ import (
 type IpAliveResult struct {
 	IP       string        `json:"ip"`
 	Alive    bool          `json:"alive"`
-	Latency  time.Duration `json:"latency,omitempty"`
+	RTT      time.Duration `json:"rtt,omitempty"`
 	TTL      int           `json:"ttl,omitempty"`
 	Hostname string        `json:"hostname,omitempty"`
 	OS       string        `json:"os,omitempty"`
 }
 
 // Headers 实现 TabularData 接口
-// IP        | Status | Latency | TTL | Hostname | OS
-// 127.0.0.1 | UP     | 10ms    | 64  | localhost| Linux
+// TTL 和 RTT 单位 毫秒 ms
+// IP        | Status | OS    | RTT  | TTL | Hostname
+// 127.0.0.1 | UP     | Linux | 10ms | 64  | localhost
 func (r IpAliveResult) Headers() []string {
 	// 表头列
-	return []string{"IP", "Status", "Latency", "TTL", "Hostname", "OS"}
+	return []string{"IP", "Status", "OS", "RTT", "TTL", "Hostname"}
 }
 
 // Rows 实现 TabularData 接口
@@ -30,9 +31,9 @@ func (r IpAliveResult) Rows() [][]string {
 		status = "UP"
 	}
 
-	latency := "N/A"
-	if r.Latency > 0 {
-		latency = r.Latency.String()
+	rtt := "N/A"
+	if r.RTT > 0 {
+		rtt = r.RTT.String()
 	}
 
 	ttl := "N/A"
@@ -40,5 +41,5 @@ func (r IpAliveResult) Rows() [][]string {
 		ttl = fmt.Sprintf("%d", r.TTL)
 	}
 
-	return [][]string{{r.IP, status, latency, ttl, r.Hostname, r.OS}}
+	return [][]string{{r.IP, status, r.OS, rtt, ttl, r.Hostname}}
 }

@@ -14,11 +14,12 @@ import (
 // TaskType 定义任务类型
 type TaskType string
 
-// 定义支持的 7 种扫描任务类型和 2 种非扫描任务类型
+// 定义支持的 8 种扫描任务类型和 2 种非扫描任务类型
 const (
-	TaskTypeIpAliveScan TaskType = "ip_alive_scan" // IP存活扫描 (ICMP/ARP等)
+	TaskTypeIpAliveScan TaskType = "ip_alive_scan" // IP存活扫描 (仅Ping/ARP)
 	TaskTypePortScan    TaskType = "port_scan"     // 端口扫描 (独立)
 	TaskTypeServiceScan TaskType = "service_scan"  // 服务扫描 (深度识别) + CPE指纹识别
+	TaskTypeOsScan      TaskType = "os_scan"       // 操作系统扫描 (精确识别)
 	TaskTypeWebScan     TaskType = "web_scan"      // Web 综合扫描 + web指纹识别
 	TaskTypeDirScan     TaskType = "dir_scan"      // 目录扫描
 	TaskTypeVulnScan    TaskType = "vuln_scan"     // 漏洞扫描 (Nuclei)

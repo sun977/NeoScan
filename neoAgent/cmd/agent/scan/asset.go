@@ -34,12 +34,14 @@ func NewAssetScanCmd() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
+	// 参数绑定：&变量地址，长参数名，默认值，默认值，帮助说明
 	flags.StringVarP(&opts.Target, "target", "t", opts.Target, "扫描目标 (IP/CIDR)")
 	flags.StringVarP(&opts.Port, "port", "p", opts.Port, "端口范围")
 	flags.IntVar(&opts.Rate, "rate", opts.Rate, "扫描速率")
 	flags.BoolVar(&opts.OSDetect, "os-detect", opts.OSDetect, "启用操作系统探测")
 	flags.BoolVar(&opts.Ping, "ping", opts.Ping, "启用 Ping 存活探测")
 
+	// 标记 target 为必填项
 	cmd.MarkFlagRequired("target")
 
 	return cmd

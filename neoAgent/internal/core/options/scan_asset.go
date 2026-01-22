@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"neoagent/internal/core/model"
+	"neoagent/internal/core/model" // 引入核心模型
 )
 
 type AssetScanOptions struct {
@@ -24,6 +24,7 @@ func NewAssetScanOptions() *AssetScanOptions {
 	}
 }
 
+// Validate 验证资产扫描选项是否有效
 func (o *AssetScanOptions) Validate() error {
 	if o.Target == "" {
 		return fmt.Errorf("target is required")
@@ -31,6 +32,7 @@ func (o *AssetScanOptions) Validate() error {
 	return nil
 }
 
+// ToTask 将资产扫描选项转换为任务模型
 func (o *AssetScanOptions) ToTask() *model.Task {
 	task := model.NewTask(model.TaskTypeAssetScan, o.Target)
 	task.PortRange = o.Port

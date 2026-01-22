@@ -12,6 +12,13 @@ import (
 	"neoagent/internal/core/model"
 )
 
+// TabularData 是一个可以被渲染为表格的数据接口
+// 任何想要在控制台漂亮打印的 Result 都应该实现此接口
+type TabularData interface {
+	Headers() []string
+	Rows() [][]string
+}
+
 // Reporter 定义结果上报的行为
 type Reporter interface {
 	// Report 上报/输出任务结果

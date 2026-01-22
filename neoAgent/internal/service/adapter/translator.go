@@ -36,17 +36,17 @@ func (t *TaskTranslator) ToCoreTask(mt protocol.MasterTask) *model.Task {
 	case protocol.MasterTypeFullPortScan:
 		task = model.NewTask(model.TaskTypePortScan, mt.Target)
 		task.PortRange = "1-65535"
-		task.Params["service_detect"] = true
+		task.Params["service_detect"] = false // 全端口扫描不默认开启深度识别，太慢
 
 	case protocol.MasterTypeServiceScan:
-		task = model.NewTask(model.TaskTypePortScan, mt.Target)
+		task = model.NewTask(model.TaskTypeServiceScan, mt.Target)
 		// 如果 Master 指定了端口，使用指定端口，否则默认全扫
 		if p, ok := mt.Params["port"]; ok {
 			task.PortRange = p
 		} else {
 			task.PortRange = "1-65535"
 		}
-		task.Params["service_detect"] = true
+		// service_scan 默认就是为了识别服务，不需要额外参数开关
 
 	case protocol.MasterTypeVulnScan:
 		task = model.NewTask(model.TaskTypeVulnScan, mt.Target)
@@ -88,10 +88,10 @@ func (t *TaskTranslator) ToCoreTask(mt protocol.MasterTask) *model.Task {
 		task.Params["mode"] = "brute"
 
 	case protocol.MasterTypeProxyScan:
-		task = model.NewTask(model.TaskTypePortScan, mt.Target)
+		task = model.NewTask(model.TaskTypeServiceScan, mt.Target)
 		// 常见代理端口
 		task.PortRange = "1080,8080,8888,3128,7890"
-		task.Params["service_detect"] = true
+		// 代理探测需要深度协议识别，使用 ServiceScan 更合适
 
 	case protocol.MasterTypeFileScan:
 		task = model.NewTask(model.TaskTypeRawCmd, mt.Target)

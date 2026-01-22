@@ -34,7 +34,7 @@ type TaskStatus string
 const (
 	TaskStatusPending   TaskStatus = "pending"
 	TaskStatusRunning   TaskStatus = "running"
-	TaskStatusCompleted TaskStatus = "completed"
+	TaskStatusSuccess   TaskStatus = "success" // 修改: completed -> success, 保持一致性
 	TaskStatusFailed    TaskStatus = "failed"
 	TaskStatusCancelled TaskStatus = "cancelled"
 )
@@ -54,12 +54,12 @@ type Task struct {
 
 // TaskResult 任务执行结果
 type TaskResult struct {
-	TaskID    string      `json:"task_id"`
-	Status    TaskStatus  `json:"status"`
-	Data      interface{} `json:"data"` // 具体的扫描结果 (强类型结构体或 Map)
-	Error     string      `json:"error,omitempty"`
-	StartTime time.Time   `json:"start_time"`
-	EndTime   time.Time   `json:"end_time"`
+	TaskID      string      `json:"task_id"`
+	Status      TaskStatus  `json:"status"`
+	Result      interface{} `json:"result"` // 具体的扫描结果 (强类型结构体或 Map)
+	Error       string      `json:"error,omitempty"`
+	ExecutedAt  time.Time   `json:"executed_at"`  // 开始执行时间
+	CompletedAt time.Time   `json:"completed_at"` // 完成时间
 }
 
 // NewTask 创建一个新任务

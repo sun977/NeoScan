@@ -69,10 +69,10 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 
 			if probeRes != nil && probeRes.Alive {
 				resultData := model.IpAliveResult{
-					IP:      targetIP,
-					Alive:   true,
-					Latency: probeRes.Latency,
-					TTL:     probeRes.TTL,
+					IP:    targetIP,
+					Alive: true,
+					RTT:   probeRes.Latency,
+					TTL:   probeRes.TTL,
 				}
 
 				// OS 猜测

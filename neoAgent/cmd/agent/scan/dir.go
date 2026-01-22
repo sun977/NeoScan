@@ -15,7 +15,7 @@ func NewDirScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dir",
 		Short: "目录扫描",
-		Long:  `使用字典进行 Web 目录爆破扫描。`,
+		Long:  `使用字典进行 Web 目录爆破扫描.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Validate(); err != nil {
 				return err

@@ -12,10 +12,10 @@ Agent 遵循 KISS 原则，只提供最基础的原子能力，通过参数组�
 
 | Master 业务场景 (AgentScanType) | Agent 原子能力 (TaskType) | 参数配置 (Params) | 说明 |
 | :--- | :--- | :--- | :--- |
-| **`ipAliveScan`**<br>(IP探活) | `asset_scan` | `ping: true`<br>`port: ""` | 仅进行 ICMP/ARP 探测，不扫端口 |
-| **`fastPortScan`**<br>(快速端口扫描) | `asset_scan` | `ping: false`<br>`port: "top100"`<br>`os_detect: false` | 扫描 Top100 端口，不进行深度识别 |
+| **`ipAliveScan`**<br>(IP探活) | `ip_alive_scan` | `ping: true` | 仅进行 ICMP/ARP 探测，不扫端口 |
+| **`fastPortScan`**<br>(快速端口扫描) | `port_scan` | `ping: false`<br>`port: "top100"`<br>`service_detect: false` | 扫描 Top100 端口，不进行深度识别 |
 | **`fullPortScan`**<br>(全量端口扫描) | `port_scan` | `port: "1-65535"`<br>`service_detect: false` | 全端口扫描 (不默认开启深度服务识别) |
-| **`serviceScan`**<br>(服务识别) | `service_scan` | `port: "custom"`<br>`service_detect: true` | 针对特定端口进行深度指纹识别 |
+| **`serviceScan`**<br>(服务识别) | `service_scan` | `port: "custom"` | 针对特定端口进行深度指纹识别 |
 | **`vulnScan`**<br>(漏洞扫描) | `vuln_scan` | `templates: "cves"`<br>`severity: "critical,high"` | 使用 Nuclei 进行通用漏洞扫描 |
 | **`pocScan`**<br>(POC扫描) | `vuln_scan` | `templates: "custom_pocs"` | 使用指定的 POC 模板进行精确扫描 |
 | **`passScan`**<br>(弱口令扫描) | `vuln_scan` | `templates: "weak_passwords"` | 使用弱口令爆破模板 |
@@ -39,7 +39,7 @@ func Compile(intent AgentScanType, target string) model.Task {
     switch intent {
     case AgentScanTypeIpAliveScan:
         return model.Task{
-            Type: model.TaskTypeAssetScan,
+            Type: model.TaskTypeIpAliveScan,
             Params: map[string]interface{}{"ping": true},
         }
     case AgentScanTypeFullPortScan:

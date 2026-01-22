@@ -65,12 +65,24 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 			probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
 
-			alive, _ := prober.Probe(probeCtx, targetIP, 3*time.Second)
+			probeRes, _ := prober.Probe(probeCtx, targetIP, 3*time.Second)
 
-			if alive {
+			if probeRes != nil && probeRes.Alive {
 				resultData := model.IpAliveResult{
-					IP:    targetIP,
-					Alive: true,
+					IP:      targetIP,
+					Alive:   true,
+					Latency: probeRes.Latency,
+					TTL:     probeRes.TTL,
+				}
+
+				// OS 猜测
+				if probeRes.TTL > 0 {
+					resultData.OS = guessOS(probeRes.TTL)
+				}
+
+				// Hostname 解析
+				if opts.ResolveHostname {
+					resultData.Hostname = resolveHostname(targetIP)
 				}
 
 				result := &model.TaskResult{
@@ -251,4 +263,38 @@ func inc(ip net.IP) {
 			break
 		}
 	}
+}
+
+// guessOS 根据 TTL 猜测操作系统
+func guessOS(ttl int) string {
+	// 简单的 TTL 指纹
+	// Linux/Unix: 64
+	// Windows: 128
+	// Solaris/Cisco: 255
+
+	// 允许一定的跳数损耗
+	if ttl <= 64 && ttl > 32 {
+		return "Linux/Unix"
+	}
+	if ttl <= 128 && ttl > 64 {
+		return "Windows"
+	}
+	if ttl <= 255 && ttl > 128 {
+		return "Solaris/Cisco"
+	}
+	return "Unknown"
+}
+
+// resolveHostname 反向解析 Hostname
+func resolveHostname(ip string) string {
+	names, err := net.LookupAddr(ip)
+	if err == nil && len(names) > 0 {
+		// 通常返回的 name 包含末尾的点，例如 "google.com."
+		name := names[0]
+		if len(name) > 0 && name[len(name)-1] == '.' {
+			return name[:len(name)-1]
+		}
+		return name
+	}
+	return ""
 }

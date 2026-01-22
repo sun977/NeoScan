@@ -16,20 +16,21 @@ func NewTcpConnectProber(ports []int) *TcpConnectProber {
 	return &TcpConnectProber{Ports: ports}
 }
 
-func (p *TcpConnectProber) Probe(ctx context.Context, ip string, timeout time.Duration) (bool, error) {
+func (p *TcpConnectProber) Probe(ctx context.Context, ip string, timeout time.Duration) (*ProbeResult, error) {
 	// 针对每个端口并发探测，只要有一个通就算活
-	resultChan := make(chan bool, len(p.Ports))
-	
+	resultChan := make(chan time.Duration, len(p.Ports))
+
 	for _, port := range p.Ports {
 		go func(port int) {
 			address := fmt.Sprintf("%s:%d", ip, port)
 			d := net.Dialer{Timeout: timeout}
+			start := time.Now()
 			conn, err := d.DialContext(ctx, "tcp", address)
 			if err == nil {
 				conn.Close()
-				resultChan <- true
+				resultChan <- time.Since(start)
 			} else {
-				resultChan <- false
+				resultChan <- 0
 			}
 		}(port)
 	}
@@ -37,14 +38,14 @@ func (p *TcpConnectProber) Probe(ctx context.Context, ip string, timeout time.Du
 	// 只要有一个成功即可
 	for i := 0; i < len(p.Ports); i++ {
 		select {
-		case success := <-resultChan:
-			if success {
-				return true, nil
+		case latency := <-resultChan:
+			if latency > 0 {
+				return NewProbeResult(true, latency, 0), nil
 			}
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return &ProbeResult{Alive: false}, ctx.Err()
 		}
 	}
 
-	return false, nil
+	return &ProbeResult{Alive: false}, nil
 }

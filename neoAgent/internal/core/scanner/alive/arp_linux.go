@@ -20,7 +20,7 @@ func NewArpProber() *ArpProber {
 	return &ArpProber{}
 }
 
-func (p *ArpProber) Probe(ctx context.Context, ip string, timeout time.Duration) (bool, error) {
+func (p *ArpProber) Probe(ctx context.Context, ip string, timeout time.Duration) (*ProbeResult, error) {
 	// 1. 尝试使用 arping
 	// 假设是标准的 iputils-arping: arping -c 1 -w 1 <IP>
 
@@ -36,8 +36,12 @@ func (p *ArpProber) Probe(ctx context.Context, ip string, timeout time.Duration)
 		// -c 1: count 1
 		// -w: timeout
 		cmd := exec.CommandContext(ctx, arpingPath, "-f", "-c", "1", "-w", fmt.Sprint(timeoutSec), ip)
+		start := time.Now()
 		if err := cmd.Run(); err == nil {
-			return true, nil
+			// ARP 成功
+			// Latency: 粗略计算，包含进程启动开销
+			latency := time.Since(start)
+			return NewProbeResult(true, latency, 0), nil
 		}
 	}
 
@@ -46,5 +50,5 @@ func (p *ArpProber) Probe(ctx context.Context, ip string, timeout time.Duration)
 	// 在 IpAliveScanner 的 Auto 策略中，我们会并发执行 IcmpProber 作为兜底。
 	// 所以这里不需要再手动调用 ICMP。
 
-	return false, nil
+	return &ProbeResult{Alive: false}, nil
 }

@@ -24,6 +24,9 @@ type IpAliveScanOptions struct {
 	// 并发控制
 	Concurrency int // --concurrency (默认 1000)
 
+	// 其他选项
+	ResolveHostname bool // --resolve-hostname (默认 false)
+
 	Output OutputOptions
 }
 
@@ -56,6 +59,7 @@ func (o *IpAliveScanOptions) ToTask() *model.Task {
 	task.Params["enable_tcp"] = o.EnableTcp
 	task.Params["tcp_ports"] = o.TcpPorts
 	task.Params["concurrency"] = o.Concurrency
+	task.Params["resolve_hostname"] = o.ResolveHostname
 
 	o.Output.ApplyToParams(task.Params)
 

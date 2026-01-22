@@ -49,10 +49,16 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 			defer func() { <-sem }()
 
 			if isAlive(targetIP) {
+				resultData := model.IpAliveResult{
+					IP:    targetIP,
+					Alive: true,
+					// Latency: ... (probing 库目前没直接返回 RTT，后续优化)
+				}
+
 				result := &model.TaskResult{
 					TaskID:      task.ID,
 					Status:      model.TaskStatusSuccess,
-					Result:      map[string]interface{}{"ip": targetIP, "alive": true},
+					Result:      resultData,
 					ExecutedAt:  time.Now(),
 					CompletedAt: time.Now(),
 				}

@@ -21,6 +21,9 @@ type IpAliveScanOptions struct {
 	// TCP探测端口
 	TcpPorts []int // --tcp-ports
 
+	// 并发控制
+	Concurrency int // --concurrency (默认 1000)
+
 	Output OutputOptions
 }
 
@@ -29,8 +32,9 @@ var DefaultAliveTcpPorts = []int{22, 23, 80, 139, 512, 443, 445, 3389}
 
 func NewIpAliveScanOptions() *IpAliveScanOptions {
 	return &IpAliveScanOptions{
-		Strategy: "auto",
-		TcpPorts: DefaultAliveTcpPorts,
+		Strategy:    "auto",
+		TcpPorts:    DefaultAliveTcpPorts,
+		Concurrency: 1000,
 	}
 }
 
@@ -51,6 +55,7 @@ func (o *IpAliveScanOptions) ToTask() *model.Task {
 	task.Params["enable_icmp"] = o.EnableIcmp
 	task.Params["enable_tcp"] = o.EnableTcp
 	task.Params["tcp_ports"] = o.TcpPorts
+	task.Params["concurrency"] = o.Concurrency
 
 	o.Output.ApplyToParams(task.Params)
 

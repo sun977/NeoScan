@@ -10,10 +10,8 @@ import (
 // IpAliveScanOptions 对应 IP存活扫描 的参数
 type IpAliveScanOptions struct {
 	Target string
-	// 策略配置
-	Strategy string // "auto" (默认), "manual"
 
-	// 协议开关 (Manual模式或特定需求下使用)
+	// 协议开关 (默认全关，代表自动模式；一旦开启任意一个，进入 Manual 模式)
 	EnableArp  bool // --arp
 	EnableIcmp bool // --icmp
 	EnableTcp  bool // --tcp (TCP Full Connect)
@@ -35,7 +33,6 @@ var DefaultAliveTcpPorts = []int{22, 23, 80, 139, 512, 443, 445, 3389}
 
 func NewIpAliveScanOptions() *IpAliveScanOptions {
 	return &IpAliveScanOptions{
-		Strategy:    "auto",
 		TcpPorts:    DefaultAliveTcpPorts,
 		Concurrency: 1000,
 	}

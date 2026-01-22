@@ -14,10 +14,9 @@ type IpAliveScanOptions struct {
 	Strategy string // "auto" (默认), "manual"
 
 	// 协议开关 (Manual模式或特定需求下使用)
-	EnableArp    bool // --arp
-	EnableIcmp   bool // --icmp
-	EnableTcp    bool // --tcp (TCP Full Connect)
-	EnableTcpSyn bool // --tcp-syn (Linux only, Windows fallback to Tcp Connect)
+	EnableArp  bool // --arp
+	EnableIcmp bool // --icmp
+	EnableTcp  bool // --tcp (TCP Full Connect)
 
 	// TCP探测端口
 	TcpPorts []int // --tcp-ports
@@ -51,7 +50,6 @@ func (o *IpAliveScanOptions) ToTask() *model.Task {
 	task.Params["enable_arp"] = o.EnableArp
 	task.Params["enable_icmp"] = o.EnableIcmp
 	task.Params["enable_tcp"] = o.EnableTcp
-	task.Params["enable_tcp_syn"] = o.EnableTcpSyn
 	task.Params["tcp_ports"] = o.TcpPorts
 
 	o.Output.ApplyToParams(task.Params)

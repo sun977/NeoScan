@@ -33,7 +33,9 @@ func (r IpAliveResult) Rows() [][]string {
 
 	rtt := "N/A"
 	if r.RTT > 0 {
-		rtt = r.RTT.String()
+		// 统一使用 ms 单位，保留两位小数
+		// 不要使用 r.RTT.String()，因为它会自动切换单位(µs/ms/s)，导致列表对齐混乱
+		rtt = fmt.Sprintf("%.2fms", float64(r.RTT.Microseconds())/1000.0)
 	}
 
 	ttl := "N/A"

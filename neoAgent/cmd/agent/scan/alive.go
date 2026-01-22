@@ -65,6 +65,7 @@ func NewIpAliveScanCmd() *cobra.Command {
 	flags.BoolVar(&opts.EnableIcmp, "icmp", opts.EnableIcmp, "手动模式: 启用 ICMP 探测")
 	flags.BoolVar(&opts.EnableTcp, "tcp", opts.EnableTcp, "手动模式: 启用 TCP 全连接探测")
 	flags.IntSliceVar(&opts.TcpPorts, "tcp-ports", opts.TcpPorts, "TCP 探测端口列表")
+	flags.IntVarP(&opts.Concurrency, "concurrency", "c", opts.Concurrency, "并发数")
 
 	return cmd
 }

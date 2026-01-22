@@ -53,7 +53,6 @@ func (o *IpAliveScanOptions) ToTask() *model.Task {
 	task.Timeout = 1 * time.Hour // 默认超时时间
 
 	// 序列化参数
-	task.Params["strategy"] = o.Strategy
 	task.Params["enable_arp"] = o.EnableArp
 	task.Params["enable_icmp"] = o.EnableIcmp
 	task.Params["enable_tcp"] = o.EnableTcp

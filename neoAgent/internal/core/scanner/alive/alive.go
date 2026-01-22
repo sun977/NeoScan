@@ -107,9 +107,6 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 func parseOptions(params map[string]interface{}) *options.IpAliveScanOptions {
 	opts := options.NewIpAliveScanOptions()
 
-	if v, ok := params["strategy"].(string); ok {
-		opts.Strategy = v
-	}
 	if v, ok := params["enable_arp"].(bool); ok {
 		opts.EnableArp = v
 	}
@@ -155,7 +152,11 @@ func parseOptions(params map[string]interface{}) *options.IpAliveScanOptions {
 func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOptions, localAddrs []net.Addr) Prober {
 	var probers []Prober
 
-	if opts.Strategy == "manual" {
+	// 智能策略推断
+	// 如果用户指定了任意协议开关，则进入 Manual 模式
+	isManual := opts.EnableArp || opts.EnableIcmp || opts.EnableTcp
+
+	if isManual {
 		if opts.EnableArp {
 			probers = append(probers, NewArpProber())
 		}
@@ -165,12 +166,8 @@ func (s *IpAliveScanner) getProber(targetIP string, opts *options.IpAliveScanOpt
 		if opts.EnableTcp {
 			probers = append(probers, NewTcpConnectProber(opts.TcpPorts))
 		}
-		// 如果什么都没选，默认回退到 Ping
-		if len(probers) == 0 {
-			probers = append(probers, NewIcmpProber())
-		}
 	} else {
-		// Auto Strategy
+		// Auto Strategy (默认)
 		isLocal := isLocalIP(targetIP, localAddrs)
 
 		if isLocal {

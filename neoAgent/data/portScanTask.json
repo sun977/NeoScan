@@ -1,0 +1,13 @@
+{
+  "id": "",
+  "type": "port_scan",
+  "target": "127.0.0.1",
+  "port_range": "8080",
+  "params": {
+    "rate": 1000,
+    "service_detect": true
+  },
+  "timeout": 3600000000000,
+  "priority": 0,
+  "created_at": "2026-01-23T10:28:07.9063836+08:00"
+}

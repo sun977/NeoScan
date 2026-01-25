@@ -64,11 +64,11 @@ neoAgent/
 
 - [x] **3.1 并发框架**: 实现 `internal/core/runner` (Semaphore + WaitGroup)。
 - [x] **3.2 主机发现**: 实现原生的 ICMP/ARP/TCP Connect (`IpAliveScanner`)。
-- [ ] **3.3 端口服务扫描**: 移植 Gonmap 逻辑，实现 `PortServiceScanner`。
-    - [ ] 探针管理 (Probe Management)
-    - [ ] 扫描引擎 (Scan Engine)
-    - [ ] 指纹匹配 (Match Engine)
-- [ ] **3.4 指纹规则管理**: 实现混合规则加载机制 (Embed + Dynamic)。
+- [x] **3.3 端口服务扫描**: 移植 Gonmap 逻辑，实现 `PortServiceScanner`。
+    - [x] 探针管理 (Probe Management)
+    - [x] 扫描引擎 (Scan Engine)
+    - [x] 指纹匹配 (Match Engine)
+- [x] **3.4 指纹规则管理**: 实现混合规则加载机制 (Embed + Dynamic)。
 - [ ] **3.5 基础爆破**: 实现 SSH/MySQL/Redis 的原生爆破。
 
 ### 阶段四：集群接入增强 (Cluster Enhancement) —— **Connection**

@@ -70,6 +70,10 @@ neoAgent/
     - [x] 指纹匹配 (Match Engine)
 - [x] **3.4 指纹规则管理**: 实现混合规则加载机制 (Embed + Dynamic)。
 - [ ] **3.5 基础爆破**: 实现 SSH/MySQL/Redis 的原生爆破。
+- [ ] **3.6 高级并发优化 (Advanced Concurrency)**:
+    - [ ] 引入自适应速率控制 (Adaptive Rate Limiting)。
+    - [ ] 实现 `RttEstimator` 动态调整超时。
+    - [ ] 重构 `Runner` 接口，支持优先级队列和任务分片。
 
 ### 阶段四：集群接入增强 (Cluster Enhancement) —— **Connection**
 **目标**: 实现安全的注册和通信机制。

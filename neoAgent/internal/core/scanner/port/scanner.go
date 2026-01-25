@@ -137,7 +137,9 @@ func (s *PortServiceScanner) scanPort(ctx context.Context, ip string, port int, 
 	conn, err := dialer.Get().DialContext(dialCtx, "tcp", address)
 	cancel()
 	if err != nil {
-		return nil // 端口关闭 (或被过滤)
+		// 端口关闭 (或被过滤)
+		// 调试日志：fmt.Printf("Port %d closed: %v\n", port, err)
+		return nil
 	}
 	defer conn.Close()
 

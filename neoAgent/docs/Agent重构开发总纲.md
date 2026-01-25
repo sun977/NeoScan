@@ -60,7 +60,7 @@ neoAgent/
 
 ### 阶段三：原生能力建设 (Native Capabilities) —— **Power**
 **目标**: 逐步替换/实现原生扫描能力，摆脱外部依赖。
-**状态**: 🟡 **进行中**
+**状态**: � **基本完成** (Web/Vuln 待补全)
 
 - [x] **3.1 并发框架**: 实现 `internal/core/runner` (Semaphore + WaitGroup)。
 - [x] **3.2 主机发现**: 实现原生的 ICMP/ARP/TCP Connect (`IpAliveScanner`)。
@@ -70,26 +70,24 @@ neoAgent/
     - [x] 指纹匹配 (Match Engine)
 - [x] **3.4 指纹规则管理**: 实现混合规则加载机制 (Embed + Dynamic)。
 - [ ] **3.5 基础爆破**: 实现 SSH/MySQL/Redis 的原生爆破。
-- [ ] **3.6 高级并发优化 (Advanced Concurrency)**:
+- [ ] **3.6 高级并发优化**:
     - [ ] 引入自适应速率控制 (Adaptive Rate Limiting)。
     - [ ] 实现 `RttEstimator` 动态调整超时。
     - [ ] 重构 `Runner` 接口，支持优先级队列和任务分片。
 
-### 阶段四：集群接入增强 (Cluster Enhancement) —— **Connection**
-**目标**: 实现安全的注册和通信机制。
+### 阶段四：编排与集成 (Orchestration & Integration) —— **Automation**
+**目标**: 实现单机全流程扫描与集群接入。
 **状态**: ⚪ **待开始**
 
-- [ ] **4.1 注册流程**: 实现 `join` 命令和 Token 握手逻辑。
-- [ ] **4.2 凭证管理**: 实现 API Key / 证书的安全存储与加载。
-- [ ] **4.3 通信升级**: 确保所有 Master 通信都使用 mTLS 或 API Key 认证。
-
-### 阶段五：高级能力集成 (Advanced Integration) —— **Ecological**
-**目标**: 集成 Nuclei 等重型工具。
-**状态**: ⚪ **待开始**
-
-- [ ] **5.1 Nuclei 集成**: 嵌入 Nuclei 库或实现二进制自动下载/调用 wrapper。
-- [ ] **5.2 浏览器扫描**: 集成 `chromedp` 实现截图和 DOM 解析。
-- [ ] **5.3 插件系统**: 完善对 Nmap/Hydra 等可选工具的调用接口。
+- [ ] **4.1 全流程编排 (Scan Orchestration)**:
+    - [ ] 实现 `PipelineRunner` 串联各个 Scanner。
+    - [ ] 实现 `scan run` 命令，支持 `--auto` 和 Pipeline Mode。
+- [ ] **4.2 集群接入增强**:
+    - [ ] 实现安全的注册和通信机制 (Token + CA Hash)。
+    - [ ] 重构 `server` 循环，对接 Master 任务分发。
+- [ ] **4.3 高级能力集成**:
+    - [ ] 集成 Nuclei 等重型工具。
+    - [ ] 实现 Web 指纹识别与爬虫。
 
 ---
 

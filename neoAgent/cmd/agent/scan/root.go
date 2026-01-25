@@ -30,9 +30,9 @@ func NewScanCmd() *cobra.Command {
 	// pFlags.Lookup("oj").Hidden = true
 
 	// 注册子命令
-	cmd.AddCommand(NewIpAliveScanCmd())   // IP存活扫描 (ICMP/ARP)
-	cmd.AddCommand(NewPortScanCmd())      // 端口扫描
-	cmd.AddCommand(NewServiceScanCmd())   // 服务识别
+	cmd.AddCommand(NewIpAliveScanCmd()) // IP存活扫描 (ICMP/ARP)
+	cmd.AddCommand(NewPortScanCmd())    // 端口扫描
+	// cmd.AddCommand(NewServiceScanCmd()) // 服务识别 (已合并至 port -s)
 	cmd.AddCommand(NewOsScanCmd())        // 操作系统识别
 	cmd.AddCommand(NewWebScanCmd())       // Web综合扫描
 	cmd.AddCommand(NewVulnScanCmd())      // 漏洞扫描

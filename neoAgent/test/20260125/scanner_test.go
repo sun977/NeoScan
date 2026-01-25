@@ -94,7 +94,7 @@ func TestPortServiceScanner_LocalNet(t *testing.T) {
 	target := "10.44.96.183"
 
 	// 常见端口 + 一些特定端口 + cool-admin端口
-	portRange := "22,80,443,445,3389,8080,8000-8100,8001"
+	portRange := "22,80,443,445,3389,8080,8440,8443,8445,8000-8100"
 
 	task := &model.Task{
 		ID:        "test-port-002",

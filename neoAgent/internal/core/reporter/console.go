@@ -68,10 +68,20 @@ func (r *ConsoleReporter) PrintResults(results []*model.TaskResult) {
 		}
 
 		if tabular, ok := res.Result.(TabularData); ok {
-			if i == 0 {
+			if len(headers) == 0 {
 				headers = tabular.Headers()
 			}
 			allRows = append(allRows, tabular.Rows()...)
+		} else if list, ok := res.Result.([]interface{}); ok {
+			// 处理 Result 是 Slice 的情况 (例如 PortServiceScanner 返回多个 PortServiceResult)
+			for _, item := range list {
+				if tabular, ok := item.(TabularData); ok {
+					if len(headers) == 0 {
+						headers = tabular.Headers()
+					}
+					allRows = append(allRows, tabular.Rows()...)
+				}
+			}
 		}
 	}
 

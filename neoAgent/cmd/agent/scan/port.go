@@ -1,10 +1,13 @@
 package scan
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 
 	"neoagent/internal/core/options"
+	"neoagent/internal/core/reporter"
+	"neoagent/internal/core/runner"
+	"neoagent/internal/core/scanner/port"
 
 	"github.com/spf13/cobra"
 )
@@ -26,8 +29,26 @@ func NewPortScanCmd() *cobra.Command {
 
 			task := opts.ToTask()
 
-			taskJSON, _ := json.MarshalIndent(task, "", "  ")
-			fmt.Printf("Port Scan Task Created:\n%s\n", string(taskJSON))
+			// 1. 初始化 RunnerManager
+			manager := runner.NewRunnerManager()
+			// 2. 注册 PortServiceScanner
+			manager.Register(port.NewPortServiceScanner())
+
+			// 3. 执行任务
+			fmt.Printf("[*] Starting Port Scan on %s (Ports: %s)...\n", task.Target, task.PortRange)
+			results, err := manager.Execute(context.Background(), task)
+			if err != nil {
+				return err
+			}
+
+			// 4. 输出结果 (使用 ConsoleReporter)
+			console := reporter.NewConsoleReporter()
+			console.PrintResults(results)
+
+			// 保存 JSON 结果
+			if opts.Output.OutputJson != "" {
+				saveJsonResult(opts.Output.OutputJson, results)
+			}
 
 			return nil
 		},
@@ -35,9 +56,9 @@ func NewPortScanCmd() *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.Target, "target", "t", opts.Target, "扫描目标")
-	flags.StringVarP(&opts.Port, "port", "p", opts.Port, "端口范围")
-	flags.IntVar(&opts.Rate, "rate", opts.Rate, "扫描速率")
-	flags.BoolVar(&opts.ServiceDetect, "service-detect", opts.ServiceDetect, "启用服务版本识别")
+	flags.StringVarP(&opts.Port, "port", "p", opts.Port, "端口范围 (e.g., 80,443,1-1000)")
+	flags.IntVarP(&opts.Rate, "rate", "r", opts.Rate, "扫描速率 (并发数)")
+	flags.BoolVarP(&opts.ServiceDetect, "service-detect", "s", opts.ServiceDetect, "启用服务版本识别")
 
 	cmd.MarkFlagRequired("target")
 	cmd.MarkFlagRequired("port")

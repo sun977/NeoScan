@@ -3,6 +3,7 @@ package port
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -37,13 +38,35 @@ func (s *PortServiceScanner) Name() model.TaskType {
 
 // ensureInit 确保规则已加载
 func (s *PortServiceScanner) ensureInit() error {
-	// Nmap Engine 现在负责懒加载，这里我们只需要确保没报错
-	// 但实际上 NmapEngine 的 ensureInit 是私有的，
-	// 我们在 Scan 时会自动触发
+	s.initOnce.Do(func() {
+		// 尝试加载外部规则文件
+		// 优先级:
+		// 1. 当前目录 rules/fingerprint/nmap-service-probes
+		// 2. 上级目录 (开发环境)
+
+		paths := []string{
+			"rules/fingerprint/nmap-service-probes",
+			"../rules/fingerprint/nmap-service-probes",
+			"../../rules/fingerprint/nmap-service-probes", // 针对 test 目录
+		}
+
+		for _, path := range paths {
+			content, err := os.ReadFile(path)
+			if err == nil && len(content) > 0 {
+				s.nmapEngine.SetRules(string(content))
+				break
+			}
+		}
+		// 如果都没找到，NmapEngine 会使用默认的 embed 规则
+	})
 	return nil
 }
 
 func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error) {
+	if err := s.ensureInit(); err != nil {
+		return nil, err
+	}
+
 	target := task.Target
 	portRange := task.PortRange
 	if portRange == "" {

@@ -18,6 +18,8 @@ type NmapEngine struct {
 	portProbeMap map[int][]*Probe // 端口到探针的映射 (优化查找)
 	allProbes    []*Probe         // 所有探针 (按 rarity 排序)
 
+	customRules string // 自定义规则内容
+
 	initOnce sync.Once
 	initErr  error
 }
@@ -28,21 +30,37 @@ func NewNmapEngine() *NmapEngine {
 		probeMap:     make(map[string]*Probe),
 		portProbeMap: make(map[int][]*Probe),
 	}
-	// 立即初始化 (或者懒加载)
-	// 这里为了简单，我们让调用者在第一次 Run 时触发 ensureInit，或者显式调用
 	return e
+}
+
+// SetRules 设置自定义规则 (必须在 Scan 之前调用)
+func (e *NmapEngine) SetRules(content string) {
+	e.customRules = content
 }
 
 // ensureInit 确保规则已加载
 func (e *NmapEngine) ensureInit() error {
 	e.initOnce.Do(func() {
-		// 解析 NmapServiceProbes (来自 rules.go)
-		if NmapServiceProbes == "" {
+		rules := e.customRules
+		if rules == "" {
+			rules = NmapServiceProbes
+		}
+
+		// 拼接 NmapCustomizeProbes (如果存在)
+		// 注意：自定义规则应该在标准规则之后，或者根据 Nmap 逻辑，顺序可能影响匹配
+		// Nmap 中自定义规则通常合并在 nmap-service-probes 文件中
+		// 这里我们简单拼接
+		if NmapCustomizeProbes != "" {
+			rules += "\n" + NmapCustomizeProbes
+		}
+
+		// 解析 NmapServiceProbes
+		if rules == "" {
 			e.initErr = fmt.Errorf("nmap rules not found")
 			return
 		}
 
-		probes, err := ParseNmapProbes(NmapServiceProbes)
+		probes, err := ParseNmapProbes(rules)
 		if err != nil {
 			e.initErr = fmt.Errorf("failed to parse nmap probes: %v", err)
 			return

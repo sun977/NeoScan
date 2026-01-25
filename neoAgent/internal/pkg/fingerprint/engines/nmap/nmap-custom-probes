@@ -15,3 +15,8 @@ rarity 4
 ports 443,80,8443,8080
 match jsonrpc m|^{"jsonrpc":"([\d.]+)".*"height":(\d+),"seed_hash".*|s v/$1/ p/ETH/ i/height:$2/
 match jsonrpc m|^{"jsonrpc":"([\d.]+)".*|s v/$1/
+
+# Sunhaobo Test - cool-admin 服务规则
+Probe TCP Cool-admin q|GET / HTTP/1.0\r\n\r\n|
+ports 8001
+match http m|^HTTP/1\.1 200 OK.*<title>COOL-AMIND|s p/cool-amind/

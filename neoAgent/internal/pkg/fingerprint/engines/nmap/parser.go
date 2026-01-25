@@ -190,12 +190,30 @@ func parseMatchLine(line string) (*Match, error) {
 	versionStart := 0
 
 	// 简单的向前扫描空格
-	for i, c := range rest {
-		if c == ' ' {
-			versionStart = i + 1
-			break
+	// Nmap 格式：m|pattern|flags versioninfo
+	// flags 是紧跟第二个分隔符的字母，例如 m|foo|s p/bar/
+
+	// 如果 rest 为空，则没有 version info
+	if len(rest) == 0 {
+		// No flags, no version info
+	} else {
+		// 扫描直到遇到空格
+		for i, c := range rest {
+			if c == ' ' {
+				versionStart = i + 1
+				break
+			}
+			flags += string(c)
 		}
-		flags += string(c)
+		// 如果循环结束还没遇到空格，说明全是 flags，没有 version info (或者 version info 为空)
+		if versionStart == 0 && len(flags) > 0 {
+			// 检查 flags 是否真的全是字母 (i, s)
+			// 有时候可能是 m|pattern| versioninfo 直接跟在后面？
+			// 不，Nmap 规范是 m|pattern|[flags] [versioninfo]
+			// 如果 rest 只是 "s"，那 flags="s"，versionStart=0
+			// 这种情况下 versionInfo 为空
+			versionStart = len(rest)
+		}
 	}
 
 	// 编译正则 (需要处理 flags)

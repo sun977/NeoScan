@@ -1,4 +1,4 @@
-package port
+package nmap
 
 import (
 	"fmt"
@@ -125,10 +125,10 @@ func parseProbeLine(line string) (*Probe, error) {
 	if len(remaining) < 3 {
 		return nil, fmt.Errorf("invalid probe string format")
 	}
-	
+
 	// 提取分隔符 (q后面的第一个字符)
 	delimiter := remaining[1] // q|... -> |
-	
+
 	// 查找结束分隔符
 	// 注意：内容中可能包含转义的分隔符，但 Nmap 格式通常比较规整
 	// 这里简单实现，寻找最后一个分隔符
@@ -165,7 +165,7 @@ func parseMatchLine(line string) (*Match, error) {
 		return nil, fmt.Errorf("invalid match pattern start")
 	}
 	delimiter := remaining[1]
-	
+
 	// 寻找模式结束符
 	// 这里需要处理转义字符，简单的 LastIndex 可能不够
 	// 但 Nmap 规则通常是一行一个 match
@@ -182,13 +182,13 @@ func parseMatchLine(line string) (*Match, error) {
 	}
 
 	pattern := remaining[2:patternEndIndex]
-	
+
 	// 提取 flags (i, s)
 	// pattern 后面可能紧跟 flags，然后是空格
 	rest := remaining[patternEndIndex+1:]
 	flags := ""
 	versionStart := 0
-	
+
 	// 简单的向前扫描空格
 	for i, c := range rest {
 		if c == ' ' {
@@ -197,7 +197,7 @@ func parseMatchLine(line string) (*Match, error) {
 		}
 		flags += string(c)
 	}
-	
+
 	// 编译正则 (需要处理 flags)
 	// Go regexp 不支持 (?s) 这种内嵌 flag 放在外面?
 	// Nmap 的 flags 是 i (case-insensitive) 和 s (dot matches newline)

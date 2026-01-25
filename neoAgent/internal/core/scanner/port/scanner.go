@@ -173,7 +173,7 @@ func (s *PortServiceScanner) scanPort(ctx context.Context, ip string, port int, 
 		result.OS = fp.OperatingSystem
 		result.DeviceType = fp.DeviceType
 		result.CPE = fp.CPE
-		result.Status = "matched"
+		result.Status = "open" // 只要连接成功就是 open，不应使用 matched
 		return result
 	}
 

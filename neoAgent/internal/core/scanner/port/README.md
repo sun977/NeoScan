@@ -5,7 +5,7 @@
 
 ## 核心组件
 
-### 1. 扫描器 (`scanner.go`)
+### 1. 扫描器 (`port_service_scanner.go`)
 - **PortServiceScanner**: 实现了 `runner.Runner` 接口。
 - **并发模型**: 使用 Semaphore 控制并发度，支持 Context 取消。
 - **网络层**: 集成 `internal/core/lib/network/dialer`，透明支持 SOCKS5 代理。

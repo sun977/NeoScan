@@ -33,8 +33,8 @@ func TestUserCustomRule(t *testing.T) {
 	engine.SetRules(string(content))
 
 	// 触发解析，确保规则格式正确
-	if err := engine.ensureInit(); err != nil {
-		t.Fatalf("Failed to parse user rules: %v", err)
+	if err1 := engine.ensureInit(); err1 != nil {
+		t.Fatalf("Failed to parse user rules: %v", err1)
 	}
 
 	// 3. 验证是否包含 Cool-admin 探针
@@ -56,8 +56,8 @@ func TestUserCustomRule(t *testing.T) {
 
 	go func() {
 		for {
-			conn, err := listener.Accept()
-			if err != nil {
+			conn, err3 := listener.Accept()
+			if err3 != nil {
 				return
 			}
 			// 读取请求 (Nmap 会发送 "GET / HTTP/1.0\r\n\r\n")
@@ -163,8 +163,8 @@ func TestScanLocalMock(t *testing.T) {
 
 	go func() {
 		for {
-			conn, err := listener.Accept()
-			if err != nil {
+			conn, err2 := listener.Accept()
+			if err2 != nil {
 				return
 			}
 			conn.Write([]byte("SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5\r\n"))

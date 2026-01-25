@@ -303,8 +303,18 @@ func (e *NmapEngine) parseVersionInfo(fp *FingerPrint, versionInfo string, subma
 		cursor++
 
 		// 寻找结束分隔符
-		end := strings.IndexByte(versionInfo[cursor:], delimiter)
+		end := -1
+		// 如果分隔符是 |，则结束符也是 |
+		// 注意 Nmap 允许嵌套 |，例如 p|foo|bar||
+		// 但通常不嵌套
+		// 如果是 match 格式，通常是 p/value/
+		// 我们从 cursor 开始找 delimiter
+		// 注意：如果 value 中包含 delimiter，需要转义？Nmap 规则通常不转义，而是选择不冲突的 delimiter
+
+		end = strings.IndexByte(versionInfo[cursor:], delimiter)
+
 		if end == -1 {
+			// 如果没找到，可能是格式错误，或者到了末尾
 			break
 		}
 
@@ -312,6 +322,15 @@ func (e *NmapEngine) parseVersionInfo(fp *FingerPrint, versionInfo string, subma
 		val = replacePlaceholders(val)
 
 		switch typeChar {
+		case "s":
+			// match 指令中的 's' 不是前缀，而是 flag (softmatch)
+			// 但在这里 versionInfo 解析中，如果遇到 's' 且不是 p/v/i 等
+			// 其实 Nmap 语法中，match <service> <pattern> <versioninfo>
+			// versionInfo 是一系列 helper，如 p// v//
+			// 有时候会有 s p//，这里的 s 其实是 match line 的一部分？
+			// 不，match line 是: match <service> <pattern> [<flags>] [<versioninfo>]
+			// 我们的 parser.go 可能把 flags 也当成了 versionInfo 的一部分
+			// 让我们看看 parser.go 如何解析 match line
 		case "p":
 			fp.ProductName = val
 		case "v":

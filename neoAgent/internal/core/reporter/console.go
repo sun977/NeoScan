@@ -62,7 +62,7 @@ func (r *ConsoleReporter) PrintResults(results []*model.TaskResult) {
 	var headers []string
 	var allRows [][]string
 
-	for i, res := range results {
+	for _, res := range results {
 		if res.Result == nil {
 			continue
 		}

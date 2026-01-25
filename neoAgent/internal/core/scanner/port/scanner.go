@@ -3,12 +3,12 @@ package port
 import (
 	"context"
 	"fmt"
-	"net"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"neoagent/internal/core/lib/network/dialer"  // 
 	"neoagent/internal/core/model"
 )
 
@@ -36,11 +36,7 @@ func NewPortServiceScanner() *PortServiceScanner {
 	}
 }
 
-func (s *PortServiceScanner) Name() string {
-	return ScannerName
-}
-
-func (s *PortServiceScanner) Type() model.TaskType {
+func (s *PortServiceScanner) Name() model.TaskType {
 	return model.TaskTypePortScan
 }
 
@@ -164,8 +160,8 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 	wg.Wait()
 
 	return []*model.TaskResult{{
-		TaskID: task.TaskID,
-		Status: model.TaskStatusCompleted,
+		TaskID: task.ID,
+		Status: model.TaskStatusSuccess,
 		Result: results,
 	}}, nil
 }
@@ -175,7 +171,9 @@ func (s *PortServiceScanner) scanPort(ctx context.Context, ip string, port int, 
 	timeout := DefaultTimeout
 
 	// 1. TCP Connect 探测端口开放
-	conn, err := net.DialTimeout("tcp", address, timeout)
+	dialCtx, cancel := context.WithTimeout(ctx, timeout)
+	conn, err := dialer.Get().DialContext(dialCtx, "tcp", address)
+	cancel()
 	if err != nil {
 		return nil // 端口关闭 (或被过滤)
 	}
@@ -260,7 +258,9 @@ func (s *PortServiceScanner) getProbesForPort(port int) []*Probe {
 
 func (s *PortServiceScanner) executeProbe(ctx context.Context, ip string, port int, probe *Probe, timeout time.Duration) *FingerPrint {
 	// 1. 建立连接
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
+	dialCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	conn, err := dialer.Get().DialContext(dialCtx, "tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
 		return nil
 	}

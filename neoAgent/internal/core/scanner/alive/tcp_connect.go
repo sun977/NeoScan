@@ -3,7 +3,7 @@ package alive
 import (
 	"context"
 	"fmt"
-	"net"
+	"neoagent/internal/core/lib/network/dialer"
 	"time"
 )
 
@@ -23,7 +23,8 @@ func (p *TcpConnectProber) Probe(ctx context.Context, ip string, timeout time.Du
 	for _, port := range p.Ports {
 		go func(port int) {
 			address := fmt.Sprintf("%s:%d", ip, port)
-			d := net.Dialer{Timeout: timeout}
+			// 使用全局 Dialer
+			d := dialer.Get()
 			start := time.Now()
 			conn, err := d.DialContext(ctx, "tcp", address)
 			if err == nil {

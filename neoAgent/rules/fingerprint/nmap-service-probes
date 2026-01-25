@@ -16647,3 +16647,9 @@ ports 9761
 # 06 - ACK (15 is NACK)
 match insteon-plm m|^\x02\x60...(.).\x9b\x06$| p/Insteon SmartLinc PLM/ i/device type: $I(1,">")/
 match insteon-plm m|^\x02\x60...(.).[\x9c\x9d]\x06$| p/Insteon Hub PLM/ i/device type: $I(1,">")/
+
+# Sunhaobo Test - cool-admin 服务规则
+Probe TCP Cool-admin q|GET / HTTP/1.0\r\n\r\n|
+ports 8001
+#match http m|^HTTP/1\.1 200 OK[\x0d\x0a ]+Content-Type: text/html[\x0d\x0a ]+.*[\x0d\x0a]{2}.*cool-admin|s p/cool-amind/
+match http m|^HTTP/1\.1 200 OK.*<title>COOL-AMIND|s p/cool-amind/

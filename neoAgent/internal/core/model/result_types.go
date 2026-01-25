@@ -45,3 +45,35 @@ func (r IpAliveResult) Rows() [][]string {
 
 	return [][]string{{r.IP, status, r.OS, rtt, ttl, r.Hostname}}
 }
+
+// PortServiceResult 端口服务扫描结果
+type PortServiceResult struct {
+	IP         string `json:"ip"`
+	Port       int    `json:"port"`
+	Protocol   string `json:"protocol"`
+	Status     string `json:"status"` // Open/Closed
+	Service    string `json:"service"`
+	Product    string `json:"product,omitempty"`
+	Version    string `json:"version,omitempty"`
+	Info       string `json:"info,omitempty"`
+	Hostname   string `json:"hostname,omitempty"`
+	OS         string `json:"os,omitempty"`
+	DeviceType string `json:"device_type,omitempty"`
+	CPE        string `json:"cpe,omitempty"`
+	Banner     string `json:"banner,omitempty"`
+}
+
+func (r PortServiceResult) Headers() []string {
+	return []string{"IP", "Port", "Proto", "State", "Service", "Version", "OS"}
+}
+
+func (r PortServiceResult) Rows() [][]string {
+	version := r.Product
+	if r.Version != "" {
+		version += " " + r.Version
+	}
+	if r.Info != "" {
+		version += " (" + r.Info + ")"
+	}
+	return [][]string{{r.IP, fmt.Sprintf("%d", r.Port), r.Protocol, r.Status, r.Service, version, r.OS}}
+}

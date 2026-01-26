@@ -188,15 +188,38 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 		}
 	}
 
-	// 3. 通用 SSH 特征 (OpenSSH 通常运行在 Unix-like 系统上，但也可能在 Windows 上)
-	// OpenSSH_7.4p1 Debian-10+deb9u7
-	if strings.Contains(banner, "OpenSSH") {
-		// 进一步检查是否有 OS 提示
-		// 如果没有明确 OS，给一个较低的置信度推断为 Linux/Unix
+	// Red Hat / RHEL / EL 特征
+	if strings.Contains(banner, "Red Hat") || strings.Contains(banner, "RHEL") || strings.Contains(banner, ".el") {
 		return &OsInfo{
-			Name:           "Linux/Unix (Inferred from OpenSSH)",
+			Name:           "Linux (Red Hat/CentOS)",
+			Family:         "Linux",
+			Accuracy:       95,
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
+		}
+	}
+
+	// 3. 通用 SSH 特征
+	if strings.Contains(banner, "OpenSSH") {
+		// Windows 上的 OpenSSH 通常包含 "Windows" 字样
+		if strings.Contains(banner, "Windows") {
+			return &OsInfo{
+				Name:           "Windows (OpenSSH)",
+				Family:         "Windows",
+				Accuracy:       90,
+				Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+				RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+				Source:         "Service",
+			}
+		}
+
+		// 否则大概率是 Linux/Unix
+		// 提高置信度到 85，以覆盖 TTL (80) 的结果
+		return &OsInfo{
+			Name:           "Linux/Unix (OpenSSH)",
 			Family:         "Unix",
-			Accuracy:       60, // 较低，因为 Windows 也可以装 OpenSSH
+			Accuracy:       85,
 			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
 			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
 			Source:         "Service",

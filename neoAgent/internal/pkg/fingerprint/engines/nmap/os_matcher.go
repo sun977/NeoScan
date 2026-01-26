@@ -39,11 +39,10 @@ func (db *OSDB) Match(target *OSFingerprint) *OSMatchResult {
 // target: 扫描得到的指纹 (包含具体值)
 // rule: 数据库中的指纹规则 (包含匹配模式)
 func calculateScore(target, rule *OSFingerprint) float64 {
-	totalTests := 0
-	matchedTests := 0
+	totalAttributes := 0
+	matchedAttributes := 0
 
 	// 需要比较的测试项列表
-	// Nmap 包含: SEQ, OPS, WIN, T1-T7, ECN, IE, U1
 	testNames := []string{"SEQ", "OPS", "WIN", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "ECN", "IE", "U1"}
 
 	for _, name := range testNames {
@@ -55,24 +54,37 @@ func calculateScore(target, rule *OSFingerprint) float64 {
 			continue
 		}
 
-		totalTests++
-
-		// 一方有一方没有 -> 不匹配
+		// 一方有一方没有 -> 视为该组所有属性都不匹配
+		// 估算平均每个测试项包含 5 个关键属性 (R, DF, T, W, O, CC, Q...)
 		if hasTarget != hasRule {
+			totalAttributes += 5
 			continue
 		}
 
-		// 双方都有，比较细节
-		if matchTest(targetBody, ruleBody) {
-			matchedTests++
+		// 解析为 Map 进行细粒度比较
+		targetMap := ParseRuleBody(targetBody)
+		ruleMap := ParseRuleBody(ruleBody)
+
+		for key, rulePattern := range ruleMap {
+			totalAttributes++
+
+			targetVal, ok := targetMap[key]
+			if !ok {
+				// 规则要求有该属性，但目标没有 -> 不匹配
+				continue
+			}
+
+			if matchValue(targetVal, rulePattern) {
+				matchedAttributes++
+			}
 		}
 	}
 
-	if totalTests == 0 {
+	if totalAttributes == 0 {
 		return 0
 	}
 
-	return (float64(matchedTests) / float64(totalTests)) * 100.0
+	return (float64(matchedAttributes) / float64(totalAttributes)) * 100.0
 }
 
 // matchTest 比较单个测试项 (e.g. T1(R=Y%DF=N...))

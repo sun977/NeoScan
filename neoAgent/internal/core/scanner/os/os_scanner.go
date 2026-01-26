@@ -10,12 +10,13 @@ import (
 
 // OsInfo 操作系统识别结果
 type OsInfo struct {
-	Name        string // OS名称 (Windows, Linux, etc.)
-	Family      string // OS家族 (Windows, Unix, Cisco, etc.)
-	Version     string // 版本号
-	Accuracy    int    // 置信度 (0-100)
-	Fingerprint string // 指纹字符串 (CPE or Raw)
-	Source      string // 识别来源 (TTL, Service, Stack)
+	Name           string // OS名称 (Windows, Linux, etc.)
+	Family         string // OS家族 (Windows, Unix, Cisco, etc.)
+	Version        string // 版本号
+	Accuracy       int    // 置信度 (0-100)
+	Fingerprint    string // 指纹摘要 (用于 CLI 展示)
+	RawFingerprint string `json:"raw_fingerprint,omitempty"` // 完整指纹数据 (用于导出/调试)
+	Source         string // 识别来源 (TTL, Service, Stack)
 }
 
 // OsScanEngine 定义 OS 扫描引擎接口

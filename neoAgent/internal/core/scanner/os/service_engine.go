@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"neoagent/internal/core/model"
 )
 
 // NmapServiceEngine 基于服务 Banner 的 OS 识别引擎
@@ -41,10 +43,10 @@ func (e *NmapServiceEngine) Name() string {
 	return "nmap_service"
 }
 
-func (e *NmapServiceEngine) Scan(ctx context.Context, target string) (*OsInfo, error) {
+func (e *NmapServiceEngine) Scan(ctx context.Context, target string) (*model.OsInfo, error) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	var bestInfo *OsInfo
+	var bestInfo *model.OsInfo
 
 	// 并发探测端口
 	for _, port := range e.targetPorts {
@@ -72,7 +74,7 @@ func (e *NmapServiceEngine) Scan(ctx context.Context, target string) (*OsInfo, e
 	return bestInfo, nil
 }
 
-func (e *NmapServiceEngine) probePort(ctx context.Context, target string, port int) *OsInfo {
+func (e *NmapServiceEngine) probePort(ctx context.Context, target string, port int) *model.OsInfo {
 	address := net.JoinHostPort(target, strconv.Itoa(port))
 	d := net.Dialer{Timeout: 2 * time.Second}
 	conn, err := d.DialContext(ctx, "tcp", address)
@@ -122,13 +124,13 @@ func (e *NmapServiceEngine) probePort(ctx context.Context, target string, port i
 	return e.matchBanner(banner, port)
 }
 
-func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
+func (e *NmapServiceEngine) matchBanner(banner string, port int) *model.OsInfo {
 	// 简单的正则匹配规则库
 	// 实际生产中应该加载外部规则文件
 
 	// 1. Windows 特征
 	if strings.Contains(banner, "Microsoft-IIS") {
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "Windows",
 			Family:         "Windows",
 			Accuracy:       90,
@@ -138,7 +140,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 		}
 	}
 	if strings.Contains(banner, "Microsoft FTP") {
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "Windows",
 			Family:         "Windows",
 			Accuracy:       90,
@@ -150,7 +152,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 
 	// 2. Linux/Unix 特征
 	if strings.Contains(banner, "Ubuntu") {
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "Linux (Ubuntu)",
 			Family:         "Linux",
 			Accuracy:       95,
@@ -160,7 +162,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 		}
 	}
 	if strings.Contains(banner, "Debian") {
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "Linux (Debian)",
 			Family:         "Linux",
 			Accuracy:       95,
@@ -170,7 +172,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 		}
 	}
 	if strings.Contains(banner, "CentOS") {
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "Linux (CentOS)",
 			Family:         "Linux",
 			Accuracy:       95,
@@ -180,7 +182,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 		}
 	}
 	if strings.Contains(banner, "FreeBSD") {
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "FreeBSD",
 			Family:         "FreeBSD",
 			Accuracy:       95,
@@ -192,7 +194,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 
 	// Red Hat / RHEL / EL 特征
 	if strings.Contains(banner, "Red Hat") || strings.Contains(banner, "RHEL") || strings.Contains(banner, ".el") {
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "Linux (Red Hat/CentOS)",
 			Family:         "Linux",
 			Accuracy:       95,
@@ -206,7 +208,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 	if strings.Contains(banner, "OpenSSH") {
 		// Windows 上的 OpenSSH 通常包含 "Windows" 字样
 		if strings.Contains(banner, "Windows") {
-			return &OsInfo{
+			return &model.OsInfo{
 				Name:           "Windows (OpenSSH)",
 				Family:         "Windows",
 				Accuracy:       90,
@@ -218,7 +220,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 
 		// 否则大概率是 Linux/Unix
 		// 提高置信度到 85，以覆盖 TTL (80) 的结果
-		return &OsInfo{
+		return &model.OsInfo{
 			Name:           "Linux/Unix (OpenSSH)",
 			Family:         "Unix",
 			Accuracy:       85,

@@ -119,21 +119,3 @@ func getLocalIP(dst net.IP) (net.IP, error) {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return localAddr.IP, nil
 }
-
-// NmapServiceEngine 基于 PortServiceScanner 结果的 OS 识别
-type NmapServiceEngine struct{}
-
-func NewNmapServiceEngine() *NmapServiceEngine {
-	return &NmapServiceEngine{}
-}
-
-func (e *NmapServiceEngine) Name() string {
-	return "nmap_service"
-}
-
-func (e *NmapServiceEngine) Scan(ctx context.Context, target string) (*OsInfo, error) {
-	return &OsInfo{
-		Name:     "Inferred from Service (Not Implemented Standalone)",
-		Accuracy: 0,
-	}, nil
-}

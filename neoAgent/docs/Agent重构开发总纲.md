@@ -69,7 +69,7 @@ neoAgent/
     - [x] 扫描引擎 (Scan Engine)
     - [x] 指纹匹配 (Match Engine)
 - [x] **3.4 指纹规则管理**: 实现混合规则加载机制 (Embed + Dynamic)。
-- [x] **3.5 OS 识别**: 实现基于 TCP/IP 栈 (Nmap) 和 服务 Banner 的 OS 识别（算法差距导致和nmap探测结相差差距大）。
+- [x] **3.5 OS 识别**: 实现基于 TCP/IP 栈 (Nmap) 和 服务 Banner 的 OS 识别。
 - [x] **3.6 核心网络库**: 重构 `internal/core/lib/network`，支持 Proxy/Timeout 统一管理。
 - [ ] **3.7 基础爆破**: 实现 SSH/MySQL/Redis 的原生爆破。
 - [ ] **3.8 高级并发优化**:
@@ -107,6 +107,6 @@ neoAgent/
 | :--- | :--- | :--- | :--- |
 | **阶段一：核心解耦** | 🟢 已完成 | Linus & User | 架构基石已稳固 |
 | **阶段二：CLI 改造** | 🟢 已完成 | Linus & User | 交互体验优化完毕 |
-| **阶段三：原生能力** | � 已完成 | Linus & User | OS/Service/Port/Alive 全面就绪 |
+| **阶段三：原生能力** | 🟢 已完成 | Linus & User | OS/Service/Port/Alive 全面就绪 |
 | **阶段四：编排与集成** | 🟡 进行中 | Linus & User | 即将开始 Pipeline 编排 |
 | **阶段五：高级能力** | ⚪ 待开始 | - | - |

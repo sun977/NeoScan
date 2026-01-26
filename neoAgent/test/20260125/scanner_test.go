@@ -8,7 +8,7 @@ import (
 
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/scanner/alive"
-	"neoagent/internal/core/scanner/port"
+	"neoagent/internal/core/scanner/port_service"
 )
 
 // TestIpAliveScanner_LocalNet 测试本地网段的 IP 存活扫描
@@ -87,7 +87,7 @@ func TestIpAliveScanner_LocalNet(t *testing.T) {
 // TestPortServiceScanner_LocalNet 测试端口服务扫描
 func TestPortServiceScanner_LocalNet(t *testing.T) {
 	// 1. 准备 Scanner
-	scanner := port.NewPortServiceScanner()
+	scanner := port_service.NewPortServiceScanner()
 
 	// 2. 准备任务
 	// 针对已知存在多端口的 IP 进行测试

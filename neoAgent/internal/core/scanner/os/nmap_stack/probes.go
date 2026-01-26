@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"neoagent/internal/core/lib/network/netraw"
-	"neoagent/internal/pkg/fingerprint/engines/nmap"
+
+	"github.com/!ullaakut/nmap/v3"
 )
 
 // Probe Types

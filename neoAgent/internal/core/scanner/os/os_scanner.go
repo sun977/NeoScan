@@ -80,7 +80,7 @@ func (s *Scanner) Scan(ctx context.Context, target string, mode string) (*OsInfo
 			defer wg.Done()
 			info, err := e.Scan(ctx, target)
 			if err != nil {
-				logger.LogBusinessError(fmt.Sprintf("os_scan_%s", e.Name()), "scan_failed", err)
+				logger.Error(err)
 				return
 			}
 			if info == nil {

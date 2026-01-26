@@ -1,3 +1,5 @@
+//go:build linux
+
 package os
 
 import (
@@ -76,12 +78,11 @@ func (e *NmapStackEngine) executeProbes(ctx context.Context, target string, open
 
 	// 启动接收器
 	responses := make(map[int]*ProbeResponse)
-	errChan := make(chan error, 1)
 	recvCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// 统一接收处理
-	go e.receiverLoop(recvCtx, tcpConn, udpConn, icmpConn, dstIP, probes, responses, errChan)
+	go e.receiverLoop(recvCtx, tcpConn, udpConn, icmpConn, dstIP, probes, responses)
 
 	// 发送探测包
 	// Nmap 顺序: SEQ(1-6) -> IE(1-2) -> ECN -> T2-T7 -> U1
@@ -118,7 +119,7 @@ func (e *NmapStackEngine) executeProbes(ctx context.Context, target string, open
 	return fp, nil
 }
 
-func (e *NmapStackEngine) receiverLoop(ctx context.Context, tcp, udp, icmp *netraw.RawSocket, targetIP net.IP, probes []*ProbeRequest, responses map[int]*ProbeResponse, errChan chan error) {
+func (e *NmapStackEngine) receiverLoop(ctx context.Context, tcp, udp, icmp *netraw.RawSocket, targetIP net.IP, probes []*ProbeRequest, responses map[int]*ProbeResponse) {
 	// 简单的轮询读取 (实际应该用 Select 或多协程，这里简化为三个协程写入同一个 map，需要锁)
 	// 由于 map 非并发安全，改用 channel 传递 response
 	respChan := make(chan *ProbeResponse, 20)

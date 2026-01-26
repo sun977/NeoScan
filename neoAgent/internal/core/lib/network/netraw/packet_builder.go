@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-// IPPacket 构建 IPv4 头部和负载
+// BuildIPv4Packet 构建 IPv4 头部和负载
 // 仅用于 Raw Socket 场景
 func BuildIPv4Packet(src, dst net.IP, protocol int, payload []byte) ([]byte, error) {
 	header := &ipv4.Header{

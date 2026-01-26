@@ -123,6 +123,10 @@ func getLocalIP(dst net.IP) (net.IP, error) {
 // NmapServiceEngine 基于 PortServiceScanner 结果的 OS 识别
 type NmapServiceEngine struct{}
 
+func NewNmapServiceEngine() *NmapServiceEngine {
+	return &NmapServiceEngine{}
+}
+
 func (e *NmapServiceEngine) Name() string {
 	return "nmap_service"
 }

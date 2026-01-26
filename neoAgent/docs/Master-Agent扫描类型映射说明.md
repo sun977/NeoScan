@@ -15,7 +15,7 @@ Agent 遵循 KISS 原则，只提供最基础的原子能力，通过参数组�
 | **`ipAliveScan`**<br>(IP探活) | `ip_alive_scan` | `ping: true` | 仅进行 ICMP/ARP 探测，不扫端口 |
 | **`fastPortScan`**<br>(快速端口扫描) | `port_scan` | `ping: false`<br>`port: "top100"`<br>`service_detect: false` | 扫描 Top100 端口，不进行深度识别 |
 | **`fullPortScan`**<br>(全量端口扫描) | `port_scan` | `port: "1-65535"`<br>`service_detect: false` | 全端口扫描 (不默认开启深度服务识别) |
-| **`serviceScan`**<br>(服务识别) | `service_scan` | `port: "custom"` | 针对特定端口进行深度指纹识别 |
+| **`serviceScan`**<br>(服务识别) | `port_scan` | `port: "custom"`<br>`service_detect: true` | 针对特定端口进行深度指纹识别 (PortServiceScanner) |
 | **`vulnScan`**<br>(漏洞扫描) | `vuln_scan` | `templates: "cves"`<br>`severity: "critical,high"` | 使用 Nuclei 进行通用漏洞扫描 |
 | **`pocScan`**<br>(POC扫描) | `vuln_scan` | `templates: "custom_pocs"` | 使用指定的 POC 模板进行精确扫描 |
 | **`passScan`**<br>(弱口令扫描) | `vuln_scan` | `templates: "weak_passwords"` | 使用弱口令爆破模板 |
@@ -23,7 +23,7 @@ Agent 遵循 KISS 原则，只提供最基础的原子能力，通过参数组�
 | **`apiScan`**<br>(API扫描) | `web_scan` | `mode: "api"`<br>`path: "/api/v1"` | 针对 API 接口的特定扫描 |
 | **`dirScan`**<br>(目录扫描) | `dir_scan` | `dict: "common.txt"` | 目录爆破 |
 | **`subDomainScan`**<br>(子域名扫描) | `subdomain` | `mode: "brute"` | 子域名枚举 |
-| **`proxyScan`**<br>(代理探测) | `service_scan` | `port: "1080,8080"`<br>`scripts: "proxy_check"` | 探测目标是否开放代理服务 (深度协议识别) |
+| **`proxyScan`**<br>(代理探测) | `port_scan` | `port: "1080,8080"`<br>`service_detect: true` | 探测目标是否开放代理服务 (深度协议识别) |
 | **`fileScan`**<br>(文件扫描) | `raw_cmd` | `cmd: "yara ..."` | **慎用**：仅在本地模式或受控环境下使用 |
 | **`otherScan`**<br>(其他扫描) | `raw_cmd` | `cmd: "custom_script"` | 执行自定义脚本 |
 

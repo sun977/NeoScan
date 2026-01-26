@@ -115,7 +115,7 @@ func (e *NmapStackEngine) executeProbes(ctx context.Context, target string, open
 	}
 
 	// 生成指纹
-	fp := generateFingerprint(responses, probes)
+	fp := generateFingerprint(responses)
 	return fp, nil
 }
 
@@ -348,7 +348,7 @@ func makeICMPPayload(id, seq int) []byte {
 }
 
 // generateFingerprint 生成指纹
-func generateFingerprint(responses map[int]*ProbeResponse, probes []*ProbeRequest) *nmap.OSFingerprint {
+func generateFingerprint(responses map[int]*ProbeResponse) *nmap.OSFingerprint {
 	fp := &nmap.OSFingerprint{
 		MatchRule: make(map[string]string),
 	}
@@ -356,7 +356,7 @@ func generateFingerprint(responses map[int]*ProbeResponse, probes []*ProbeReques
 	// 1. SEQ/OPS/WIN/T1
 	// 这里需要综合 6 个 SEQ 包的结果。简化：只用 T1 (SEQ1) 的响应
 	if resp, ok := responses[ProbeTypeSEQ]; ok {
-		fp.MatchRule["T1"] = parseTCPResponse(resp, "T1")
+		fp.MatchRule["T1"] = parseTCPResponse(resp)
 	} else {
 		fp.MatchRule["T1"] = "R=N"
 	}
@@ -366,7 +366,7 @@ func generateFingerprint(responses map[int]*ProbeResponse, probes []*ProbeReques
 	names := []string{"T2", "T3", "T4", "T5", "T6", "T7"}
 	for i, t := range types {
 		if resp, ok := responses[t]; ok {
-			fp.MatchRule[names[i]] = parseTCPResponse(resp, names[i])
+			fp.MatchRule[names[i]] = parseTCPResponse(resp)
 		} else {
 			fp.MatchRule[names[i]] = "R=N"
 		}
@@ -374,7 +374,7 @@ func generateFingerprint(responses map[int]*ProbeResponse, probes []*ProbeReques
 
 	// 3. ECN
 	if resp, ok := responses[ProbeTypeECN]; ok {
-		fp.MatchRule["ECN"] = parseTCPResponse(resp, "ECN") // ECN parsing is slightly different (CC, etc.)
+		fp.MatchRule["ECN"] = parseTCPResponse(resp) // ECN parsing is slightly different (CC, etc.)
 	} else {
 		fp.MatchRule["ECN"] = "R=N"
 	}
@@ -396,7 +396,7 @@ func generateFingerprint(responses map[int]*ProbeResponse, probes []*ProbeReques
 	return fp
 }
 
-func parseTCPResponse(resp *ProbeResponse, testName string) string {
+func parseTCPResponse(resp *ProbeResponse) string {
 	// 解析 TCP 响应生成 Nmap 格式字符串
 	// R=Y%DF=Y%W=...
 

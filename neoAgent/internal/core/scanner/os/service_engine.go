@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -72,8 +73,9 @@ func (e *NmapServiceEngine) Scan(ctx context.Context, target string) (*OsInfo, e
 }
 
 func (e *NmapServiceEngine) probePort(ctx context.Context, target string, port int) *OsInfo {
-	address := fmt.Sprintf("%s:%d", target, port)
-	conn, err := net.DialTimeout("tcp", address, 2*time.Second)
+	address := net.JoinHostPort(target, strconv.Itoa(port))
+	d := net.Dialer{Timeout: 2 * time.Second}
+	conn, err := d.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return nil
 	}

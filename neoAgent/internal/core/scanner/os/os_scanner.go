@@ -36,6 +36,7 @@ func NewScanner() *Scanner {
 	// 注册默认引擎
 	s.Register(NewTTLEngine())
 	s.Register(NewNmapStackEngine())
+	s.Register(NewNmapServiceEngine())
 	return s
 }
 
@@ -65,12 +66,11 @@ func (s *Scanner) Scan(ctx context.Context, target string, mode string) (*OsInfo
 			enginesToRun = append(enginesToRun, e)
 		}
 	case "auto":
-		// Auto 模式默认跑 TTL，如果有 Service 结果也会利用 (这里简化为跑 TTL)
-		// 实际生产中可能先跑 TTL，不准再跑 Stack
-		if e, ok := s.engines["ttl"]; ok {
+		// Auto 模式：并发运行所有可用引擎，通过竞速机制选择置信度最高的结果
+		// 包含: TTL Engine (Fast, ~80%), Nmap Stack Engine (Deep, Precision), Nmap Service Engine (If available)
+		for _, e := range s.engines {
 			enginesToRun = append(enginesToRun, e)
 		}
-		// TODO: 如果有 Nmap Service 引擎，也应该加入
 	default:
 		return nil, fmt.Errorf("unknown mode: %s", mode)
 	}

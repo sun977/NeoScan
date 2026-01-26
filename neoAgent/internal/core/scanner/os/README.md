@@ -6,16 +6,31 @@
 
 ## 2. 模块文件结构与职责 (`internal/core/scanner/os`)
 
-| 文件名 | 职责描述 |
-| :--- | :--- |
-| **`os_scanner.go`** | **主控调度器**。定义了 `Scanner` 结构体和 `OsScanEngine` 接口。负责管理所有注册的引擎，根据扫描模式 (`fast`/`deep`/`auto`) 调度具体的引擎执行，并汇总最终结果。 |
-| **`ttl_engine.go`** | **TTL 估算引擎**。基于 ICMP 响应的 TTL 值进行粗略的 OS 类型推断（Windows/Linux/Network Device）。适用于所有平台，速度极快但精度较低。 |
-| **`nmap_engine.go`** | **Nmap 协议栈指纹引擎 (核心逻辑)**。实现了 `NmapStackEngine`。负责加载 Nmap OS 数据库，编排探测流程（寻找开放/关闭端口 -> 执行探测 -> 指纹匹配）。**仅限 Linux 平台**。 |
-| **`nmap_probes.go`** | **Nmap 探测包构建与解析**。封装了底层的发包逻辑。实现了 Nmap 第二代指纹识别所需的全部探测包构造 (SEQ, ECN, T2-T7, IE, U1) 以及响应包的解析与指纹行生成。 |
+| 文件名 | 职责描述 | 平台限制 |
+| :--- | :--- | :--- |
+| **`os_scanner.go`** | **主控调度器**。定义了 `Scanner` 结构体和 `OsScanEngine` 接口。负责管理所有注册的引擎，根据扫描模式 (`fast`/`deep`/`auto`) 调度具体的引擎执行，并汇总最终结果。 | 通用 |
+| **`ttl_engine.go`** | **TTL 估算引擎**。基于 ICMP 响应的 TTL 值进行粗略的 OS 类型推断（Windows/Linux/Network Device）。适用于所有平台，速度极快但精度较低。 | 通用 |
+| **`nmap_engine.go`** | **Nmap 协议栈指纹引擎 (核心逻辑)**。实现了 `NmapStackEngine`。负责加载 Nmap OS 数据库，编排探测流程（寻找开放/关闭端口 -> 执行探测 -> 指纹匹配）。 | **Linux Only** (`//go:build linux`) |
+| **`nmap_probes.go`** | **Nmap 探测包构建与解析**。封装了底层的发包逻辑。实现了 Nmap 第二代指纹识别所需的全部探测包构造 (SEQ, ECN, T2-T7, IE, U1) 以及响应包的解析与指纹行生成。 | **Linux Only** (`//go:build linux`) |
+| **`nmap_engine_others.go`** | **Nmap 引擎存根 (Stub)**。为非 Linux 平台（如 Windows/macOS）提供 `NmapStackEngine` 的空实现，确保代码可以跨平台编译，但调用时会返回错误或不支持提示。 | **Non-Linux** (`//go:build !linux`) |
 
-## 3. 当前实现能力 (Atomic Capability)
+## 3. 跨平台兼容性设计 (Cross-Platform Compatibility)
 
-### 3.1 引擎详情
+由于 **Nmap Stack Engine** 深度依赖 `Raw Socket` (原始套接字) 来发送畸形 TCP/IP 数据包 (如自定义 Flags、Options、Seq 等)，而 Windows 系统的 `Raw Socket` 支持受到严格限制（无法构建完整的 TCP 头），因此我们采用了**条件编译 (Conditional Compilation)** 策略：
+
+- **Linux 环境**:
+  - 编译 `nmap_engine.go` 和 `nmap_probes.go`。
+  - `NmapStackEngine` 具备完整功能，支持 Deep Scan。
+- **Windows/其他环境**:
+  - 编译 `nmap_engine_others.go`。
+  - `NmapStackEngine` 仅作为占位符存在，调用 `Scan` 方法会直接返回 "Not Supported" 错误。
+  - `Scanner` 会自动降级，仅使用 `TTLEngine` (Fast Scan) 或未来实现的 `ServiceInferenceEngine`。
+
+这种设计确保了 `neoAgent` 可以在 Windows 上编译和运行（用于常规扫描），同时在 Linux 上提供最强的 OS 识别能力。
+
+## 4. 当前实现能力 (Atomic Capability)
+
+### 4.1 引擎详情
 
 #### A. TTL Engine (`fast` mode)
 - **原理**: 基于 ICMP Echo Reply 的 TTL (Time To Live) 值进行粗略推断。
@@ -41,9 +56,9 @@
   - `internal/core/lib/network/netraw`: 提供底层 Raw Socket 发包与抓包能力。
   - `internal/pkg/fingerprint/engines/nmap`: 提供 OS DB 解析与指纹匹配算法。
 
-## 4. 使用方式
+## 5. 使用方式
 
-### 4.1 代码调用
+### 5.1 代码调用
 ```go
 scanner := os.NewScanner()
 // 自动选择策略（推荐）
@@ -52,12 +67,12 @@ scanner := os.NewScanner()
 info, err := scanner.Scan(ctx, "192.168.1.1", "auto")
 ```
 
-### 4.2 模式说明
+### 5.2 模式说明
 - **`fast`**: 仅运行 TTL Engine。适用于大规模内网资产粗筛。
 - **`deep`**: 强制运行 Nmap Stack Engine (Linux) 或其他高精度引擎。
 - **`auto`**: 智能混合模式。
 
-## 5. 未来扩展规划 (Roadmap)
+## 6. 未来扩展规划 (Roadmap)
 
 - [x] **阶段一：Raw Socket 基础设施** (Linux 实现完成)
 - [x] **阶段二：Nmap Stack Engine** (全量探测 T1-T7/IE/ECN 实现完成)

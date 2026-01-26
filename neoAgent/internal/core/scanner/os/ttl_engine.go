@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
-	"time"
 )
 
 // TTLEngine 基于 Ping TTL 的轻量级 OS 识别
@@ -79,7 +78,7 @@ func (e *TTLEngine) guessOS(ttl int) *OsInfo {
 	// Windows: 128 (通常在 65-128 之间)
 	// Linux/Unix: 64 (通常在 33-64 之间)
 	// Solaris/Cisco: 255 (通常在 129-255 之间)
-	
+
 	info := &OsInfo{
 		Source:   "TTL",
 		Accuracy: 80, // TTL 并不是 100% 准确

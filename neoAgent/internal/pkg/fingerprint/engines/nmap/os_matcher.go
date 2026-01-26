@@ -87,28 +87,6 @@ func calculateScore(target, rule *OSFingerprint) float64 {
 	return (float64(matchedAttributes) / float64(totalAttributes)) * 100.0
 }
 
-// matchTest 比较单个测试项 (e.g. T1(R=Y%DF=N...))
-func matchTest(targetBody, ruleBody string) bool {
-	// 解析为 Map
-	targetMap := ParseRuleBody(targetBody)
-	ruleMap := ParseRuleBody(ruleBody)
-
-	// 遍历规则中的所有属性
-	for key, rulePattern := range ruleMap {
-		targetVal, ok := targetMap[key]
-		if !ok {
-			// 规则要求有该属性，但目标没有 -> 不匹配
-			return false
-		}
-
-		if !matchValue(targetVal, rulePattern) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // matchValue 比较属性值
 // targetVal: 具体值 (e.g. "100", "Y", "F")
 // rulePattern: 模式 (e.g. "100-200", "Y|N", ">10")

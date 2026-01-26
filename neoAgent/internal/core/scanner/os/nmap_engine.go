@@ -77,10 +77,12 @@ func (e *NmapStackEngine) Scan(ctx context.Context, target string) (*OsInfo, err
 	// 格式化 fingerprint 字符串用于调试或报告
 	// 简化显示 T1
 	if t1, ok := fp.MatchRule["T1"]; ok {
-		info.Fingerprint = "T1(" + t1 + ")"
+		info.Fingerprint = "T1(" + t1 + ")..."
 	} else {
 		info.Fingerprint = "Incomplete"
 	}
+	// 保存完整指纹
+	info.RawFingerprint = fp.String()
 
 	if matchResult != nil {
 		info.Name = matchResult.Fingerprint.Name

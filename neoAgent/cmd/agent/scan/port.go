@@ -7,7 +7,7 @@ import (
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
-	"neoagent/internal/core/scanner/port"
+	"neoagent/internal/core/scanner/port_service"
 
 	"github.com/spf13/cobra"
 )
@@ -32,7 +32,7 @@ func NewPortScanCmd() *cobra.Command {
 			// 1. 初始化 RunnerManager
 			manager := runner.NewRunnerManager()
 			// 2. 注册 PortServiceScanner
-			manager.Register(port.NewPortServiceScanner())
+			manager.Register(port_service.NewPortServiceScanner())
 
 			// 3. 执行任务
 			fmt.Printf("[*] Starting Port Scan on %s (Ports: %s)...\n", task.Target, task.PortRange)

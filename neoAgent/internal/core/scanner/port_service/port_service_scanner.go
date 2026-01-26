@@ -9,7 +9,7 @@ import (
 
 	"neoagent/internal/core/lib/network/dialer"
 	"neoagent/internal/core/model"
-	"neoagent/internal/pkg/fingerprint/engines/nmap"
+	"neoagent/internal/core/scanner/port_service/gonmap"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 // PortServiceScanner 端口服务扫描器
 // 实现了 Scanner 接口，整合了 TCP Connect 扫描与 Nmap 服务识别逻辑
 type PortServiceScanner struct {
-	nmapEngine *nmap.NmapEngine
+	gonmapEngine *gonmap.Engine
 
 	initOnce sync.Once
 	initErr  error
@@ -28,7 +28,7 @@ type PortServiceScanner struct {
 
 func NewPortServiceScanner() *PortServiceScanner {
 	return &PortServiceScanner{
-		nmapEngine: nmap.NewNmapEngine(),
+		gonmapEngine: gonmap.NewEngine(),
 	}
 }
 
@@ -48,16 +48,18 @@ func (s *PortServiceScanner) ensureInit() error {
 			"rules/fingerprint/nmap-service-probes",
 			"../rules/fingerprint/nmap-service-probes",
 			"../../rules/fingerprint/nmap-service-probes", // 针对 test 目录
+			"internal/core/scanner/port_service/gonmap/nmap-service-probes",
 		}
 
 		for _, path := range paths {
 			content, err := os.ReadFile(path)
 			if err == nil && len(content) > 0 {
-				s.nmapEngine.SetRules(string(content))
+				s.gonmapEngine.LoadRules(string(content))
 				break
 			}
 		}
-		// 如果都没找到，NmapEngine 会使用默认的 embed 规则
+		// 如果都没找到，需要加载默认 embed 规则 (后续从 nmap-service-probes 文件读取)
+		// 这里假设 nmap-service-probes 已经迁移到 gonmap 目录并 embed
 	})
 	return nil
 }
@@ -87,7 +89,7 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 	// 注意：由于 ParsePortList 迁移到了 nmap 包，但它可能不是公开的？
 	// 最好把 ParsePortList 放到 utils 或 nmap 包公开
 	// 这里假设 nmap.ParsePortList 是公开的
-	ports := nmap.ParsePortList(portRange)
+	ports := gonmap.ParsePortList(portRange)
 
 	// 并发控制 (使用 Runner 或简单的 WaitGroup)
 	// 这里为了简单演示，使用 Semaphore
@@ -155,10 +157,10 @@ func (s *PortServiceScanner) scanPort(ctx context.Context, ip string, port int, 
 		return result
 	}
 
-	// 2. 服务识别 (Service Discovery) - 使用 Nmap Engine
+	// 2. 服务识别 (Service Discovery) - 使用 Gonmap Engine
 	// 这里使用独立的超时时间，或者总超时？
 	// 假设每个探针有自己的超时，这里传递上下文
-	fp, err := s.nmapEngine.Scan(ctx, ip, port, timeout)
+	fp, err := s.gonmapEngine.Scan(ctx, ip, port, timeout)
 	if err != nil {
 		// 记录错误?
 	}

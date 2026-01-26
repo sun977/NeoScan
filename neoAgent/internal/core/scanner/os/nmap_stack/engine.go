@@ -1,27 +1,26 @@
 //go:build linux
 
-package os
+package nmap_stack
 
 import (
 	"context"
 	"fmt"
+	"neoagent/internal/core/model"
 	"net"
 	"runtime"
 	"time"
-
-	"neoagent/internal/pkg/fingerprint/engines/nmap"
 )
 
 // NmapStackEngine 基于 Nmap OS DB 的 TCP/IP 协议栈指纹识别
 type NmapStackEngine struct {
-	db *nmap.OSDB
+	db *OSDB
 }
 
 func NewNmapStackEngine() *NmapStackEngine {
 	// 解析 OS DB
 	// 注意: 这里应该只解析一次，最好是单例模式或在 Agent 启动时加载
 	// 为了演示，这里简化处理
-	db, err := nmap.ParseOSDB(nmap.NmapOSDB)
+	db, err := ParseOSDB(NmapOSDB)
 	if err != nil {
 		fmt.Printf("Warning: Failed to parse Nmap OS DB: %v\n", err)
 	}
@@ -34,7 +33,7 @@ func (e *NmapStackEngine) Name() string {
 	return "nmap_stack"
 }
 
-func (e *NmapStackEngine) Scan(ctx context.Context, target string) (*OsInfo, error) {
+func (e *NmapStackEngine) Scan(ctx context.Context, target string) (*model.OsInfo, error) {
 	// 1. 平台检查 (仅 Linux 支持)
 	if runtime.GOOS != "linux" {
 		return nil, fmt.Errorf("nmap stack fingerprinting is only supported on linux")
@@ -70,7 +69,7 @@ func (e *NmapStackEngine) Scan(ctx context.Context, target string) (*OsInfo, err
 	matchResult := e.db.Match(fp)
 
 	// 6. 构造结果
-	info := &OsInfo{
+	info := &model.OsInfo{
 		Source: "NmapStack",
 	}
 

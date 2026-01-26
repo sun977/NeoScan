@@ -77,3 +77,14 @@ func (r PortServiceResult) Rows() [][]string {
 	}
 	return [][]string{{r.IP, fmt.Sprintf("%d", r.Port), r.Protocol, r.Status, r.Service, version, r.OS}}
 }
+
+// OsInfo 操作系统识别结果
+type OsInfo struct {
+	Name           string `json:"name"`            // OS名称 (Windows, Linux, etc.)
+	Family         string `json:"family"`          // OS家族 (Windows, Unix, Cisco, etc.)
+	Version        string `json:"version"`         // 版本号
+	Accuracy       int    `json:"accuracy"`        // 置信度 (0-100)
+	Fingerprint    string `json:"fingerprint"`     // 指纹摘要 (用于 CLI 展示)
+	RawFingerprint string `json:"raw_fingerprint"` // 完整指纹数据 (用于导出/调试)
+	Source         string `json:"source"`          // 识别来源 (TTL, Service, Stack)
+}

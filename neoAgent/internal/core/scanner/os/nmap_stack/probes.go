@@ -1,6 +1,6 @@
 //go:build linux
 
-package os
+package nmap_stack
 
 import (
 	"bytes"
@@ -47,7 +47,7 @@ type ProbeResponse struct {
 }
 
 // executeProbes 执行全量探测
-func (e *NmapStackEngine) executeProbes(ctx context.Context, target string, openPort, closedPort int) (*nmap.OSFingerprint, error) {
+func (e *NmapStackEngine) executeProbes(ctx context.Context, target string, openPort, closedPort int) (*OSFingerprint, error) {
 	dstIP := net.ParseIP(target)
 	srcIP, err := getLocalIP(dstIP)
 	if err != nil {

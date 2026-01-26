@@ -90,7 +90,7 @@ func (e *TTLEngine) guessOS(ttl int) *OsInfo {
 		info.Accuracy = 50
 	} else if ttl <= 64 {
 		info.Name = "Linux/Unix"
-		info.Family = "Unix"
+		info.Family = "Linux"
 		info.Fingerprint = "TTL<=64"
 	} else if ttl <= 128 {
 		info.Name = "Windows"

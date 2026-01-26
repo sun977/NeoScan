@@ -56,6 +56,19 @@
   - `internal/core/lib/network/netraw`: 提供底层 Raw Socket 发包与抓包能力。
   - `internal/pkg/fingerprint/engines/nmap`: 提供 OS DB 解析与指纹匹配算法。
 
+#### C. Service Inference Engine (`service_engine.go`)
+- **设计哲学**: "Sniper" (狙击手) 模式。
+- **目标**: 独立、快速地推断 OS，不依赖庞大的全量端口扫描。
+- **原理**: 主动探测极少量关键端口 (22, 80, 443, 21, 8080)，获取 Service Banner。
+- **匹配逻辑**:
+  - `Microsoft-IIS` / `Microsoft FTP` -> **Windows**
+  - `Ubuntu` / `Debian` / `CentOS` -> **Linux**
+  - `FreeBSD` -> **FreeBSD**
+  - `OpenSSH` -> **Linux/Unix** (低置信度)
+- **价值**:
+  - 为 Windows Agent 提供除 TTL 外的第二种识别手段。
+  - 在 `scan os` 独立运行时提供必要的信息来源。
+
 ## 5. 使用方式
 
 ### 5.1 代码调用
@@ -76,6 +89,6 @@ info, err := scanner.Scan(ctx, "192.168.1.1", "auto")
 
 - [x] **阶段一：Raw Socket 基础设施** (Linux 实现完成)
 - [x] **阶段二：Nmap Stack Engine** (全量探测 T1-T7/IE/ECN 实现完成)
-- [ ] **阶段三：Service Inference Engine (服务推断)**
+- [x] **阶段三：Service Inference Engine (服务推断)**
   - 目标: 利用端口扫描获取的 Service Banner (如 `Server: Microsoft-IIS/10.0`) 直接推断 OS。
   - 价值: 弥补 Windows Agent 无法使用 Raw Socket 进行精确识别的短板。

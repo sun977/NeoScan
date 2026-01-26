@@ -50,9 +50,9 @@ func (e *NmapStackEngine) Scan(ctx context.Context, target string) (*OsInfo, err
 	go func() {
 		buf := make([]byte, 1500)
 		// 接收超时 2秒
-		n, src, err := socket.Receive(buf, 2*time.Second)
-		if err != nil {
-			// logger.LogBusinessError("NmapEngine", "receive failed", err)
+		n, src, err1 := socket.Receive(buf, 2*time.Second)
+		if err1 != nil {
+			// logger.LogBusinessError("NmapEngine", "receive failed", err1)
 			return
 		}
 		// 简单判断是否来自目标且是 SYN/ACK (Flags=0x12)

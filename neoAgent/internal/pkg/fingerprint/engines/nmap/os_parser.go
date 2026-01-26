@@ -2,16 +2,14 @@ package nmap
 
 import (
 	"bufio"
-	"fmt"
-	"regexp"
 	"strings"
 )
 
 // OSFingerprint 代表 Nmap nmap-os-db 中的一条指纹记录
 type OSFingerprint struct {
-	Name      string // Fingerprint name (e.g., "Linux 2.6.x")
-	Class     string // Class line (Vendor | OS Family | OS Gen | Device Type)
-	CPE       string // CPE line
+	Name      string            // Fingerprint name (e.g., "Linux 2.6.x")
+	Class     string            // Class line (Vendor | OS Family | OS Gen | Device Type)
+	CPE       string            // CPE line
 	MatchRule map[string]string // Key: TestName (SEQ, T1...), Value: TestRule string
 }
 
@@ -33,7 +31,7 @@ func ParseOSDB(content string) (*OSDB, error) {
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// 跳过注释和空行
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue

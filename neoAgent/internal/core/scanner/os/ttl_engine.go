@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+
+	"neoagent/internal/core/model"
 )
 
 // TTLEngine 基于 Ping TTL 的轻量级 OS 识别
@@ -21,7 +23,7 @@ func (e *TTLEngine) Name() string {
 	return "ttl"
 }
 
-func (e *TTLEngine) Scan(ctx context.Context, target string) (*OsInfo, error) {
+func (e *TTLEngine) Scan(ctx context.Context, target string) (*model.OsInfo, error) {
 	ttl, err := e.getPingTTL(ctx, target)
 	if err != nil {
 		return nil, err
@@ -73,13 +75,13 @@ func (e *TTLEngine) parseTTL(output string, osType string) int {
 	return 0
 }
 
-func (e *TTLEngine) guessOS(ttl int) *OsInfo {
+func (e *TTLEngine) guessOS(ttl int) *model.OsInfo {
 	// 简单的 TTL 推断规则
 	// Windows: 128 (通常在 65-128 之间)
 	// Linux/Unix: 64 (通常在 33-64 之间)
 	// Solaris/Cisco: 255 (通常在 129-255 之间)
 
-	info := &OsInfo{
+	info := &model.OsInfo{
 		Source:   "TTL",
 		Accuracy: 80, // TTL 并不是 100% 准确
 	}

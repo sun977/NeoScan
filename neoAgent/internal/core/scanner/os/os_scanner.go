@@ -5,24 +5,15 @@ import (
 	"fmt"
 	"sync"
 
+	"neoagent/internal/core/model"
+	"neoagent/internal/core/scanner/os/nmap_stack"
 	"neoagent/internal/pkg/logger"
 )
-
-// OsInfo 操作系统识别结果
-type OsInfo struct {
-	Name           string // OS名称 (Windows, Linux, etc.)
-	Family         string // OS家族 (Windows, Unix, Cisco, etc.)
-	Version        string // 版本号
-	Accuracy       int    // 置信度 (0-100)
-	Fingerprint    string // 指纹摘要 (用于 CLI 展示)
-	RawFingerprint string `json:"raw_fingerprint,omitempty"` // 完整指纹数据 (用于导出/调试)
-	Source         string // 识别来源 (TTL, Service, Stack)
-}
 
 // OsScanEngine 定义 OS 扫描引擎接口
 type OsScanEngine interface {
 	Name() string
-	Scan(ctx context.Context, target string) (*OsInfo, error)
+	Scan(ctx context.Context, target string) (*model.OsInfo, error)
 }
 
 // Scanner OS 扫描器主控
@@ -36,7 +27,7 @@ func NewScanner() *Scanner {
 	}
 	// 注册默认引擎
 	s.Register(NewTTLEngine())
-	s.Register(NewNmapStackEngine())
+	s.Register(nmap_stack.NewNmapStackEngine())
 	s.Register(NewNmapServiceEngine())
 	return s
 }
@@ -47,8 +38,8 @@ func (s *Scanner) Register(engine OsScanEngine) {
 }
 
 // Scan 执行扫描
-func (s *Scanner) Scan(ctx context.Context, target string, mode string) (*OsInfo, error) {
-	var bestResult *OsInfo
+func (s *Scanner) Scan(ctx context.Context, target string, mode string) (*model.OsInfo, error) {
+	var bestResult *model.OsInfo
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -102,7 +93,7 @@ func (s *Scanner) Scan(ctx context.Context, target string, mode string) (*OsInfo
 	wg.Wait()
 
 	if bestResult == nil {
-		return &OsInfo{Name: "Unknown", Accuracy: 0}, nil
+		return &model.OsInfo{Name: "Unknown", Accuracy: 0}, nil
 	}
 	return bestResult, nil
 }

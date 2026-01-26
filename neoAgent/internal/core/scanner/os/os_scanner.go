@@ -59,8 +59,9 @@ func (s *Scanner) Scan(ctx context.Context, target string, mode string) (*OsInfo
 			enginesToRun = append(enginesToRun, e)
 		}
 	case "deep":
-		// Deep 模式跑所有引擎，取最优
-		for _, e := range s.engines {
+		// Deep 模式强制使用 Nmap 逻辑探测
+		// 用户反馈: "deep的时候source是TTL，应该不对，deep是强制指定nmap逻辑探测"
+		if e, ok := s.engines["nmap_stack"]; ok {
 			enginesToRun = append(enginesToRun, e)
 		}
 	case "auto":

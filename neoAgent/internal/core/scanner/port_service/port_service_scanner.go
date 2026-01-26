@@ -92,94 +92,90 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 	ports := gonmap.ParsePortList(portRange)
 
 	// 并发控制 (使用 Runner 或简单的 WaitGroup)
-	// 这里为了简单演示，使用 Semaphore
 	concurrency := 100
 	if val, ok := task.Params["rate"]; ok {
-		if v, ok := val.(int); ok {
+		// handle float64 or int
+		if v, ok := val.(float64); ok {
+			concurrency = int(v)
+		} else if v, ok := val.(int); ok {
 			concurrency = v
 		}
 	}
-	sem := make(chan struct{}, concurrency)
-	var wg sync.WaitGroup
+
+	if concurrency <= 0 {
+		concurrency = 100
+	}
+
+	results := make([]*model.TaskResult, 0)
 	var mu sync.Mutex
-	var results []interface{}
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, concurrency)
 
 	for _, port := range ports {
 		wg.Add(1)
-		sem <- struct{}{}
 		go func(p int) {
 			defer wg.Done()
+			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			// 执行扫描
-			res := s.scanPort(ctx, target, p, serviceDetect)
-			if res != nil {
-				mu.Lock()
-				results = append(results, res)
-				mu.Unlock()
+			// 1. 基础端口连通性检查 (TCP Connect)
+			// 如果只是为了探测服务，这一步可以快速过滤关闭的端口
+			if !s.isPortOpen(ctx, target, p, DefaultTimeout) {
+				return
 			}
+
+			// 端口开放，构建基础结果
+			portResult := &model.PortServiceResult{
+				IP:       target,
+				Port:     p,
+				Protocol: "tcp",
+				Status:   "open",
+				Service:  "unknown",
+			}
+
+			// 2. 服务识别 (如果启用)
+			if serviceDetect {
+				// 给服务识别更多时间
+				scanTimeout := DefaultTimeout * 3
+				fp, err := s.gonmapEngine.Scan(ctx, target, p, scanTimeout)
+				if err == nil && fp != nil {
+					portResult.Service = fp.Service
+					portResult.Product = fp.ProductName
+					portResult.Version = fp.Version
+					portResult.Info = fp.Info
+					portResult.Hostname = fp.Hostname
+					portResult.OS = fp.OperatingSystem
+					portResult.DeviceType = fp.DeviceType
+					portResult.CPE = fp.CPE
+				}
+			}
+
+			result := &model.TaskResult{
+				TaskID:      task.ID,
+				Status:      model.TaskStatusSuccess,
+				Result:      portResult,
+				ExecutedAt:  time.Now(), // approximate
+				CompletedAt: time.Now(),
+			}
+
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
 		}(port)
 	}
 
 	wg.Wait()
-
-	return []*model.TaskResult{{
-		TaskID: task.ID,
-		Status: model.TaskStatusSuccess,
-		Result: results,
-	}}, nil
+	return results, nil
 }
 
-func (s *PortServiceScanner) scanPort(ctx context.Context, ip string, port int, serviceDetect bool) *model.PortServiceResult {
+// isPortOpen 检查端口是否开放 (TCP Connect)
+func (s *PortServiceScanner) isPortOpen(ctx context.Context, ip string, port int, timeout time.Duration) bool {
 	address := fmt.Sprintf("%s:%d", ip, port)
-	timeout := DefaultTimeout
-
-	// 1. TCP Connect 探测端口开放
-	dialCtx, cancel := context.WithTimeout(ctx, timeout)
-	conn, err := dialer.Get().DialContext(dialCtx, "tcp", address)
-	cancel()
+	d := dialer.Get()
+	conn, err := d.DialContext(ctx, "tcp", address)
 	if err != nil {
-		// 端口关闭 (或被过滤)
-		// 调试日志：fmt.Printf("Port %d closed: %v\n", port, err)
-		return nil
+		return false
 	}
-	defer conn.Close()
-
-	result := &model.PortServiceResult{
-		IP:       ip,
-		Port:     port,
-		Protocol: "tcp",
-		Status:   "open",
-	}
-
-	// 如果不进行服务识别，直接返回 Open
-	if !serviceDetect {
-		return result
-	}
-
-	// 2. 服务识别 (Service Discovery) - 使用 Gonmap Engine
-	// 这里使用独立的超时时间，或者总超时？
-	// 假设每个探针有自己的超时，这里传递上下文
-	fp, err := s.gonmapEngine.Scan(ctx, ip, port, timeout)
-	if err != nil {
-		// 记录错误?
-	}
-
-	if fp != nil {
-		// 匹配成功!
-		result.Service = fp.Service
-		result.Product = fp.ProductName
-		result.Version = fp.Version
-		result.Info = fp.Info
-		result.Hostname = fp.Hostname
-		result.OS = fp.OperatingSystem
-		result.DeviceType = fp.DeviceType
-		result.CPE = fp.CPE
-		result.Status = "open" // 只要连接成功就是 open，不应使用 matched
-		return result
-	}
-
-	// 如果所有探针都失败，标记为 unknown service
-	result.Service = "unknown"
-	return result
+	conn.Close()
+	return true
 }

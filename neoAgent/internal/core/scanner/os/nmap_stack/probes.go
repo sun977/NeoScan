@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"neoagent/internal/core/lib/network/netraw"
-
-	"github.com/!ullaakut/nmap/v3"
 )
 
 // Probe Types
@@ -122,7 +120,7 @@ func (e *NmapStackEngine) executeProbes(ctx context.Context, target string, open
 
 func (e *NmapStackEngine) receiverLoop(ctx context.Context, tcp, udp, icmp *netraw.RawSocket, targetIP net.IP, probes []*ProbeRequest, responses map[int]*ProbeResponse) {
 	// 简单的轮询读取 (实际应该用 Select 或多协程，这里简化为三个协程写入同一个 map，需要锁)
-	// 由于 map 非并发安全，改用 channel 传递 response
+	// 由于 map 非并发安全，改用 channel传递 response
 	respChan := make(chan *ProbeResponse, 20)
 
 	// 启动 3 个 listener
@@ -349,8 +347,8 @@ func makeICMPPayload(id, seq int) []byte {
 }
 
 // generateFingerprint 生成指纹
-func generateFingerprint(responses map[int]*ProbeResponse) *nmap.OSFingerprint {
-	fp := &nmap.OSFingerprint{
+func generateFingerprint(responses map[int]*ProbeResponse) *OSFingerprint {
+	fp := &OSFingerprint{
 		MatchRule: make(map[string]string),
 	}
 

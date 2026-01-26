@@ -41,15 +41,15 @@ type Response struct {
 
 // Probe Nmap 探针定义
 type Probe struct {
-	Name       string
-	Protocol   string
+	Name        string
+	Protocol    string
 	ProbeString string
-	Wait       time.Duration
-	Ports      []int
-	SslPorts   []int
-	Rarity     int
-	Fallback   []string
-	
+	Wait        time.Duration
+	Ports       []int
+	SslPorts    []int
+	Rarity      int
+	Fallback    []string
+
 	// 匹配规则组
 	MatchGroup     []*Match
 	SoftMatchGroup []*Match
@@ -57,9 +57,9 @@ type Probe struct {
 
 // Match 匹配规则
 type Match struct {
-	IsSoft        bool
-	Service       string
-	Pattern       string
-	PatternRegexp *regexp.Regexp
-	VersionInfo   *FingerPrint // 预编译的版本提取模板
+	IsSoft              bool
+	Service             string
+	Pattern             string
+	PatternRegexp       *regexp.Regexp
+	VersionInfoTemplate string // 版本提取模板 (e.g. "p/$1/ v/$2/")
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -160,12 +161,91 @@ func (e *Engine) matchResponse(response []byte, probe *Probe) *FingerPrint {
 }
 
 func extractFingerPrint(match *Match, response string) *FingerPrint {
-	// TODO: 实现详细的版本提取逻辑 (替换 $1, $2 等)
-	// 这里先返回基础信息
-	return &FingerPrint{
-		Service: match.Service,
-		Info:    fmt.Sprintf("Matched by %s", match.Pattern),
+	fp := &FingerPrint{
+		Service:          match.Service,
+		MatchRegexString: match.Pattern,
 	}
+
+	// Find submatches
+	submatches := match.PatternRegexp.FindStringSubmatch(response)
+
+	// Parse VersionInfoTemplate if available
+	if match.VersionInfoTemplate != "" {
+		parseVersionInfo(fp, match.VersionInfoTemplate, submatches)
+	}
+
+	return fp
+}
+
+func parseVersionInfo(fp *FingerPrint, template string, submatches []string) {
+	// Nmap version info format: p/vendor_product/ v/version/ ...
+	// The delimiter can be any char, usually /
+
+	// Simple state machine parser
+	input := template
+	for len(input) > 0 {
+		// Expect tag like " p" or "v"
+		input = strings.TrimSpace(input)
+		if len(input) < 2 {
+			break
+		}
+
+		tag := ""
+		if strings.HasPrefix(input, "cpe:") {
+			tag = "cpe:"
+			input = input[4:]
+		} else {
+			tag = input[:1]
+			input = input[1:]
+		}
+
+		if len(input) == 0 {
+			break
+		}
+
+		delimiter := input[:1]
+		input = input[1:]
+
+		// Find closing delimiter
+		endIdx := strings.Index(input, delimiter)
+		if endIdx == -1 {
+			break // Malformed
+		}
+
+		val := input[:endIdx]
+		input = input[endIdx+1:]
+
+		// Replace placeholders $1, $2...
+		val = replacePlaceholders(val, submatches)
+
+		switch tag {
+		case "p":
+			fp.ProductName = val
+		case "v":
+			fp.Version = val
+		case "i":
+			fp.Info = val
+		case "h":
+			fp.Hostname = val
+		case "o":
+			fp.OperatingSystem = val
+		case "d":
+			fp.DeviceType = val
+		case "cpe:":
+			fp.CPE = val // TODO: Handle multiple CPEs
+		}
+	}
+}
+
+func replacePlaceholders(s string, submatches []string) string {
+	if !strings.Contains(s, "$") {
+		return s
+	}
+	for i, match := range submatches {
+		placeholder := fmt.Sprintf("$%d", i)
+		s = strings.ReplaceAll(s, placeholder, match)
+	}
+	return s
 }
 
 func uniqueStrings(slice []string) []string {

@@ -133,7 +133,7 @@ func parseMatchLine(line string, isSoft bool) *Match {
 	service := args[1]
 	pattern := args[2]
 	opt := args[3]
-	// info := args[4] // Version info template
+	info := args[4] // Version info template
 
 	// Compile regex
 	re, err := compilePattern(pattern, opt)
@@ -143,11 +143,11 @@ func parseMatchLine(line string, isSoft bool) *Match {
 	}
 
 	return &Match{
-		IsSoft:        isSoft,
-		Service:       service,
-		Pattern:       pattern,
-		PatternRegexp: re,
-		// VersionInfo will be handled dynamically during matching for simplicity
+		IsSoft:              isSoft,
+		Service:             service,
+		Pattern:             pattern,
+		PatternRegexp:       re,
+		VersionInfoTemplate: info,
 	}
 }
 

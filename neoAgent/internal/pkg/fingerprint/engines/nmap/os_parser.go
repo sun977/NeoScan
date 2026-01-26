@@ -11,6 +11,10 @@ import (
 type OSFingerprint struct {
 	Name      string            // Fingerprint name (e.g., "Linux 2.6.x")
 	Class     string            // Class line (Vendor | OS Family | OS Gen | Device Type)
+	Vendor    string            // Parsed Vendor
+	OSFamily  string            // Parsed OS Family
+	OSGen     string            // Parsed OS Generation
+	Device    string            // Parsed Device Type
 	CPE       string            // CPE line
 	MatchRule map[string]string // Key: TestName (SEQ, T1...), Value: TestRule string
 }
@@ -80,6 +84,15 @@ func ParseOSDB(content string) (*OSDB, error) {
 		// 处理 Class 指令
 		if strings.HasPrefix(line, "Class ") {
 			currentFP.Class = strings.TrimPrefix(line, "Class ")
+			// 解析 Class 字段
+			// Format: Vendor | OS Family | OS Gen | Device Type
+			parts := strings.Split(currentFP.Class, "|")
+			if len(parts) >= 4 {
+				currentFP.Vendor = strings.TrimSpace(parts[0])
+				currentFP.OSFamily = strings.TrimSpace(parts[1])
+				currentFP.OSGen = strings.TrimSpace(parts[2])
+				currentFP.Device = strings.TrimSpace(parts[3])
+			}
 			continue
 		}
 

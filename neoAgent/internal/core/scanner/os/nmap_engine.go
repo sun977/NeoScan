@@ -87,7 +87,15 @@ func (e *NmapStackEngine) Scan(ctx context.Context, target string) (*OsInfo, err
 	if matchResult != nil {
 		info.Name = matchResult.Fingerprint.Name
 		info.Accuracy = int(matchResult.Accuracy)
-		info.Family = matchResult.Fingerprint.Class
+		// 优先使用解析后的 Family 和 Gen
+		if matchResult.Fingerprint.OSFamily != "" {
+			info.Family = matchResult.Fingerprint.OSFamily
+		} else {
+			info.Family = matchResult.Fingerprint.Class // Fallback
+		}
+		if matchResult.Fingerprint.OSGen != "" {
+			info.Version = matchResult.Fingerprint.OSGen
+		}
 	} else {
 		info.Name = "Unknown"
 		info.Accuracy = 0

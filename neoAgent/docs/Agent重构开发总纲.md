@@ -60,7 +60,7 @@ neoAgent/
 
 ### 阶段三：原生能力建设 (Native Capabilities) —— **Power**
 **目标**: 逐步替换/实现原生扫描能力，摆脱外部依赖。
-**状态**: � **基本完成** (Web/Vuln 待补全)
+**状态**: 🟢 **已完成** (核心能力已就绪)
 
 - [x] **3.1 并发框架**: 实现 `internal/core/runner` (Semaphore + WaitGroup)。
 - [x] **3.2 主机发现**: 实现原生的 ICMP/ARP/TCP Connect (`IpAliveScanner`)。
@@ -69,15 +69,16 @@ neoAgent/
     - [x] 扫描引擎 (Scan Engine)
     - [x] 指纹匹配 (Match Engine)
 - [x] **3.4 指纹规则管理**: 实现混合规则加载机制 (Embed + Dynamic)。
-- [ ] **3.5 基础爆破**: 实现 SSH/MySQL/Redis 的原生爆破。
-- [ ] **3.6 高级并发优化**:
+- [x] **3.5 OS 识别**: 实现基于 TCP/IP 栈 (Nmap) 和 服务 Banner 的 OS 识别（算法差距导致和nmap探测结相差差距大）。
+- [x] **3.6 核心网络库**: 重构 `internal/core/lib/network`，支持 Proxy/Timeout 统一管理。
+- [ ] **3.7 基础爆破**: 实现 SSH/MySQL/Redis 的原生爆破。
+- [ ] **3.8 高级并发优化**:
     - [ ] 引入自适应速率控制 (Adaptive Rate Limiting)。
     - [ ] 实现 `RttEstimator` 动态调整超时。
-    - [ ] 重构 `Runner` 接口，支持优先级队列和任务分片。
 
 ### 阶段四：编排与集成 (Orchestration & Integration) —— **Automation**
 **目标**: 实现单机全流程扫描与集群接入。
-**状态**: ⚪ **待开始**
+**状态**: 🟡 **进行中**
 
 - [ ] **4.1 全流程编排 (Scan Orchestration)**:
     - [ ] 实现 `PipelineRunner` 串联各个 Scanner。
@@ -106,6 +107,6 @@ neoAgent/
 | :--- | :--- | :--- | :--- |
 | **阶段一：核心解耦** | 🟢 已完成 | Linus & User | 架构基石已稳固 |
 | **阶段二：CLI 改造** | 🟢 已完成 | Linus & User | 交互体验优化完毕 |
-| **阶段三：原生能力** | 🟡 进行中 | Linus & User | 正在攻坚 Gonmap 移植 |
-| **阶段四：集群接入** | ⚪ 待开始 | - | - |
+| **阶段三：原生能力** | � 已完成 | Linus & User | OS/Service/Port/Alive 全面就绪 |
+| **阶段四：编排与集成** | 🟡 进行中 | Linus & User | 即将开始 Pipeline 编排 |
 | **阶段五：高级能力** | ⚪ 待开始 | - | - |

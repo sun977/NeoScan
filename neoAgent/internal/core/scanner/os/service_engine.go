@@ -127,58 +127,64 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 	// 1. Windows 特征
 	if strings.Contains(banner, "Microsoft-IIS") {
 		return &OsInfo{
-			Name:        "Windows",
-			Family:      "Windows",
-			Accuracy:    90,
-			Fingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
-			Source:      "Service",
+			Name:           "Windows",
+			Family:         "Windows",
+			Accuracy:       90,
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
 		}
 	}
 	if strings.Contains(banner, "Microsoft FTP") {
 		return &OsInfo{
-			Name:        "Windows",
-			Family:      "Windows",
-			Accuracy:    90,
-			Fingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
-			Source:      "Service",
+			Name:           "Windows",
+			Family:         "Windows",
+			Accuracy:       90,
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
 		}
 	}
 
 	// 2. Linux/Unix 特征
 	if strings.Contains(banner, "Ubuntu") {
 		return &OsInfo{
-			Name:        "Linux (Ubuntu)",
-			Family:      "Linux",
-			Accuracy:    95,
-			Fingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
-			Source:      "Service",
+			Name:           "Linux (Ubuntu)",
+			Family:         "Linux",
+			Accuracy:       95,
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
 		}
 	}
 	if strings.Contains(banner, "Debian") {
 		return &OsInfo{
-			Name:        "Linux (Debian)",
-			Family:      "Linux",
-			Accuracy:    95,
-			Fingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
-			Source:      "Service",
+			Name:           "Linux (Debian)",
+			Family:         "Linux",
+			Accuracy:       95,
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
 		}
 	}
 	if strings.Contains(banner, "CentOS") {
 		return &OsInfo{
-			Name:        "Linux (CentOS)",
-			Family:      "Linux",
-			Accuracy:    95,
-			Fingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
-			Source:      "Service",
+			Name:           "Linux (CentOS)",
+			Family:         "Linux",
+			Accuracy:       95,
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
 		}
 	}
 	if strings.Contains(banner, "FreeBSD") {
 		return &OsInfo{
-			Name:        "FreeBSD",
-			Family:      "FreeBSD",
-			Accuracy:    95,
-			Fingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
-			Source:      "Service",
+			Name:           "FreeBSD",
+			Family:         "FreeBSD",
+			Accuracy:       95,
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
 		}
 	}
 
@@ -188,11 +194,12 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *OsInfo {
 		// 进一步检查是否有 OS 提示
 		// 如果没有明确 OS，给一个较低的置信度推断为 Linux/Unix
 		return &OsInfo{
-			Name:        "Linux/Unix (Inferred from OpenSSH)",
-			Family:      "Unix",
-			Accuracy:    60, // 较低，因为 Windows 也可以装 OpenSSH
-			Fingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
-			Source:      "Service",
+			Name:           "Linux/Unix (Inferred from OpenSSH)",
+			Family:         "Unix",
+			Accuracy:       60, // 较低，因为 Windows 也可以装 OpenSSH
+			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
+			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),
+			Source:         "Service",
 		}
 	}
 

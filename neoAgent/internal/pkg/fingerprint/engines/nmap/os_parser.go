@@ -2,6 +2,8 @@ package nmap
 
 import (
 	"bufio"
+	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -11,6 +13,21 @@ type OSFingerprint struct {
 	Class     string            // Class line (Vendor | OS Family | OS Gen | Device Type)
 	CPE       string            // CPE line
 	MatchRule map[string]string // Key: TestName (SEQ, T1...), Value: TestRule string
+}
+
+// String 返回标准 Nmap 格式的指纹字符串
+func (f *OSFingerprint) String() string {
+	var sb strings.Builder
+	// 按照 Nmap 标准顺序拼接
+	// SEQ, OPS, WIN, ECN, T1-T7, IE, U1
+	order := []string{"SEQ", "OPS", "WIN", "ECN", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "IE", "U1"}
+
+	for _, key := range order {
+		if val, ok := f.MatchRule[key]; ok {
+			sb.WriteString(fmt.Sprintf("%s(%s)\n", key, val))
+		}
+	}
+	return sb.String()
 }
 
 // OSDB 存储解析后的 OS 指纹库
@@ -99,7 +116,20 @@ func ParseRuleBody(body string) map[string]string {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) == 2 {
 			rules[kv[0]] = kv[1]
+		} else {
+			// 处理没有值的项，如果有的话
+			rules[kv[0]] = ""
 		}
 	}
 	return rules
+}
+
+// SortKeys 辅助函数：对 Map Key 进行排序
+func SortKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }

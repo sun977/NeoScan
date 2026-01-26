@@ -92,14 +92,17 @@ func (e *TTLEngine) guessOS(ttl int) *OsInfo {
 		info.Name = "Linux/Unix"
 		info.Family = "Linux"
 		info.Fingerprint = "TTL<=64"
+		info.RawFingerprint = fmt.Sprintf("TTL=%d", ttl)
 	} else if ttl <= 128 {
 		info.Name = "Windows"
 		info.Family = "Windows"
 		info.Fingerprint = "TTL<=128"
+		info.RawFingerprint = fmt.Sprintf("TTL=%d", ttl)
 	} else {
 		info.Name = "Solaris/Network Device"
-		info.Family = "Unix/Cisco"
-		info.Fingerprint = "TTL<=255"
+		info.Family = "Unix"
+		info.Fingerprint = "TTL>128"
+		info.RawFingerprint = fmt.Sprintf("TTL=%d", ttl)
 	}
 
 	return info

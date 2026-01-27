@@ -1,5 +1,7 @@
 # Port Service Scanner (端口服务扫描器)
 
+目标：单个IP上的端口多维度服务识别。
+
 ## 模块概述
 本模块 (`internal/core/scanner/port_service`) 提供了强大的端口发现与服务指纹识别能力。它基于 **TCP Connect** 进行存活探测，并集成工业级指纹识别引擎 **Gonmap** (改编自 Qscan) 来解析 Nmap 的 `nmap-service-probes` 规则库，从而实现对服务版本、操作系统、设备类型等信息的精确识别。
 

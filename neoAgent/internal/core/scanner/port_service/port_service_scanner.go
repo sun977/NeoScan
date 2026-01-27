@@ -39,16 +39,17 @@ func (s *PortServiceScanner) Name() model.TaskType {
 // ensureInit 确保规则已加载
 func (s *PortServiceScanner) ensureInit() error {
 	s.initOnce.Do(func() {
-		// 尝试加载外部规则文件
-		// 优先级:
-		// 1. 当前目录 rules/fingerprint/nmap-service-probes
-		// 2. 上级目录 (开发环境)
+		// 优先使用 Embed 规则 (Zero Dependency)
+		if len(gonmap.NmapServiceProbes) > 0 {
+			s.gonmapEngine.LoadRules(gonmap.NmapServiceProbes)
+			return
+		}
 
+		// Fallback: 尝试加载外部规则文件 (仅开发环境或特殊配置)
 		paths := []string{
 			"rules/fingerprint/nmap-service-probes",
 			"../rules/fingerprint/nmap-service-probes",
 			"../../rules/fingerprint/nmap-service-probes", // 针对 test 目录
-			"internal/core/scanner/port_service/gonmap/nmap-service-probes",
 		}
 
 		for _, path := range paths {
@@ -58,8 +59,6 @@ func (s *PortServiceScanner) ensureInit() error {
 				break
 			}
 		}
-		// 如果都没找到，需要加载默认 embed 规则 (后续从 nmap-service-probes 文件读取)
-		// 这里假设 nmap-service-probes 已经迁移到 gonmap 目录并 embed
 	})
 	return nil
 }

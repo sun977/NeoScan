@@ -34,9 +34,22 @@ func NewOsScanCmd() *cobra.Command {
 				return fmt.Errorf("scan failed: %v", err)
 			}
 
+			// 注入全局输出参数
+			opts.Output = globalOutputOptions
+
 			// 输出结果
 			resultJSON, _ := json.MarshalIndent(result, "", "  ")
 			fmt.Printf("Scan Result:\n%s\n", string(resultJSON))
+
+			// 保存 JSON 结果
+			if opts.Output.OutputJson != "" {
+				saveJsonResult(opts.Output.OutputJson, result)
+			}
+			// 保存 CSV 结果 (OsScanner 结果结构可能需要适配)
+			// 注意：OsScanner.Scan 返回的是 *model.OsInfo，而不是 []*model.TaskResult
+			// 所以暂时无法直接使用 reporter.SaveCsvResult，需要封装一下
+			// 这里先只做 JSON 支持，CSV 待定
+
 			return nil
 		},
 	}

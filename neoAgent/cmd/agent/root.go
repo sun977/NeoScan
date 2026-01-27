@@ -23,8 +23,8 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "neoAgent",
-	Short: "NeoScan 分布式安全扫描代理",
+	Use:   "NeoScan-Agent",
+	Short: "NeoScan-Agent 分布式安全扫描代理",
 	Long: `NeoScan-Agent 是 NeoScan 系统的执行单元。
 它可以作为分布式 Worker 连接到 Master 集群,也可以作为独立的CLI扫描工具运行.
 

@@ -61,6 +61,6 @@ type Match struct {
 	IsSoft              bool
 	Service             string
 	Pattern             string
-	PatternRegexp       *regexp.Regexp
+	PatternRegexp       *regexp2.Regexp
 	VersionInfoTemplate string // 版本提取模板 (e.g. "p/$1/ v/$2/")
 }

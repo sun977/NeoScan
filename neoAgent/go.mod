@@ -3,6 +3,7 @@ module neoagent
 go 1.25.0
 
 require (
+	github.com/dlclark/regexp2 v1.11.5
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/joho/godotenv v1.5.1

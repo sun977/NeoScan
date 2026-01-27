@@ -1,4 +1,4 @@
-package gonmap
+package nmap_service
 
 import (
 	"errors"

@@ -9,7 +9,7 @@ import (
 
 	"neoagent/internal/core/lib/network/dialer"
 	"neoagent/internal/core/model"
-	"neoagent/internal/core/scanner/port_service/gonmap"
+	"neoagent/internal/core/scanner/port_service/nmap_service"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 // PortServiceScanner 端口服务扫描器
 // 实现了 Scanner 接口，整合了 TCP Connect 扫描与 Nmap 服务识别逻辑
 type PortServiceScanner struct {
-	gonmapEngine *gonmap.Engine
+	gonmapEngine *nmap_service.Engine
 
 	initOnce sync.Once
 	initErr  error
@@ -28,7 +28,7 @@ type PortServiceScanner struct {
 
 func NewPortServiceScanner() *PortServiceScanner {
 	return &PortServiceScanner{
-		gonmapEngine: gonmap.NewEngine(),
+		gonmapEngine: nmap_service.NewEngine(),
 	}
 }
 
@@ -40,8 +40,8 @@ func (s *PortServiceScanner) Name() model.TaskType {
 func (s *PortServiceScanner) ensureInit() error {
 	s.initOnce.Do(func() {
 		// 优先使用 Embed 规则 (Zero Dependency)
-		if len(gonmap.NmapServiceProbes) > 0 {
-			s.gonmapEngine.LoadRules(gonmap.NmapServiceProbes)
+		if len(nmap_service.NmapServiceProbes) > 0 {
+			s.gonmapEngine.LoadRules(nmap_service.NmapServiceProbes)
 			return
 		}
 
@@ -88,7 +88,7 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 	// 注意：由于 ParsePortList 迁移到了 nmap 包，但它可能不是公开的？
 	// 最好把 ParsePortList 放到 utils 或 nmap 包公开
 	// 这里假设 nmap.ParsePortList 是公开的
-	ports := gonmap.ParsePortList(portRange)
+	ports := nmap_service.ParsePortList(portRange)
 
 	// 并发控制 (使用 Runner 或简单的 WaitGroup)
 	concurrency := 100

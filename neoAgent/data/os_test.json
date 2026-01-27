@@ -1,0 +1,9 @@
+{
+  "name": "Windows",
+  "family": "Windows",
+  "version": "",
+  "accuracy": 80,
+  "fingerprint": "TTL\u003c=128",
+  "raw_fingerprint": "TTL=128",
+  "source": "TTL"
+}

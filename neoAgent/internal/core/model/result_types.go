@@ -88,3 +88,11 @@ type OsInfo struct {
 	RawFingerprint string `json:"raw_fingerprint"` // 完整指纹数据 (用于导出/调试)
 	Source         string `json:"source"`          // 识别来源 (TTL, Service, Stack)
 }
+
+func (r OsInfo) Headers() []string {
+	return []string{"Name", "Family", "Version", "Accuracy", "Source", "Fingerprint"}
+}
+
+func (r OsInfo) Rows() [][]string {
+	return [][]string{{r.Name, r.Family, r.Version, fmt.Sprintf("%d%%", r.Accuracy), r.Source, r.Fingerprint}}
+}

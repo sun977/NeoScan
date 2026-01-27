@@ -25,9 +25,8 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "neoAgent",
 	Short: "NeoScan 分布式安全扫描代理",
-	Long: `NeoAgent 是 NeoScan 系统的执行单元。
-它可以作为分布式 Worker 连接到 Master 集群，
-也可以作为独立的命令行扫描工具运行.
+	Long: `NeoScan-Agent 是 NeoScan 系统的执行单元。
+它可以作为分布式 Worker 连接到 Master 集群,也可以作为独立的CLI扫描工具运行.
 
 示例:
   1.启动服务模式(默认)
@@ -35,7 +34,7 @@ var rootCmd = &cobra.Command{
   2.加入服务集群
 	NeoScan server --master 10.0.0.1:8080 --token mysecrettoken
   3.单机运行扫描
-	NeoSacn scan [scan_mode] [mode_ops] -t [target_ip]
+	NeoSacn scan [scan_mode] [mode_ops] -t <target_ip>
 	NeoScan scan port -t 192.168.1.1 -p 80,443,1-1000 -s --oj output.json
 }
 `,

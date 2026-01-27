@@ -84,3 +84,6 @@
 #### Phase 4.0: 自动化编排
 - **目标**: `scan run`。
 - **内容**: 自动串联 Alive -> Port -> Service -> OS 流程，让 Service Engine 的结果自动喂给 OS Engine 进行综合决策。
+
+### 5.3 模块划分
+由于OS模块不像PortService模块一样是一起运行的，所以不再执着于在 neoAgent scan run -t 192.168.1.1 -p 1-65535 -s 中添加-o进行os识别。而是在最终的流水线中统一实现原子扫描能力整合。保留os识别模块的原子性，只是在最终的结果中进行整合。

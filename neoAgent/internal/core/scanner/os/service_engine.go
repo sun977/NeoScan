@@ -222,7 +222,7 @@ func (e *NmapServiceEngine) matchBanner(banner string, port int) *model.OsInfo {
 		// 提高置信度到 85，以覆盖 TTL (80) 的结果
 		return &model.OsInfo{
 			Name:           "Linux/Unix (OpenSSH)",
-			Family:         "Unix",
+			Family:         "Linux",
 			Accuracy:       85,
 			Fingerprint:    fmt.Sprintf("Service: Port %d", port),
 			RawFingerprint: fmt.Sprintf("Service: Port %d, Banner: %s", port, banner),

@@ -141,7 +141,10 @@ func (e *Engine) matchResponse(response []byte, probe *Probe) *FingerPrint {
 		if match.PatternRegexp == nil {
 			continue
 		}
-		if match.PatternRegexp.MatchString(respStr) {
+
+		// Use regexp2 MatchString (returns bool, error)
+		isMatch, _ := match.PatternRegexp.MatchString(respStr)
+		if isMatch {
 			// 匹配成功！提取版本信息
 			return extractFingerPrint(match, respStr)
 		}
@@ -152,7 +155,8 @@ func (e *Engine) matchResponse(response []byte, probe *Probe) *FingerPrint {
 		if match.PatternRegexp == nil {
 			continue
 		}
-		if match.PatternRegexp.MatchString(respStr) {
+		isMatch, _ := match.PatternRegexp.MatchString(respStr)
+		if isMatch {
 			return extractFingerPrint(match, respStr)
 		}
 	}
@@ -166,8 +170,18 @@ func extractFingerPrint(match *Match, response string) *FingerPrint {
 		MatchRegexString: match.Pattern,
 	}
 
-	// Find submatches
-	submatches := match.PatternRegexp.FindStringSubmatch(response)
+	// Find submatches using regexp2
+	m, err := match.PatternRegexp.FindStringMatch(response)
+	if err != nil || m == nil {
+		// Should not happen if MatchString returned true, but safe check
+		return fp
+	}
+
+	// Convert regexp2 groups to string slice for compatibility with replacePlaceholders
+	var submatches []string
+	for _, g := range m.Groups() {
+		submatches = append(submatches, g.String())
+	}
 
 	// Parse VersionInfoTemplate if available
 	if match.VersionInfoTemplate != "" {

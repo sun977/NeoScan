@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"neoagent/internal/pkg/logger"
+
+	"github.com/dlclark/regexp2" // 用于原生支持 PCRE 正则表达式，兼容 Nmap 规则
+	// 若使用regexp的话会报错，Qscan的gonmap的处理逻辑是使用repairNMAPString()函数进行了强制转换和清洗
 )
 
 // Regexps for parsing nmap-service-probes
@@ -151,7 +154,7 @@ func parseMatchLine(line string, isSoft bool) *Match {
 	}
 }
 
-func compilePattern(pattern, opt string) (*regexp.Regexp, error) {
+func compilePattern(pattern, opt string) (*regexp2.Regexp, error) {
 	// Simple wrapper for Go regexp
 	// Note: Nmap uses PCRE, Go uses RE2. Some patterns might fail.
 	// We should try to adapt or ignore failed ones.
@@ -163,7 +166,16 @@ func compilePattern(pattern, opt string) (*regexp.Regexp, error) {
 		pattern = "(?s)" + pattern
 	}
 
-	return regexp.Compile(pattern)
+	// Use implicit options: None (flags handled in pattern)
+	// We should use 0 as options for now, flags are in pattern.
+	re, err := regexp2.Compile(pattern, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set a reasonable timeout to prevent ReDoS (e.g., 100ms)
+	re.MatchTimeout = time.Millisecond * 100
+	return re, nil
 }
 
 func ParsePortList(s string) []int {

@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"neoagent/internal/core/model"
@@ -39,9 +38,17 @@ func NewOsScanCmd() *cobra.Command {
 			// 注入全局输出参数
 			opts.Output = globalOutputOptions
 
-			// 输出结果
-			resultJSON, _ := json.MarshalIndent(result, "", "  ")
-			fmt.Printf("Scan Result:\n%s\n", string(resultJSON))
+			// 构造 TaskResult (为了复用 Reporter)
+			taskResult := &model.TaskResult{
+				TaskID: "", // 临时 ID
+				Status: model.TaskStatusSuccess,
+				Result: result, // result 是 *model.OsInfo
+			}
+			results := []*model.TaskResult{taskResult}
+
+			// 4. 输出结果 (使用 ConsoleReporter)
+			console := reporter.NewConsoleReporter()
+			console.PrintResults(results)
 
 			// 保存 JSON 结果
 			if opts.Output.OutputJson != "" {
@@ -49,16 +56,7 @@ func NewOsScanCmd() *cobra.Command {
 			}
 			// 保存 CSV 结果 (OsScanner 结果结构可能需要适配)
 			// OsInfo 现已实现 TabularData 接口，可以被 CSV Reporter 支持
-			// 但 OsScanner 返回的是单个 *model.OsInfo，我们需要将其包装为 []*model.TaskResult
 			if opts.Output.OutputCsv != "" {
-				// 构造 TaskResult
-				taskResult := &model.TaskResult{
-					TaskID: "", // 临时 ID
-					Status: model.TaskStatusSuccess,
-					Result: result, // result 是 *model.OsInfo
-				}
-				results := []*model.TaskResult{taskResult}
-
 				if err := reporter.SaveCsvResult(opts.Output.OutputCsv, results); err != nil {
 					fmt.Printf("[-] Failed to save csv: %v\n", err)
 				}

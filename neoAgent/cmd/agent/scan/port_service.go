@@ -50,6 +50,13 @@ func NewPortScanCmd() *cobra.Command {
 				saveJsonResult(opts.Output.OutputJson, results)
 			}
 
+			// 保存 CSV 结果
+			if opts.Output.OutputCsv != "" {
+				if err := reporter.SaveCsvResult(opts.Output.OutputCsv, results); err != nil {
+					fmt.Printf("[-] Failed to save csv: %v\n", err)
+				}
+			}
+
 			return nil
 		},
 	}

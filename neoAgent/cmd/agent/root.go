@@ -36,7 +36,6 @@ var rootCmd = &cobra.Command{
   3.单机运行扫描
 	NeoSacn scan [scan_mode] [mode_ops] -t <target_ip>
 	NeoScan scan port -t 192.168.1.1 -p 80,443,1-1000 -s --oj output.json
-}
 `,
 	// 默认行为：如果不带参数，显示帮助信息，而不是启动 Server。
 	// 这是一个设计变更：显式优于隐式。

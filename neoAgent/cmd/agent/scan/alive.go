@@ -52,6 +52,11 @@ func NewIpAliveScanCmd() *cobra.Command {
 			if opts.Output.OutputJson != "" {
 				saveJsonResult(opts.Output.OutputJson, results)
 			}
+			if opts.Output.OutputCsv != "" {
+				if err := reporter.SaveCsvResult(opts.Output.OutputCsv, results); err != nil {
+					fmt.Printf("[-] Failed to save csv: %v\n", err)
+				}
+			}
 
 			return nil
 		},

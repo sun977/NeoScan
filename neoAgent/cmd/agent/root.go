@@ -30,14 +30,14 @@ var rootCmd = &cobra.Command{
 也可以作为独立的命令行扫描工具运行.
 
 示例:
-  # 启动服务模式 (默认)
-  neoAgent server
-
-  # 加入服务集群
-  neoAgent server --master 10.0.0.1:8080 --token mysecrettoken
-
-  # 运行单次扫描
-  neoAgent scan -t 192.168.1.1 -p 80,443
+  1.启动服务模式(默认)
+	NeoSacn server
+  2.加入服务集群
+	NeoScan server --master 10.0.0.1:8080 --token mysecrettoken
+  3.单机运行扫描
+	NeoSacn scan [scan_mode] [mode_ops] -t [target_ip]
+	NeoScan scan port -t 192.168.1.1 -p 80,443,1-1000 -s --oj output.json
+}
 `,
 	// 默认行为：如果不带参数，显示帮助信息，而不是启动 Server。
 	// 这是一个设计变更：显式优于隐式。

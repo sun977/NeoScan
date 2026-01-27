@@ -1,0 +1,7 @@
+﻿IP,Port,Proto,State,Service,Version,OS
+10.44.96.183,22,tcp,open,ssh,OpenSSH 7.4 (protocol 2.0),
+10.44.96.183,8445,tcp,open,ssl/http,nginx 1.20.1,
+10.44.96.183,8443,tcp,open,ssl/http,nginx 1.20.1,
+10.44.96.183,8440,tcp,open,http,nginx 1.20.1,
+10.44.96.183,110,tcp,open,unknown,,
+10.44.96.183,25,tcp,open,unknown,,

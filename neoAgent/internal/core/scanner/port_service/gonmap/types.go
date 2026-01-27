@@ -1,8 +1,9 @@
 package gonmap
 
 import (
-	"regexp"
 	"time"
+
+	"github.com/dlclark/regexp2"
 )
 
 // Status 扫描状态

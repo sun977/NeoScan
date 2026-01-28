@@ -96,8 +96,8 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 	// 2. Port Scan
 	// 构造 Port Task
 	portTask := model.NewTask(model.TaskTypePortScan, pCtx.IP)
-	// TODO: 支持 "top1000" 别名。目前暂时使用 1-1000 加常用端口
-	portTask.PortRange = "1-1000,8080,8000,8443,8888"
+	// 使用 "top1000" 别名，Parser 已支持
+	portTask.PortRange = "top1000"
 	// 禁用 Service Detect (为了速度，Service Detect 在下一阶段做，或者合并)
 	// 但目前的 PortServiceScanner 把 Port 和 Service 耦合在一起了
 	// 如果 params["service_detect"] = false，它只做 TCP Connect

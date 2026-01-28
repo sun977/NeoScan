@@ -15,13 +15,15 @@ type RunOptions struct {
 	Concurrency int
 	Port        string
 	AutoMode    bool
+	ShowSummary bool
 }
 
 // NewRunScanCmd 创建 scan run 命令
 func NewRunScanCmd() *cobra.Command {
 	opts := &RunOptions{
-		Concurrency: 5, // 默认并发 5 个 IP
+		Concurrency: 10, // 默认并发 10 个 IP
 		AutoMode:    true,
+		ShowSummary: false,
 	}
 
 	cmd := &cobra.Command{
@@ -47,7 +49,7 @@ func NewRunScanCmd() *cobra.Command {
 			fmt.Printf("[*] Starting Auto Pipeline on %s (Concurrency: %d, Ports: %s)...\n", opts.Target, opts.Concurrency, displayPort)
 
 			// 初始化 AutoRunner
-			runner := pipeline.NewAutoRunner(opts.Target, opts.Concurrency, opts.Port)
+			runner := pipeline.NewAutoRunner(opts.Target, opts.Concurrency, opts.Port, opts.ShowSummary)
 
 			// 执行
 			if err := runner.Run(context.Background()); err != nil {
@@ -64,6 +66,7 @@ func NewRunScanCmd() *cobra.Command {
 	flags.IntVarP(&opts.Concurrency, "concurrency", "c", opts.Concurrency, "并发扫描的 IP 数量")
 	flags.StringVarP(&opts.Port, "port", "p", "", "端口范围 (默认 top1000)")
 	flags.BoolVar(&opts.AutoMode, "auto", opts.AutoMode, "启用自动模式 (默认开启)")
+	flags.BoolVar(&opts.ShowSummary, "summary", opts.ShowSummary, "显示扫描结果汇总 (默认关闭)")
 
 	return cmd
 }

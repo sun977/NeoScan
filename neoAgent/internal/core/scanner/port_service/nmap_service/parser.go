@@ -182,6 +182,18 @@ func ParsePortList(s string) []int {
 	var ports []int
 	parts := strings.Split(s, ",")
 	for _, part := range parts {
+		part = strings.TrimSpace(part)
+
+		// Alias support
+		switch strings.ToLower(part) {
+		case "top100":
+			ports = append(ports, Top100Ports...)
+			continue
+		case "top1000":
+			ports = append(ports, Top1000Ports...)
+			continue
+		}
+
 		if strings.Contains(part, "-") {
 			rangeParts := strings.Split(part, "-")
 			if len(rangeParts) == 2 {
@@ -193,7 +205,9 @@ func ParsePortList(s string) []int {
 			}
 		} else {
 			p, _ := strconv.Atoi(part)
-			ports = append(ports, p)
+			if p > 0 {
+				ports = append(ports, p)
+			}
 		}
 	}
 	return ports

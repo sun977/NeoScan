@@ -8,10 +8,11 @@ package main
 
 import (
 	"fmt"
-	"neoagent/cmd/agent/scan"
-	"os"
-
 	"neoagent/cmd/agent/proxy"
+	"neoagent/cmd/agent/scan"
+	"neoagent/internal/config"
+	"neoagent/internal/pkg/logger"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -37,11 +38,10 @@ var rootCmd = &cobra.Command{
 	NeoSacn scan [scan_mode] [mode_ops] -t <target_ip>
 	NeoScan scan port -t 192.168.1.1 -p 80,443,1-1000 -s --oj output.json
 `,
-	// 默认行为：如果不带参数，显示帮助信息，而不是启动 Server。
-	// 这是一个设计变更：显式优于隐式。
-	// 但为了兼容旧脚本，如果没有任何参数，我们暂时在此处可以做特殊处理，
-	// 或者强制用户使用 `neoAgent server`。
-	// 考虑到 Linus 原则 "Never break userspace"，我们将在 Execute 中处理向后兼容性。
+	// PersistentPreRun: 全局初始化逻辑，确保所有子命令都能使用日志
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		initCLILogger(cmd)
+	},
 }
 
 func Execute() {
@@ -56,7 +56,7 @@ func init() {
 
 	// 全局 Flag
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "配置文件路径 (默认: ./configs/config.yaml)")
-	rootCmd.PersistentFlags().String("log-level", "info", "日志级别 (debug, info, warn, error)")
+	rootCmd.PersistentFlags().String("log-level", "", "日志级别 (debug, info, warn, error)")
 
 	// 绑定 Viper
 	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
@@ -81,5 +81,47 @@ func initConfig() {
 
 	if err := viper.ReadInConfig(); err == nil {
 		// fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+}
+
+// initCLILogger 初始化 CLI 模式下的日志
+// 这确保了 CLI 命令也能输出格式化的日志，并且受 --log-level 控制
+func initCLILogger(cmd *cobra.Command) {
+	// 检查 log-level 标志是否被显式设置
+	flag := cmd.Flags().Lookup("log-level")
+	if flag == nil || !flag.Changed {
+		// 如果没有显式设置，不初始化日志，或者初始化为 Fatal 级别以静默输出
+		// 这里我们选择初始化为 Fatal，这样只有 Fatal 级别的日志会输出（几乎等于静默）
+		// 同时这避免了 LoggerInstance 为 nil 导致的潜在 panic
+		logConfig := &config.LogConfig{
+			Level:  "fatal",
+			Format: "text",
+			Output: "stdout",
+			Caller: false,
+		}
+		logger.InitLogger(logConfig)
+		return
+	}
+
+	logLevel := viper.GetString("log.level")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+
+	// 构造一个简单的 LogConfig 用于 CLI
+	logConfig := &config.LogConfig{
+		Level:  logLevel,
+		Format: "text",
+		Output: "stdout",
+		Caller: false, // CLI 模式通常不需要调用者信息，除非 debug
+	}
+
+	if logLevel == "debug" {
+		logConfig.Caller = true
+	}
+
+	// 初始化日志
+	if _, err := logger.InitLogger(logConfig); err != nil {
+		fmt.Printf("Failed to init logger: %v\n", err)
 	}
 }

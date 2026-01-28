@@ -13,6 +13,7 @@ import (
 type RunOptions struct {
 	Target      string
 	Concurrency int
+	Port        string
 	AutoMode    bool
 }
 
@@ -37,10 +38,16 @@ func NewRunScanCmd() *cobra.Command {
 				return fmt.Errorf("target is required")
 			}
 
-			fmt.Printf("[*] Starting Auto Pipeline on %s (Concurrency: %d)...\n", opts.Target, opts.Concurrency)
+			// 处理默认端口逻辑，用于显示和传递
+			displayPort := opts.Port
+			if displayPort == "" {
+				displayPort = "top1000 (default)"
+			}
+
+			fmt.Printf("[*] Starting Auto Pipeline on %s (Concurrency: %d, Ports: %s)...\n", opts.Target, opts.Concurrency, displayPort)
 
 			// 初始化 AutoRunner
-			runner := pipeline.NewAutoRunner(opts.Target, opts.Concurrency)
+			runner := pipeline.NewAutoRunner(opts.Target, opts.Concurrency, opts.Port)
 
 			// 执行
 			if err := runner.Run(context.Background()); err != nil {
@@ -55,6 +62,7 @@ func NewRunScanCmd() *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.Target, "target", "t", "", "扫描目标 (CIDR/IP/Range/File)")
 	flags.IntVarP(&opts.Concurrency, "concurrency", "c", opts.Concurrency, "并发扫描的 IP 数量")
+	flags.StringVarP(&opts.Port, "port", "p", "", "端口范围 (默认 top1000)")
 	flags.BoolVar(&opts.AutoMode, "auto", opts.AutoMode, "启用自动模式 (默认开启)")
 
 	return cmd

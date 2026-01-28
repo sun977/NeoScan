@@ -19,6 +19,7 @@ type AutoRunner struct {
 	targetGenerator <-chan string
 	concurrency     int
 	portRange       string
+	showSummary     bool
 
 	// Scanners
 	aliveScanner *alive.IpAliveScanner
@@ -30,7 +31,7 @@ type AutoRunner struct {
 	summaries []*PipelineContext
 }
 
-func NewAutoRunner(targetInput string, concurrency int, portRange string) *AutoRunner {
+func NewAutoRunner(targetInput string, concurrency int, portRange string, showSummary bool) *AutoRunner {
 	if portRange == "" {
 		portRange = "top1000"
 	}
@@ -38,6 +39,7 @@ func NewAutoRunner(targetInput string, concurrency int, portRange string) *AutoR
 		targetGenerator: GenerateTargets(targetInput),
 		concurrency:     concurrency,
 		portRange:       portRange,
+		showSummary:     showSummary,
 		aliveScanner:    alive.NewIpAliveScanner(),
 		portScanner:     port_service.NewPortServiceScanner(),
 		osScanner:       os.NewScanner(),
@@ -69,9 +71,11 @@ func (r *AutoRunner) Run(ctx context.Context) error {
 			r.executePipeline(ctx, pCtx)
 
 			// 收集结果
-			r.summaryMu.Lock()
-			r.summaries = append(r.summaries, pCtx)
-			r.summaryMu.Unlock()
+			if r.showSummary {
+				r.summaryMu.Lock()
+				r.summaries = append(r.summaries, pCtx)
+				r.summaryMu.Unlock()
+			}
 
 		}(ip)
 	}
@@ -79,7 +83,9 @@ func (r *AutoRunner) Run(ctx context.Context) error {
 	wg.Wait()
 
 	// 输出最终总结报告
-	r.printFinalReport()
+	if r.showSummary {
+		r.printFinalReport()
+	}
 
 	return nil
 }

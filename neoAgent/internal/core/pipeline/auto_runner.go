@@ -24,6 +24,10 @@ type AutoRunner struct {
 	aliveScanner *alive.IpAliveScanner
 	portScanner  *port_service.PortServiceScanner
 	osScanner    *os.Scanner // 注意：这是 os 包的 Scanner struct，不是接口
+
+	// 结果收集器 (线程安全)
+	summaryMu sync.Mutex
+	summaries []*PipelineContext
 }
 
 func NewAutoRunner(targetInput string, concurrency int, portRange string) *AutoRunner {
@@ -37,6 +41,7 @@ func NewAutoRunner(targetInput string, concurrency int, portRange string) *AutoR
 		aliveScanner:    alive.NewIpAliveScanner(),
 		portScanner:     port_service.NewPortServiceScanner(),
 		osScanner:       os.NewScanner(),
+		summaries:       make([]*PipelineContext, 0),
 	}
 }
 
@@ -63,11 +68,73 @@ func (r *AutoRunner) Run(ctx context.Context) error {
 			// 执行流水线
 			r.executePipeline(ctx, pCtx)
 
+			// 收集结果
+			r.summaryMu.Lock()
+			r.summaries = append(r.summaries, pCtx)
+			r.summaryMu.Unlock()
+
 		}(ip)
 	}
 
 	wg.Wait()
+
+	// 输出最终总结报告
+	r.printFinalReport()
+
 	return nil
+}
+
+// printFinalReport 输出最终的扫描总结
+func (r *AutoRunner) printFinalReport() {
+	if len(r.summaries) == 0 {
+		return
+	}
+
+	fmt.Println("\n" + "============================================================")
+	fmt.Println("[+] Scan Summary Report")
+	fmt.Println("============================================================")
+
+	aliveCount := 0
+	totalOpenPorts := 0
+
+	for _, pCtx := range r.summaries {
+		if pCtx.Alive {
+			aliveCount++
+			// 直接访问字段（因为此时所有Goroutine已结束，没有并发冲突）
+			// 或者添加 GetOpenPorts 方法
+			ports := pCtx.OpenPorts
+			totalOpenPorts += len(ports)
+
+			fmt.Printf("\n[Target: %s]\n", pCtx.IP)
+			if pCtx.Hostname != "" {
+				fmt.Printf("  Hostname : %s\n", pCtx.Hostname)
+			}
+			if pCtx.OSGuess != "" {
+				fmt.Printf("  OS Guess : %s\n", pCtx.OSGuess)
+			} else if pCtx.OSInfo != nil {
+				fmt.Printf("  OS Info  : %s (Accuracy: %d%%)\n", pCtx.OSInfo.Name, pCtx.OSInfo.Accuracy)
+			}
+
+			if len(ports) > 0 {
+				fmt.Printf("  Open Ports (%d):\n", len(ports))
+				for _, p := range ports {
+					serviceInfo := fmt.Sprintf("%d/tcp", p)
+					if svc, ok := pCtx.Services[p]; ok {
+						serviceInfo += fmt.Sprintf("\t%s\t%s", svc.Service, svc.Product+" "+svc.Version)
+					}
+					fmt.Printf("    - %s\n", serviceInfo)
+				}
+			} else {
+				fmt.Println("  No open ports found.")
+			}
+		}
+	}
+
+	fmt.Println("------------------------------------------------------------")
+	fmt.Printf("Total Targets Scanned : %d\n", len(r.summaries))
+	fmt.Printf("Alive Targets         : %d\n", aliveCount)
+	fmt.Printf("Total Open Ports      : %d\n", totalOpenPorts)
+	fmt.Println("============================================================")
 }
 
 // executePipeline 执行单个 IP 的流水线逻辑

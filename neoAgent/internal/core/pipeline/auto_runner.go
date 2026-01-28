@@ -18,6 +18,7 @@ import (
 type AutoRunner struct {
 	targetGenerator <-chan string
 	concurrency     int
+	portRange       string
 
 	// Scanners
 	aliveScanner *alive.IpAliveScanner
@@ -25,10 +26,14 @@ type AutoRunner struct {
 	osScanner    *os.Scanner // 注意：这是 os 包的 Scanner struct，不是接口
 }
 
-func NewAutoRunner(targetInput string, concurrency int) *AutoRunner {
+func NewAutoRunner(targetInput string, concurrency int, portRange string) *AutoRunner {
+	if portRange == "" {
+		portRange = "top1000"
+	}
 	return &AutoRunner{
 		targetGenerator: GenerateTargets(targetInput),
 		concurrency:     concurrency,
+		portRange:       portRange,
 		aliveScanner:    alive.NewIpAliveScanner(),
 		portScanner:     port_service.NewPortServiceScanner(),
 		osScanner:       os.NewScanner(),
@@ -96,8 +101,8 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 	// 2. Port Scan
 	// 构造 Port Task
 	portTask := model.NewTask(model.TaskTypePortScan, pCtx.IP)
-	// 使用 "top1000" 别名，Parser 已支持
-	portTask.PortRange = "top1000"
+	// 使用配置的端口范围 (默认 top1000)
+	portTask.PortRange = r.portRange
 	// 禁用 Service Detect (为了速度，Service Detect 在下一阶段做，或者合并)
 	// 但目前的 PortServiceScanner 把 Port 和 Service 耦合在一起了
 	// 如果 params["service_detect"] = false，它只做 TCP Connect

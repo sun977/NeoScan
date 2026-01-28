@@ -75,19 +75,23 @@ func (r *AutoRunner) Run(ctx context.Context) error {
 func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext) {
 	// 1. Alive Scan
 	// 构造一个临时的 Alive Task
+	logger.Debugf("[%s] Starting Alive Scan...", pCtx.IP)
 	aliveTask := model.NewTask(model.TaskTypeIpAliveScan, pCtx.IP)
 	// 使用默认参数 (Auto Mode)
 	// TODO: 允许外部传入参数
 	aliveResults, err := r.aliveScanner.Run(ctx, aliveTask)
 	if err != nil || len(aliveResults) == 0 {
+		logger.Debugf("[%s] Alive scan failed or no result.", pCtx.IP)
 		return // 扫描失败或无结果
 	}
 
 	// 解析 Alive 结果
 	aliveRes := aliveResults[0].Result.(model.IpAliveResult)
 	if !aliveRes.Alive {
+		logger.Debugf("[%s] Target is not alive.", pCtx.IP)
 		return // 目标不存活，直接跳过后续步骤
 	}
+	logger.Infof("[%s] Target is alive (RTT: %v).", pCtx.IP, aliveRes.RTT)
 
 	pCtx.SetAlive(true)
 	// 如果 Alive 扫描带回了 OS/Hostname 信息，先存起来
@@ -100,6 +104,7 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 
 	// 2. Port Scan
 	// 构造 Port Task
+	logger.Debugf("[%s] Starting Port Scan (Range: %s)...", pCtx.IP, r.portRange)
 	portTask := model.NewTask(model.TaskTypePortScan, pCtx.IP)
 	// 使用配置的端口范围 (默认 top1000)
 	portTask.PortRange = r.portRange
@@ -111,14 +116,15 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 
 	portResults, err := r.portScanner.Run(ctx, portTask)
 	if err != nil {
-		logger.Warn(fmt.Sprintf("[%s] Port scan failed: %v", pCtx.IP, err))
+		logger.Warnf("[%s] Port scan failed: %v", pCtx.IP, err)
 		return
 	}
 
 	if len(portResults) == 0 {
-		logger.Info(fmt.Sprintf("[%s] No open ports found.", pCtx.IP))
+		logger.Infof("[%s] No open ports found.", pCtx.IP)
 		return
 	}
+	logger.Infof("[%s] Found %d open ports.", pCtx.IP, len(portResults))
 
 	// 提取开放端口
 	var openPorts []int
@@ -135,6 +141,8 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 	// 但为了架构清晰，我们这里演示分步，或者直接复用 PortServiceScanner 的能力
 	// 优化：其实 step 2 和 step 3 可以合并，直接让 PortServiceScanner 开启 service_detect
 	// 但为了展示 Pipeline 的灵活性，我们假设这里需要针对特定端口做深度扫描
+
+	logger.Debugf("[%s] Starting Service Detection on %d ports...", pCtx.IP, len(openPorts))
 
 	// 这里我们选择：重新对 Open Ports 进行一次带 Service Detect 的扫描
 	// 这种做法虽然多了一次连接，但逻辑解耦。
@@ -154,16 +162,22 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 		for _, res := range serviceResults {
 			if pr, ok := res.Result.(*model.PortServiceResult); ok {
 				pCtx.SetService(pr.Port, pr)
+				logger.Debugf("[%s] Port %d service identified: %s %s", pCtx.IP, pr.Port, pr.Service, pr.Version)
 			}
 		}
 	}
+	logger.Infof("[%s] Service Detection completed.", pCtx.IP)
 
 	// 4. OS Scan
 	// 结合 TTL (Stage 1) 和 Service Banner (Stage 3) 和 Nmap Stack
 	// OS Scanner 支持 "auto" 模式
+	logger.Debugf("[%s] Starting OS Detection...", pCtx.IP)
 	osInfo, err := r.osScanner.Scan(ctx, pCtx.IP, "auto")
 	if err == nil && osInfo != nil {
 		pCtx.SetOS(osInfo)
+		logger.Infof("[%s] OS Identified: %s (Accuracy: %d%%)", pCtx.IP, osInfo.Name, osInfo.Accuracy)
+	} else {
+		logger.Debugf("[%s] OS Detection failed or inconclusive.", pCtx.IP)
 	}
 
 	// 5. Report / Output

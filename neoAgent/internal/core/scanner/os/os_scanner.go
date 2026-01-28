@@ -73,7 +73,8 @@ func (s *Scanner) Scan(ctx context.Context, target string, mode string) (*model.
 			defer wg.Done()
 			info, err := e.Scan(ctx, target)
 			if err != nil {
-				logger.Error(err)
+				// 降级日志级别：扫描引擎失败是常见情况（如目标不可达、超时等），不应作为 Error 记录
+				logger.Debugf("OS scan engine '%s' failed on %s: %v", e.Name(), target, err)
 				return
 			}
 			if info == nil {

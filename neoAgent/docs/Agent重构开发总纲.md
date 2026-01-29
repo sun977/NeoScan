@@ -22,7 +22,10 @@ neoAgent/
 │   │   ├── scanner/     # 扫描引擎 (IpAlive, PortService, Vuln...)
 │   │   ├── runner/      # 并发调度器
 │   │   └── reporter/    # 结果上报接口
-│   ├── server/          # HTTP/gRPC 相关 (原 handler/router/middleware)
+│   ├── service/         # [应用] Server模式业务逻辑 (Worker Logic)
+│   │   ├── communication/ # Master 通信
+│   │   ├── adapter/       # 协议适配与 DTO
+│   │   └── task/          # Worker 主循环
 │   └── pkg/             # 通用工具包
 ```
 
@@ -83,9 +86,12 @@ neoAgent/
 - [x] **4.1 全流程编排 (Scan Orchestration)**:
     - [x] 实现 `PipelineRunner` 串联各个 Scanner。
     - [x] 实现 `scan run` 命令，支持 `--auto` 和 Pipeline Mode。
-- [ ] **4.2 集群接入增强**:
-    - [ ] 实现安全的注册和通信机制 (Token + CA Hash)。
-    - [ ] 重构 `server` 循环，对接 Master 任务分发。
+- [ ] **4.2 集群接入增强 (Cluster Adapter)**:
+    - [ ] **Step 1**: 创建 `internal/model/adapter`，固化数据契约 (Payload DTO)。
+    - [ ] **Step 2**: 完善 `internal/service/adapter`，实现双向协议转换。
+    - [ ] **Step 3**: 完善 `internal/service/communication`，实现主动 HTTP 通信。
+    - [ ] **Step 4**: 重构 `internal/service/task`，实现 Worker 主循环。
+    - [ ] **Step 5**: 更新 `cmd/agent/server.go` 入口。
 - [ ] **4.3 高级能力集成**:
     - [ ] 集成 Nuclei 等重型工具。
     - [ ] 实现 Web 指纹识别与爬虫。

@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"time"
 
-	modelComm "neoagent/internal/model/communication"
+	modelComm "neoagent/internal/model/client"
 )
 
 // MasterCommunicationService Master通信服务接口

@@ -5,7 +5,7 @@
  * @description: Agent端与Master端通信的错误定义，遵循"好品味"原则
  * @func: 定义所有通信相关的错误类型
  */
-package communication
+package client
 
 import "errors"
 

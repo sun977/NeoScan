@@ -5,7 +5,7 @@
  * @description: Agent任务执行相关的数据模型，遵循"好品味"原则
  * @func: 定义任务、任务结果和任务指标的数据结构
  */
-package communication
+package client
 
 import (
 	"time"

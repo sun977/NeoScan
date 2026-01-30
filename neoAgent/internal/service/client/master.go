@@ -5,7 +5,7 @@
  * @description: 处理Agent与Master端的通信，包括注册、心跳、数据上报等
  * @func: 占位符实现，待后续完善
  */
-package communication
+package client
 
 import (
 	"context"

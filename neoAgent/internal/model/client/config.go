@@ -5,7 +5,7 @@
  * @description: Agent配置管理相关的数据模型，遵循"好品味"原则
  * @func: 定义Agent配置、插件配置和安全配置的数据结构
  */
-package communication
+package client
 
 import "time"
 

@@ -5,7 +5,7 @@
  * @description: Agent心跳机制相关的数据模型，遵循"好品味"原则
  * @func: 定义心跳请求和响应的数据结构
  */
-package communication
+package client
 
 import "time"
 

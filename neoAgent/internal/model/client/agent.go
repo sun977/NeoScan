@@ -5,7 +5,7 @@
  * @description: Agent基本信息和状态模型，遵循"好品味"原则 - 数据结构优先
  * @func: 定义Agent信息、状态和性能指标相关的数据结构
  */
-package communication
+package client
 
 import "time"
 

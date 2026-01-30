@@ -5,7 +5,7 @@
  * @description: 通用响应数据模型，遵循"好品味"原则
  * @func: 定义通用的同步和上报响应结构
  */
-package communication
+package client
 
 import "time"
 

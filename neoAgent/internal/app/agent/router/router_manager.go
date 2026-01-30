@@ -10,7 +10,7 @@ package router
 import (
 	"fmt"
 	"neoagent/internal/app/agent/middleware"
-	"neoagent/internal/handler/communication"
+	"neoagent/internal/handler/client"
 	"neoagent/internal/handler/monitor"
 	"neoagent/internal/handler/task"
 	"neoagent/internal/pkg/logger"
@@ -66,7 +66,7 @@ type Router struct {
 	// 处理器
 	taskHandler          task.AgentTaskHandler
 	monitorHandler       monitor.AgentMonitorHandler
-	communicationHandler communication.MasterCommunicationHandler
+	communicationHandler client.MasterCommunicationHandler
 }
 
 // NewRouter 创建新的路由器
@@ -145,7 +145,7 @@ func (r *Router) initHandlers() {
 	// 这里使用占位符实现，实际应该通过依赖注入
 	r.taskHandler = task.NewAgentTaskHandler()
 	r.monitorHandler = monitor.NewAgentMonitorHandler()
-	r.communicationHandler = communication.NewMasterCommunicationHandler()
+	r.communicationHandler = client.NewMasterCommunicationHandler()
 }
 
 // registerRoutes 注册路由

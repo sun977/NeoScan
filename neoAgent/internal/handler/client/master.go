@@ -5,7 +5,7 @@
  * @description: 处理Agent与Master端的通信HTTP请求
  * @func: 占位符实现，待后续完善
  */
-package communication
+package client
 
 import (
 	"net/http"

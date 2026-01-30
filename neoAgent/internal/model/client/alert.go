@@ -5,7 +5,7 @@
  * @description: Agent告警机制相关的数据模型，遵循"好品味"原则
  * @func: 定义告警信息的数据结构
  */
-package communication
+package client
 
 import "time"
 

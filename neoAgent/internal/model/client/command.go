@@ -5,7 +5,7 @@
  * @description: Master发送命令和Agent响应相关的数据模型，遵循"好品味"原则
  * @func: 定义命令、命令响应和命令状态的数据结构
  */
-package communication
+package client
 
 import "time"
 

@@ -5,7 +5,7 @@
  * @description: Agent端与Master端的gRPC通信客户端
  * @func: 占位符实现，待后续完善（grpc只用于向master发送任务结果数据，其他功能使用http协议）
  */
-package communication
+package client
 
 import (
 	"context"

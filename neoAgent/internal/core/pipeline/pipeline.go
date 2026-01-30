@@ -28,6 +28,8 @@ type PipelineContext struct {
 	// 阶段 4: 操作系统精确识别
 	OSInfo *model.OsInfo
 
+	// 后续阶段在这里添加
+
 	mu sync.RWMutex
 }
 

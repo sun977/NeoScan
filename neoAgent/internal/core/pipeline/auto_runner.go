@@ -25,6 +25,7 @@ type AutoRunner struct {
 	aliveScanner *alive.IpAliveScanner
 	portScanner  *port_service.PortServiceScanner
 	osScanner    *os.Scanner // 注意：这是 os 包的 Scanner struct，不是接口
+	// 后续扫描器在这里添加
 
 	// 结果收集器 (线程安全)
 	summaryMu sync.Mutex
@@ -252,6 +253,9 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 	} else {
 		logger.Debugf("[%s] OS Detection failed or inconclusive.", pCtx.IP)
 	}
+
+	// 后续扫描器在这里添加
+	// 例如：Web Scanner, Database Scanner, etc.
 
 	// 5. Report / Output
 	r.report(pCtx)

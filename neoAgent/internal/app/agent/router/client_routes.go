@@ -8,7 +8,7 @@
 package router
 
 import (
-	"neoagent/internal/handler/communication"
+	"neoagent/internal/handler/client"
 	"neoagent/internal/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +19,7 @@ func setupCommunicationRoutes(engine *gin.Engine) {
 	logger.Info("注册通信管理路由开始")
 
 	// 创建通信处理器实例
-	commHandler := communication.NewMasterCommunicationHandler()
+	commHandler := client.NewMasterCommunicationHandler()
 
 	// 通信管理路由组
 	commGroup := engine.Group("/agent/communication")

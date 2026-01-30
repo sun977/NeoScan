@@ -22,7 +22,7 @@ graph TD
     Master[Cluster Master]
     
     subgraph NeoAgent [NeoAgent Worker]
-        Client[internal/service/communication] <--> |HTTP/gRPC| Master
+        Client[internal/service/client] <--> |HTTP/gRPC| Master
         
         subgraph Service Layer [internal/service]
             Client --> |1. JSON Task| Adapter[internal/service/adapter]
@@ -39,7 +39,7 @@ graph TD
 
 ### 2.2 核心组件职责
 
-1.  **`service.Communication` (通信层)**
+1.  **`service.Client` (通信层)** (原 Communication)
     *   负责与 Master 的网络交互：注册 (Register)、心跳 (Heartbeat)、拉取任务 (Fetch)、上报结果 (Report)。
     *   处理认证 (Token) 和加密。
     *   实现长轮询 (Long Polling) 或 WebSocket 以保证实时性。
@@ -76,9 +76,9 @@ internal/
 │       └── ...
 │
 └── service/             # [应用] Server模式业务逻辑
-    ├── communication/   # Master 通信
-    ├── adapter/         # 转换逻辑 (Translator)
-    └── task/            # Worker 主循环 (AgentTaskService)
+    ├── client/          # [通信] Master Client (原 communication)
+    ├── adapter/         # [适配] 转换逻辑 (Translator)
+    └── task/            # [循环] Worker 主循环 (AgentTaskService)
 ```
 
 ### 3.2 Payloads DTO 定义示例
@@ -141,14 +141,14 @@ func ToMasterResult(taskID string, internalRes *model.TaskResult) (*model.TaskRe
 
 func (s *AgentTaskService) Run() {
     // 1. 注册
-    if err := s.comm.Register(); err != nil {
+    if err := s.client.Register(); err != nil {
         // ...
     }
     
     // 2. 工作循环
     for {
         // 2.1 拉取任务
-        rawTask, err := s.comm.FetchTask()
+        rawTask, err := s.client.FetchTask()
         if err != nil {
             continue
         }
@@ -164,7 +164,7 @@ func (s *AgentTaskService) Run() {
         masterResult, err := s.translator.ToMasterResult(rawTask.ID, result)
         
         // 2.5 上报
-        s.comm.Report(masterResult)
+        s.client.Report(masterResult)
     }
 }
 ```
@@ -183,13 +183,13 @@ func (s *AgentTaskService) Run() {
     *   复用并完善现有的 `ToCoreTask` (translator.go)。
     *   新增 `ToMasterResult`，实现 Result -> DTO 的转换。
 
-### Step 3: 通信层完善 (Communication)
-*   **动作**: 完善 `internal/service/communication`。
-*   **内容**: 实现 `MasterCommunicationService` 接口中的 HTTP 请求逻辑。
+### Step 3: 客户端完善 (Client)
+*   **动作**: 完善 `internal/service/client`。
+*   **内容**: 实现 `MasterClient` 接口中的 HTTP 请求逻辑。
 
 ### Step 4: Worker 主循环 (Task Service)
 *   **动作**: 完善 `internal/service/task`。
-*   **内容**: 实现 `AgentTaskService`，将 Comm, Adapter, Runner 串联起来。
+*   **内容**: 实现 `AgentTaskService`，将 Client, Adapter, Runner 串联起来。
 
 ### Step 5: 入口替换 (Server Cmd)
 *   **动作**: 修改 `cmd/agent/server.go`。

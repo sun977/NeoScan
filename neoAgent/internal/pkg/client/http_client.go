@@ -5,7 +5,7 @@
  * @description: Agent端与Master端的HTTP通信客户端
  * @func: 占位符实现，待后续完善
  */
-package communication
+package client
 
 import (
 	"bytes"

@@ -5,7 +5,7 @@
  * @description: Agent端认证和注册相关的数据模型，遵循"好品味"原则
  * @func: 定义认证、注册相关的请求和响应结构
  */
-package communication
+package client
 
 import "time"
 

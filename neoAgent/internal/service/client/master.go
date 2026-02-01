@@ -219,14 +219,15 @@ func (s *masterService) ReportTask(ctx context.Context, taskID string, status st
 	agentID := s.agentID
 
 	// Update stats
-	if status == "running" {
+	switch status {
+	case "running":
 		s.taskStats.Running++
-	} else if status == "completed" || status == "success" {
+	case "completed", "success":
 		if s.taskStats.Running > 0 {
 			s.taskStats.Running--
 		}
 		s.taskStats.Completed++
-	} else if status == "failed" {
+	case "failed":
 		if s.taskStats.Running > 0 {
 			s.taskStats.Running--
 		}

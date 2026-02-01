@@ -1,15 +1,30 @@
 package monitor
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
-	
+
 	"neoagent/internal/pkg/logger"
 )
+
+// HostInfo 主机静态信息
+type HostInfo struct {
+	Hostname        string
+	OS              string
+	Platform        string
+	PlatformVersion string
+	KernelVersion   string
+	Arch            string
+	CPUCores        int
+	MemoryTotal     uint64
+	DiskTotal       uint64
+}
 
 // SystemMetrics 系统指标
 type SystemMetrics struct {
@@ -74,4 +89,70 @@ func GetSystemMetrics() (*SystemMetrics, error) {
 	}
 
 	return metrics, nil
+}
+
+// GetHostInfo 获取主机静态信息
+func GetHostInfo() (*HostInfo, error) {
+	info := &HostInfo{}
+
+	// Host Info
+	hInfo, err := host.Info()
+	if err != nil {
+		logger.LogSystemEvent("Monitor", "GetHostInfo", "Failed to get host info: "+err.Error(), logger.WarnLevel, nil)
+	} else {
+		info.Hostname = hInfo.Hostname
+		info.OS = hInfo.OS
+		info.Platform = hInfo.Platform
+		info.PlatformVersion = hInfo.PlatformVersion
+		info.KernelVersion = hInfo.KernelVersion
+		info.Arch = hInfo.KernelArch
+	}
+
+	// Fallback for OS/Arch if host.Info fails or returns empty
+	if info.OS == "" {
+		info.OS = runtime.GOOS
+	}
+	if info.Arch == "" {
+		info.Arch = runtime.GOARCH
+	}
+
+	// CPU Info
+	cpuInfo, err := cpu.Info()
+	if err != nil {
+		logger.LogSystemEvent("Monitor", "GetHostInfo", "Failed to get CPU info: "+err.Error(), logger.WarnLevel, nil)
+		info.CPUCores = runtime.NumCPU() // Fallback
+	} else if len(cpuInfo) > 0 {
+		// Count total cores
+		cores := 0
+		for _, c := range cpuInfo {
+			cores += int(c.Cores)
+		}
+		if cores == 0 {
+			cores = runtime.NumCPU()
+		}
+		info.CPUCores = cores
+	} else {
+		info.CPUCores = runtime.NumCPU()
+	}
+
+	// Memory Info
+	vMem, err := mem.VirtualMemory()
+	if err != nil {
+		logger.LogSystemEvent("Monitor", "GetHostInfo", "Failed to get Memory info: "+err.Error(), logger.WarnLevel, nil)
+	} else {
+		info.MemoryTotal = vMem.Total
+	}
+
+	// Disk Info
+	dUsage, err := disk.Usage("/")
+	if err != nil {
+		dUsage, err = disk.Usage("C:")
+	}
+	if err != nil {
+		logger.LogSystemEvent("Monitor", "GetHostInfo", "Failed to get Disk info: "+err.Error(), logger.WarnLevel, nil)
+	} else {
+		info.DiskTotal = dUsage.Total
+	}
+
+	return info, nil
 }

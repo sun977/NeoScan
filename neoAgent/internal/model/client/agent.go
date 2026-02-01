@@ -70,3 +70,32 @@ type NetworkIOMetrics struct {
 	ErrorsReceived  int64 `json:"errors_received"`  // 接收错误数
 	ErrorsSent      int64 `json:"errors_sent"`      // 发送错误数
 }
+
+// AgentRegisterResponseData 注册响应数据
+type AgentRegisterResponseData struct {
+	AgentID   string `json:"agent_id"`
+	GRPCToken string `json:"grpc_token"`
+	Status    string `json:"status"`
+}
+
+// AgentRegisterResponse 注册响应
+type AgentRegisterResponse struct {
+	Code   int                       `json:"code"`
+	Status string                    `json:"status"`
+	Data   AgentRegisterResponseData `json:"data"`
+}
+
+// AgentRegisterRequest Agent注册请求
+type AgentRegisterRequest struct {
+	Hostname     string   `json:"hostname"`
+	IPAddress    string   `json:"ip_address"`
+	Port         int      `json:"port"`
+	Version      string   `json:"version"`
+	OS           string   `json:"os"`
+	Arch         string   `json:"arch"`
+	CPUCores     int      `json:"cpu_cores"`
+	MemoryTotal  uint64   `json:"memory_total"`
+	DiskTotal    uint64   `json:"disk_total"`
+	Capabilities []string `json:"capabilities"`
+	Tags         []string `json:"tags"`
+}

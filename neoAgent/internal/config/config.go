@@ -116,7 +116,7 @@ type DatabaseConfig struct {
 type MasterConfig struct {
 	Address               string        `yaml:"address" mapstructure:"address"`                               // Master地址
 	Port                  int           `yaml:"port" mapstructure:"port"`                                     // Master端口
-	Protocol              string        `yaml:"protocol" mapstructure:"protocol"`                             // 连接协议 (http/https/grpc)
+	Protocol              string        `yaml:"protocol" mapstructure:"protocol"`                             // 连接协议 (http/https)
 	TLS                   TLSConfig     `yaml:"tls" mapstructure:"tls"`                                       // TLS配置
 	ConnectTimeout        time.Duration `yaml:"connect_timeout" mapstructure:"connect_timeout"`               // 连接超时时间
 	RequestTimeout        time.Duration `yaml:"request_timeout" mapstructure:"request_timeout"`               // 请求超时时间

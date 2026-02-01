@@ -17,13 +17,13 @@ import (
 	"neoagent/internal/app/agent/router"
 	"neoagent/internal/app/agent/setup"
 	"neoagent/internal/config"
-	coreModel "neoagent/internal/core/model"
 	"neoagent/internal/core/runner"
 	modelComm "neoagent/internal/model/client"
 	"neoagent/internal/pkg/logger"
 	"neoagent/internal/pkg/monitor"
 	"neoagent/internal/service/adapter"
 	"neoagent/internal/service/client"
+	"neoagent/internal/service/task"
 )
 
 // App Agent应用程序结构体
@@ -34,6 +34,7 @@ type App struct {
 	logger        *logger.LoggerManager
 	masterService client.MasterService
 	runnerManager *runner.RunnerManager
+	taskService   task.AgentTaskService
 }
 
 // NewApp 创建新的Agent应用程序实例
@@ -59,7 +60,16 @@ func NewApp() (*App, error) {
 	// 初始化各模块
 	clientModule := setup.SetupClient(cfg)
 	coreModule := setup.SetupCore()
-	serverModule := setup.SetupServer(cfg)
+
+	// 初始化任务服务（因为ServerModule依赖它）
+	taskService := task.NewAgentTaskService(
+		clientModule.MasterService,
+		coreModule.RunnerManager,
+		adapter.NewTaskTranslator(),
+		cfg,
+	)
+
+	serverModule := setup.SetupServer(cfg, taskService)
 
 	return &App{
 		router:        serverModule.Router,
@@ -68,6 +78,7 @@ func NewApp() (*App, error) {
 		logger:        loggerManager,
 		masterService: clientModule.MasterService,
 		runnerManager: coreModule.RunnerManager,
+		taskService:   taskService,
 	}, nil
 }
 
@@ -186,136 +197,8 @@ func (a *App) startMasterService(ctx context.Context) {
 	// 5. 开启任务轮询
 	// TODO: 这里的interval应该从Master获取或者配置
 	taskInterval := 5 * time.Second
-	logger.Info("Starting task poller...")
-	taskChan := a.masterService.StartTaskPoller(ctx, taskInterval)
+	logger.Info("Starting task poller worker...")
 
-	// 6. 处理任务
-	go a.handleTasks(taskChan)
-}
-
-// handleTasks 处理从Master拉取的任务
-func (a *App) handleTasks(taskChan <-chan []modelComm.Task) {
-	translator := adapter.NewTaskTranslator()
-
-	for tasks := range taskChan {
-		for _, clientTask := range tasks {
-			logger.Infof("Received task: %s (Type: %s)", clientTask.TaskID, clientTask.TaskType)
-
-			// 1. 转换任务
-			coreTask, err := translator.ToCoreTask(&clientTask)
-			if err != nil {
-				logger.Errorf("Failed to translate task %s: %v", clientTask.TaskID, err)
-				a.reportTaskError(context.Background(), clientTask.TaskID, "translation_failed", err.Error())
-				continue
-			}
-
-			// 2. 更新任务状态为 Running
-			a.masterService.ReportTask(context.Background(), coreTask.ID, string(coreModel.TaskStatusRunning), "", "")
-
-			// 3. 执行任务
-			// TODO: 使用 Worker Pool 或协程并发执行，目前简单起见同步执行（会阻塞轮询）
-			// 实际上 TaskPoller 是独立的，这里应该 spawn goroutine
-			go func(task *coreModel.Task) {
-				ctx := context.Background() // TODO: 使用带超时的 Context
-
-				logger.Infof("Executing task: %s", task.ID)
-				results, err := a.runnerManager.Execute(ctx, task)
-
-				// 4. 处理结果并上报
-				if err != nil {
-					logger.Errorf("Task %s execution failed: %v", task.ID, err)
-					a.reportTaskError(ctx, task.ID, string(coreModel.TaskStatusFailed), err.Error())
-					return
-				}
-
-				// 聚合结果并上报
-				// 目前 Master 协议可能期望一个聚合的 JSON 结果
-				// 我们取第一个结果作为主要结果，或者需要 adapter 支持聚合
-				// TaskTranslator.ToTaskStatusReport 似乎处理了 []Result
-
-				// 构造一个包含所有结果的 TaskResult
-				aggResult := &coreModel.TaskResult{
-					TaskID: task.ID,
-					Status: coreModel.TaskStatusSuccess,
-				}
-
-				// 将 []*TaskResult 的 Result 部分提取出来
-				// 注意：Core 的 Runner 返回的是 []*TaskResult，其中每个 Result.Result 可能是具体的 struct
-				// Adapter 需要处理 []interface{} 或特定类型
-
-				// 简单起见，我们假设 Adapter 能处理 []interface{} 或者我们需要解包
-				// 查看 Adapter: switch res := internalRes.Result.(type)
-				// case []model.IpAliveResult: ...
-				// 所以我们需要把 []*TaskResult 中的具体 Result 聚合到一个 Slice 中
-
-				var aggData interface{}
-
-				if len(results) > 0 {
-					// 尝试推断类型并聚合
-					firstRes := results[0].Result
-					switch firstRes.(type) {
-					case coreModel.IpAliveResult:
-						var list []coreModel.IpAliveResult
-						for _, r := range results {
-							if v, ok := r.Result.(coreModel.IpAliveResult); ok {
-								list = append(list, v)
-							}
-						}
-						aggData = list
-					case *coreModel.IpAliveResult:
-						var list []coreModel.IpAliveResult
-						for _, r := range results {
-							if v, ok := r.Result.(*coreModel.IpAliveResult); ok {
-								list = append(list, *v)
-							}
-						}
-						aggData = list
-					case coreModel.PortServiceResult:
-						var list []coreModel.PortServiceResult
-						for _, r := range results {
-							if v, ok := r.Result.(coreModel.PortServiceResult); ok {
-								list = append(list, v)
-							}
-						}
-						aggData = list
-					case *coreModel.PortServiceResult:
-						var list []coreModel.PortServiceResult
-						for _, r := range results {
-							if v, ok := r.Result.(*coreModel.PortServiceResult); ok {
-								list = append(list, *v)
-							}
-						}
-						aggData = list
-					case *coreModel.OsInfo:
-						// OS Scan 通常只返回一个结果
-						aggData = firstRes
-					default:
-						// Fallback: list of whatever
-						var list []interface{}
-						for _, r := range results {
-							list = append(list, r.Result)
-						}
-						aggData = list
-					}
-				}
-
-				aggResult.Result = aggData
-
-				report, err := translator.ToTaskStatusReport(task.ID, aggResult)
-				if err != nil {
-					logger.Errorf("Failed to translate result for task %s: %v", task.ID, err)
-					// Report error?
-				} else {
-					logger.Infof("Reporting success for task %s", task.ID)
-					a.masterService.ReportTask(ctx, task.ID, report.Status, report.Result, report.ErrorMsg)
-				}
-
-			}(coreTask)
-
-		}
-	}
-}
-
-func (a *App) reportTaskError(ctx context.Context, taskID, status, errorMsg string) {
-	a.masterService.ReportTask(ctx, taskID, status, "", errorMsg)
+	// 启动任务服务的工作者循环（Outbound能力）
+	go a.taskService.StartWorker(ctx, taskInterval)
 }

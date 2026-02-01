@@ -8,10 +8,11 @@ import (
 	"neoagent/internal/app/agent/middleware"
 	"neoagent/internal/app/agent/router"
 	"neoagent/internal/config"
+	"neoagent/internal/service/task"
 )
 
 // SetupServer 初始化服务器模块
-func SetupServer(cfg *config.Config) *ServerModule {
+func SetupServer(cfg *config.Config, taskService task.AgentTaskService) *ServerModule {
 	// 创建路由器配置
 	routerConfig := &router.RouterConfig{
 		Debug:            cfg.App.Debug,
@@ -21,7 +22,7 @@ func SetupServer(cfg *config.Config) *ServerModule {
 		MiddlewareConfig: createMiddlewareConfig(cfg),
 	}
 
-	r := router.NewRouter(routerConfig)
+	r := router.NewRouter(routerConfig, taskService)
 
 	// 初始化HTTP服务器
 	httpServer := &http.Server{

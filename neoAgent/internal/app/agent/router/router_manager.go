@@ -12,8 +12,9 @@ import (
 	"neoagent/internal/app/agent/middleware"
 	"neoagent/internal/handler/client"
 	"neoagent/internal/handler/monitor"
-	"neoagent/internal/handler/task"
+	handlerTask "neoagent/internal/handler/task"
 	"neoagent/internal/pkg/logger"
+	serviceTask "neoagent/internal/service/task"
 
 	"github.com/gin-gonic/gin"
 )
@@ -64,13 +65,13 @@ type Router struct {
 	rateLimitMiddleware *middleware.RateLimitMiddleware
 
 	// 处理器
-	taskHandler          task.AgentTaskHandler
+	taskHandler          handlerTask.AgentTaskHandler
 	monitorHandler       monitor.AgentMonitorHandler
 	communicationHandler client.MasterCommunicationHandler
 }
 
 // NewRouter 创建新的路由器
-func NewRouter(config *RouterConfig) *Router {
+func NewRouter(config *RouterConfig, taskService serviceTask.AgentTaskService) *Router {
 	if config == nil {
 		config = &RouterConfig{
 			Debug:            false,
@@ -102,7 +103,7 @@ func NewRouter(config *RouterConfig) *Router {
 	}
 
 	// 初始化处理器
-	router.initHandlers()
+	router.initHandlers(taskService)
 
 	// 注册路由
 	router.registerRoutes()
@@ -136,14 +137,14 @@ func (r *Router) initMiddleware() {
 }
 
 // initHandlers 初始化处理器
-func (r *Router) initHandlers() {
+func (r *Router) initHandlers(taskService serviceTask.AgentTaskService) {
 	// TODO: 初始化各种处理器
 	// 1. 任务处理器
 	// 2. 监控处理器
 	// 3. 通信处理器
 
 	// 这里使用占位符实现，实际应该通过依赖注入
-	r.taskHandler = task.NewAgentTaskHandler()
+	r.taskHandler = handlerTask.NewAgentTaskHandler(taskService)
 	r.monitorHandler = monitor.NewAgentMonitorHandler()
 	r.communicationHandler = client.NewMasterCommunicationHandler()
 }
@@ -162,7 +163,7 @@ func (r *Router) registerRoutes() {
 	apiGroup := r.engine.Group(r.config.Prefix + "/" + r.config.APIVersion)
 
 	// 注册任务管理路由
-	setupTaskRoutes(apiGroup)
+	setupTaskRoutes(apiGroup, r.taskHandler)
 
 	// 注册监控路由
 	setupMonitorRoutes(apiGroup)

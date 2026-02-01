@@ -1,35 +1,49 @@
-/**
- * 心跳相关模型
- * @author: sun977
- * @date: 2025.10.21
- * @description: Agent心跳机制相关的数据模型，遵循"好品味"原则
- * @func: 定义心跳请求和响应的数据结构
- */
 package client
 
 import "time"
 
-// ==================== 心跳相关 ====================
+// PluginStatus 插件状态
+type PluginStatus map[string]interface{}
 
-// Heartbeat 心跳数据
-// 遵循Linus原则：心跳数据结构简洁，包含必要的状态和指标信息
-type Heartbeat struct {
-	AgentID    string                 `json:"agent_id"`     // Agent ID
-	Status     string                 `json:"status"`       // 当前状态
-	TaskCount  int                    `json:"task_count"`   // 任务数量
-	Metrics    *PerformanceMetrics    `json:"metrics"`      // 性能指标
-	LastTaskID string                 `json:"last_task_id"` // 最后执行的任务ID
-	Extra      map[string]interface{} `json:"extra"`        // 额外信息
-	Timestamp  time.Time              `json:"timestamp"`    // 心跳时间戳
+// HeartbeatMetrics 心跳指标
+// 对应 Master 端的 AgentMetrics
+type HeartbeatMetrics struct {
+	AgentID           string       `json:"agent_id"`
+	CPUUsage          float64      `json:"cpu_usage"`
+	MemoryUsage       float64      `json:"memory_usage"`
+	DiskUsage         float64      `json:"disk_usage"`
+	NetworkBytesSent  int64        `json:"network_bytes_sent"`
+	NetworkBytesRecv  int64        `json:"network_bytes_recv"`
+	ActiveConnections int          `json:"active_connections"`
+	RunningTasks      int          `json:"running_tasks"`
+	CompletedTasks    int          `json:"completed_tasks"`
+	FailedTasks       int          `json:"failed_tasks"`
+	WorkStatus        string       `json:"work_status"` // idle, working, exception
+	ScanType          string       `json:"scan_type"`
+	PluginStatus      PluginStatus `json:"plugin_status"`
+	Timestamp         time.Time    `json:"timestamp"`
+}
+
+// HeartbeatRequest 心跳请求
+type HeartbeatRequest struct {
+	AgentID string            `json:"agent_id"`
+	Status  string            `json:"status"`
+	Metrics *HeartbeatMetrics `json:"metrics,omitempty"`
+}
+
+// HeartbeatResponseData 心跳响应数据
+type HeartbeatResponseData struct {
+	AgentID      string            `json:"agent_id"`
+	Status       string            `json:"status"`
+	Message      string            `json:"message"`
+	Timestamp    time.Time         `json:"timestamp"`
+	RuleVersions map[string]string `json:"rule_versions,omitempty"` // 规则版本信息
 }
 
 // HeartbeatResponse 心跳响应
-// 遵循"好品味"原则：响应包含下次心跳时间和待执行命令，减少轮询
 type HeartbeatResponse struct {
-	Success       bool       `json:"success"`        // 心跳是否成功
-	NextHeartbeat time.Time  `json:"next_heartbeat"` // 下次心跳时间
-	Commands      []*Command `json:"commands"`       // 待执行命令
-	ConfigUpdate  bool       `json:"config_update"`  // 是否有配置更新
-	Message       string     `json:"message"`        // 响应消息
-	Timestamp     time.Time  `json:"timestamp"`      // 响应时间戳
+	Code    int                   `json:"code"`
+	Status  string                `json:"status"`
+	Message string                `json:"message"`
+	Data    HeartbeatResponseData `json:"data"`
 }

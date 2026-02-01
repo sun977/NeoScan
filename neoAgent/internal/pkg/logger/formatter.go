@@ -94,7 +94,7 @@ type ErrorLogEntry struct {
 // SystemLogEntry 系统日志条目结构
 type SystemLogEntry struct {
 	Timestamp   time.Time              `json:"timestamp"`    // 时间
-	Component   string                 `json:"component"`    // 系统组件（database, redis, grpc等）
+	Component   string                 `json:"component"`    // 系统组件（database, redis, http等）
 	Event       string                 `json:"event"`        // 事件类型（startup, shutdown, error等）
 	Message     string                 `json:"message"`      // 详细信息
 	Level       string                 `json:"level"`        // 日志级别

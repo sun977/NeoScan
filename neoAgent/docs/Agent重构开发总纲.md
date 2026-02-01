@@ -89,9 +89,9 @@ neoAgent/
 - [ ] **4.2 集群接入增强 (Cluster Adapter)**:
     - [ ] **Step 1**: 创建 `internal/model/adapter`，固化数据契约 (Payload DTO)。
     - [ ] **Step 2**: 完善 `internal/service/adapter`，实现双向协议转换。
-    - [ ] **Step 3**: 完善 `internal/service/communication`，实现主动 HTTP 通信。
-    - [ ] **Step 4**: 重构 `internal/service/task`，实现 Worker 主循环。
-    - [ ] **Step 5**: 更新 `cmd/agent/server.go` 入口。
+    - [ ] **Step 3**: 完善 `internal/service/client`，实现主动 HTTP 通信。
+    - [x] **Step 4**: 重构 `internal/service/task`，实现 Worker 主循环。
+    - [x] **Step 5**: 更新 `cmd/agent/server.go` (实际为 `app.go`) 入口。
 - [ ] **4.3 高级能力集成**:
     - [ ] 集成 Nuclei 等重型工具。
     - [ ] 实现 Web 指纹识别与爬虫。

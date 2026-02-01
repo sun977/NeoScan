@@ -76,7 +76,7 @@ func (s *masterService) Register(ctx context.Context, req *modelComm.AgentRegist
 
 	s.mu.Lock()
 	s.agentID = resp.Data.AgentID
-	s.token = resp.Data.GRPCToken
+	s.token = resp.Data.AuthToken
 	s.status = "online"
 	s.client.SetAuthToken(s.token)
 	s.mu.Unlock()

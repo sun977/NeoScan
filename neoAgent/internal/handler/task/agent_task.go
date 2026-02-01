@@ -12,6 +12,9 @@ import (
 	"strconv"
 	"time"
 
+	"neoagent/internal/model/base"
+	serviceTask "neoagent/internal/service/task"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -45,8 +48,8 @@ type AgentTaskHandler interface {
 	ClearTaskQueue(c *gin.Context) // 清空任务队列
 
 	// ==================== 任务统计监控 ====================
-	GetTaskStats(c *gin.Context) // 获取任务统计信息
-	GetTaskMetrics(c *gin.Context)      // 获取任务指标信息
+	GetTaskStats(c *gin.Context)   // 获取任务统计信息
+	GetTaskMetrics(c *gin.Context) // 获取任务指标信息
 
 	// ==================== 任务结果管理 ====================
 	GetTaskResult(c *gin.Context) // 获取任务执行结果
@@ -56,15 +59,13 @@ type AgentTaskHandler interface {
 
 // agentTaskHandler Agent任务处理器实现
 type agentTaskHandler struct {
-	// TODO: 添加必要的依赖注入
-	// taskService task.AgentTaskService
-	// logger      logger.Logger
+	taskService serviceTask.AgentTaskService
 }
 
 // NewAgentTaskHandler 创建Agent任务处理器实例
-func NewAgentTaskHandler() AgentTaskHandler {
+func NewAgentTaskHandler(taskService serviceTask.AgentTaskService) AgentTaskHandler {
 	return &agentTaskHandler{
-		// TODO: 初始化依赖
+		taskService: taskService,
 	}
 }
 
@@ -87,40 +88,45 @@ func (h *agentTaskHandler) GetTaskList(c *gin.Context) {
 	size := parseIntParam(c, "size", 10)
 	status := c.Query("status")
 
-	// TODO: 实现任务列表获取处理逻辑
-	// 1. 调用任务服务获取任务列表
-	// 2. 根据参数进行分页和过滤
-	// 3. 格式化返回数据
+	// 调用任务服务获取任务列表
+	tasks, err := h.taskService.GetTaskList(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, base.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "获取任务列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskList处理器待实现 - 需要实现任务列表获取处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
-			"tasks": []gin.H{
-				{
-					"id":         "placeholder-task-1",
-					"name":       "示例任务1",
-					"type":       "scan",
-					"status":     "pending",
-					"created_at": time.Now(),
-				},
-				{
-					"id":         "placeholder-task-2",
-					"name":       "示例任务2",
-					"type":       "monitor",
-					"status":     "running",
-					"created_at": time.Now().Add(-time.Hour),
-				},
-			},
-			"pagination": gin.H{
+	// 简单的内存分页（因为Service目前返回所有）
+	// 实际生产中应该在Service/Repo层做分页
+	total := len(tasks)
+	start := (page - 1) * size
+	end := start + size
+	if start > total {
+		start = total
+	}
+	if end > total {
+		end = total
+	}
+
+	pagedTasks := tasks[start:end]
+
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "任务列表获取成功",
+		Data: map[string]interface{}{
+			"tasks": pagedTasks,
+			"pagination": map[string]interface{}{
 				"page":       page,
 				"size":       size,
-				"total":      2,
-				"total_page": 1,
+				"total":      total,
+				"total_page": (total + size - 1) / size,
 			},
-			"filter": gin.H{
+			"filter": map[string]interface{}{
 				"status": status,
 			},
 		},
@@ -141,9 +147,11 @@ func (h *agentTaskHandler) GetTaskList(c *gin.Context) {
 func (h *agentTaskHandler) CreateTask(c *gin.Context) {
 	var taskData map[string]interface{}
 	if err := c.ShouldBindJSON(&taskData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "任务数据格式错误: " + err.Error(),
+		c.JSON(http.StatusBadRequest, base.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "任务数据格式错误",
+			Error:   err.Error(),
 		})
 		return
 	}
@@ -151,18 +159,20 @@ func (h *agentTaskHandler) CreateTask(c *gin.Context) {
 	// 验证必需字段
 	taskName, exists := taskData["name"].(string)
 	if !exists || taskName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "任务名称不能为空",
+		c.JSON(http.StatusBadRequest, base.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "任务名称不能为空",
 		})
 		return
 	}
 
 	taskType, exists := taskData["type"].(string)
 	if !exists || taskType == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "任务类型不能为空",
+		c.JSON(http.StatusBadRequest, base.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: "任务类型不能为空",
 		})
 		return
 	}
@@ -174,11 +184,11 @@ func (h *agentTaskHandler) CreateTask(c *gin.Context) {
 
 	// 占位符实现
 	taskID := "task-" + strconv.FormatInt(time.Now().Unix(), 10)
-	c.JSON(http.StatusCreated, gin.H{
-		"status":    "success",
-		"message":   "CreateTask处理器待实现 - 需要实现任务创建处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusCreated, base.APIResponse{
+		Code:    http.StatusCreated,
+		Status:  "success",
+		Message: "CreateTask处理器待实现 - 需要实现任务创建处理逻辑",
+		Data: map[string]interface{}{
 			"task_id":    taskID,
 			"name":       taskName,
 			"type":       taskType,
@@ -205,27 +215,22 @@ func (h *agentTaskHandler) GetTask(c *gin.Context) {
 		return
 	}
 
-	// TODO: 实现任务信息获取处理逻辑
-	// 1. 验证任务ID有效性
-	// 2. 调用任务服务获取任务信息
-	// 3. 返回任务详细信息
+	task, err := h.taskService.GetTask(c.Request.Context(), taskID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, base.APIResponse{
+			Code:    http.StatusNotFound,
+			Status:  "failed",
+			Message: "任务不存在或获取失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTask处理器待实现 - 需要实现任务信息获取处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
-			"task_id":              taskID,
-			"name":                 "示例任务",
-			"type":                 "scan",
-			"status":               "running",
-			"priority":             1,
-			"progress":             50,
-			"created_at":           time.Now().Add(-time.Hour),
-			"started_at":           time.Now().Add(-30 * time.Minute),
-			"estimated_completion": time.Now().Add(30 * time.Minute),
-		},
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "任务信息获取成功",
+		Data:    task,
 	})
 }
 
@@ -252,11 +257,11 @@ func (h *agentTaskHandler) DeleteTask(c *gin.Context) {
 	// 3. 返回删除结果
 
 	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "DeleteTask处理器待实现 - 需要实现任务删除处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "DeleteTask处理器待实现 - 需要实现任务删除处理逻辑",
+		Data: map[string]interface{}{
 			"task_id":       taskID,
 			"delete_status": "completed",
 			"deleted_at":    time.Now(),
@@ -290,11 +295,11 @@ func (h *agentTaskHandler) StartTask(c *gin.Context) {
 	// 3. 返回启动结果
 
 	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "StartTask处理器待实现 - 需要实现任务启动处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "StartTask处理器待实现 - 需要实现任务启动处理逻辑",
+		Data: map[string]interface{}{
 			"task_id":      taskID,
 			"start_status": "started",
 			"started_at":   time.Now(),
@@ -320,19 +325,23 @@ func (h *agentTaskHandler) StopTask(c *gin.Context) {
 		return
 	}
 
-	// TODO: 实现任务停止处理逻辑
-	// 1. 验证任务状态是否可停止
-	// 2. 调用任务服务停止任务
-	// 3. 返回停止结果
+	if err := h.taskService.StopTask(c.Request.Context(), taskID); err != nil {
+		c.JSON(http.StatusInternalServerError, base.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "停止任务失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "StopTask处理器待实现 - 需要实现任务停止处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "任务停止信号已发送",
+		Data: map[string]interface{}{
 			"task_id":     taskID,
-			"stop_status": "stopped",
+			"stop_status": "stopping",
 			"stopped_at":  time.Now(),
 		},
 	})
@@ -362,11 +371,11 @@ func (h *agentTaskHandler) PauseTask(c *gin.Context) {
 	// 3. 返回暂停结果
 
 	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "PauseTask处理器待实现 - 需要实现任务暂停处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "PauseTask处理器待实现 - 需要实现任务暂停处理逻辑",
+		Data: map[string]interface{}{
 			"task_id":      taskID,
 			"pause_status": "paused",
 			"paused_at":    time.Now(),
@@ -398,11 +407,11 @@ func (h *agentTaskHandler) ResumeTask(c *gin.Context) {
 	// 3. 返回恢复结果
 
 	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "ResumeTask处理器待实现 - 需要实现任务恢复处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ResumeTask处理器待实现 - 需要实现任务恢复处理逻辑",
+		Data: map[string]interface{}{
 			"task_id":       taskID,
 			"resume_status": "resumed",
 			"resumed_at":    time.Now(),
@@ -427,27 +436,22 @@ func (h *agentTaskHandler) GetTaskStatus(c *gin.Context) {
 		return
 	}
 
-	// TODO: 实现任务状态获取处理逻辑
-	// 1. 调用任务服务获取任务状态
-	// 2. 格式化状态信息
-	// 3. 返回状态数据
+	status, err := h.taskService.GetTaskStatus(c.Request.Context(), taskID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, base.APIResponse{
+			Code:    http.StatusNotFound,
+			Status:  "failed",
+			Message: "获取任务状态失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskStatus处理器待实现 - 需要实现任务状态获取处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
-			"task_id":             taskID,
-			"status":              "running",
-			"progress":            75,
-			"message":             "任务执行中...",
-			"cpu_usage":           25.5,
-			"memory_usage":        128.0,
-			"start_time":          time.Now().Add(-2 * time.Hour),
-			"elapsed_time":        "2h 0m 0s",
-			"estimated_remaining": "30m 0s",
-		},
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "任务状态获取成功",
+		Data:    status,
 	})
 }
 
@@ -470,28 +474,22 @@ func (h *agentTaskHandler) GetTaskResult(c *gin.Context) {
 		return
 	}
 
-	// TODO: 实现任务结果获取处理逻辑
-	// 1. 调用任务服务获取任务结果
-	// 2. 格式化结果数据
-	// 3. 返回结果信息
+	result, err := h.taskService.GetTaskResult(c.Request.Context(), taskID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, base.APIResponse{
+			Code:    http.StatusNotFound,
+			Status:  "failed",
+			Message: "获取任务结果失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskResult处理器待实现 - 需要实现任务结果获取处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
-			"task_id":        taskID,
-			"result_status":  "completed",
-			"result_message": "任务执行成功",
-			"result_data": gin.H{
-				"items_processed": 1000,
-				"items_found":     50,
-				"errors":          0,
-			},
-			"completed_at": time.Now().Add(-time.Hour),
-			"duration":     "1h 30m 0s",
-		},
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "任务结果获取成功",
+		Data:    result,
 	})
 }
 
@@ -514,34 +512,22 @@ func (h *agentTaskHandler) GetTaskLog(c *gin.Context) {
 		return
 	}
 
-	lines := parseIntParam(c, "lines", 100)
-	level := c.Query("level")
+	logs, err := h.taskService.GetTaskLog(c.Request.Context(), taskID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, base.APIResponse{
+			Code:    http.StatusNotFound,
+			Status:  "failed",
+			Message: "获取任务日志失败",
+			Error:   err.Error(),
+		})
+		return
+	}
 
-	// TODO: 实现任务日志获取处理逻辑
-	// 1. 调用任务服务获取任务日志
-	// 2. 根据参数过滤日志
-	// 3. 返回日志数据
-
-	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskLog处理器待实现 - 需要实现任务日志获取处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
-			"task_id": taskID,
-			"logs": []string{
-				"[INFO] 2025-01-14 10:00:00 - 任务开始执行",
-				"[INFO] 2025-01-14 10:00:01 - 初始化扫描参数",
-				"[INFO] 2025-01-14 10:00:02 - 开始扫描目标",
-				"[WARN] 2025-01-14 10:00:03 - 发现潜在风险项",
-				"[INFO] 2025-01-14 10:00:04 - 扫描进度: 50%",
-			},
-			"filter": gin.H{
-				"lines": lines,
-				"level": level,
-			},
-			"total_lines": 1000,
-		},
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "任务日志获取成功",
+		Data:    logs,
 	})
 }
 
@@ -568,11 +554,11 @@ func (h *agentTaskHandler) CleanupTask(c *gin.Context) {
 	// 2. 返回清理结果
 
 	// 占位符实现
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "CleanupTask处理器待实现 - 需要实现任务资源清理处理逻辑",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "CleanupTask处理器待实现 - 需要实现任务资源清理处理逻辑",
+		Data: gin.H{
 			"task_id":        taskID,
 			"cleanup_status": "completed",
 			"cleaned_at":     time.Now(),
@@ -600,17 +586,29 @@ func (h *agentTaskHandler) CleanupTask(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{} "内部服务器错误"
 // @Router /agent/tasks/{task_id}/cancel [post]
 func (h *agentTaskHandler) CancelTask(c *gin.Context) {
-	// TODO: 实现任务取消逻辑
 	taskID := c.Param("task_id")
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "CancelTask处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	if !validateRequiredParam(c, "任务ID", taskID) {
+		return
+	}
+
+	if err := h.taskService.StopTask(c.Request.Context(), taskID); err != nil {
+		c.JSON(http.StatusInternalServerError, base.APIResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "failed",
+			Message: "取消任务失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "任务取消信号已发送",
+		Data: map[string]interface{}{
 			"task_id":       taskID,
-			"cancel_status": "cancelled",
+			"cancel_status": "cancelling",
 			"cancelled_at":  time.Now(),
-			"reason":        "用户取消",
 		},
 	})
 }
@@ -635,12 +633,12 @@ func (h *agentTaskHandler) ListTasks(c *gin.Context) {
 	limit := parseIntParam(c, "limit", 10)
 	offset := parseIntParam(c, "offset", 0)
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "ListTasks处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
-			"tasks": []gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ListTasks处理器待实现",
+		Data: map[string]interface{}{
+			"tasks": []map[string]interface{}{
 				{
 					"task_id":    "task-001",
 					"name":       "扫描任务1",
@@ -659,7 +657,7 @@ func (h *agentTaskHandler) ListTasks(c *gin.Context) {
 			"total":  2,
 			"limit":  limit,
 			"offset": offset,
-			"filter": gin.H{
+			"filter": map[string]interface{}{
 				"status": status,
 			},
 		},
@@ -681,11 +679,11 @@ func (h *agentTaskHandler) ListTasks(c *gin.Context) {
 func (h *agentTaskHandler) GetTaskProgress(c *gin.Context) {
 	// TODO: 实现任务进度获取逻辑
 	taskID := c.Param("task_id")
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskProgress处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "GetTaskProgress处理器待实现",
+		Data: map[string]interface{}{
 			"task_id":          taskID,
 			"progress_percent": 67.5,
 			"current_step":     "端口扫描",
@@ -718,13 +716,13 @@ func (h *agentTaskHandler) GetTaskLogs(c *gin.Context) {
 	level := c.Query("level")
 	limit := parseIntParam(c, "limit", 100)
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskLogs处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "GetTaskLogs处理器待实现",
+		Data: map[string]interface{}{
 			"task_id": taskID,
-			"logs": []gin.H{
+			"logs": []map[string]interface{}{
 				{
 					"timestamp": "2024-01-01T10:00:01Z",
 					"level":     "INFO",
@@ -743,7 +741,7 @@ func (h *agentTaskHandler) GetTaskLogs(c *gin.Context) {
 			},
 			"total": 3,
 			"limit": limit,
-			"filter": gin.H{
+			"filter": map[string]interface{}{
 				"level": level,
 			},
 		},
@@ -768,14 +766,14 @@ func (h *agentTaskHandler) GetTaskLogs(c *gin.Context) {
 func (h *agentTaskHandler) UpdateTaskConfig(c *gin.Context) {
 	// TODO: 实现任务配置更新逻辑
 	taskID := c.Param("task_id")
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "UpdateTaskConfig处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "UpdateTaskConfig处理器待实现",
+		Data: map[string]interface{}{
 			"task_id":    taskID,
 			"updated_at": time.Now(),
-			"config": gin.H{
+			"config": map[string]interface{}{
 				"timeout":     300,
 				"retry_count": 3,
 				"priority":    "high",
@@ -800,11 +798,11 @@ func (h *agentTaskHandler) UpdateTaskConfig(c *gin.Context) {
 func (h *agentTaskHandler) UpdateTaskPriority(c *gin.Context) {
 	// TODO: 实现任务优先级更新逻辑
 	taskID := c.Param("task_id")
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "UpdateTaskPriority处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "UpdateTaskPriority处理器待实现",
+		Data: map[string]interface{}{
 			"task_id":    taskID,
 			"priority":   "high",
 			"updated_at": time.Now(),
@@ -825,16 +823,16 @@ func (h *agentTaskHandler) UpdateTaskPriority(c *gin.Context) {
 // @Router /agent/tasks/queue [get]
 func (h *agentTaskHandler) GetTaskQueue(c *gin.Context) {
 	// TODO: 实现任务队列获取逻辑
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskQueue处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "GetTaskQueue处理器待实现",
+		Data: map[string]interface{}{
 			"queue_size":     3,
 			"running_tasks":  2,
 			"pending_tasks":  1,
 			"max_concurrent": 5,
-			"queue": []gin.H{
+			"queue": []map[string]interface{}{
 				{
 					"task_id":  "task-003",
 					"priority": "high",
@@ -857,11 +855,11 @@ func (h *agentTaskHandler) GetTaskQueue(c *gin.Context) {
 // @Router /agent/tasks/queue/clear [post]
 func (h *agentTaskHandler) ClearTaskQueue(c *gin.Context) {
 	// TODO: 实现任务队列清空逻辑
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "ClearTaskQueue处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "ClearTaskQueue处理器待实现",
+		Data: map[string]interface{}{
 			"cleared_tasks": 3,
 			"cleared_at":    time.Now(),
 		},
@@ -881,11 +879,11 @@ func (h *agentTaskHandler) ClearTaskQueue(c *gin.Context) {
 // @Router /agent/tasks/stats [get]
 func (h *agentTaskHandler) GetTaskStats(c *gin.Context) {
 	// TODO: 实现任务统计获取逻辑
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskStats处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "GetTaskStats处理器待实现",
+		Data: map[string]interface{}{
 			"total_tasks":     156,
 			"completed_tasks": 142,
 			"failed_tasks":    8,
@@ -893,7 +891,7 @@ func (h *agentTaskHandler) GetTaskStats(c *gin.Context) {
 			"pending_tasks":   4,
 			"success_rate":    91.0,
 			"avg_duration":    "5m30s",
-			"last_24h": gin.H{
+			"last_24h": map[string]interface{}{
 				"completed": 25,
 				"failed":    2,
 				"created":   28,
@@ -913,22 +911,22 @@ func (h *agentTaskHandler) GetTaskStats(c *gin.Context) {
 // @Router /agent/tasks/metrics [get]
 func (h *agentTaskHandler) GetTaskMetrics(c *gin.Context) {
 	// TODO: 实现任务指标获取逻辑
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "success",
-		"message":   "GetTaskMetrics处理器待实现",
-		"timestamp": time.Now(),
-		"data": gin.H{
-			"metrics": gin.H{
-				"total_tasks":      100,
-				"running_tasks":    5,
-				"completed_tasks":  85,
-				"failed_tasks":     10,
-				"avg_duration":     "2m30s",
-				"success_rate":     85.0,
-				"cpu_usage":        "15%",
-				"memory_usage":     "256MB",
-				"disk_io":          "10MB/s",
-				"network_io":       "5MB/s",
+	c.JSON(http.StatusOK, base.APIResponse{
+		Code:    http.StatusOK,
+		Status:  "success",
+		Message: "GetTaskMetrics处理器待实现",
+		Data: map[string]interface{}{
+			"metrics": map[string]interface{}{
+				"total_tasks":     100,
+				"running_tasks":   5,
+				"completed_tasks": 85,
+				"failed_tasks":    10,
+				"avg_duration":    "2m30s",
+				"success_rate":    85.0,
+				"cpu_usage":       "15%",
+				"memory_usage":    "256MB",
+				"disk_io":         "10MB/s",
+				"network_io":      "5MB/s",
 			},
 			"period": "last_24h",
 		},
@@ -950,9 +948,10 @@ func parseIntParam(c *gin.Context, paramName string, defaultValue int) int {
 // validateRequiredParam 验证必需参数
 func validateRequiredParam(c *gin.Context, paramName, paramValue string) bool {
 	if paramValue == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": paramName + "不能为空",
+		c.JSON(http.StatusBadRequest, base.APIResponse{
+			Code:    http.StatusBadRequest,
+			Status:  "failed",
+			Message: paramName + "不能为空",
 		})
 		return false
 	}

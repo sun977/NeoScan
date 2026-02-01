@@ -15,6 +15,7 @@ import (
 	modelComm "neoagent/internal/model/client"
 	httpclient "neoagent/internal/pkg/client"
 	"neoagent/internal/pkg/logger"
+	"neoagent/internal/pkg/monitor"
 )
 
 // MasterService Master通信服务接口
@@ -37,12 +38,17 @@ type MasterService interface {
 
 // masterService Master通信服务实现
 type masterService struct {
-	client   httpclient.HTTPClient
-	agentID  string
-	token    string
-	status   string
-	mu       sync.RWMutex
-	stopChan chan struct{}
+	client    httpclient.HTTPClient
+	agentID   string
+	token     string
+	status    string
+	mu        sync.RWMutex
+	stopChan  chan struct{}
+	taskStats struct {
+		Running   int
+		Completed int
+		Failed    int
+	}
 }
 
 // NewMasterService 创建Master通信服务实例
@@ -103,26 +109,36 @@ func (s *masterService) sendHeartbeat(ctx context.Context) {
 	s.mu.RLock()
 	agentID := s.agentID
 	status := s.status
+	stats := s.taskStats
 	s.mu.RUnlock()
 
 	if agentID == "" {
 		return
 	}
 
-	// TODO: Collect real metrics
+	// Collect real system metrics
+	sysMetrics, err := monitor.GetSystemMetrics()
+	if err != nil {
+		logger.LogSystemEvent("MasterService", "Heartbeat", fmt.Sprintf("Failed to get system metrics: %v", err), logger.WarnLevel, nil)
+		// Continue with empty metrics or partial metrics
+		if sysMetrics == nil {
+			sysMetrics = &monitor.SystemMetrics{}
+		}
+	}
+
 	metrics := &modelComm.HeartbeatMetrics{
 		AgentID:           agentID,
-		CPUUsage:          0, // Placeholder
-		MemoryUsage:       0, // Placeholder
-		DiskUsage:         0, // Placeholder
-		NetworkBytesSent:  0, // Placeholder
-		NetworkBytesRecv:  0, // Placeholder
-		ActiveConnections: 0, // Placeholder
-		RunningTasks:      0, // Placeholder
-		CompletedTasks:    0, // Placeholder
-		FailedTasks:       0, // Placeholder
-		WorkStatus:        "idle",
-		ScanType:          "idle",
+		CPUUsage:          sysMetrics.CPUUsage,
+		MemoryUsage:       sysMetrics.MemoryUsage,
+		DiskUsage:         sysMetrics.DiskUsage,
+		NetworkBytesSent:  sysMetrics.NetworkBytesSent,
+		NetworkBytesRecv:  sysMetrics.NetworkBytesRecv,
+		ActiveConnections: 0, // Placeholder, difficult to get accurate count cheaply without netstat
+		RunningTasks:      stats.Running,
+		CompletedTasks:    stats.Completed,
+		FailedTasks:       stats.Failed,
+		WorkStatus:        s.determineWorkStatus(stats.Running),
+		ScanType:          "idle", // TODO: Get from TaskEngine if possible
 		PluginStatus:      make(modelComm.PluginStatus),
 		Timestamp:         time.Now(),
 	}
@@ -199,9 +215,24 @@ func (s *masterService) fetchTasks(ctx context.Context) ([]modelComm.Task, error
 
 // ReportTask 上报任务状态/结果
 func (s *masterService) ReportTask(ctx context.Context, taskID string, status string, result string, errorMsg string) error {
-	s.mu.RLock()
+	s.mu.Lock() // Use Lock for updating stats
 	agentID := s.agentID
-	s.mu.RUnlock()
+
+	// Update stats
+	if status == "running" {
+		s.taskStats.Running++
+	} else if status == "completed" || status == "success" {
+		if s.taskStats.Running > 0 {
+			s.taskStats.Running--
+		}
+		s.taskStats.Completed++
+	} else if status == "failed" {
+		if s.taskStats.Running > 0 {
+			s.taskStats.Running--
+		}
+		s.taskStats.Failed++
+	}
+	s.mu.Unlock()
 
 	if agentID == "" {
 		return fmt.Errorf("agent not registered")
@@ -223,6 +254,14 @@ func (s *masterService) ReportTask(ctx context.Context, taskID string, status st
 	}
 
 	return nil
+}
+
+// determineWorkStatus 根据运行任务数确定工作状态
+func (s *masterService) determineWorkStatus(runningTasks int) string {
+	if runningTasks > 0 {
+		return "working"
+	}
+	return "idle"
 }
 
 // GetAgentID 获取Agent ID

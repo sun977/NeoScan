@@ -45,7 +45,7 @@ Master 在配置文件中设置全局注册密钥。
 security:
   # Agent 通信与数据安全配置
   agent:
-    token_secret: "neo_scan_secret_key_2026"      # 全局注册暗号，用于验证 Agent 身份
+    token_secret: "your-agent-token-secret-here"      # 全局注册暗号，用于验证 Agent 身份
 ```
 
 **Step 1: Agent 发起注册**
@@ -55,7 +55,7 @@ Agent 启动时无 Token，使用暗号请求注册。
 **Request**:
 ```json
 {
-  "token_secret": "neo_scan_secret_key_2026",
+  "token_secret": "your-agent-token-secret-here",
   "hostname": "scanner-01",
   "version": "1.0.0"
 }

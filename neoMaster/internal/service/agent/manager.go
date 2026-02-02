@@ -10,6 +10,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"neomaster/internal/config"
 	agentModel "neomaster/internal/model/agent"
 	tagSystemModel "neomaster/internal/model/tag_system"
 	"neomaster/internal/pkg/logger"
@@ -48,18 +49,23 @@ type AgentManagerService interface {
 	// System Bootstrap & Sync
 	BootstrapSystemTags(ctx context.Context) error // 初始化Agent管理相关的系统预设标签骨架
 	SyncScanTypesToTags(ctx context.Context) error // 同步ScanType到系统标签
+
+	// Auth (Agent 认证服务)
+	GetAgentByToken(token string) (*agentModel.Agent, error) // 根据Token获取Agent
 }
 
 // agentManagerService Agent基础管理服务实现
 type agentManagerService struct {
+	cfg        *config.Config
 	agentRepo  agentRepository.AgentRepository // Agent数据访问层
 	tagService tag_system.TagService           // 标签系统服务
 }
 
 // NewAgentManagerService 创建Agent基础管理服务实例
 // 遵循依赖注入原则，保持代码的可测试性
-func NewAgentManagerService(agentRepo agentRepository.AgentRepository, tagService tag_system.TagService) AgentManagerService {
+func NewAgentManagerService(cfg *config.Config, agentRepo agentRepository.AgentRepository, tagService tag_system.TagService) AgentManagerService {
 	return &agentManagerService{
+		cfg:        cfg,
 		agentRepo:  agentRepo,
 		tagService: tagService,
 	}
@@ -115,6 +121,11 @@ func convertToAgentInfo(agent *agentModel.Agent) *agentModel.AgentInfo {
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
 	}
+}
+
+// GetAgentByToken 根据Token获取Agent
+func (s *agentManagerService) GetAgentByToken(token string) (*agentModel.Agent, error) {
+	return s.agentRepo.GetByToken(token)
 }
 
 // ========== Agent 基础管理服务 ==========
@@ -193,6 +204,22 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 			"hostname":  req.Hostname,
 		})
 		return nil, err
+	}
+
+	// 验证 TokenSecret (Linus: 安全检查前置，Fail Fast)
+	// 如果配置文件中设置了 TokenSecret，则请求中的 TokenSecret 必须匹配
+	if s.cfg.Security.Agent.TokenSecret != "" {
+		if req.TokenSecret != s.cfg.Security.Agent.TokenSecret {
+			err := fmt.Errorf("invalid token secret")
+			logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+				"operation":    "register_agent",
+				"option":       "check_token_secret",
+				"func_name":    "service.agent.manager.RegisterAgent",
+				"hostname":     req.Hostname,
+				"token_secret": "******", // 不记录敏感信息
+			})
+			return nil, err
+		}
 	}
 
 	// 生成Agent唯一ID

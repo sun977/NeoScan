@@ -42,7 +42,7 @@ type Executor interface {
 	GetName() string           // 获取执行器名称
 	GetVersion() string        // 获取执行器版本
 	GetDescription() string    // 获取执行器描述
-	GetCapabilities() []string // 获取执行器能力列表
+	GetTaskSupport() []string  // 获取执行器支持的任务类型 (原Capabilities)
 
 	// ==================== 生命周期管理 ====================
 	Initialize(config *ExecutorConfig) error // 初始化执行器

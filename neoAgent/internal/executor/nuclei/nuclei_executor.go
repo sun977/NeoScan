@@ -139,8 +139,8 @@ func (e *NucleiExecutor) GetDescription() string {
 	return "Nuclei漏洞扫描工具执行器，支持基于模板的快速漏洞检测"
 }
 
-// GetCapabilities 获取执行器能力列表
-func (e *NucleiExecutor) GetCapabilities() []string {
+// GetTaskSupport 获取执行器能力列表 (原GetCapabilities)
+func (e *NucleiExecutor) GetTaskSupport() []string {
 	return []string{
 		"vulnerability_scan",    // 漏洞扫描
 		"template_based_scan",   // 基于模板的扫描

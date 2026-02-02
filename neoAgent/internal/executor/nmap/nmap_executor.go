@@ -120,8 +120,8 @@ func (e *NmapExecutor) GetDescription() string {
 	return "Nmap网络扫描工具执行器，支持端口扫描、服务识别、OS检测等功能"
 }
 
-// GetCapabilities 获取执行器能力列表
-func (e *NmapExecutor) GetCapabilities() []string {
+// GetTaskSupport 获取执行器能力列表 (原GetCapabilities)
+func (e *NmapExecutor) GetTaskSupport() []string {
 	return []string{
 		"port_scan",          // 端口扫描
 		"service_detection",  // 服务检测

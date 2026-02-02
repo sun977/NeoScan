@@ -29,6 +29,18 @@ func (r *ProjectRepository) CreateProject(ctx context.Context, project *orcmodel
 	if project == nil {
 		return errors.New("project is nil")
 	}
+
+	// Ensure JSON fields are valid JSON objects if empty
+	if project.NotifyConfig == "" {
+		project.NotifyConfig = "{}"
+	}
+	if project.ExportConfig == "" {
+		project.ExportConfig = "{}"
+	}
+	if project.ExtendedData == "" {
+		project.ExtendedData = "{}"
+	}
+
 	err := r.db.WithContext(ctx).Create(project).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "create_project", "REPO", map[string]interface{}{

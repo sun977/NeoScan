@@ -28,6 +28,7 @@ type AgentRepository interface {
 	// Agent 基础数据操作
 	Create(agentData *agentModel.Agent) error
 	GetByID(agentID string) (*agentModel.Agent, error)
+	GetByToken(token string) (*agentModel.Agent, error) // 根据Token获取Agent
 	GetByHostname(hostname string) (*agentModel.Agent, error)
 	GetByHostnameAndPort(hostname string, port int) (*agentModel.Agent, error) // 根据主机名和端口获取Agent
 	Update(agentData *agentModel.Agent) error

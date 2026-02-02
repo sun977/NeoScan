@@ -1,110 +1,71 @@
-# NeoAgent 注册与认证机制设计方案 (Refined v2.0)
+# NeoAgent 注册与认证机制设计方案 (Simplified v2.2)
 
 ## 1. 核心设计原则
 
-为彻底分离**用户访问控制** (User RBAC) 与 **Agent 接入控制** (Machine-to-Machine Auth)，本方案采用双层令牌机制。
+遵循 **KISS (Keep It Simple, Stupid)** 原则，移除冗余的中间状态。
 
-- **User Auth**: 使用 JWT (Access/Refresh Token)，面向人类管理员，用于操作 Master API。
-- **Agent Auth**: 
-  1.  **Join Token (准入令牌)**: 短期有效，由管理员生成，用于 Agent 首次注册（握手）。
-  2.  **Agent Secret (通信凭证)**: 长期有效，由 Master 颁发，用于 Agent 后续通信。
+- **单一凭证**: `agents` 表中的 `token` 字段即为 Agent 的唯一身份凭证 (API Key)。
+- **两种接入方式**:
+  1.  **预分发 (Manual)**: 管理员预先生成 Token，Agent 直接使用。
+  2.  **自动注册 (Auto)**: 基于全局共享密钥 (Global Secret) 换取专属 Token。
 
 ---
 
-## 2. 数据模型设计 (Database Schema)
+## 2. 数据模型 (Database Schema)
 
-### 2.1 Join Token 表 (`sys_join_tokens`)
-用于管理允许 Agent 接入的凭证。
+**无需新增表**。复用现有 `agents` 表，确保以下字段定义清晰：
 
 ```sql
-CREATE TABLE `sys_join_tokens` (
+CREATE TABLE `agents` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `token` varchar(64) NOT NULL COMMENT '准入令牌(jt_开头)',
-  `name` varchar(100) DEFAULT NULL COMMENT '令牌备注/名称',
-  `usage_limit` int DEFAULT 1 COMMENT '最大使用次数(0为不限)',
-  `usage_count` int DEFAULT 0 COMMENT '已使用次数',
-  `expires_at` datetime NOT NULL COMMENT '过期时间',
-  `created_by` bigint unsigned DEFAULT 0 COMMENT '创建人ID',
-  `initial_tags` json DEFAULT NULL COMMENT '自动绑定的标签ID列表',
-  `is_active` tinyint(1) DEFAULT 1 COMMENT '是否启用',
+  `agent_id` varchar(100) NOT NULL COMMENT 'Agent逻辑ID',
+  `token` varchar(128) NOT NULL COMMENT '核心认证凭据(API Key)',
+  `hostname` varchar(255) DEFAULT NULL,
+  `ip_address` varchar(50) DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'offline',
+  `fingerprint` varchar(128) DEFAULT NULL COMMENT '硬件指纹(可选)',
   `created_at` datetime(3) DEFAULT NULL,
   `updated_at` datetime(3) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_token` (`token`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Agent准入令牌表';
-```
-
-### 2.2 Agent 表更新 (`agents`)
-现有 `agents` 表需明确字段用途，确保 `token` 字段存储的是长期通信凭证。
-
-```sql
--- 确认 agents 表包含以下关键认证字段
-ALTER TABLE `agents` 
-  MODIFY COLUMN `token` varchar(128) NOT NULL COMMENT 'Agent通信密钥(API Key)',
-  ADD COLUMN `join_token_id` bigint unsigned DEFAULT 0 COMMENT '关联的准入令牌ID(审计用)',
-  ADD COLUMN `fingerprint` varchar(128) DEFAULT NULL COMMENT 'Agent硬件指纹(防伪造)';
+  UNIQUE KEY `idx_agent_id` (`agent_id`),
+  UNIQUE KEY `idx_token` (`token`) -- 必须确保Token唯一，用于快速鉴权
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
 ---
 
-## 3. 详细交互流程
+## 3. 交互流程
 
-### 3.1 阶段一：管理员生成准入令牌 (Admin)
+### 3.1 场景 A：自动注册 (推荐用于批量部署)
 
-**API**: `POST /api/v1/orchestrator/agent-join-tokens`
-**Auth**: User JWT (Admin Only)
+Master 在配置文件中设置全局注册密钥。
 
+**Master Config (`config.yaml`)**:
+```yaml
+security:
+  # Agent 通信与数据安全配置
+  agent:
+    token_secret: "neo_scan_secret_key_2026"      # 全局注册暗号，用于验证 Agent 身份
+```
+
+**Step 1: Agent 发起注册**
+Agent 启动时无 Token，使用暗号请求注册。
+
+**API**: `POST /api/v1/agent/register`
 **Request**:
 ```json
 {
-  "name": "Production Cluster Deployment",
-  "usage_limit": 100,
-  "ttl_seconds": 86400,
-  "tags": ["prod", "linux"]
-}
-```
-
-**Response**:
-```json
-{
-  "code": 200,
-  "data": {
-    "token": "jt_7c4a8d09ca3762af", 
-    "expires_at": "2026-02-03T10:00:00Z"
-  }
-}
-```
-
-### 3.2 阶段二：Agent 首次注册 (Handshake)
-
-Agent 启动时，若无本地凭证，使用启动参数中的 Token 发起注册。
-
-**Command**: 
-```bash
-./neoAgent join --master 10.0.0.1:8080 --token jt_7c4a8d09ca3762af
-```
-
-**API**: `POST /api/v1/agent/register` (注意：此接口**不需要** Agent认证，但需要 Join Token)
-
-**Request**:
-```json
-{
-  "join_token": "jt_7c4a8d09ca3762af",
+  "token_secret": "neo_scan_secret_key_2026",
   "hostname": "scanner-01",
-  "version": "1.0.0",
-  "fingerprint": "hw-id-cpu-serial-xyz", 
-  "ip_address": "192.168.1.50"
+  "version": "1.0.0"
 }
 ```
 
-**Master 处理逻辑**:
-1. 校验 `join_token` 是否存在、未过期、`usage_count < usage_limit`。
-2. 若校验通过：
-   - 增加 `sys_join_tokens.usage_count`。
-   - 创建/更新 `agents` 记录。
-   - 生成长期 **API Key** (e.g., `ak_5f3b...`)。
-   - 自动绑定 `initial_tags`。
-3. 返回 API Key。
+**Step 2: Master 处理**
+1. 比对 `token_secret` 是否与配置文件中的 `security.agent.token_secret` 一致。
+2. 若一致，生成唯一 `agent_id` 和随机 `token` (e.g., `nk_7f8a9b...`)。
+3. 写入 `agents` 表。
+4. 返回 `token`。
 
 **Response**:
 ```json
@@ -112,61 +73,68 @@ Agent 启动时，若无本地凭证，使用启动参数中的 Token 发起注�
   "code": 200,
   "data": {
     "agent_id": "agent_scanner_01_uuid",
-    "api_key": "ak_5f3b2c9d...",  // <--- 长期凭证，Agent需落盘保存
-    "master_ca": "-----BEGIN CERTIFICATE..."
+    "token": "nk_7f8a9b..." // <--- Agent 需落盘保存到 agent.yaml
   }
 }
 ```
 
-### 3.3 阶段三：Agent 日常通信 (Runtime)
+### 3.2 场景 B：手动/预配置 (适用于高安全环境)
 
-Agent 获取 API Key 后，后续所有请求（心跳、任务获取）均使用该 Key。
-
-**Auth Header**: 
-`Authorization: Bearer ak_5f3b2c9d...`
-
-**Middleware Logic (`GinAgentAuthMiddleware`)**:
-1. 拦截 `/api/v1/agent/**` (注册接口除外)。
-2. 提取 Bearer Token。
-3. 查询 `agents` 表匹配 `token` 字段。
-4. 校验 Agent 状态 (Active)。
-5. 注入 `agent_id` 到上下文。
+1. **管理员**在数据库或管理后台手动 `INSERT INTO agents`，并生成一个 Token (e.g., `manual_token_123`)。
+2. **管理员**将该 Token 写入 Agent 的配置文件 `agent.yaml`。
+3. **Agent** 启动，直接使用该 Token 通信，跳过注册步骤。
 
 ---
 
-## 4. 接口规范修订
+## 4. 运行时鉴权 (Runtime Auth)
 
-### 4.1 注册接口
-**Path**: `/api/v1/agent/register`
-**Method**: `POST`
-**Auth**: None (Relies on Join Token in body)
+所有非注册接口（心跳、任务领取等）均采用统一鉴权逻辑。
 
-### 4.2 心跳接口
-**Path**: `/api/v1/agent/heartbeat`
-**Method**: `POST`
-**Auth**: Bearer API Key
+**Header**: `Authorization: Bearer <token>`
 
-**Request**:
-```json
-{
-  "status": "idle",
-  "load": 15
+**Middleware Logic (`GinAgentAuthMiddleware`)**:
+```go
+func GinAgentAuthMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // 1. 提取 Token
+        token := extractBearerToken(c)
+        if token == "" {
+            c.AbortWithStatus(401)
+            return
+        }
+
+        // 2. 数据库/缓存查验 (建议对 Token 做 LRU 缓存)
+        agent, err := agentRepo.GetAgentByToken(token)
+        if err != nil || agent == nil {
+             c.AbortWithStatusJSON(401, gin.H{"error": "Invalid Token"})
+             return
+        }
+
+        // 3. 注入身份
+        c.Set("agent_id", agent.AgentID)
+        c.Next()
+    }
 }
 ```
 
 ---
 
-## 5. 错误码定义
+## 5. 接口规范
 
-| HTTP Code | Error Code | 说明 | 应对 |
-| :--- | :--- | :--- | :--- |
-| 401 | `AUTH_JOIN_TOKEN_INVALID` | 准入令牌不存在或已失效 | 提示用户获取新 Token |
-| 401 | `AUTH_JOIN_TOKEN_LIMIT` | 准入令牌使用次数耗尽 | 提示用户获取新 Token |
-| 403 | `AUTH_AGENT_FORBIDDEN` | API Key 无效或 Agent 被禁用 | Agent 应停止工作并报警 |
-| 409 | `AGENT_CONFLICT` | 指纹冲突或重复注册 | 视策略覆盖或报错 |
+### 5.1 注册接口
+**Path**: `/api/v1/agent/register`
+**Method**: `POST`
+**Auth**: None (校验 Body 中的 `token_secret`)
+
+### 5.2 心跳接口
+**Path**: `/api/v1/agent/heartbeat`
+**Method**: `POST`
+**Auth**: Bearer Token
 
 ---
 
-## 6. 安全加固建议 (Future)
-1. **API Key 轮换**: 提供 `/rotate-key` 接口，允许 Agent 定期更换密钥。
-2. **mTLS**: 在 API Key 基础上，强制要求 Agent 使用 Master 签发的客户端证书进行 TLS 双向认证（最高安全级别）。
+## 6. 安全性说明
+
+- **Secret 保护**: 全局 `token_secret` 仅用于新节点接入，泄露后可修改 Master 配置并重启（不影响已注册 Agent）。
+- **Token 隔离**: 每个 Agent 拥有独立 Token，单点泄露不影响全局，可随时重置特定 Agent 的 Token。
+- **通信加密**: 必须强制使用 HTTPS，防止 Token 在传输层被嗅探。

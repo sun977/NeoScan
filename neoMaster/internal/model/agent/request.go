@@ -23,6 +23,7 @@ type RegisterAgentRequest struct {
 	PID         int      `json:"pid" validate:"min=1"`                     // 进程ID，最少1
 	AgentID     string   `json:"agent_id"`                                 // Agent ID，可选 (用于更新模式/重连)
 	Token       string   `json:"token"`                                    // 认证Token，可选 (用于更新模式/重连)
+	TokenSecret string   `json:"token_secret"`                             // 全局注册密钥，可选 (仅用于自动注册)
 	TaskSupport []string `json:"task_support"`                             // Agent支持的任务类型列表 (新，对应ScanType)
 	Feature     []string `json:"feature"`                                  // Agent具备的特性功能列表 (新，备用)
 	Remark      string   `json:"remark"`                                   // 备注信息

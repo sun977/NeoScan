@@ -38,7 +38,7 @@ func BuildAgentModule(db *gorm.DB, cfg *config.Config, tagService tag_system.Tag
 	// TaskRepository 现由 Orchestrator 模块管理，Agent 模块仅做 Agent 本身管理
 
 	// 2) 初始化服务（遵循 Handler → Service → Repository 层级调用约束）
-	managerService := agentService.NewAgentManagerService(agentRepository, tagService)
+	managerService := agentService.NewAgentManagerService(cfg, agentRepository, tagService)
 	updateService := agentService.NewAgentUpdateService(cfg)
 	monitorService := agentService.NewAgentMonitorService(agentRepository, tagService, updateService) // 注入 updateService
 	configService := agentService.NewAgentConfigService(agentRepository)
@@ -68,11 +68,12 @@ func BuildAgentModule(db *gorm.DB, cfg *config.Config, tagService tag_system.Tag
 
 	// 4) 聚合输出模块，便于路由层与其他模块按需使用
 	module := &AgentModule{
-		AgentHandler:   agentHandler,
-		ManagerService: managerService,
-		MonitorService: monitorService,
-		ConfigService:  configService,
-		UpdateService:  updateService,
+		AgentHandler:    agentHandler,
+		ManagerService:  managerService,
+		MonitorService:  monitorService,
+		ConfigService:   configService,
+		UpdateService:   updateService,
+		AgentRepository: agentRepository,
 	}
 
 	logger.WithFields(map[string]interface{}{

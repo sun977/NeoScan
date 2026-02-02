@@ -14,6 +14,7 @@ import (
 	orchestratorHandler "neomaster/internal/handler/orchestrator"
 	systemHandler "neomaster/internal/handler/system"
 	tagHandler "neomaster/internal/handler/tag_system"
+	agentRepo "neomaster/internal/repo/mysql/agent"
 	agentService "neomaster/internal/service/agent"
 	assetService "neomaster/internal/service/asset"
 	"neomaster/internal/service/asset/enrichment" // 引入资产富化 enrichment
@@ -97,6 +98,10 @@ type AgentModule struct {
 	MonitorService agentService.AgentMonitorService
 	ConfigService  agentService.AgentConfigService
 	UpdateService  agentService.AgentUpdateService
+
+	// Repository (供 Middleware 使用)
+	AgentRepository agentRepo.AgentRepository
+
 	// TaskService 移至 OrchestratorModule
 }
 

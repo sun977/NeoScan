@@ -19,8 +19,7 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentPublicGroup := v1.Group("/agent")
 	{
 		// ==================== Agent公开接口（不需要认证） ====================
-		agentPublicGroup.POST("/register", r.agentHandler.RegisterAgent)     // 注册新Agent/更新Agent信息 - 公开接口
-		agentPublicGroup.POST("/heartbeat", r.agentHandler.ProcessHeartbeat) // 处理Agent心跳 - 公开接口
+		agentPublicGroup.POST("/register", r.agentHandler.RegisterAgent) // 注册新Agent/更新Agent信息 - 公开接口
 		// Agent 从心跳接口可以获得规则版本信息(包含HASH),Agent需要把HASH和本地HASH进行对比，如果HASH不一致则调用Master接口下载新的指纹库快照
 	}
 
@@ -31,6 +30,8 @@ func (r *Router) setupAgentRoutes(v1 *gin.RouterGroup) {
 	agentPullGroup := v1.Group("/agent")
 	agentPullGroup.Use(r.middlewareManager.GinAgentAuthMiddleware())
 	{
+		agentPullGroup.POST("/heartbeat", r.agentHandler.ProcessHeartbeat) // 处理Agent心跳 - 需Agent认证
+
 		// 指纹规则下载接口
 		fingerprintGroup := agentPullGroup.Group("/rules")
 		{

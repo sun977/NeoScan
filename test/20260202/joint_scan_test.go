@@ -27,6 +27,9 @@ const (
 )
 
 func TestJointScan(t *testing.T) {
+	// 0. Clean DB
+	cleanDB(t)
+
 	// 1. Setup Environment
 	rootDir := setupEnv(t)
 	// defer cleanup(rootDir)
@@ -185,7 +188,13 @@ func verifyDB(t *testing.T, projectID uint64) {
 	for agentRows.Next() {
 		var aid, hostname, status, token string
 		agentRows.Scan(&aid, &hostname, &status, &token)
-		t.Logf("DB Verification - Agent: ID=%s, Hostname=%s, Status=%s, TokenPrefix=%s...", aid, hostname, status, token[:10])
+		tokenDisp := "empty"
+		if len(token) > 10 {
+			tokenDisp = token[:10]
+		} else {
+			tokenDisp = token
+		}
+		t.Logf("DB Verification - Agent: ID=%s, Hostname=%s, Status=%s, TokenPrefix=%s...", aid, hostname, status, tokenDisp)
 		agentCount++
 	}
 	if agentCount == 0 {
@@ -277,6 +286,38 @@ func waitForPort(port int, timeout time.Duration) bool {
 	return false
 }
 
+func cleanDB(t *testing.T) {
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		t.Fatalf("Failed to connect to DB: %v", err)
+	}
+	defer db.Close()
+
+	tables := []string{
+		"agent_tasks",
+		"project_workflows",
+		"scan_stages",
+		"workflows",
+		"projects",
+		"agents",
+		"sys_entity_tags",
+	}
+
+	for _, table := range tables {
+		_, err := db.Exec(fmt.Sprintf("DELETE FROM %s", table)) // Use DELETE to avoid foreign key constraints issues with TRUNCATE if any
+		if err != nil {
+			t.Logf("Failed to clean table %s: %v", table, err)
+		}
+	}
+
+	// Special handling for users table to preserve system accounts
+	_, err = db.Exec("DELETE FROM users WHERE id > 10")
+	if err != nil {
+		t.Logf("Failed to clean table users: %v", err)
+	}
+	t.Log("Database cleaned.")
+}
+
 func executeScanWorkflow(t *testing.T) {
 	// A. Create Project
 	projectID := createProject(t)
@@ -306,6 +347,7 @@ func executeScanWorkflow(t *testing.T) {
 
 	// Verify (Optional: Check if task exists)
 	// checkTasks(t, projectID)
+	verifyDB(t, projectID)
 }
 
 // API Helpers
@@ -349,7 +391,7 @@ func createStage(t *testing.T, workflowID uint64) {
 	payload := map[string]interface{}{
 		"workflow_id": workflowID,
 		"stage_name":  "Nmap_Fast_Scan",
-		"tool_name":   "nmap",
+		"tool_name":   "fastPortScan", // Updated to match Agent capabilities
 		"tool_params": "-F",
 		"execution_policy": map[string]interface{}{
 			"priority": 1,

@@ -124,6 +124,7 @@ type MasterConfig struct {
 	ReconnectInterval     time.Duration `yaml:"reconnect_interval" mapstructure:"reconnect_interval"`         // 重连间隔
 	MaxReconnectAttempts  int           `yaml:"max_reconnect_attempts" mapstructure:"max_reconnect_attempts"` // 最大重连次数
 	SkipTLSVerify         bool          `yaml:"skip_tls_verify" mapstructure:"skip_tls_verify"`               // 跳过TLS验证
+	TokenSecret           string        `yaml:"token_secret" mapstructure:"token_secret"`                     // 全局注册密钥
 }
 
 // AgentConfig Agent配置

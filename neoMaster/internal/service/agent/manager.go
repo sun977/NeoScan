@@ -349,10 +349,6 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 	// 优先尝试作为 Name 查询，如果查不到再尝试作为 ID 查询 (兼容旧逻辑)
 	if len(req.TaskSupport) > 0 {
 		tagIDs, err := s.agentRepo.GetTagIDsByTaskSupportNames(req.TaskSupport)
-		if err != nil || len(tagIDs) == 0 {
-			// 尝试作为 ID 查询 (兼容性处理)
-			tagIDs, err = s.agentRepo.GetTagIDsByTaskSupportIDs(req.TaskSupport)
-		}
 
 		// 核心校验：如果提供了TaskSupport但无法找到任何对应的TagID，说明提供的TaskSupport无效
 		if len(tagIDs) == 0 {
@@ -917,11 +913,17 @@ func (s *agentManagerService) GetAgentTaskSupport(agentID string) ([]string, err
 	return taskSupports, nil
 }
 
-// IsValidTaskSupportId 判断任务支持ID是否有效
+// IsValidTaskSupportId 判断任务支持ID是否有效 (支持 Name 或 ID)
 func (s *agentManagerService) IsValidTaskSupportId(taskID string) bool {
 	if taskID == "" {
 		return false
 	}
+	// Agent 注册时上传的是 Name (例如 "ipAliveScan")
+	// 所以优先检查 Name 是否有效
+	if s.agentRepo.IsValidTaskSupportByName(taskID) {
+		return true
+	}
+	// 兼容旧逻辑，检查是否为 ID
 	return s.agentRepo.IsValidTaskSupportId(taskID)
 }
 

@@ -158,7 +158,7 @@ func (a *App) startMasterService(ctx context.Context) {
 		CPUCores:    hostInfo.CPUCores,
 		MemoryTotal: hostInfo.MemoryTotal,
 		DiskTotal:   hostInfo.DiskTotal,
-		TaskSupport: []string{"scan", "monitor"}, // 兼容 Master 要求 (原Capabilities)
+		TaskSupport: []string{"ipAliveScan", "fastPortScan", "fullPortScan", "serviceScan", "webScan"}, // 使用 Master 定义的有效 ScanType 这里应该先获取本机agent的能力类型
 		Tags:        a.config.Agent.Tags,
 		TokenSecret: a.config.Master.TokenSecret,
 	}

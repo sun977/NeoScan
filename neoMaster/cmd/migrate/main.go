@@ -497,9 +497,9 @@ func (s *DataSeeder) SeedAll() error {
 func (s *DataSeeder) seedSystemData() error {
 	// 1. 创建默认角色
 	roles := []system.Role{
-		{Name: "admin", DisplayName: "系统管理员", Description: "拥有系统所有权限的超级管理员", Status: 1},
-		{Name: "user", DisplayName: "普通用户", Description: "系统普通用户，拥有基础功能权限", Status: 1},
-		{Name: "guest", DisplayName: "访客用户", Description: "只读权限的访客用户", Status: 1},
+		{ID: 1, Name: "admin", DisplayName: "系统管理员", Description: "拥有系统所有权限的超级管理员", Status: 1},
+		{ID: 2, Name: "user", DisplayName: "普通用户", Description: "系统普通用户，拥有基础功能权限", Status: 1},
+		{ID: 3, Name: "guest", DisplayName: "访客用户", Description: "只读权限的访客用户", Status: 1},
 	}
 
 	for _, role := range roles {
@@ -533,6 +533,7 @@ func (s *DataSeeder) seedSystemData() error {
 
 	// 3. 创建默认管理员用户
 	adminUser := system.User{
+		ID:       1,
 		Username: "admin",
 		Email:    "admin@neoscan.com",
 		Password: "$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ", // 密码: 123456
@@ -545,6 +546,7 @@ func (s *DataSeeder) seedSystemData() error {
 	}
 
 	sysUser := system.User{
+		ID:       2,
 		Username: "sysuser",
 		Email:    "sysuser@neoscan.com",
 		Password: "$argon2id$v=19$m=65536,t=3,p=2$lMamQlbNnoIXZfszn4jWqw$zVTokU4nXju4CdOR1bH5ABOMbaEagr8mTXrhAh/p0kQ", // 密码: 123456

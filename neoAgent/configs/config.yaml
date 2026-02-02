@@ -66,6 +66,7 @@ master:
   heartbeat_interval: "30s"
   reconnect_interval: "5s"
   max_reconnect_attempts: 10
+  token_secret: "your-agent-token-secret-here"
   tls:
     enabled: false
     cert_file: ""

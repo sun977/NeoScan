@@ -21,7 +21,7 @@ type AgentInfo struct {
 	Port         int               `json:"port"`          // Agent端口
 	OS           string            `json:"os"`            // 操作系统
 	Arch         string            `json:"arch"`          // 系统架构
-	Capabilities []string          `json:"capabilities"`  // Agent能力列表
+	TaskSupport  []string          `json:"task_support"`  // Agent能力列表(原Capabilities)
 	Tags         map[string]string `json:"tags"`          // Agent标签
 	RegisterTime time.Time         `json:"register_time"` // 注册时间
 }
@@ -87,15 +87,16 @@ type AgentRegisterResponse struct {
 
 // AgentRegisterRequest Agent注册请求
 type AgentRegisterRequest struct {
-	Hostname     string   `json:"hostname"`
-	IPAddress    string   `json:"ip_address"`
-	Port         int      `json:"port"`
-	Version      string   `json:"version"`
-	OS           string   `json:"os"`
-	Arch         string   `json:"arch"`
-	CPUCores     int      `json:"cpu_cores"`
-	MemoryTotal  uint64   `json:"memory_total"`
-	DiskTotal    uint64   `json:"disk_total"`
-	Capabilities []string `json:"capabilities"`
-	Tags         []string `json:"tags"`
+	Hostname    string   `json:"hostname"`
+	IPAddress   string   `json:"ip_address"`
+	Port        int      `json:"port"`
+	Version     string   `json:"version"`
+	OS          string   `json:"os"`
+	Arch        string   `json:"arch"`
+	CPUCores    int      `json:"cpu_cores"`
+	MemoryTotal uint64   `json:"memory_total"`
+	DiskTotal   uint64   `json:"disk_total"`
+	TaskSupport []string `json:"task_support"` // Master 要求的字段 (原Capabilities)
+	Tags        []string `json:"tags"`
+	TokenSecret string   `json:"token_secret"` // 全局注册密钥
 }

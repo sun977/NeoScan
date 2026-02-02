@@ -149,17 +149,18 @@ func (a *App) startMasterService(ctx context.Context) {
 
 	// 2. 构建注册请求
 	req := &modelComm.AgentRegisterRequest{
-		Hostname:     hostInfo.Hostname,
-		IPAddress:    a.config.Server.Host, // 优先使用配置的Host，如果为空可能需要获取真实IP
-		Port:         a.config.Server.Port,
-		Version:      a.config.Agent.Version,
-		OS:           hostInfo.OS,
-		Arch:         hostInfo.Arch,
-		CPUCores:     hostInfo.CPUCores,
-		MemoryTotal:  hostInfo.MemoryTotal,
-		DiskTotal:    hostInfo.DiskTotal,
-		Capabilities: []string{"scan", "monitor"}, // TODO: 动态获取能力
-		Tags:         a.config.Agent.Tags,
+		Hostname:    hostInfo.Hostname,
+		IPAddress:   a.config.Server.Host, // 优先使用配置的Host，如果为空可能需要获取真实IP
+		Port:        a.config.Server.Port,
+		Version:     a.config.Agent.Version,
+		OS:          hostInfo.OS,
+		Arch:        hostInfo.Arch,
+		CPUCores:    hostInfo.CPUCores,
+		MemoryTotal: hostInfo.MemoryTotal,
+		DiskTotal:   hostInfo.DiskTotal,
+		TaskSupport: []string{"scan", "monitor"}, // 兼容 Master 要求 (原Capabilities)
+		Tags:        a.config.Agent.Tags,
+		TokenSecret: a.config.Master.TokenSecret,
 	}
 
 	// 3. 注册重试循环

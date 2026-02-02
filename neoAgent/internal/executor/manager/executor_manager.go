@@ -127,15 +127,15 @@ type ManagerMetrics struct {
 
 // ExecutorInfo 执行器信息
 type ExecutorInfo struct {
-	Type         base.ExecutorType     `json:"type"`
-	Name         string                `json:"name"`
-	Version      string                `json:"version"`
-	Description  string                `json:"description"`
-	Capabilities []string              `json:"capabilities"`
-	Status       *base.ExecutorStatus  `json:"status"`
-	Health       *base.HealthStatus    `json:"health"`
-	Metrics      *base.ExecutorMetrics `json:"metrics"`
-	Config       *base.ExecutorConfig  `json:"config"`
+	Type        base.ExecutorType     `json:"type"`
+	Name        string                `json:"name"`
+	Version     string                `json:"version"`
+	Description string                `json:"description"`
+	TaskSupport []string              `json:"task_support"`
+	Status      *base.ExecutorStatus  `json:"status"`
+	Health      *base.HealthStatus    `json:"health"`
+	Metrics     *base.ExecutorMetrics `json:"metrics"`
+	Config      *base.ExecutorConfig  `json:"config"`
 }
 
 // NewExecutorManager 创建执行器管理器
@@ -357,15 +357,15 @@ func (m *ExecutorManager) GetExecutorInfo(executorType base.ExecutorType) (*Exec
 	}
 
 	info := &ExecutorInfo{
-		Type:         executor.GetType(),
-		Name:         executor.GetName(),
-		Version:      executor.GetVersion(),
-		Description:  executor.GetDescription(),
-		Capabilities: executor.GetCapabilities(),
-		Status:       executor.GetStatus(),
-		Health:       executor.HealthCheck(),
-		Metrics:      executor.GetMetrics(),
-		Config:       executor.GetConfig(),
+		Type:        executor.GetType(),
+		Name:        executor.GetName(),
+		Version:     executor.GetVersion(),
+		Description: executor.GetDescription(),
+		TaskSupport: executor.GetTaskSupport(),
+		Status:      executor.GetStatus(),
+		Health:      executor.HealthCheck(),
+		Metrics:     executor.GetMetrics(),
+		Config:      executor.GetConfig(),
 	}
 
 	return info, nil
@@ -380,15 +380,15 @@ func (m *ExecutorManager) GetAllExecutorInfo() ([]*ExecutorInfo, error) {
 
 	for _, executor := range m.executors {
 		info := &ExecutorInfo{
-			Type:         executor.GetType(),
-			Name:         executor.GetName(),
-			Version:      executor.GetVersion(),
-			Description:  executor.GetDescription(),
-			Capabilities: executor.GetCapabilities(),
-			Status:       executor.GetStatus(),
-			Health:       executor.HealthCheck(),
-			Metrics:      executor.GetMetrics(),
-			Config:       executor.GetConfig(),
+			Type:        executor.GetType(),
+			Name:        executor.GetName(),
+			Version:     executor.GetVersion(),
+			Description: executor.GetDescription(),
+			TaskSupport: executor.GetTaskSupport(),
+			Status:      executor.GetStatus(),
+			Health:      executor.HealthCheck(),
+			Metrics:     executor.GetMetrics(),
+			Config:      executor.GetConfig(),
 		}
 		infos = append(infos, info)
 	}

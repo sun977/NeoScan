@@ -148,8 +148,8 @@ func (e *MasscanExecutor) GetDescription() string {
 	return "Masscan高速端口扫描工具执行器，支持大规模高速端口扫描"
 }
 
-// GetCapabilities 获取执行器能力列表
-func (e *MasscanExecutor) GetCapabilities() []string {
+// GetTaskSupport 获取执行器能力列表 (原GetCapabilities)
+func (e *MasscanExecutor) GetTaskSupport() []string {
 	return []string{
 		"high_speed_scan",      // 高速扫描
 		"large_scale_scan",     // 大规模扫描

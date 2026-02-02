@@ -67,8 +67,8 @@ func (e *SystemExecutor) GetDescription() string {
 	return "系统通用执行器，支持通用命令执行和系统操作"
 }
 
-// GetCapabilities 获取执行器能力列表
-func (e *SystemExecutor) GetCapabilities() []string {
+// GetTaskSupport 获取执行器能力列表 (原GetCapabilities)
+func (e *SystemExecutor) GetTaskSupport() []string {
 	return []string{
 		"command_execution",   // 命令执行
 		"file_operations",     // 文件操作

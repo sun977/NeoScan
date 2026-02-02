@@ -74,7 +74,7 @@ type NetworkIOMetrics struct {
 // AgentRegisterResponseData 注册响应数据
 type AgentRegisterResponseData struct {
 	AgentID   string `json:"agent_id"`
-	AuthToken string `json:"auth_token"`
+	AuthToken string `json:"token"`
 	Status    string `json:"status"`
 }
 

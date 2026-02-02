@@ -100,7 +100,8 @@ func (r *ProjectRepository) UpdateProject(ctx context.Context, project *orcmodel
 	if project == nil || project.ID == 0 {
 		return errors.New("invalid project or id")
 	}
-	err := r.db.WithContext(ctx).Save(project).Error
+	// Use Updates to avoid overwriting CreatedAt with zero value and to support partial updates
+	err := r.db.WithContext(ctx).Model(&orcmodel.Project{}).Where("id = ?", project.ID).Updates(project).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "update_project", "REPO", map[string]interface{}{
 			"operation": "update_project",

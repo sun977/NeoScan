@@ -28,6 +28,15 @@ func (r *WorkflowRepository) CreateWorkflow(ctx context.Context, workflow *orcmo
 	if workflow == nil {
 		return errors.New("workflow is nil")
 	}
+
+	// Ensure JSON fields are valid JSON objects if empty
+	if workflow.GlobalVars == "" {
+		workflow.GlobalVars = "{}"
+	}
+	if workflow.PolicyConfig == "" {
+		workflow.PolicyConfig = "{}"
+	}
+
 	err := r.db.WithContext(ctx).Create(workflow).Error
 	if err != nil {
 		logger.LogError(err, "", 0, "", "create_workflow", "REPO", map[string]interface{}{

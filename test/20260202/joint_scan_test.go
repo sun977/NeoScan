@@ -36,7 +36,7 @@ func TestJointScan(t *testing.T) {
 		log.Printf("Master port %d is already open, skipping start.", masterPort)
 	} else {
 		buildMaster(t, rootDir)
-		masterCmd := startProcess(t, filepath.Join(rootDir, "bin", "neoMaster.exe"), rootDir)
+		masterCmd := startProcess(t, filepath.Join(rootDir, "bin", "neoMaster.exe"), filepath.Join(rootDir, "neoMaster"), "server")
 		defer killProcess(masterCmd)
 		if !waitForPort(masterPort, 30*time.Second) {
 			t.Fatal("Master failed to start")
@@ -48,9 +48,12 @@ func TestJointScan(t *testing.T) {
 		log.Printf("Agent port %d is already open, skipping start.", agentPort)
 	} else {
 		buildAgent(t, rootDir)
-		// Ensure Agent config points to Master
-		agentCmd := startProcess(t, filepath.Join(rootDir, "bin", "neoAgent.exe"), rootDir, "server")
-		defer killProcess(agentCmd)
+		// Start Agent
+		// Change cwd to neoAgent directory so it can find configs/config.yaml
+		agentCmd := startProcess(t, filepath.Join(rootDir, "bin", "neoAgent.exe"), filepath.Join(rootDir, "neoAgent"), "server")
+		defer func() {
+			killProcess(agentCmd)
+		}()
 		if !waitForPort(agentPort, 30*time.Second) {
 			t.Fatal("Agent failed to start")
 		}
@@ -169,6 +172,25 @@ func verifyDB(t *testing.T, projectID uint64) {
 	if taskCount == 0 {
 		t.Errorf("No tasks found for project %d in DB!", projectID)
 	}
+
+	// Check Agents
+	// We expect at least one agent to be registered
+	agentRows, err := db.Query("SELECT agent_id, hostname, status, token FROM agents")
+	if err != nil {
+		t.Fatalf("Failed to query agents: %v", err)
+	}
+	defer agentRows.Close()
+
+	agentCount := 0
+	for agentRows.Next() {
+		var aid, hostname, status, token string
+		agentRows.Scan(&aid, &hostname, &status, &token)
+		t.Logf("DB Verification - Agent: ID=%s, Hostname=%s, Status=%s, TokenPrefix=%s...", aid, hostname, status, token[:10])
+		agentCount++
+	}
+	if agentCount == 0 {
+		t.Errorf("No agents found in DB! Agent registration failed.")
+	}
 }
 
 func setupEnv(t *testing.T) string {
@@ -208,15 +230,10 @@ func buildAgent(t *testing.T, rootDir string) {
 	}
 }
 
-func startProcess(t *testing.T, binPath, rootDir string, args ...string) *exec.Cmd {
+func startProcess(t *testing.T, binPath, cwd string, args ...string) *exec.Cmd {
 	log.Printf("Starting %s...", filepath.Base(binPath))
 	cmd := exec.Command(binPath, args...)
-	// Set CWD to the binary's respective project root to find config files
-	if filepath.Base(binPath) == "neoMaster.exe" {
-		cmd.Dir = filepath.Join(rootDir, "neoMaster")
-	} else {
-		cmd.Dir = filepath.Join(rootDir, "neoAgent")
-	}
+	cmd.Dir = cwd
 
 	// Redirect output for debugging
 	cmd.Stdout = os.Stdout
@@ -313,7 +330,7 @@ func createProject(t *testing.T) uint64 {
 
 func createWorkflow(t *testing.T) uint64 {
 	payload := map[string]interface{}{
-		"name":        "Joint_Test_Workflow",
+		"name":        "Joint_Test_Workflow_" + time.Now().Format("20060102150405"),
 		"description": "Workflow for joint test",
 	}
 	resp := sendRequest(t, "POST", "/orchestrator/workflows", payload)
@@ -333,9 +350,7 @@ func createStage(t *testing.T, workflowID uint64) {
 		"workflow_id": workflowID,
 		"stage_name":  "Nmap_Fast_Scan",
 		"tool_name":   "nmap",
-		"tool_params": map[string]interface{}{
-			"args": "-F", // Fast scan
-		},
+		"tool_params": "-F",
 		"execution_policy": map[string]interface{}{
 			"priority": 1,
 		},

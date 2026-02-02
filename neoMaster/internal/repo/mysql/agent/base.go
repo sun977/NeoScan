@@ -118,6 +118,32 @@ func (r *agentRepository) GetByID(agentID string) (*agentModel.Agent, error) {
 	return &agent, nil
 }
 
+// GetByToken 根据Token获取Agent [读取数据库记录]
+// 参数: token - Agent的认证Token
+// 返回: *agentModel.Agent - Agent数据, error - 错误信息
+func (r *agentRepository) GetByToken(token string) (*agentModel.Agent, error) {
+	var agent agentModel.Agent
+	err := r.db.Where("token = ?", token).First(&agent).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Token无效或过期
+			return nil, nil
+		}
+		logger.LogError(
+			err,
+			"", 0, "", "repo.mysql.agent", "gorm",
+			map[string]interface{}{
+				"operation": "get_agent_by_token",
+				"option":    "repo.agent.GetByToken",
+				"func_name": "repo.mysql.agent.GetByToken",
+				"token":     token,
+			},
+		)
+		return nil, err
+	}
+	return &agent, nil
+}
+
 // GetByHostnameAndPort 根据主机名和端口获取Agent
 // 参数: hostname - 主机名, port - 端口号
 // 返回: *agentModel.Agent - Agent数据, error - 错误信息

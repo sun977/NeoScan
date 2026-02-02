@@ -105,8 +105,16 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	// 通过 setup.BuildSystemRBACModule 初始化系统RBAC模块（角色与权限管理）
 	rbacModule := setup.BuildSystemRBACModule(db)
 
-	// 初始化中间件管理器（传入jwtService用于密码版本验证）
-	middlewareManager := middleware.NewMiddlewareManager(authModule.SessionService, authModule.RBACService, authModule.JWTService, securityConfig)
+	// 通过 setup.BuildTagSystemModule 初始化标签系统模块
+	tagModule := setup.BuildTagSystemModule(db)
+
+	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
+	// TaskDispatcher 现已完全由 Orchestrator 管理，AgentModule 不再需要注入
+	agentModule := setup.BuildAgentModule(db, config, tagModule.TagService)
+
+	// 初始化中间件管理器（传入jwtService用于密码版本验证，传入agentManagerService用于Agent鉴权）
+	// Linus: 修正中间件依赖，注入 Service 而非 Repo
+	middlewareManager := middleware.NewMiddlewareManager(authModule.SessionService, authModule.RBACService, authModule.JWTService, securityConfig, agentModule.ManagerService)
 
 	// 初始化处理器(控制器是服务集合,先初始化服务,然后服务装填成控制器)
 	loginHandler := authModule.LoginHandler
@@ -118,19 +126,12 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, config *config.Config) *R
 	permissionHandler := rbacModule.PermissionHandler
 	sessionHandler := systemHandler.NewSessionHandler(authModule.SessionService)
 
-	// 通过 setup.BuildTagSystemModule 初始化标签系统模块
-	tagModule := setup.BuildTagSystemModule(db)
-
 	// 通过 setup.BuildOrchestratorModule 初始化扫描编排器模块
 	orchestratorModule := setup.BuildOrchestratorModule(db, config, tagModule.TagService)
 
 	// 通过 setup.BuildAssetModule 初始化资产管理模块
 	// 注意：BuildAssetModule 依赖 OrchestratorModule.ETLProcessor，所以必须在 OrchestratorModule 之后初始化
 	assetModule := setup.BuildAssetModule(db, config, tagModule.TagService, orchestratorModule.ETLProcessor)
-
-	// 通过 setup.BuildAgentModule 初始化 Agent 管理模块（Manager/Monitor/Config/Task 服务聚合）
-	// TaskDispatcher 现已完全由 Orchestrator 管理，AgentModule 不再需要注入
-	agentModule := setup.BuildAgentModule(db, config, tagModule.TagService)
 
 	// 从 OrchestratorModule 中获取聚合后的处理器
 	projectHandler := orchestratorModule.ProjectHandler

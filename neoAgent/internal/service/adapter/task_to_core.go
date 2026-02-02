@@ -46,22 +46,22 @@ func (t *TaskTranslator) ToCoreTask(ct *clientModel.Task) (*model.Task, error) {
 	// 4. 根据任务类型精细化配置
 	// 假设 Master 传递的 TaskType 字符串与这里的 case 匹配
 	switch ct.TaskType {
-	case "ip_alive_scan":
+	case "ip_alive_scan", "ipAliveScan":
 		coreTask.Type = model.TaskTypeIpAliveScan
 		coreTask.Params["ping"] = true
 		coreTask.Params["port"] = ""
 
-	case "fast_port_scan":
+	case "fast_port_scan", "fastPortScan":
 		coreTask.Type = model.TaskTypePortScan
 		coreTask.Params["port"] = "top100"
 		coreTask.Params["service_detect"] = false
 
-	case "full_port_scan":
+	case "full_port_scan", "fullPortScan":
 		coreTask.Type = model.TaskTypePortScan
 		coreTask.PortRange = "1-65535"
 		coreTask.Params["service_detect"] = false
 
-	case "service_scan":
+	case "service_scan", "serviceScan":
 		coreTask.Type = model.TaskTypeServiceScan
 		if p, ok := meta["port"]; ok {
 			coreTask.PortRange = p.(string)
@@ -69,33 +69,33 @@ func (t *TaskTranslator) ToCoreTask(ct *clientModel.Task) (*model.Task, error) {
 			coreTask.PortRange = "1-65535"
 		}
 
-	case "vuln_scan":
+	case "vuln_scan", "vulnScan":
 		coreTask.Type = model.TaskTypeVulnScan
 		coreTask.Params["templates"] = "cves"
 		coreTask.Params["severity"] = "critical,high,medium"
 
-	case "poc_scan":
+	case "poc_scan", "pocScan":
 		coreTask.Type = model.TaskTypeVulnScan
 		// POC 名称可能在 tool_params 或 meta 中
 		coreTask.Params["templates"] = "custom_pocs"
 
-	case "weak_pass_scan":
+	case "weak_pass_scan", "weakPassScan":
 		coreTask.Type = model.TaskTypeVulnScan
 		coreTask.Params["templates"] = "weak_passwords"
 
-	case "web_scan":
+	case "web_scan", "webScan":
 		coreTask.Type = model.TaskTypeWebScan
 		coreTask.Params["crawl"] = true
 		coreTask.Params["method"] = "GET"
 
-	case "api_scan":
+	case "api_scan", "apiScan":
 		coreTask.Type = model.TaskTypeWebScan
 		coreTask.Params["mode"] = "api"
 
-	case "dir_scan":
+	case "dir_scan", "dirScan":
 		coreTask.Type = model.TaskTypeDirScan
 
-	case "subdomain_scan":
+	case "subdomain_scan", "subdomainScan":
 		coreTask.Type = model.TaskTypeSubdomain
 		coreTask.Params["mode"] = "brute"
 	}

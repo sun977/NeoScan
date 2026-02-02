@@ -79,7 +79,11 @@ func (r *Router) setupOrchestratorRoutes(v1 *gin.RouterGroup) {
 
 	// 5. Agent 任务管理 (Agent Task Management)
 	// 迁移至 Orchestrator 路径下: /orchestrator/agent/...
-	agentTaskGroup := orchestratorGroup.Group("/agent")
+	// 注意：Agent 任务接口供 Agent 调用，使用 Agent 鉴权 (Token)，而非用户 JWT
+	agentTaskGroup := v1.Group("/orchestrator/agent")
+	if r.middlewareManager != nil {
+		agentTaskGroup.Use(r.middlewareManager.GinAgentAuthMiddleware())
+	}
 	{
 		agentTaskGroup.GET("/:id/tasks", r.agentTaskHandler.FetchTasks)                        // 获取Agent当前任务
 		agentTaskGroup.POST("/:id/tasks/:task_id/status", r.agentTaskHandler.UpdateTaskStatus) // 更新任务状态 [Agent端上报任务状态]

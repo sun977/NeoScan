@@ -16,6 +16,9 @@ import (
 // 该中间件专用于处理 Agent 上报接口的鉴权，不依赖于用户系统的鉴权逻辑
 func (m *MiddlewareManager) GinAgentAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		logger.LogInfo("Agent Auth Middleware Triggered", "", 0, "", c.Request.URL.Path, c.Request.Method, map[string]interface{}{
+			"func_name": "GinAgentAuthMiddleware",
+		})
 		// 1. 从 header 提取 Token (Authorization: Bearer <token>)
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -39,6 +42,12 @@ func (m *MiddlewareManager) GinAgentAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		token := parts[1]
+
+		logger.LogInfo("Agent Auth Middleware Checking Token", "", 0, "", c.Request.URL.Path, c.Request.Method, map[string]interface{}{
+			"func_name": "GinAgentAuthMiddleware",
+			"token_len": len(token),
+			"token_pre": token[:10],
+		})
 
 		// 2. 验证 Token
 		// Linus: 使用 AgentService 查询 Token，保持层级清晰

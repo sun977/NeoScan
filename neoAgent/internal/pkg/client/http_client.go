@@ -65,7 +65,7 @@ func (c *httpClient) SetAuthToken(token string) {
 
 // RegisterAgent 注册Agent
 func (c *httpClient) RegisterAgent(ctx context.Context, req *client.AgentRegisterRequest) (*client.AgentRegisterResponse, error) {
-	resp, err := c.doRequest(ctx, "POST", "/api/v1/agent", req)
+	resp, err := c.doRequest(ctx, "POST", "/api/v1/agent/register", req)
 	if err != nil {
 		return nil, fmt.Errorf("register agent request: %w", err)
 	}

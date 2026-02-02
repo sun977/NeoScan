@@ -1,150 +1,172 @@
-# NeoAgent 注册与接入流程说明 v1.0
+# NeoAgent 注册与认证机制设计方案 (Refined v2.0)
 
-## 1. 概述
+## 1. 核心设计原则
 
-本文档定义了 NeoAgent 接入 Master 集群的标准流程。
-Agent 接入采用 **Join Token** 机制，旨在提供简单、安全且易于自动化的注册体验。
+为彻底分离**用户访问控制** (User RBAC) 与 **Agent 接入控制** (Machine-to-Machine Auth)，本方案采用双层令牌机制。
 
-### 1.1 核心原则
-- **安全性 (Security)**: 基于 Token 的初始信任，基于 CA Hash 的服务端验证，基于专属凭证的长期通信。
-- **简单性 (Simplicity)**: 一行命令完成接入，无需复杂的证书手动分发。
-- **自动化 (Automation)**: 支持无人值守的批量部署。
-
----
-
-## 2. 接入流程 (The Join Flow)
-
-### 2.1 角色定义
-- **Master**: 集群控制节点，负责生成 Token、验证 Agent、颁发凭证。
-- **Agent**: 待接入的扫描节点，持有 Token 向 Master 发起请求。
-
-### 2.2 流程图
-
-```mermaid
-sequenceDiagram
-    participant Admin
-    participant Master
-    participant Agent
-
-    Note over Admin, Master: 1. 生成 Join Token
-    Admin->>Master: neoctl token create --ttl 1h
-    Master-->>Admin: Returns: abcdef.1234567890abcdef
-
-    Note over Admin, Agent: 2. 发起 Join 请求
-    Admin->>Agent: neoAgent join <master-addr> --token <token> --ca-hash <hash>
-
-    Note over Agent, Master: 3. 握手与验证
-    Agent->>Master: HTTPS POST /api/v1/join (Token, Hostname, OS...)
-    Master->>Master: Verify Token & TTL
-    Master->>Master: Generate AgentID & API Key/Cert
-    Master-->>Agent: Returns: { AgentID, APIKey, MasterCACert }
-
-    Note over Agent: 4. 持久化凭证
-    Agent->>Agent: Save config (agent.yaml)
-
-    Note over Agent, Master: 5. 正式通信
-    Agent->>Master: gRPC Connect (with API Key/Cert)
-    Master-->>Agent: Connected
-```
+- **User Auth**: 使用 JWT (Access/Refresh Token)，面向人类管理员，用于操作 Master API。
+- **Agent Auth**: 
+  1.  **Join Token (准入令牌)**: 短期有效，由管理员生成，用于 Agent 首次注册（握手）。
+  2.  **Agent Secret (通信凭证)**: 长期有效，由 Master 颁发，用于 Agent 后续通信。
 
 ---
 
-## 3. 命令行接口 (CLI)
+## 2. 数据模型设计 (Database Schema)
 
-### 3.1 命令格式
+### 2.1 Join Token 表 (`sys_join_tokens`)
+用于管理允许 Agent 接入的凭证。
 
-```bash
-neoAgent join <master-address> [flags]
+```sql
+CREATE TABLE `sys_join_tokens` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `token` varchar(64) NOT NULL COMMENT '准入令牌(jt_开头)',
+  `name` varchar(100) DEFAULT NULL COMMENT '令牌备注/名称',
+  `usage_limit` int DEFAULT 1 COMMENT '最大使用次数(0为不限)',
+  `usage_count` int DEFAULT 0 COMMENT '已使用次数',
+  `expires_at` datetime NOT NULL COMMENT '过期时间',
+  `created_by` bigint unsigned DEFAULT 0 COMMENT '创建人ID',
+  `initial_tags` json DEFAULT NULL COMMENT '自动绑定的标签ID列表',
+  `is_active` tinyint(1) DEFAULT 1 COMMENT '是否启用',
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_token` (`token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Agent准入令牌表';
 ```
 
-### 3.2 参数说明
+### 2.2 Agent 表更新 (`agents`)
+现有 `agents` 表需明确字段用途，确保 `token` 字段存储的是长期通信凭证。
 
-| 参数 | 简写 | 必选 | 说明 | 示例 |
-| :--- | :--- | :--- | :--- | :--- |
-| `master-address` | - | **Yes** | Master 节点的地址 (IP:Port) | `192.168.1.100:8080` |
-| `--token` | `-t` | **Yes** | 加入集群的认证令牌 | `abcdef.1234567890abcdef` |
-| `--ca-cert-hash` | - | No | Master CA 证书的 SHA256 哈希，用于防中间人攻击 | `sha256:7c...` |
-| `--name` | `-n` | No | 指定 Agent 名称，不填自动生成 | `scanner-node-01` |
-| `--group` | `-g` | No | 指定加入的 Agent 分组 | `default` |
-| `--tags` | - | No | 节点标签，用于任务调度 (逗号分隔) | `aws,gpu,high-perf` |
-| `--advertise-addr` | - | No | Agent 自身的广播地址，用于 Master 回连 | `10.0.0.5:8081` |
-
-### 3.3 示例
-
-**标准接入（推荐）**:
-```bash
-./neoAgent join 192.168.1.100:8080 \
-  --token abcdef.1234567890abcdef \
-  --ca-cert-hash sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-```
-
-**不验证 CA 接入（仅限可信内网）**:
-```bash
-./neoAgent join 192.168.1.100:8080 --token abcdef.1234567890abcdef --insecure-skip-verify
+```sql
+-- 确认 agents 表包含以下关键认证字段
+ALTER TABLE `agents` 
+  MODIFY COLUMN `token` varchar(128) NOT NULL COMMENT 'Agent通信密钥(API Key)',
+  ADD COLUMN `join_token_id` bigint unsigned DEFAULT 0 COMMENT '关联的准入令牌ID(审计用)',
+  ADD COLUMN `fingerprint` varchar(128) DEFAULT NULL COMMENT 'Agent硬件指纹(防伪造)';
 ```
 
 ---
 
-## 4. 协议细节 (Protocol Details)
+## 3. 详细交互流程
 
-### 4.1 Join 请求
-- **Method**: `POST`
-- **URL**: `https://<master-addr>/api/v1/auth/join`
-- **Content-Type**: `application/json`
+### 3.1 阶段一：管理员生成准入令牌 (Admin)
 
-**Request Body**:
+**API**: `POST /api/v1/orchestrator/agent-join-tokens`
+**Auth**: User JWT (Admin Only)
+
+**Request**:
 ```json
 {
-  "token": "abcdef.1234567890abcdef",
-  "hostname": "scanner-node-01",
-  "os": "linux",
-  "arch": "amd64",
-  "version": "v1.0.0",
-  "tags": ["cloud", "region-us"],
-  "advertise_addr": "10.0.0.5:8081",
-  "group": "default"
+  "name": "Production Cluster Deployment",
+  "usage_limit": 100,
+  "ttl_seconds": 86400,
+  "tags": ["prod", "linux"]
 }
 ```
 
-### 4.2 Join 响应
-
-**Response Body (Success 200)**:
+**Response**:
 ```json
 {
-  "code": 0,
-  "msg": "success",
+  "code": 200,
   "data": {
-    "agent_id": "agent-uuid-550e8400-e29b",
-    "auth_type": "api_key",
-    "api_key": "neo_agt_sk_xxxxxxxxxxxx",
-    "master_ca_cert": "-----BEGIN CERTIFICATE-----\n..."
+    "token": "jt_7c4a8d09ca3762af", 
+    "expires_at": "2026-02-03T10:00:00Z"
   }
 }
 ```
 
-### 4.3 错误码
+### 3.2 阶段二：Agent 首次注册 (Handshake)
 
-| HTTP Code | Error Code | 说明 | 处理建议 |
-| :--- | :--- | :--- | :--- |
-| 401 | `AUTH_INVALID_TOKEN` | Token 无效或不存在 | 检查 Token 拼写 |
-| 401 | `AUTH_TOKEN_EXPIRED` | Token 已过期 | 申请新 Token |
-| 409 | `AGENT_ALREADY_EXISTS` | Agent 名称或 ID 冲突 | 更换名称或清理旧数据 |
-| 403 | `AUTH_PERM_DENIED` | IP 被黑名单拦截 | 检查 Master 防火墙 |
+Agent 启动时，若无本地凭证，使用启动参数中的 Token 发起注册。
+
+**Command**: 
+```bash
+./neoAgent join --master 10.0.0.1:8080 --token jt_7c4a8d09ca3762af
+```
+
+**API**: `POST /api/v1/agent/register` (注意：此接口**不需要** Agent认证，但需要 Join Token)
+
+**Request**:
+```json
+{
+  "join_token": "jt_7c4a8d09ca3762af",
+  "hostname": "scanner-01",
+  "version": "1.0.0",
+  "fingerprint": "hw-id-cpu-serial-xyz", 
+  "ip_address": "192.168.1.50"
+}
+```
+
+**Master 处理逻辑**:
+1. 校验 `join_token` 是否存在、未过期、`usage_count < usage_limit`。
+2. 若校验通过：
+   - 增加 `sys_join_tokens.usage_count`。
+   - 创建/更新 `agents` 记录。
+   - 生成长期 **API Key** (e.g., `ak_5f3b...`)。
+   - 自动绑定 `initial_tags`。
+3. 返回 API Key。
+
+**Response**:
+```json
+{
+  "code": 200,
+  "data": {
+    "agent_id": "agent_scanner_01_uuid",
+    "api_key": "ak_5f3b2c9d...",  // <--- 长期凭证，Agent需落盘保存
+    "master_ca": "-----BEGIN CERTIFICATE..."
+  }
+}
+```
+
+### 3.3 阶段三：Agent 日常通信 (Runtime)
+
+Agent 获取 API Key 后，后续所有请求（心跳、任务获取）均使用该 Key。
+
+**Auth Header**: 
+`Authorization: Bearer ak_5f3b2c9d...`
+
+**Middleware Logic (`GinAgentAuthMiddleware`)**:
+1. 拦截 `/api/v1/agent/**` (注册接口除外)。
+2. 提取 Bearer Token。
+3. 查询 `agents` 表匹配 `token` 字段。
+4. 校验 Agent 状态 (Active)。
+5. 注入 `agent_id` 到上下文。
 
 ---
 
-## 5. 安全性设计 (Security Considerations)
+## 4. 接口规范修订
 
-### 5.1 Token 生命周期
-- Token 仅用于**首次握手**。
-- Token 具有较短的有效期（默认 24 小时）。
-- Token 验证成功后，Master 立即颁发长期有效的 `API Key` 或 `Client Certificate`。
-- 后续通信**不再依赖** Token。
+### 4.1 注册接口
+**Path**: `/api/v1/agent/register`
+**Method**: `POST`
+**Auth**: None (Relies on Join Token in body)
 
-### 5.2 防中间人攻击 (MITM Protection)
-- Agent 在连接 Master 时，如果提供了 `--ca-cert-hash`，会计算 Master 返回的 TLS 证书公钥的 SHA256 值并进行比对。
-- 如果不匹配，Agent **必须** 立即终止连接并报错。
+### 4.2 心跳接口
+**Path**: `/api/v1/agent/heartbeat`
+**Method**: `POST`
+**Auth**: Bearer API Key
 
-### 5.3 凭证存储
-- Agent 接收到 `API Key` 后，应将其加密存储在本地配置文件（如 `config.yaml`）或系统的 Keyring 中。
-- 配置文件权限应严格限制（如 Linux 下 `600`）。
+**Request**:
+```json
+{
+  "status": "idle",
+  "load": 15
+}
+```
+
+---
+
+## 5. 错误码定义
+
+| HTTP Code | Error Code | 说明 | 应对 |
+| :--- | :--- | :--- | :--- |
+| 401 | `AUTH_JOIN_TOKEN_INVALID` | 准入令牌不存在或已失效 | 提示用户获取新 Token |
+| 401 | `AUTH_JOIN_TOKEN_LIMIT` | 准入令牌使用次数耗尽 | 提示用户获取新 Token |
+| 403 | `AUTH_AGENT_FORBIDDEN` | API Key 无效或 Agent 被禁用 | Agent 应停止工作并报警 |
+| 409 | `AGENT_CONFLICT` | 指纹冲突或重复注册 | 视策略覆盖或报错 |
+
+---
+
+## 6. 安全加固建议 (Future)
+1. **API Key 轮换**: 提供 `/rotate-key` 接口，允许 Agent 定期更换密钥。
+2. **mTLS**: 在 API Key 基础上，强制要求 Agent 使用 Master 签发的客户端证书进行 TLS 双向认证（最高安全级别）。

@@ -194,6 +194,9 @@ func (s *agentManagerService) validateRegisterRequest(req *agentModel.RegisterAg
 
 // RegisterAgent Agent注册服务
 // 处理Agent注册请求，生成唯一ID和Token
+// 优化逻辑 (Token优先，Secret兜底):
+// 1. 尝试 Token 认证 (快速通道 - 仅用于更新)
+// 2. 如果 Token 认证未通过，则强制检查 Secret (注册/覆盖通道)
 func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest) (*agentModel.RegisterAgentResponse, error) {
 	// 参数验证
 	if err := s.validateRegisterRequest(req); err != nil {
@@ -206,77 +209,81 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		return nil, err
 	}
 
-	// 验证 TokenSecret (Linus: 安全检查前置，Fail Fast)
-	// 如果配置文件中设置了 TokenSecret，则请求中的 TokenSecret 必须匹配
-	if s.cfg.Security.Agent.TokenSecret != "" {
-		if req.TokenSecret != s.cfg.Security.Agent.TokenSecret {
-			err := fmt.Errorf("invalid token secret")
-			logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
-				"operation":    "register_agent",
-				"option":       "check_token_secret",
-				"func_name":    "service.agent.manager.RegisterAgent",
-				"hostname":     req.Hostname,
-				"token_secret": "******", // 不记录敏感信息
-			})
-			return nil, err
+	var agentToUpdate *agentModel.Agent
+	isTokenAuthSuccess := false
+
+	// 1. 尝试 Token 认证 (快速通道 - 仅用于更新)
+	// 如果 Agent 提供了 ID 和 Token，且匹配数据库记录，直接允许更新
+	if req.AgentID != "" && req.Token != "" {
+		existingAgent, err := s.agentRepo.GetByID(req.AgentID)
+		if err == nil && existingAgent != nil {
+			if existingAgent.Token == req.Token {
+				isTokenAuthSuccess = true
+				agentToUpdate = existingAgent
+				logger.LogInfo("Agent Token认证成功，进入快速更新模式", "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+					"agent_id": req.AgentID,
+					"hostname": req.Hostname,
+				})
+			}
 		}
 	}
 
-	// 生成Agent唯一ID
-	agentID := generateAgentID(req.Hostname)
-
-	// 检查Agent是否已存在（基于hostname+port的组合）
-	existingAgent, err := s.agentRepo.GetByHostnameAndPort(req.Hostname, req.Port)
-	if err != nil {
-		logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
-			"operation": "register_agent",
-			"option":    "agentManagerService.RegisterAgent",
-			"func_name": "service.agent.manager.RegisterAgent",
-			"hostname":  req.Hostname,
-			"port":      req.Port,
-		})
-		return nil, fmt.Errorf("检查Agent是否存在失败: %v", err)
-	}
-
-	if existingAgent != nil {
-		// Linus: "Update Mode" Check
-		// 如果 Agent 已存在，检查是否提供了正确的 Token 进行身份验证
-		// 如果验证通过，则进入"更新模式" (Idempotent Registration)，而不是返回冲突
-		isUpdateMode := false
-		if req.AgentID != "" && req.Token != "" {
-			if req.AgentID == existingAgent.AgentID && req.Token == existingAgent.Token {
-				// 身份验证通过，允许更新
-				isUpdateMode = true
-				agentID = existingAgent.AgentID // 复用现有ID
+	// 2. 如果 Token 认证未通过，则强制检查 Secret (注册/覆盖通道)
+	if !isTokenAuthSuccess {
+		// 验证 TokenSecret
+		// 如果配置文件中设置了 TokenSecret，则请求中的 TokenSecret 必须匹配
+		if s.cfg.Security.Agent.TokenSecret != "" {
+			if req.TokenSecret != s.cfg.Security.Agent.TokenSecret {
+				err := fmt.Errorf("authentication failed: invalid token secret")
+				logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+					"operation":    "register_agent",
+					"option":       "check_token_secret",
+					"func_name":    "service.agent.manager.RegisterAgent",
+					"hostname":     req.Hostname,
+					"token_secret": "******", // 不记录敏感信息
+				})
+				return nil, err
 			}
 		}
 
-		if !isUpdateMode {
-			// 身份验证失败或未提供凭证，且 Hostname+Port 冲突
-			// Agent已存在，返回409冲突错误
-			logger.LogBusinessError(
-				fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port),
-				"", 0, "", "service.agent.manager.RegisterAgent", "",
-				map[string]interface{}{
-					"operation": "register_agent",
-					"option":    "duplicate_hostname_port_check",
-					"func_name": "service.agent.manager.RegisterAgent",
-					"hostname":  req.Hostname,
-					"port":      req.Port,
-					"agent_id":  existingAgent.AgentID,
-				},
-			)
-			return nil, fmt.Errorf("agent with hostname %s and port %d already exists", req.Hostname, req.Port)
-		} else {
-			// 更新模式日志
-			logger.LogInfo("Agent进入更新模式(Re-Register)", "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
-				"agent_id": agentID,
+		// Secret 验证通过。
+		// 此时可能是：
+		// A. 全新注册 (New Agent)
+		// B. 覆盖注册 (Overwrite Agent - 比如丢失 Token 后重装)
+
+		// 检查 Agent 是否已存在（基于hostname+port的组合）
+		existingAgent, err := s.agentRepo.GetByHostnameAndPort(req.Hostname, req.Port)
+		if err != nil {
+			logger.LogBusinessError(err, "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+				"operation": "register_agent",
+				"option":    "agentManagerService.RegisterAgent",
+				"func_name": "service.agent.manager.RegisterAgent",
+				"hostname":  req.Hostname,
+				"port":      req.Port,
+			})
+			return nil, fmt.Errorf("检查Agent是否存在失败: %v", err)
+		}
+
+		if existingAgent != nil {
+			// 情况 B: 覆盖注册
+			// 因为 Secret 正确，我们允许覆盖旧的 Agent 记录
+			agentToUpdate = existingAgent
+			logger.LogInfo("Agent Secret认证成功，进入覆盖注册模式(Overwrite)", "", 0, "", "service.agent.manager.RegisterAgent", "", map[string]interface{}{
+				"agent_id": existingAgent.AgentID,
 				"hostname": req.Hostname,
 			})
 		}
+		// 情况 A: agentToUpdate 为 nil，稍后创建新 Agent
 	}
 
-	// 准备 Agent 数据对象
+	// 3. 准备 Agent 数据对象
+	agentID := ""
+	if agentToUpdate != nil {
+		agentID = agentToUpdate.AgentID
+	} else {
+		agentID = generateAgentID(req.Hostname)
+	}
+
 	agentData := &agentModel.Agent{
 		AgentID:       agentID,
 		Hostname:      req.Hostname,
@@ -297,10 +304,17 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 		LastHeartbeat: time.Now(),
 	}
 
-	if existingAgent != nil {
-		// 更新模式: 复用现有 Token 和 Expiry (或者也可以在这里刷新 Token，视安全策略而定，目前保持不变)
-		agentData.Token = existingAgent.Token
-		agentData.TokenExpiry = existingAgent.TokenExpiry
+	// 4. 处理 Token 和执行 DB 操作
+	if agentToUpdate != nil {
+		if isTokenAuthSuccess {
+			// Update Mode: 复用现有 Token (保持不变)
+			agentData.Token = agentToUpdate.Token
+			agentData.TokenExpiry = agentToUpdate.TokenExpiry
+		} else {
+			// Overwrite Mode: 必须生成新 Token，因为 Agent 既然走了 Secret 通道，说明它没有(或丢失了)旧 Token
+			agentData.Token = generateToken()
+			agentData.TokenExpiry = time.Now().Add(24 * time.Hour)
+		}
 
 		// 执行更新
 		if err := s.agentRepo.Update(agentData); err != nil {
@@ -311,7 +325,7 @@ func (s *agentManagerService) RegisterAgent(req *agentModel.RegisterAgentRequest
 			return nil, fmt.Errorf("更新Agent失败: %v", err)
 		}
 	} else {
-		// 创建模式: 生成新 Token
+		// Create Mode: 生成新 Token
 		agentData.Token = generateToken()
 		agentData.TokenExpiry = time.Now().Add(24 * time.Hour)
 

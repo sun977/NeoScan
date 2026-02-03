@@ -78,6 +78,7 @@ neoAgent/
 - [x] **3.8 高级并发优化**:
     - [x] 引入自适应速率控制 (Adaptive Rate Limiting - AIMD)。
     - [x] 实现 `RttEstimator` 动态调整超时 (RFC 6298)。
+    - [x] 全面集成 QoS: `PortServiceScanner`, `IpAliveScanner`, `OSScanner` 均已接入动态超时与流控。
 
 ### 阶段四：编排与集成 (Orchestration & Integration) —— **Automation**
 **目标**: 实现单机全流程扫描与集群接入。

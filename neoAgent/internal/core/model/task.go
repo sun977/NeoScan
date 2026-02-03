@@ -23,6 +23,7 @@ const (
 	TaskTypeWebScan     TaskType = "web_scan"      // Web 综合扫描 + web指纹识别
 	TaskTypeDirScan     TaskType = "dir_scan"      // 目录扫描
 	TaskTypeVulnScan    TaskType = "vuln_scan"     // 漏洞扫描 (Nuclei)
+	TaskTypeBrute       TaskType = "brute_force"   // 弱口令爆破
 	TaskTypeSubdomain   TaskType = "subdomain"     // 子域名扫描
 	TaskTypeProxy       TaskType = "proxy"         // 代理服务 (Socks5/HTTP/Forward)
 	TaskTypeRawCmd      TaskType = "raw_cmd"       // 原始命令执行

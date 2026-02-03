@@ -7,15 +7,25 @@ import (
 	"sync"
 	"time"
 
+	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/options"
 )
 
 // IpAliveScanner 实现 IP 存活扫描
-type IpAliveScanner struct{}
+type IpAliveScanner struct {
+	// QoS 模块
+	rttEstimator *qos.RttEstimator
+	limiter      *qos.AdaptiveLimiter
+}
 
 func NewIpAliveScanner() *IpAliveScanner {
-	return &IpAliveScanner{}
+	return &IpAliveScanner{
+		rttEstimator: qos.NewRttEstimator(),
+		// Alive 扫描通常非常快，可以允许更高的并发
+		// Initial 200, Max 5000
+		limiter: qos.NewAdaptiveLimiter(200, 20, 5000),
+	}
 }
 
 func (s *IpAliveScanner) Name() model.TaskType {
@@ -36,36 +46,66 @@ func (s *IpAliveScanner) Run(ctx context.Context, task *model.Task) ([]*model.Ta
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	// 并发控制 (Semaphore)
-	// 确保并发数至少为 1，防止死锁
-	concurrency := opts.Concurrency
-	if concurrency <= 0 {
-		concurrency = 1000
+	// 并发控制 (QoS)
+	// 如果用户指定了 Concurrency，作为 AdaptiveLimiter 的 Initial 和 Max
+	if opts.Concurrency > 0 {
+		s.limiter = qos.NewAdaptiveLimiter(opts.Concurrency, 10, opts.Concurrency*2)
 	}
-	sem := make(chan struct{}, concurrency)
 
 	// 获取本地 IP 用于拓扑判断 (缓存一下)
 	localAddrs, _ := getLocalAddrs()
 
 	for _, ip := range ips {
 		wg.Add(1)
-		sem <- struct{}{}
+		
+		// 获取并发令牌 (带上下文超时)
+		if err := s.limiter.Acquire(ctx); err != nil {
+			wg.Done()
+			return nil, err // 上下文取消
+		}
 
 		go func(targetIP string) {
 			defer wg.Done()
-			defer func() { <-sem }()
+			defer s.limiter.Release()
 
 			// 3. 根据策略选择探测器
 			prober := s.getProber(targetIP, opts, localAddrs)
 
 			// 4. 执行探测
-			// 超时时间取 task.Timeout 或默认短超时 (例如单IP探测给 2s足够了，总超时由 task.Timeout 控制)
-			// 但这里的 task.Timeout 是整个任务的。
-			// 单个 IP 的探测不宜过长。
-			probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			// 使用动态 RTO 作为超时基准
+			// Alive 探测通常需要比 RTT 稍长的时间，例如 2*RTT + Buffer
+			// 如果 RTO 很短 (e.g. 100ms)，我们至少给 1s 的探测时间 (尤其是 ARP/ICMP 可能被限速)
+			// 但也不能太长，否则会拖慢整体进度
+			rto := s.rttEstimator.Timeout()
+			scanTimeout := rto * 2
+			if scanTimeout < 1*time.Second {
+				scanTimeout = 1 * time.Second
+			}
+			if scanTimeout > 3*time.Second {
+				scanTimeout = 3 * time.Second // 上限 3s
+			}
+
+			probeCtx, cancel := context.WithTimeout(ctx, scanTimeout)
 			defer cancel()
 
-			probeRes, _ := prober.Probe(probeCtx, targetIP, 3*time.Second)
+			start := time.Now()
+			probeRes, err := prober.Probe(probeCtx, targetIP, scanTimeout)
+			duration := time.Since(start)
+
+			// QoS 反馈
+			if err == nil && probeRes != nil && probeRes.Alive {
+				// 成功：更新 RTT，增加并发
+				s.rttEstimator.Update(duration)
+				s.limiter.OnSuccess()
+			} else {
+				// 失败
+				// 如果是因为超时导致的失败，惩罚并发
+				// 注意：Probe 返回的 error 可能为空，只看 probeRes.Alive
+				// 如果 probeRes.Alive == false，可能是不可达（很快返回）或超时
+				if duration >= scanTimeout {
+					s.limiter.OnFailure()
+				}
+			}
 
 			if probeRes != nil && probeRes.Alive {
 				resultData := model.IpAliveResult{

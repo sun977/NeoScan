@@ -81,6 +81,7 @@ neoAgent/
         - [x] MySQL (go-sql-driver/mysql)
         - [x] Redis (go-redis/v9)
     - [x] **Integration**: 注册到 RunnerManager。
+    - [x] **CLI**: 实现 `scan brute` 子命令。
 - [x] **3.8 高级并发优化**:
     - [x] 引入自适应速率控制 (Adaptive Rate Limiting - AIMD)。
     - [x] 实现 `RttEstimator` 动态调整超时 (RFC 6298)。

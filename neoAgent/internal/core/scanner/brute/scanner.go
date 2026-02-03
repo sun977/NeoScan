@@ -21,6 +21,22 @@ type BruteResult struct {
 	Success  bool   `json:"success"`
 }
 
+// Headers 实现 TabularData 接口
+func (r BruteResult) Headers() []string {
+	return []string{"Service", "Host", "Port", "Username", "Password"}
+}
+
+// Rows 实现 TabularData 接口
+func (r BruteResult) Rows() [][]string {
+	return [][]string{{
+		r.Service,
+		r.Host,
+		utils.IntToString(r.Port),
+		r.Username,
+		r.Password,
+	}}
+}
+
 // BruteScanner 爆破扫描器
 type BruteScanner struct {
 	limiters    map[string]*qos.AdaptiveLimiter // 按协议/目标分组的限流器 (可选优化)

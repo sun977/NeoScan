@@ -38,6 +38,7 @@ func NewScanCmd() *cobra.Command {
 	cmd.AddCommand(NewVulnScanCmd())      // 漏洞扫描
 	cmd.AddCommand(NewDirScanCmd())       // 目录/文件挖掘
 	cmd.AddCommand(NewSubdomainScanCmd()) // 子域名挖掘
+	cmd.AddCommand(NewBruteScanCmd())     // 弱口令爆破
 	cmd.AddCommand(NewRunScanCmd())       // 自动化全流程扫描
 
 	return cmd

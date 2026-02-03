@@ -90,8 +90,9 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 		}
 	}
 
-	// 解析端口列表
+	// 解析端口列表(使用专门的解析函数,没使用utils.ParseIntList,因为有 -p top100 这种定制情况)
 	ports := nmap_service.ParsePortList(portRange)
+	// ports := utils.ParseIntList(portRange)
 
 	// 并发控制参数 (覆盖默认值)
 	// 如果用户指定了 rate，我们将其作为 Initial 和 Max
@@ -114,7 +115,7 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 
 	for _, port := range ports {
 		wg.Add(1)
-		
+
 		// 获取并发令牌 (带上下文超时)
 		if err := s.limiter.Acquire(ctx); err != nil {
 			wg.Done()
@@ -167,7 +168,7 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 				if scanTimeout < DefaultTimeout {
 					scanTimeout = DefaultTimeout
 				}
-				
+
 				fp, err := s.gonmapEngine.Scan(ctx, target, p, scanTimeout)
 				if err == nil && fp != nil {
 					portResult.Service = fp.Service
@@ -203,7 +204,7 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 func (s *PortServiceScanner) isPortOpen(ctx context.Context, ip string, port int, timeout time.Duration) bool {
 	address := fmt.Sprintf("%s:%d", ip, port)
 	d := dialer.Get()
-	
+
 	// 创建带超时的上下文
 	connCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

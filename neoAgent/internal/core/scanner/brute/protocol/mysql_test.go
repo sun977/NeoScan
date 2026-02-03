@@ -94,8 +94,8 @@ func TestMySQLCracker_Check_ProtocolError(t *testing.T) {
 
 	// 启动一个 Dummy Server，发送垃圾数据
 	go func() {
-		conn, err := l.Accept()
-		if err == nil {
+		conn, err1 := l.Accept()
+		if err1 == nil {
 			defer conn.Close()
 			conn.Write([]byte("NOT MYSQL\n"))
 			time.Sleep(100 * time.Millisecond)

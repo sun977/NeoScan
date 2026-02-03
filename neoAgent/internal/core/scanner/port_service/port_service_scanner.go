@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"neoagent/internal/core/lib/network/dialer"
+	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/scanner/port_service/nmap_service"
 )
@@ -21,6 +22,8 @@ const (
 // 实现了 Scanner 接口，整合了 TCP Connect 扫描与 Nmap 服务识别逻辑
 type PortServiceScanner struct {
 	gonmapEngine *nmap_service.Engine
+	rttEstimator *qos.RttEstimator
+	limiter      *qos.AdaptiveLimiter
 
 	initOnce sync.Once
 	initErr  error
@@ -29,6 +32,9 @@ type PortServiceScanner struct {
 func NewPortServiceScanner() *PortServiceScanner {
 	return &PortServiceScanner{
 		gonmapEngine: nmap_service.NewEngine(),
+		rttEstimator: qos.NewRttEstimator(),
+		// 初始并发 100，最小 10，最大 2000
+		limiter: qos.NewAdaptiveLimiter(100, 10, 2000),
 	}
 }
 
@@ -85,41 +91,62 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 	}
 
 	// 解析端口列表
-	// 注意：由于 ParsePortList 迁移到了 nmap 包，但它可能不是公开的？
-	// 最好把 ParsePortList 放到 utils 或 nmap 包公开
-	// 这里假设 nmap.ParsePortList 是公开的
 	ports := nmap_service.ParsePortList(portRange)
 
-	// 并发控制 (使用 Runner 或简单的 WaitGroup)
-	concurrency := 100
+	// 并发控制参数 (覆盖默认值)
+	// 如果用户指定了 rate，我们将其作为 Initial 和 Max
 	if val, ok := task.Params["rate"]; ok {
-		// handle float64 or int
+		var rate int
 		if v, ok := val.(float64); ok {
-			concurrency = int(v)
+			rate = int(v)
 		} else if v, ok := val.(int); ok {
-			concurrency = v
+			rate = v
 		}
-	}
-
-	if concurrency <= 0 {
-		concurrency = 100
+		if rate > 0 {
+			// 重置 limiter
+			s.limiter = qos.NewAdaptiveLimiter(rate, 10, rate*2)
+		}
 	}
 
 	results := make([]*model.TaskResult, 0)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, concurrency)
 
 	for _, port := range ports {
 		wg.Add(1)
+		
+		// 获取并发令牌 (带上下文超时)
+		if err := s.limiter.Acquire(ctx); err != nil {
+			wg.Done()
+			return nil, err // 上下文取消
+		}
+
 		go func(p int) {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			defer s.limiter.Release()
+
+			// 动态获取当前 RTO
+			timeout := s.rttEstimator.Timeout()
 
 			// 1. 基础端口连通性检查 (TCP Connect)
-			// 如果只是为了探测服务，这一步可以快速过滤关闭的端口
-			if !s.isPortOpen(ctx, target, p, DefaultTimeout) {
+			// 测量 RTT
+			start := time.Now()
+			isOpen := s.isPortOpen(ctx, target, p, timeout)
+			duration := time.Since(start)
+
+			if isOpen {
+				// 成功连接：更新 RTT，增加并发
+				s.rttEstimator.Update(duration)
+				s.limiter.OnSuccess()
+			} else {
+				// 连接失败
+				// 如果是因为超时失败的，才应该惩罚
+				// 这里简化逻辑：如果是网络不可达，其实也会很快返回，不算超时
+				// 只有当 duration 接近 timeout 时，才认为是拥塞导致的丢包
+				if duration >= timeout {
+					s.limiter.OnFailure()
+				}
+				// 端口关闭，直接返回
 				return
 			}
 
@@ -134,8 +161,13 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 
 			// 2. 服务识别 (如果启用)
 			if serviceDetect {
-				// 给服务识别更多时间
-				scanTimeout := DefaultTimeout * 3
+				// 给服务识别更多时间，通常是 RTO 的 3-5 倍
+				scanTimeout := timeout * 3
+				// 确保不低于默认的 2s，因为服务响应需要时间
+				if scanTimeout < DefaultTimeout {
+					scanTimeout = DefaultTimeout
+				}
+				
 				fp, err := s.gonmapEngine.Scan(ctx, target, p, scanTimeout)
 				if err == nil && fp != nil {
 					portResult.Service = fp.Service
@@ -171,7 +203,12 @@ func (s *PortServiceScanner) Run(ctx context.Context, task *model.Task) ([]*mode
 func (s *PortServiceScanner) isPortOpen(ctx context.Context, ip string, port int, timeout time.Duration) bool {
 	address := fmt.Sprintf("%s:%d", ip, port)
 	d := dialer.Get()
-	conn, err := d.DialContext(ctx, "tcp", address)
+	
+	// 创建带超时的上下文
+	connCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	conn, err := d.DialContext(connCtx, "tcp", address)
 	if err != nil {
 		return false
 	}

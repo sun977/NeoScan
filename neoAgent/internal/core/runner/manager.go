@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"neoagent/internal/core/model"
+	"neoagent/internal/core/scanner/brute"
+	"neoagent/internal/core/scanner/brute/protocol"
 )
 
 // RunnerManager 管理所有的 Runner
@@ -15,9 +17,18 @@ type RunnerManager struct {
 }
 
 func NewRunnerManager() *RunnerManager {
-	return &RunnerManager{
+	m := &RunnerManager{
 		runners: make(map[model.TaskType]Runner),
 	}
+
+	// 初始化并注册 BruteScanner
+	bs := brute.NewBruteScanner()
+	bs.RegisterCracker(protocol.NewSSHCracker())
+	bs.RegisterCracker(protocol.NewMySQLCracker())
+	bs.RegisterCracker(protocol.NewRedisCracker())
+	m.Register(bs)
+
+	return m
 }
 
 // Register 注册一个 Runner
@@ -31,7 +42,7 @@ func (m *RunnerManager) Register(runner Runner) {
 func (m *RunnerManager) Get(taskType model.TaskType) (Runner, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if runner, ok := m.runners[taskType]; ok {
 		return runner, nil
 	}
@@ -44,6 +55,6 @@ func (m *RunnerManager) Execute(ctx context.Context, task *model.Task) ([]*model
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return runner.Run(ctx, task)
 }

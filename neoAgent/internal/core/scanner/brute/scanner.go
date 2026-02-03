@@ -9,6 +9,8 @@ import (
 	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
 	"neoagent/internal/pkg/utils"
+
+	"github.com/pterm/pterm"
 )
 
 // BruteResult 爆破结果
@@ -138,8 +140,32 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 		// 单次尝试超时控制 (3s)
 		// 这里的超时是针对单次 Login 尝试
 		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+
 		success, err := cracker.Check(checkCtx, task.Target, port, auth)
 		cancel()
+
+		// 构造日志后缀
+		statusSuffix := "Failed"
+		if success {
+			statusSuffix = "Success"
+		} else if err != nil {
+			// 如果有错误，可能是网络错误，也可能是协议错误
+			statusSuffix = fmt.Sprintf("Error: %v", err)
+		}
+
+		// 打印日志 (Info 级别)
+		// 注意: pterm 的输出可能会被 CLI 的 --log-level 控制
+		// 我们这里按照用户的要求格式输出: [Brute] Trying ... | ... | Status
+		// 为了避免刷屏太快，或者覆盖上一行？
+		// 如果我们用 Printf，它是换行的。
+		// 用户希望看到每一行的结果。
+		pterm.Info.Printf("[Brute] Trying %s:%d | User: %s | Pass: %s | %s\n",
+			task.Target, port, auth.Username, auth.Password, statusSuffix)
+
+		// 如果需要更详细的上下文，再用 Debug
+		if pterm.PrintDebugMessages {
+			pterm.Debug.Printf("[Brute-Detail] Context=%v Result=%v Err=%v\n", ctx, success, err)
+		}
 
 		if success {
 			// 爆破成功

@@ -8,12 +8,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"neoagent/cmd/agent/proxy"
 	"neoagent/cmd/agent/scan"
 	"neoagent/internal/config"
 	"neoagent/internal/pkg/logger"
 	"os"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -89,35 +91,43 @@ func initConfig() {
 func initCLILogger(cmd *cobra.Command) {
 	// 检查 log-level 标志是否被显式设置
 	flag := cmd.Flags().Lookup("log-level")
-	if flag == nil || !flag.Changed {
-		// 如果没有显式设置，不初始化日志，或者初始化为 Fatal 级别以静默输出
-		// 这里我们选择初始化为 Fatal，这样只有 Fatal 级别的日志会输出（几乎等于静默）
-		// 同时这避免了 LoggerInstance 为 nil 导致的潜在 panic
-		logConfig := &config.LogConfig{
-			Level:  "fatal",
-			Format: "text",
-			Output: "stdout",
-			Caller: false,
-		}
-		logger.InitLogger(logConfig)
-		return
+	level := "fatal" // 默认只输出 Fatal
+	if flag != nil && flag.Changed {
+		level = flag.Value.String()
 	}
 
-	logLevel := viper.GetString("log.level")
-	if logLevel == "" {
-		logLevel = "info"
+	// 配置 pterm
+	switch level {
+	case "debug":
+		pterm.EnableDebugMessages()
+		// pterm 没有 EnableInfoMessages，它是默认开启的，除非被 Disable
+		// 如果我们之前 disable 了，现在需要 enable 吗？pterm 似乎没有提供直接的 API
+		// 但 pterm.Info.Printer.Writer = os.Stdout 可以恢复
+		// 简单起见，我们只控制 Debug。Info 默认开启。
+	case "info":
+		pterm.DisableDebugMessages()
+	case "warn", "error", "fatal":
+		pterm.DisableDebugMessages()
+		// 禁用 Info 输出
+		// pterm.Info 是 PrefixPrinter，没有直接暴露 Printer 或 Writer
+		// 但我们可以设置 DisableOutput = true
+		// 注意: pterm 全局没有 DisableInfoMessages，但可以通过设置 pterm.Info 的属性来禁用
+		// 或者，我们只需要知道 Info 是用于展示过程的，如果不需要看过程，直接禁用
+		// 实际上 pterm 提供了 DisableOutput() 方法来全局禁用
+		// 但我们只想禁用 Info
+		// 查阅文档/源码：pterm.Info.Writer = io.Discard (如果 Writer 是公开的)
+		// 如果没有，我们可能无法简单禁用 Info 除非不调用它。
+		// 鉴于我们是在 Scanner 里面调用的，那里有 pterm.PrintInfoMessages 的逻辑吗？没有。
+
+		// 替代方案：pterm.Info = *pterm.Info.WithWriter(io.Discard)
+		pterm.Info = *pterm.Info.WithWriter(io.Discard)
 	}
 
-	// 构造一个简单的 LogConfig 用于 CLI
 	logConfig := &config.LogConfig{
-		Level:  logLevel,
+		Level:  level,
 		Format: "text",
 		Output: "stdout",
-		Caller: false, // CLI 模式通常不需要调用者信息，除非 debug
-	}
-
-	if logLevel == "debug" {
-		logConfig.Caller = true
+		Caller: false,
 	}
 
 	// 初始化日志

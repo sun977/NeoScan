@@ -86,7 +86,7 @@ neoAgent/
 - [x] **4.1 全流程编排 (Scan Orchestration)**:
     - [x] 实现 `PipelineRunner` 串联各个 Scanner。
     - [x] 实现 `scan run` 命令，支持 `--auto` 和 Pipeline Mode。
-- [ ] **4.2 集群接入增强 (Cluster Adapter)**:
+- [x] **4.2 集群接入增强 (Cluster Adapter)**:
     - [x] **Step 1**: 创建 `internal/model/adapter`，固化数据契约 (Payload DTO)。
     - [x] **Step 2**: 完善 `internal/service/adapter`，实现双向协议转换。
     - [x] **Step 3**: 完善 `internal/service/client`，实现主动 HTTP 通信。

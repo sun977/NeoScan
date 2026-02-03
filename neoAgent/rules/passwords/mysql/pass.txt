@@ -2,6 +2,7 @@
 admin
 admin123
 root
+ROOT
 
 pass123
 pass@123

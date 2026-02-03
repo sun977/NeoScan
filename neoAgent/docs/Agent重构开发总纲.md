@@ -79,7 +79,7 @@ neoAgent/
     - [ ] **Protocols**: 
         - [x] SSH (golang.org/x/crypto/ssh)
         - [x] MySQL (go-sql-driver/mysql)
-        - [ ] Redis (go-redis/v9)
+        - [x] Redis (go-redis/v9)
 - [x] **3.8 高级并发优化**:
     - [x] 引入自适应速率控制 (Adaptive Rate Limiting - AIMD)。
     - [x] 实现 `RttEstimator` 动态调整超时 (RFC 6298)。

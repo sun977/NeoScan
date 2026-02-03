@@ -78,7 +78,7 @@ neoAgent/
     - [x] **Infrastructure**: Cracker 接口定义, 字典管理 (内置+动态), 并发调度器 (Global+Serial)。
     - [ ] **Protocols**: 
         - [x] SSH (golang.org/x/crypto/ssh)
-        - [ ] MySQL (go-sql-driver/mysql)
+        - [x] MySQL (go-sql-driver/mysql)
         - [ ] Redis (go-redis/v9)
 - [x] **3.8 高级并发优化**:
     - [x] 引入自适应速率控制 (Adaptive Rate Limiting - AIMD)。

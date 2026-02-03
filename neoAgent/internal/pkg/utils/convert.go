@@ -91,22 +91,48 @@ func StringToBool(str string, defaultValue bool) bool {
 	}
 }
 
-// ParseIntList 解析整数列表字符串
-// 参数: input - 逗号分隔的整数字符串 (e.g., "80,443,8080")
+// ParseIntList 解析整数列表字符串，支持逗号分隔和范围
+// 参数: input - 逗号分隔的整数字符串或范围 (e.g., "80,443,1000-2000")
 // 返回: 整数切片，如果解析失败则忽略该项
 func ParseIntList(input string) []int {
 	if input == "" {
 		return nil
 	}
 	var result []int
+	// 去重 map
+	seen := make(map[int]bool)
+
 	parts := strings.Split(input, ",")
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
 		if p == "" {
 			continue
 		}
+
+		// 处理范围 (e.g. "1000-2000")
+		if strings.Contains(p, "-") {
+			rangeParts := strings.Split(p, "-")
+			if len(rangeParts) == 2 {
+				start, err1 := strconv.Atoi(strings.TrimSpace(rangeParts[0]))
+				end, err2 := strconv.Atoi(strings.TrimSpace(rangeParts[1]))
+				if err1 == nil && err2 == nil && start <= end {
+					for i := start; i <= end; i++ {
+						if !seen[i] {
+							result = append(result, i)
+							seen[i] = true
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		// 处理单个端口
 		if val, err := strconv.Atoi(p); err == nil {
-			result = append(result, val)
+			if !seen[val] {
+				result = append(result, val)
+				seen[val] = true
+			}
 		}
 	}
 	return result

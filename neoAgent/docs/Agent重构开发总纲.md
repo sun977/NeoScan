@@ -74,7 +74,12 @@ neoAgent/
 - [x] **3.4 指纹规则管理**: 实现混合规则加载机制 (Embed + Dynamic)。
 - [x] **3.5 OS 识别**: 实现基于 TCP/IP 栈 (Nmap) 和 服务 Banner 的 OS 识别。
 - [x] **3.6 核心网络库**: 重构 `internal/core/lib/network`，支持 Proxy/Timeout 统一管理。
-- [ ] **3.7 基础爆破**: 实现 SSH/MySQL/Redis 的原生爆破。
+- [ ] **3.7 基础爆破 (Brute Force)**:
+    - [ ] **Infrastructure**: Cracker 接口定义, 字典管理 (内置+动态), 并发调度器 (Global+Serial)。
+    - [ ] **Protocols**: 
+        - [ ] SSH (golang.org/x/crypto/ssh)
+        - [ ] MySQL (go-sql-driver/mysql)
+        - [ ] Redis (go-redis/v9)
 - [x] **3.8 高级并发优化**:
     - [x] 引入自适应速率控制 (Adaptive Rate Limiting - AIMD)。
     - [x] 实现 `RttEstimator` 动态调整超时 (RFC 6298)。

@@ -126,9 +126,9 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 
 	// 4. 解析目标端口
 	// Task.Target 是 IP
-	// Task.PortRange 可能是单个端口
-	port := utils.StringToInt(task.PortRange, 0)
-	if port == 0 {
+	// Task.PortRange 支持逗号分隔的多个端口 (e.g. "22,2222")
+	ports := utils.ParseIntList(task.PortRange)
+	if len(ports) == 0 {
 		return nil, fmt.Errorf("invalid port: %s", task.PortRange)
 	}
 
@@ -145,8 +145,10 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 		stopOnSuccess = v
 	}
 
-	// 串行遍历字典
-	for _, auth := range authList {
+	// 双重循环：外层端口，内层字典
+	// 理由：TCP连接复用通常针对单端口。切换端口意味着重建连接。
+	// 而且逻辑上我们是逐个攻破服务。
+	for _, port := range ports {
 		// 快速失败检查
 		select {
 		case <-ctx.Done():
@@ -154,78 +156,101 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 		default:
 		}
 
-		// 单次尝试超时控制 (3s)
-		// 这里的超时是针对单次 Login 尝试
-		checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-
-		success, err := cracker.Check(checkCtx, task.Target, port, auth)
-		cancel()
-
-		// 构造日志后缀
-		statusSuffix := "Failed"
-		if success {
-			statusSuffix = "Success"
-		} else if err != nil {
-			// 如果有错误，可能是网络错误，也可能是协议错误
-			statusSuffix = fmt.Sprintf("Error: %v", err)
-		}
-
-		// 打印日志 (Info 级别)
-		// 注意: pterm 的输出可能会被 CLI 的 --log-level 控制
-		// 我们这里按照用户的要求格式输出: [Brute] Trying ... | ... | Status
-		// 为了避免刷屏太快，或者覆盖上一行？
-		// 如果我们用 Printf，它是换行的。
-		// 用户希望看到每一行的结果。
-		pterm.Info.Printf("[Brute] Trying %s:%d | User: %s | Pass: %s | %s\n",
-			task.Target, port, auth.Username, auth.Password, statusSuffix)
-
-		// 如果需要更详细的上下文，再用 Debug
-		if pterm.PrintDebugMessages {
-			pterm.Debug.Printf("[Brute-Detail] Context=%v Result=%v Err=%v\n", ctx, success, err)
-		}
-
-		if success {
-			// 爆破成功
-			res := BruteResult{
-				Service:  serviceName,
-				Host:     task.Target,
-				Port:     port,
-				Username: auth.Username,
-				Password: auth.Password,
-				Success:  true,
+		// 串行遍历字典
+		for _, auth := range authList {
+			// 快速失败检查
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
 			}
-			results = append(results, res)
 
-			// QoS 反馈: 成功也算是一种"网络通畅"的信号，可以适当增加并发
-			// 但爆破成功主要取决于弱口令是否存在，而不是网络质量
-			// 这里为了保持 Limiter 活跃，可以调用 OnSuccess
-			s.globalLimit.OnSuccess()
+			// 单次尝试超时控制 (3s)
+			// 这里的超时是针对单次 Login 尝试
+			checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 
-			if stopOnSuccess {
-				break
+			success, err := cracker.Check(checkCtx, task.Target, port, auth)
+			cancel()
+
+			// 构造日志后缀
+			statusSuffix := "Failed"
+			if success {
+				statusSuffix = "Success"
+			} else if err != nil {
+				// 如果有错误，可能是网络错误，也可能是协议错误
+				statusSuffix = fmt.Sprintf("Error: %v", err)
 			}
-		}
 
-		if err != nil {
-			// 错误处理
-			if err == ErrConnectionFailed {
-				// 网络错误 (超时/拒绝) -> 降低并发
-				s.globalLimit.OnFailure()
+			// 打印日志 (Info 级别)
+			// 注意: pterm 的输出可能会被 CLI 的 --log-level 控制
+			// 我们这里按照用户的要求格式输出: [Brute] Trying ... | ... | Status
+			// 为了避免刷屏太快，或者覆盖上一行？
+			// 如果我们用 Printf，它是换行的。
+			// 用户希望看到每一行的结果。
+			pterm.Info.Printf("[Brute] Trying %s:%d | User: %s | Pass: %s | %s\n",
+				task.Target, port, auth.Username, auth.Password, statusSuffix)
 
-				// 可选: 连续网络错误直接跳过该主机
-				// 这里简单处理：记录日志或继续
+			// 如果需要更详细的上下文，再用 Debug
+			if pterm.PrintDebugMessages {
+				pterm.Debug.Printf("[Brute-Detail] Context=%v Result=%v Err=%v\n", ctx, success, err)
+			}
+
+			if success {
+				// 爆破成功
+				res := BruteResult{
+					Service:  serviceName,
+					Host:     task.Target,
+					Port:     port,
+					Username: auth.Username,
+					Password: auth.Password,
+					Success:  true,
+				}
+				results = append(results, res)
+
+				// QoS 反馈: 成功也算是一种"网络通畅"的信号，可以适当增加并发
+				// 但爆破成功主要取决于弱口令是否存在，而不是网络质量
+				// 这里为了保持 Limiter 活跃，可以调用 OnSuccess
+				s.globalLimit.OnSuccess()
+
+				if stopOnSuccess {
+					// 如果设置了 stopOnSuccess，跳出字典循环，继续下一个端口？
+					// 还是直接结束整个任务？
+					// 既然是 Brute 任务，通常认为攻破一个服务就够了。
+					// 但如果是多端口，也许用户想知道每个端口的情况？
+					// 根据 --stop-on-success 的语义："找到一个成功凭据后停止"。
+					// 这里的语义应该是针对"整个任务"。
+					// 所以我们直接返回。
+					return []*model.TaskResult{{
+						TaskID:      task.ID,
+						Status:      model.TaskStatusSuccess,
+						ExecutedAt:  startTime,
+						CompletedAt: time.Now(),
+						Result:      BruteResults(results),
+					}}, nil
+				}
+			}
+
+			if err != nil {
+				// 错误处理
+				if err == ErrConnectionFailed {
+					// 网络错误 (超时/拒绝) -> 降低并发
+					s.globalLimit.OnFailure()
+
+					// 可选: 连续网络错误直接跳过该主机
+					// 这里简单处理：记录日志或继续
+				} else {
+					// 协议错误或认证失败 (ErrAuthFailed 通常为 nil error + false result，但也可能显式返回)
+					// 视为正常交互 -> 保持并发
+					s.globalLimit.OnSuccess()
+				}
 			} else {
-				// 协议错误或认证失败 (ErrAuthFailed 通常为 nil error + false result，但也可能显式返回)
-				// 视为正常交互 -> 保持并发
+				// err == nil && !success (认证失败)
 				s.globalLimit.OnSuccess()
 			}
-		} else {
-			// err == nil && !success (认证失败)
-			s.globalLimit.OnSuccess()
-		}
 
-		// 微小延迟，避免 CPU 100% 或触发极其敏感的防火墙
-		time.Sleep(10 * time.Millisecond)
+			// 微小延迟，避免 CPU 100% 或触发极其敏感的防火墙
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 
 	return []*model.TaskResult{{

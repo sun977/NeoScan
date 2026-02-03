@@ -4,12 +4,53 @@ import (
 	"context"
 	"fmt"
 
+	"os"
+	"strings"
+
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
 
 	"github.com/spf13/cobra"
 )
+
+// loadList 解析用户输入，支持文件路径或逗号分隔的字符串
+func loadList(input string) ([]string, error) {
+	if input == "" {
+		return nil, nil
+	}
+
+	// 1. 尝试作为文件读取
+	// 判断文件是否存在且不是目录
+	info, err := os.Stat(input)
+	if err == nil && !info.IsDir() {
+		content, err := os.ReadFile(input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file %s: %w", input, err)
+		}
+		// 按行分割，支持 \r\n 和 \n
+		lines := strings.Split(strings.ReplaceAll(string(content), "\r\n", "\n"), "\n")
+		var result []string
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				result = append(result, line)
+			}
+		}
+		return result, nil
+	}
+
+	// 2. 作为逗号分隔字符串处理
+	parts := strings.Split(input, ",")
+	var result []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
 
 // NewBruteScanCmd 创建 brute 子命令
 func NewBruteScanCmd() *cobra.Command {
@@ -66,10 +107,18 @@ func NewBruteScanCmd() *cobra.Command {
 			task.Params["stop_on_success"] = stopOnSuccess
 
 			if users != "" {
-				task.Params["users"] = users
+				userList, err := loadList(users)
+				if err != nil {
+					return fmt.Errorf("failed to load users: %w", err)
+				}
+				task.Params["users"] = userList
 			}
 			if passwords != "" {
-				task.Params["passwords"] = passwords
+				passList, err := loadList(passwords)
+				if err != nil {
+					return fmt.Errorf("failed to load passwords: %w", err)
+				}
+				task.Params["passwords"] = passList
 			}
 
 			// 3. 执行任务

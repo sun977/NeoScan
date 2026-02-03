@@ -55,12 +55,12 @@ func loadList(input string) ([]string, error) {
 // NewBruteScanCmd 创建 brute 子命令
 func NewBruteScanCmd() *cobra.Command {
 	var (
-		target        string
-		portRange     string
-		service       string
-		users         string
-		passwords     string
-		stopOnSuccess bool
+		target    string
+		portRange string
+		service   string
+		users     string
+		passwords string
+		scanAll   bool
 	)
 
 	cmd := &cobra.Command{
@@ -104,7 +104,8 @@ func NewBruteScanCmd() *cobra.Command {
 			task := model.NewTask(model.TaskTypeBrute, target)
 			task.PortRange = portRange
 			task.Params["service"] = service
-			task.Params["stop_on_success"] = stopOnSuccess
+			// 用户指定 --all 时，stop_on_success 为 false
+			task.Params["stop_on_success"] = !scanAll
 
 			if users != "" {
 				userList, err := loadList(users)
@@ -147,9 +148,9 @@ func NewBruteScanCmd() *cobra.Command {
 	flags.StringVarP(&target, "target", "t", "", "目标 IP (e.g. 192.168.1.1)")
 	flags.StringVarP(&portRange, "port", "p", "", "目标端口 (e.g. 22)")
 	flags.StringVarP(&service, "service", "s", "", "服务名称 (ssh/mysql/redis)")
-	flags.StringVar(&users, "users", "", "自定义用户名列表 (逗号分隔)")
-	flags.StringVar(&passwords, "passwords", "", "自定义密码列表 (逗号分隔)")
-	flags.BoolVar(&stopOnSuccess, "stop-on-success", true, "找到一个成功凭据后停止")
+	flags.StringVarP(&users, "users", "u", "", "自定义用户名列表 (逗号分隔)")
+	flags.StringVar(&passwords, "pass", "", "自定义密码列表 (逗号分隔)")
+	flags.BoolVarP(&scanAll, "all", "a", false, "尝试所有凭据 (默认: 找到一个成功后即停止)")
 
 	return cmd
 }

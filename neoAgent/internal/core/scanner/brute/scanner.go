@@ -39,6 +39,23 @@ func (r BruteResult) Rows() [][]string {
 	}}
 }
 
+// BruteResults 结果集合，用于实现 TabularData 接口以便一次性打印所有结果
+type BruteResults []BruteResult
+
+// Headers 实现 TabularData 接口
+func (rs BruteResults) Headers() []string {
+	return []string{"Service", "Host", "Port", "Username", "Password"}
+}
+
+// Rows 实现 TabularData 接口
+func (rs BruteResults) Rows() [][]string {
+	var rows [][]string
+	for _, r := range rs {
+		rows = append(rows, r.Rows()...)
+	}
+	return rows
+}
+
 // BruteScanner 爆破扫描器
 type BruteScanner struct {
 	limiters    map[string]*qos.AdaptiveLimiter // 按协议/目标分组的限流器 (可选优化)
@@ -103,7 +120,7 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 			Status:      model.TaskStatusSuccess,
 			ExecutedAt:  startTime,
 			CompletedAt: time.Now(),
-			Result:      []BruteResult{}, // 空结果
+			Result:      BruteResults{}, // 空结果
 		}}, nil
 	}
 
@@ -216,6 +233,6 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 		Status:      model.TaskStatusSuccess,
 		ExecutedAt:  startTime,
 		CompletedAt: time.Now(),
-		Result:      results,
+		Result:      BruteResults(results),
 	}}, nil
 }

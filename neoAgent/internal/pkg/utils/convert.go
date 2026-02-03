@@ -91,6 +91,27 @@ func StringToBool(str string, defaultValue bool) bool {
 	}
 }
 
+// ParseIntList 解析整数列表字符串
+// 参数: input - 逗号分隔的整数字符串 (e.g., "80,443,8080")
+// 返回: 整数切片，如果解析失败则忽略该项
+func ParseIntList(input string) []int {
+	if input == "" {
+		return nil
+	}
+	var result []int
+	parts := strings.Split(input, ",")
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if val, err := strconv.Atoi(p); err == nil {
+			result = append(result, val)
+		}
+	}
+	return result
+}
+
 // IntToString 整数转字符串
 // 参数: value - 待转换的整数值
 // 返回: 转换后的字符串

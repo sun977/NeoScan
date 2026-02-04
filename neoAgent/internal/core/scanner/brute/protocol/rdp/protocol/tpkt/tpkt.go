@@ -64,7 +64,7 @@ func (t *TPKT) StartNLA() error {
 		return err
 	}
 
-	resp := make([]byte, 1024)
+	resp := make([]byte, 4096) // 增加缓冲区大小，某些服务器 Challenge 包较大
 	n, err := t.Conn.Read(resp)
 	if err != nil {
 		return fmt.Errorf("read %s", err)
@@ -86,6 +86,10 @@ func (t *TPKT) recvChallenge(data []byte) error {
 	pubkey, err := t.Conn.TlsPubKey()
 	glog.Debugf("pubkey=%+v", pubkey)
 
+	if len(tsreq.NegoTokens) == 0 {
+		return fmt.Errorf("no NegoTokens in challenge")
+	}
+
 	authMsg, ntlmSec := t.ntlm.GetAuthenticateMessage(tsreq.NegoTokens[0].Data)
 	t.ntlmSec = ntlmSec
 
@@ -96,7 +100,7 @@ func (t *TPKT) recvChallenge(data []byte) error {
 		glog.Info("send AuthenticateMessage", err)
 		return err
 	}
-	resp := make([]byte, 1024)
+	resp := make([]byte, 4096)
 	n, err := t.Conn.Read(resp)
 	if err != nil {
 		glog.Error("Read:", err)
@@ -125,6 +129,15 @@ func (t *TPKT) recvPubKeyInc(data []byte) error {
 	if err != nil {
 		glog.Info("send AuthenticateMessage", err)
 		return err
+	}
+
+	resp := make([]byte, 4096)
+	_, err = t.Conn.Read(resp)
+	if err != nil {
+		glog.Error("Read:", err)
+		return fmt.Errorf("read %s", err)
+	} else {
+		glog.Debug("recvPubKeyInc Read success")
 	}
 
 	return nil

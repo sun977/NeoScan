@@ -6,6 +6,7 @@ import (
 
 	"neoagent/internal/core/pipeline"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +47,7 @@ func NewRunScanCmd() *cobra.Command {
 				displayPort = "top1000 (default)"
 			}
 
-			fmt.Printf("[*] Starting Auto Pipeline on %s (Concurrency: %d, Ports: %s)...\n", opts.Target, opts.Concurrency, displayPort)
+			pterm.Info.Printf("开始全流程扫描: %s (Concurrency: %d, Ports: %s)...\n", opts.Target, opts.Concurrency, displayPort)
 
 			// 初始化 AutoRunner
 			runner := pipeline.NewAutoRunner(opts.Target, opts.Concurrency, opts.Port, opts.ShowSummary)
@@ -56,7 +57,7 @@ func NewRunScanCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println("[*] Pipeline completed.")
+			pterm.Info.Println("全流程扫描完成.")
 			return nil
 		},
 	}

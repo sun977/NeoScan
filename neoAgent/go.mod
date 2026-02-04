@@ -9,10 +9,14 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/gosnmp/gosnmp v1.43.2
+	github.com/huin/asn1ber v0.0.0-20120622192748-af09f62e6358
+	github.com/icodeface/tls v0.0.0-20190904083142-17aec93c60e5
 	github.com/inbug-team/SweetBabyScan v0.1.0
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.11.1
+	github.com/lunixbochs/struc v0.0.0-20241101090106-8d528fa2c543
 	github.com/miekg/dns v1.1.72
 	github.com/pterm/pterm v0.12.82
 	github.com/redis/go-redis/v9 v9.17.3
@@ -93,7 +97,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
-	github.com/gosnmp/gosnmp v1.43.2 // indirect
 	github.com/h2non/filetype v1.1.3 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect

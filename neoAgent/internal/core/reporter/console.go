@@ -88,7 +88,7 @@ func (r *ConsoleReporter) PrintResults(results []*model.TaskResult) {
 	if len(headers) > 0 {
 		if len(allRows) == 0 {
 			// 如果没有结果，输出更友好的提示，而不是空表头
-			pterm.Info.Println("未发现扫描结果")
+			pterm.Warning.Println("未发现扫描结果")
 		} else {
 			r.printTableFromData(headers, allRows)
 		}

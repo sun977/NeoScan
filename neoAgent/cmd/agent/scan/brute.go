@@ -11,6 +11,7 @@ import (
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -182,7 +183,7 @@ func NewBruteScanCmd() *cobra.Command {
 			// 初始化 RunnerManager
 			manager := runner.NewRunnerManager()
 
-			fmt.Printf("[*] Starting brute force on %s:%s (%s)...\n", target, portRange, service)
+			pterm.Info.Printf("Starting brute force task: %s:%s (%s)...\n", target, portRange, service)
 
 			results, err := manager.Execute(ctx, task)
 			if err != nil {

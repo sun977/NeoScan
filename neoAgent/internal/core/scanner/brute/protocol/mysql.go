@@ -92,6 +92,7 @@ func (c *MySQLCracker) handleError(err error) error {
 		strings.Contains(msg, "bad connection") ||
 		strings.Contains(msg, "driver: bad connection") ||
 		strings.Contains(msg, "target machine actively refused") || // Windows
+		strings.Contains(msg, "only one usage of each socket address") || // Windows Bind Error
 		err == mysql.ErrInvalidConn {
 		return brute.ErrConnectionFailed
 	}

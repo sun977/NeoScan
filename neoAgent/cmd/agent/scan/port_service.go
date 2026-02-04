@@ -2,13 +2,13 @@ package scan
 
 import (
 	"context"
-	"fmt"
 
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
 	"neoagent/internal/core/scanner/port_service"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ func NewPortScanCmd() *cobra.Command {
 			manager.Register(port_service.NewPortServiceScanner())
 
 			// 3. 执行任务
-			fmt.Printf("[*] Starting Port Scan on %s (Ports: %s)...\n", task.Target, task.PortRange)
+			pterm.Info.Printf("Starting detailed port scan: %s (Ports: %s)...\n", task.Target, task.PortRange)
 			results, err := manager.Execute(context.Background(), task)
 			if err != nil {
 				return err
@@ -53,7 +53,7 @@ func NewPortScanCmd() *cobra.Command {
 			// 保存 CSV 结果
 			if opts.Output.OutputCsv != "" {
 				if err := reporter.SaveCsvResult(opts.Output.OutputCsv, results); err != nil {
-					fmt.Printf("[-] Failed to save csv: %v\n", err)
+					pterm.Error.Printf("Failed to save csv: %v\n", err)
 				}
 			}
 

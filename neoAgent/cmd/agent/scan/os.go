@@ -8,6 +8,7 @@ import (
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/scanner/os"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +25,7 @@ func NewOsScanCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Starting OS Scan against %s (Mode: %s)...\n", opts.Target, opts.Mode)
+			pterm.Info.Printf("Starting OS detection: %s (Mode: %s)...\n", opts.Target, opts.Mode)
 
 			// 实例化扫描器
 			scanner := os.NewScanner()

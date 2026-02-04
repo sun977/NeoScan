@@ -65,50 +65,36 @@ func (g *Client) LoginForSSL(domain, user, pwd string) error {
 	g.sec.SetFastPathListener(g.pdu)
 	g.pdu.SetFastPathSender(g.tpkt)
 
+	// 使用 channel 等待连接结果
+	errCh := make(chan error, 1)
+	connCh := make(chan uint32, 1)
+
+	g.x224.On("error", func(e error) {
+		errCh <- e
+	})
+	g.x224.On("connect", func(proto uint32) {
+		connCh <- proto
+	})
+
 	err = g.x224.Connect()
 	if err != nil {
+		// NLA 模式下，Connect 会执行 NLA 握手
+		// 如果是认证失败 (CredSSP 握手失败)，通常会返回特定错误
+		// 但在这里，我们只能捕获到 x224/tpkt 层的错误
 		return fmt.Errorf("[x224 connect err] %v", err)
 	}
-	glog.Info("wait connect ok")
 
-	// 在连接建立后，根据不同的协议流程，可能不需要完全等待图形化更新
-	// 对于爆破来说，只要认证通过（SSL/NLA），或者收到了 RDP 协议的许可包，就算成功
-	// 这里简化处理：如果 Connect 成功且没有报错，如果是 SSL/NLA 模式，通常意味着认证通过
-	//
-	// 注意：LoginForSSL 中的 x224.Connect() 内部会进行 CredSSP 握手 (NLA)
-	// 如果 NLA 认证失败，x224.Connect() 应该会返回错误
-	// 所以我们不需要等待后续的 MCS/PDU 流程 (那些是图形化界面的东西)
-
-	// 为了兼容 sbscan 的逻辑，我们保留后续的 PDU 监听，但设置极短的超时
-	// 或者直接返回 nil，因为 NLA 认证是在 Connect 阶段完成的
-
-	// 检查 tpkt/x224/nla 的实现：
-	// 在 sbscan 中，nla.NewNTLMv2 被传入 tpkt，tpkt 在 Read/Write 时会处理 NLA
-	// x224.Connect -> tpkt.Connect -> socket.Connect
-	// 关键在于 NLA 认证发生在哪个阶段。
-	// 通常 RDP 连接顺序: X.224 CR -> CC -> (TLS Handshake) -> (CredSSP/NLA)
-	// 如果 NLA 失败，连接会断开或报错。
-
-	// 因此，如果代码运行到这里，说明 NLA 认证很可能已经通过了。
-	// 下面的 PDU 处理是处理 RDP 协议层面的图形更新，对于验证密码来说不是必须的。
-	// 我们可以尝试直接返回 nil。
-
-	return nil
-
-	/* 原 sbscan 逻辑：等待 PDU 更新，这是为了验证是否能看到桌面
-		wg := &sync.WaitGroup{}
-		breakFlag := false
-		wg.Add(1)
-
-		g.pdu.On("error", func(e error) {
-			err = e
-			glog.Error("error", e)
-			g.pdu.Emit("done")
-		})
-	    ...
-		wg.Wait()
+	select {
+	case err := <-errCh:
 		return err
-	*/
+	case <-connCh:
+		glog.Info("wait connect ok")
+		// NLA 认证在 Connect 阶段完成
+		// 如果能执行到这里，说明 NLA 握手成功（即用户名密码正确）
+		return nil
+	case <-time.After(3 * time.Second):
+		return fmt.Errorf("timeout")
+	}
 }
 
 func (g *Client) LoginForRDP(domain, user, pwd string) error {

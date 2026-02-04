@@ -97,6 +97,7 @@ func (c *RedisCracker) handleError(err error) error {
 		strings.Contains(msg, "failed to dial") || // go-redis generic dial error
 		strings.Contains(msg, "connection pool") || // go-redis connection pool error
 		strings.Contains(msg, "connectex") || // Windows connect exception
+		strings.Contains(msg, "only one usage of each socket address") || // Windows Bind Error
 		strings.Contains(msg, "context deadline exceeded") ||
 		strings.Contains(msg, "eof") {
 		return brute.ErrConnectionFailed

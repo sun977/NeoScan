@@ -34,6 +34,7 @@ func NewRunnerManager() *RunnerManager {
 	bs.RegisterCracker(protocol.NewMSSQLCracker())      // 注册 MSSQL 爆破器
 	bs.RegisterCracker(protocol.NewOracleCracker())     // 注册 Oracle 爆破器
 	bs.RegisterCracker(protocol.NewOracleSIDCracker())  // 注册 Oracle SID 爆破器
+	bs.RegisterCracker(protocol.NewTelnetCracker())     // 注册 Telnet 爆破器
 	m.Register(bs)
 
 	return m

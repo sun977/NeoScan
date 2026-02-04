@@ -68,9 +68,14 @@ func TestBruteScanner_Run(t *testing.T) {
 	result := results[0]
 
 	// 验证结果
-	bruteResults, ok := result.Result.([]BruteResult)
+	bruteResults, ok := result.Result.(BruteResults)
 	if !ok {
-		t.Fatalf("Result type assertion failed")
+		// 尝试断言为 []BruteResult (兼容性)
+		if list, ok := result.Result.([]BruteResult); ok {
+			bruteResults = BruteResults(list)
+		} else {
+			t.Fatalf("Result type assertion failed: expected BruteResults, got %T", result.Result)
+		}
 	}
 
 	if len(bruteResults) != 1 {
@@ -80,6 +85,42 @@ func TestBruteScanner_Run(t *testing.T) {
 		if !r.Success || r.Username != "root" || r.Password != "123456" {
 			t.Errorf("Unexpected result: %+v", r)
 		}
+	}
+}
+
+func TestBruteScanner_Run_StopOnSuccess(t *testing.T) {
+	scanner := NewBruteScanner()
+
+	// 模拟只要用户名是 root 就成功
+	sshCracker := &MockCracker{
+		name: "ssh",
+		mode: AuthModeUserPass,
+		mockSuccess: func(auth Auth) bool {
+			return auth.Username == "root"
+		},
+	}
+	scanner.RegisterCracker(sshCracker)
+
+	task := &model.Task{
+		ID:        "test-task-stop",
+		Type:      model.TaskTypeBrute,
+		Target:    "127.0.0.1",
+		PortRange: "22",
+		Params: map[string]interface{}{
+			"service":         "ssh",
+			"users":           []string{"root", "admin"}, // root 先匹配
+			"passwords":       []string{"123456", "password"},
+			"stop_on_success": true,
+		},
+	}
+
+	results, _ := scanner.Run(context.Background(), task)
+	bruteResults := results[0].Result.(BruteResults)
+
+	// 应该只返回第一个成功的 (root/123456)
+	// 因为 stop_on_success=true，找到一个就停止
+	if len(bruteResults) != 1 {
+		t.Errorf("Expected 1 result (stop on success), got %d", len(bruteResults))
 	}
 }
 
@@ -118,7 +159,7 @@ func TestBruteScanner_Run_NetworkError(t *testing.T) {
 	}
 	result := results[0]
 
-	bruteResults := result.Result.([]BruteResult)
+	bruteResults := result.Result.(BruteResults)
 	if len(bruteResults) != 0 {
 		t.Errorf("Expected 0 results, got %d", len(bruteResults))
 	}

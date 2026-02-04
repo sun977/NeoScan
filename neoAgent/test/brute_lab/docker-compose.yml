@@ -1,0 +1,132 @@
+version: '3'
+
+services:
+  # 1. SSH (Port 2222)
+  ssh:
+    image: lscr.io/linuxserver/openssh-server:latest
+    container_name: brute_ssh
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - PASSWORD_ACCESS=true
+      - USER_PASSWORD=password123
+      - USER_NAME=testuser
+    ports:
+      - "2222:2222"
+    restart: unless-stopped
+
+  # 2. MySQL (Port 33060)
+  mysql:
+    image: mysql:5.7
+    container_name: brute_mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=password123
+      - MYSQL_DATABASE=testdb
+      - MYSQL_USER=testuser
+      - MYSQL_PASSWORD=password123
+    ports:
+      - "33060:3306"
+    restart: unless-stopped
+
+  # 3. Redis (Port 63790)
+  redis:
+    image: redis:alpine
+    container_name: brute_redis
+    command: redis-server --requirepass password123
+    ports:
+      - "63790:6379"
+    restart: unless-stopped
+
+  # 4. PostgreSQL (Port 54320)
+  postgres:
+    image: postgres:alpine
+    container_name: brute_postgres
+    environment:
+      - POSTGRES_PASSWORD=password123
+      - POSTGRES_USER=postgres
+    ports:
+      - "54320:5432"
+    restart: unless-stopped
+
+  # 5. FTP (Port 2121)
+  ftp:
+    image: fauria/vsftpd
+    container_name: brute_ftp
+    environment:
+      - FTP_USER=testuser
+      - FTP_PASS=password123
+    ports:
+      - "2121:21"
+      - "21100-21110:21100-21110"
+    restart: unless-stopped
+
+  # 6. MongoDB (Port 27017)
+  mongo:
+    image: mongo:latest
+    container_name: brute_mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+
+  # 7. ClickHouse (Port 8123/9000)
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    container_name: brute_clickhouse
+    environment:
+      - CLICKHOUSE_PASSWORD=password123
+      - CLICKHOUSE_USER=testuser
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # 8. SMB (Port 445)
+  # 注意：SMB 端口通常被 Windows 本机占用，我们映射到 4455
+  smb:
+    image: dperson/samba
+    container_name: brute_smb
+    environment:
+      - USER=testuser;password123
+      - SHARE=test;testuser;yes;no;yes;testuser
+    ports:
+      - "4455:445"
+    restart: unless-stopped
+
+  # 9. SNMP (Port 1610 UDP)
+  snmp:
+    image: polinux/snmpd
+    container_name: brute_snmp
+    ports:
+      - "1610:161/udp"
+    restart: unless-stopped
+
+  # 10. RDP (Port 33890)
+  # 使用基于 XRDP 的容器
+  rdp:
+    image: scottyhardy/docker-remote-desktop
+    container_name: brute_rdp
+    ports:
+      - "33890:3389"
+    restart: unless-stopped
+    # RDP 容器通常使用默认用户
+    # 这个镜像通常没有简单的 ENV 设置密码，默认可能是 root/password 或 user/password
+    # 我们主要测试端口连通性和协议握手
+
+  # 11. Elasticsearch (Port 9200)
+  elasticsearch:
+    image: elasticsearch:7.17.10
+    container_name: brute_es
+    environment:
+      - discovery.type=single-node
+      - ELASTIC_PASSWORD=password123
+      - xpack.security.enabled=true
+    ports:
+      - "9200:9200"
+    restart: unless-stopped

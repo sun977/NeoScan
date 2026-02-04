@@ -63,7 +63,7 @@ neoAgent/
 
 ### 阶段三：原生能力建设 (Native Capabilities) —— **Power**
 **目标**: 逐步替换/实现原生扫描能力，摆脱外部依赖。
-**状态**: 🟢 **已完成** (核心能力已就绪)
+**状态**: 🟢 **已完成** (所有原生扫描模块已交付)
 
 - [x] **3.1 并发框架**: 实现 `internal/core/runner` (Semaphore + WaitGroup)。
 - [x] **3.2 主机发现**: 实现原生的 ICMP/ARP/TCP Connect (`IpAliveScanner`)。
@@ -80,7 +80,7 @@ neoAgent/
         - [x] SSH, RDP (Native), SMB, Telnet, FTP, SNMP
         - [x] MySQL, Postgres, MSSQL, Oracle (SID+Auth), Mongo, Redis, ClickHouse, ES
     - [x] **Integration**: 注册到 RunnerManager。
-    - [x] **CLI**: 实现 `scan brute` 子命令，支持多端口解析与全量模式。
+    - [x] **CLI**: 实现 `scan brute` 子命令，支持多端口解析与全量模式 (已国际化)。
 - [x] **3.8 高级并发优化**:
     - [x] 引入自适应速率控制 (Adaptive Rate Limiting - AIMD)。
     - [x] 实现 `RttEstimator` 动态调整超时 (RFC 6298)。

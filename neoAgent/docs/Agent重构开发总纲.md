@@ -77,9 +77,8 @@ neoAgent/
 - [x] **3.7 基础爆破 (Brute Force)**:
     - [x] **Infrastructure**: Cracker 接口定义, 字典管理 (内置+动态), 并发调度器 (Global+Serial)。
     - [x] **Protocols**: 
-        - [x] SSH (golang.org/x/crypto/ssh)
-        - [x] MySQL (go-sql-driver/mysql)
-        - [x] Redis (go-redis/v9)
+        - [x] SSH, RDP (Native), SMB, Telnet, FTP, SNMP
+        - [x] MySQL, Postgres, MSSQL, Oracle (SID+Auth), Mongo, Redis, ClickHouse, ES
     - [x] **Integration**: 注册到 RunnerManager。
     - [x] **CLI**: 实现 `scan brute` 子命令，支持多端口解析与全量模式。
 - [x] **3.8 高级并发优化**:

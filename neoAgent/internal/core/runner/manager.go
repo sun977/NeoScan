@@ -31,6 +31,7 @@ func NewRunnerManager() *RunnerManager {
 	bs.RegisterCracker(protocol.NewMongoCracker())      // 注册 MongoDB 爆破器
 	bs.RegisterCracker(protocol.NewClickHouseCracker()) // 注册 ClickHouse 爆破器
 	bs.RegisterCracker(protocol.NewSMBCracker())        // 注册 SMB 爆破器
+	bs.RegisterCracker(protocol.NewMSSQLCracker())      // 注册 MSSQL 爆破器
 	m.Register(bs)
 
 	return m

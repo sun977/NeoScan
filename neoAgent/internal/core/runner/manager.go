@@ -32,6 +32,8 @@ func NewRunnerManager() *RunnerManager {
 	bs.RegisterCracker(protocol.NewClickHouseCracker()) // 注册 ClickHouse 爆破器
 	bs.RegisterCracker(protocol.NewSMBCracker())        // 注册 SMB 爆破器
 	bs.RegisterCracker(protocol.NewMSSQLCracker())      // 注册 MSSQL 爆破器
+	bs.RegisterCracker(protocol.NewOracleCracker())     // 注册 Oracle 爆破器
+	bs.RegisterCracker(protocol.NewOracleSIDCracker())  // 注册 Oracle SID 爆破器
 	m.Register(bs)
 
 	return m

@@ -85,8 +85,13 @@ func (r *ConsoleReporter) PrintResults(results []*model.TaskResult) {
 		}
 	}
 
-	if len(headers) > 0 && len(allRows) > 0 {
-		r.printTableFromData(headers, allRows)
+	if len(headers) > 0 {
+		if len(allRows) == 0 {
+			// 如果没有结果，输出更友好的提示，而不是空表头
+			pterm.Info.Println("未发现扫描结果")
+		} else {
+			r.printTableFromData(headers, allRows)
+		}
 	} else {
 		// 无法表格化，回退
 		for _, res := range results {
@@ -101,6 +106,8 @@ func (r *ConsoleReporter) printTable(data TabularData) error {
 
 func (r *ConsoleReporter) printTableFromData(headers []string, rows [][]string) error {
 	if len(rows) == 0 {
+		// 如果没有行，直接打印未发现扫描结果
+		pterm.Info.Println("未发现扫描结果")
 		return nil
 	}
 

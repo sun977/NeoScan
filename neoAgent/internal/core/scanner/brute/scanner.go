@@ -181,21 +181,19 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 				statusSuffix = fmt.Sprintf("Error: %v", err)
 			}
 
-			// 打印日志 (Info 级别)
-			// 注意: pterm 的输出可能会被 CLI 的 --log-level 控制
-			// 我们这里按照用户的要求格式输出: [Brute] Trying ... | ... | Status
-			// 为了避免刷屏太快，或者覆盖上一行？
-			// 如果我们用 Printf，它是换行的。
-			// 用户希望看到每一行的结果。
-			pterm.Info.Printf("[Brute] Trying %s:%d | User: %s | Pass: %s | %s\n",
-				task.Target, port, auth.Username, auth.Password, statusSuffix)
-
-			// 如果需要更详细的上下文，再用 Debug
+			// 打印日志
+			// 只有在 Debug 模式下才打印每一次尝试，避免刷屏
 			if pterm.PrintDebugMessages {
+				pterm.Debug.Printf("[Brute] Trying %s:%d | User: %s | Pass: %s | %s\n",
+					task.Target, port, auth.Username, auth.Password, statusSuffix)
 				pterm.Debug.Printf("[Brute-Detail] Context=%v Result=%v Err=%v\n", ctx, success, err)
 			}
 
 			if success {
+				// 爆破成功，立即高亮显示
+				pterm.Success.Printf("[Brute] FOUND %s:%d | User: %s | Pass: %s\n",
+					task.Target, port, auth.Username, auth.Password)
+
 				// 爆破成功
 				res := BruteResult{
 					Service:  serviceName,

@@ -65,9 +65,9 @@ func NewBruteScanCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "brute",
-		Short: "执行弱口令爆破 (SSH/MySQL/Redis/Postgres/FTP/MongoDB/ClickHouse/SMB/MSSQL/Oracle/OracleSID)",
+		Short: "执行弱口令爆破 (SSH/MySQL/Redis/Postgres/FTP/MongoDB/ClickHouse/SMB/MSSQL/Oracle/OracleSID/Telnet)",
 		Long: `针对指定服务执行弱口令爆破。
-支持的服务: ssh, mysql, redis, postgres, ftp, mongo, clickhouse, smb, mssql, oracle, oracle-sid.
+支持的服务: ssh, mysql, redis, postgres, ftp, mongo, clickhouse, smb, mssql, oracle, oracle-sid, telnet.
 内置了 Top100 弱口令字典，支持通过参数自定义用户名和密码列表。
 `,
 		Example: `  # 爆破 SSH (使用内置字典)
@@ -101,7 +101,10 @@ func NewBruteScanCmd() *cobra.Command {
   neoagent scan brute -t 192.168.1.1 -p 1521 -s oracle
 
   # 爆破 Oracle SID (将 SID 字典作为用户字典传入)
-  neoagent scan brute -t 192.168.1.1 -p 1521 -s oracle-sid --users "orcl,XE,ORACLE"`,
+  neoagent scan brute -t 192.168.1.1 -p 1521 -s oracle-sid --users "orcl,XE,ORACLE"
+
+  # 爆破 Telnet
+  neoagent scan brute -t 192.168.1.1 -p 23 -s telnet`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// 1. 参数校验
 			if target == "" {
@@ -133,6 +136,8 @@ func NewBruteScanCmd() *cobra.Command {
 					portRange = "1433"
 				case "oracle", "oracle-sid":
 					portRange = "1521"
+				case "telnet":
+					portRange = "23"
 				default:
 					return fmt.Errorf("port is required (-p)")
 				}

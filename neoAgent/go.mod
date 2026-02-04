@@ -3,6 +3,7 @@ module neoagent
 go 1.25.0
 
 require (
+	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
 	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/fsnotify/fsnotify v1.9.0
@@ -21,6 +22,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stacktitan/smb v0.0.0-20190531122847-da9a425dceb8
+	github.com/ziutek/telnet v0.1.0
 	go.mongodb.org/mongo-driver v1.17.8
 	golang.org/x/crypto v0.47.0
 	golang.org/x/net v0.49.0
@@ -35,7 +37,6 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	git.mills.io/prologic/smtpd v0.0.0-20210710122116-a525b76c287a // indirect
 	github.com/ClickHouse/ch-go v0.71.0 // indirect
-	github.com/ClickHouse/clickhouse-go/v2 v2.43.0 // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 // indirect
 	github.com/Mzack9999/ldapserver v1.0.2-0.20211229000134-b44a0d6ad0dd // indirect
@@ -76,7 +77,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
 	github.com/go-rod/rod v0.106.8 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goburrow/cache v0.1.4 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect

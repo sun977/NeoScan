@@ -23,9 +23,10 @@ func NewRunnerManager() *RunnerManager {
 
 	// 初始化并注册 BruteScanner
 	bs := brute.NewBruteScanner()
-	bs.RegisterCracker(protocol.NewSSHCracker())
-	bs.RegisterCracker(protocol.NewMySQLCracker())
-	bs.RegisterCracker(protocol.NewRedisCracker())
+	bs.RegisterCracker(protocol.NewSSHCracker())      // 注册 SSH 爆破器
+	bs.RegisterCracker(protocol.NewMySQLCracker())    // 注册 MySQL 爆破器
+	bs.RegisterCracker(protocol.NewRedisCracker())    // 注册 Redis 爆破器
+	bs.RegisterCracker(protocol.NewPostgresCracker()) // 注册 Postgres 爆破器
 	m.Register(bs)
 
 	return m

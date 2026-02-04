@@ -27,6 +27,7 @@ func NewRunnerManager() *RunnerManager {
 	bs.RegisterCracker(protocol.NewMySQLCracker())    // 注册 MySQL 爆破器
 	bs.RegisterCracker(protocol.NewRedisCracker())    // 注册 Redis 爆破器
 	bs.RegisterCracker(protocol.NewPostgresCracker()) // 注册 Postgres 爆破器
+	bs.RegisterCracker(protocol.NewFTPCracker())      //	注册 FTP 爆破器
 	m.Register(bs)
 
 	return m

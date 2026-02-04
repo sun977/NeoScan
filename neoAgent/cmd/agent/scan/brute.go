@@ -65,9 +65,9 @@ func NewBruteScanCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "brute",
-		Short: "执行弱口令爆破 (SSH/MySQL/Redis/Postgres)",
+		Short: "执行弱口令爆破 (SSH/MySQL/Redis/Postgres/FTP)",
 		Long: `针对指定服务执行弱口令爆破。
-支持的服务: ssh, mysql, redis, postgres.
+支持的服务: ssh, mysql, redis, postgres, ftp.
 内置了 Top100 弱口令字典，支持通过参数自定义用户名和密码列表。
 `,
 		Example: `  # 爆破 SSH (使用内置字典)
@@ -80,7 +80,10 @@ func NewBruteScanCmd() *cobra.Command {
   neoagent scan brute -t 192.168.1.1 -p 6379 -s redis --pass "123456,password"
 
   # 爆破 PostgreSQL
-  neoagent scan brute -t 192.168.1.1 -p 5432 -s postgres`,
+  neoagent scan brute -t 192.168.1.1 -p 5432 -s postgres
+  
+  # 爆破 FTP
+  neoagent scan brute -t 192.168.1.1 -p 21 -s ftp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// 1. 参数校验
 			if target == "" {
@@ -100,6 +103,8 @@ func NewBruteScanCmd() *cobra.Command {
 					portRange = "6379"
 				case "postgres", "postgresql":
 					portRange = "5432"
+				case "ftp":
+					portRange = "21"
 				default:
 					return fmt.Errorf("port is required (-p) for service %s", service)
 				}

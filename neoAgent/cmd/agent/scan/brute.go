@@ -67,7 +67,7 @@ func NewBruteScanCmd() *cobra.Command {
 		Use:   "brute",
 		Short: "执行弱口令爆破 (SSH/MySQL/Redis/Postgres/FTP/MongoDB/ClickHouse/SMB/MSSQL/Oracle/OracleSID/Telnet)",
 		Long: `针对指定服务执行弱口令爆破。
-支持的服务: ssh, mysql, redis, postgres, ftp, mongo, clickhouse, smb, mssql, oracle, oracle-sid, telnet, elasticsearch.
+支持的服务: ssh, mysql, redis, postgres, ftp, mongo, clickhouse, smb, mssql, oracle, oracle-sid, telnet, elasticsearch, snmp.
 内置了 Top100 弱口令字典，支持通过参数自定义用户名和密码列表。
 `,
 		Example: `  # 爆破 SSH (使用内置字典)
@@ -107,14 +107,17 @@ func NewBruteScanCmd() *cobra.Command {
   neoagent scan brute -t 192.168.1.1 -p 23 -s telnet
 
   # 爆破 Elasticsearch
-  neoagent scan brute -t 192.168.1.1 -p 9200 -s elasticsearch`,
+  neoagent scan brute -t 192.168.1.1 -p 9200 -s elasticsearch
+
+  # 爆破 SNMP
+  neoagent scan brute -t 192.168.1.1 -p 161 -s snmp --pass public`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// 1. 参数校验
 			if target == "" {
 				return fmt.Errorf("target is required (-t)")
 			}
 			if service == "" {
-				return fmt.Errorf("service is required (ssh, mysql, redis, postgres, ftp, mongo, clickhouse, smb, mssql, oracle, oracle-sid, telnet, elasticsearch)")
+				return fmt.Errorf("service is required (ssh, mysql, redis, postgres, ftp, mongo, clickhouse, smb, mssql, oracle, oracle-sid, telnet, elasticsearch, snmp)")
 			}
 			if portRange == "" {
 				// 尝试根据服务设置默认端口
@@ -143,6 +146,8 @@ func NewBruteScanCmd() *cobra.Command {
 					portRange = "23"
 				case "elasticsearch":
 					portRange = "9200"
+				case "snmp":
+					portRange = "161"
 				default:
 					return fmt.Errorf("port is required (-p)")
 				}

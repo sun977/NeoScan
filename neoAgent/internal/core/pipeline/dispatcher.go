@@ -57,14 +57,26 @@ func (d *ServiceDispatcher) dispatchHighPriority(ctx context.Context, pCtx *Pipe
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// Placeholder for Web Scanner
-			// logger.Infof("[%s] [Phase 2] Dispatching Web Scan...", pCtx.IP)
+			logger.Infof("[%s] [Phase 2] Dispatching Web Scan...", pCtx.IP)
+			// TODO: 调用真实的 Web Scanner
 			// d.webScanner.Scan(ctx, pCtx.IP)
 		}()
 	}
 
 	// 2. Vuln Scan (Nuclei)
 	// Placeholder
+	if d.strategy == StrategyFull {
+		// 检查是否有服务可以扫描漏洞
+		// 这里简化处理，只要有开放服务就尝试 Vuln Scan
+		if len(pCtx.Services) > 0 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Infof("[%s] [Phase 2] Dispatching Vuln Scan...", pCtx.IP)
+				// TODO: 调用真实的 Vuln Scanner
+			}()
+		}
+	}
 
 	// 等待高优先级任务完成，以确保 "Vuln First"
 	wg.Wait()

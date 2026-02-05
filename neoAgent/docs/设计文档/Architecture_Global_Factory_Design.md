@@ -71,13 +71,13 @@ graph TD
 
 ## 3. 实施方案
 
-### 3.1 阶段一：收敛 Brute 能力 (已就绪)
+### 3.1 阶段一：收敛 Brute 能力 (已完成)
 *   **动作**: 使用 `brute.NewFullScanner()` 替换 `AutoRunner` 和 `RunnerManager` 中的重复注册代码。
 *   **收益**: 消除 "unsupported service" 风险，新增协议只需修改一处。
 
-### 3.2 阶段二：建立全局工厂 (Next Step)
-*   **动作**: 创建 `internal/core/scanner/factory.go`，将 Alive, Port, OS, Brute 的构建逻辑集中管理。
-*   **收益**: `NewAutoRunner` 代码减少 50%，逻辑更清晰。
+### 3.2 阶段二：建立全局工厂 (已完成)
+*   **动作**: 创建 `internal/core/factory/` 下的 `alive_factory.go`, `port_factory.go`, `os_factory.go`，将 Alive, Port, OS, Brute 的构建逻辑集中管理。
+*   **收益**: `NewAutoRunner` 和 `NewRunnerManager` 代码大幅简化，逻辑更清晰。
 
 ### 3.3 阶段三：集群能力动态上报 (Future)
 *   **动作**: 修改 Server 的心跳逻辑，通过 Factory 获取当前支持的 Scanner 列表并上报。

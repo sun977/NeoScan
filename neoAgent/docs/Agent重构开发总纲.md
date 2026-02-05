@@ -106,6 +106,7 @@ neoAgent/
     - [x] **Step 3**: 完善 `internal/service/client`，实现主动 HTTP 通信。
     - [x] **Step 4**: 重构 `internal/service/task`，实现 Worker 主循环。
     - [x] **Step 5**: 更新 `cmd/agent/server.go` (实际为 `app.go`) 入口。
+    - [x] **Step 6**: 统一 Server 模式扫描器初始化逻辑 (`setup/core.go` -> `RunnerManager` Factory)。
 - [ ] **4.3 高级能力集成**:
     - [ ] 集成 Nuclei 等重型工具。
     - [ ] 实现 Web 指纹识别与爬虫。

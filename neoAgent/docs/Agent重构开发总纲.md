@@ -94,12 +94,12 @@ neoAgent/
 - [ ] **4.1 全流程编排 (Scan Orchestration)**:
     - [x] 实现 `PipelineRunner` 串联各个 Scanner (v1.0 线性流程)。
     - [x] 实现 `scan run` 命令，支持 `--auto` 和 Pipeline Mode。
-    - [ ] **重构：并行分发 (Phase 2 Upgrade)**:
-        - [ ] 实现 `ServiceDispatcher`: 基于端口服务结果进行任务分发 (Web/Vuln/Brute)。
-        - [ ] 实现 `PipelineRunner` 并行化: 
+    - [x] **重构：并行分发 (Phase 2 Upgrade)**:
+        - [x] 实现 `ServiceDispatcher`: 基于端口服务结果进行任务分发 (Web/Vuln/Brute)。
+        - [x] 实现 `PipelineRunner` 并行化: 
             - Phase 1 (Sequential): Alive -> Port -> Service
             - Phase 2 (Parallel): Web + Vuln (High Priority) -> Brute (Low Priority)
-        - [ ] 实现优先级控制: 确保 Vuln 任务完成后再触发 Brute 任务 (针对同一 Target)。
+        - [x] 实现优先级控制: 确保 Vuln 任务完成后再触发 Brute 任务 (针对同一 Target)。
 - [x] **4.2 集群接入增强 (Cluster Adapter)**:
     - [x] **Step 1**: 创建 `internal/model/adapter`，固化数据契约 (Payload DTO)。
     - [x] **Step 2**: 完善 `internal/service/adapter`，实现双向协议转换。

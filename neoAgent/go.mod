@@ -17,7 +17,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.11.1
 	github.com/lunixbochs/struc v0.0.0-20241101090106-8d528fa2c543
-	github.com/miekg/dns v1.1.72
 	github.com/pterm/pterm v0.12.82
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -125,6 +124,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mholt/acmez v1.0.2 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible // indirect
+	github.com/miekg/dns v1.1.72 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect

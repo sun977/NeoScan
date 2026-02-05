@@ -58,6 +58,11 @@ func (s *BruteScanner) RegisterCracker(c Cracker) {
 	s.crackers[c.Name()] = c
 }
 
+// CurrentLimit 返回当前全局并发限制 (仅用于测试/监控)
+func (s *BruteScanner) CurrentLimit() int {
+	return s.globalLimit.CurrentLimit()
+}
+
 // Name 扫描器名称
 func (s *BruteScanner) Name() model.TaskType {
 	return model.TaskTypeBrute
@@ -145,6 +150,17 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 
 			success, err := cracker.Check(checkCtx, task.Target, port, auth)
 			cancel()
+
+			// QoS 反馈
+			switch err {
+			case nil:
+				// 认证成功或认证失败(非网络错误)，都视为网络连通
+				s.globalLimit.OnSuccess()
+			case ErrConnectionFailed:
+				// 网络连接失败，降低并发
+				s.globalLimit.OnFailure()
+			}
+			// 其他协议错误 (ErrProtocolError) 暂时不调整，或者视为成功(因为连接通了)
 
 			// 构造日志后缀
 			statusSuffix := "Failed"

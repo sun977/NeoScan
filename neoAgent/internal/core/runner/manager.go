@@ -25,8 +25,23 @@ func NewRunnerManager() *RunnerManager {
 	bs := factory.NewFullBruteScanner()
 	m.Register(bs)
 
-	// 注册其他 Runner (Alive, Port, OS, etc.)
-	// TODO: 使用 Global Factory 统一注册所有 Runner
+	// 注册 AliveScanner
+	aliveScanner := factory.NewAliveScanner()
+	m.Register(aliveScanner)
+
+	// 注册 PortScanner
+	portScanner := factory.NewPortScanner()
+	m.Register(portScanner)
+
+	// 注册 ServiceScanner (使用 Adapter)
+	// ServiceScanner 复用 PortScanner 的底层逻辑，但通过 Adapter 调整行为
+	serviceRunner := NewServiceRunner(factory.NewPortScanner())
+	m.Register(serviceRunner)
+
+	// 注册 OsScanner (使用 Adapter)
+	osScanner := factory.NewOsScanner()
+	osRunner := NewOsRunner(osScanner)
+	m.Register(osRunner)
 
 	return m
 }

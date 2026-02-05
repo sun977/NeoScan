@@ -1,0 +1,144 @@
+package pipeline
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"neoagent/internal/core/model"
+	"neoagent/internal/core/scanner/brute"
+	"neoagent/internal/pkg/logger"
+)
+
+// DispatchStrategy 分发策略
+type DispatchStrategy int
+
+const (
+	StrategyDefault DispatchStrategy = iota
+	StrategyQuick                    // 快速模式：跳过深度扫描和耗时爆破
+	StrategyFull                     // 全量模式：执行所有可能的扫描
+)
+
+// ServiceDispatcher 服务分发器
+// 负责 Phase 2 的任务分发与协调
+type ServiceDispatcher struct {
+	strategy     DispatchStrategy
+	bruteScanner *brute.BruteScanner
+	// webScanner   *web.Scanner // Future
+	// vulnScanner  *vuln.Scanner // Future
+}
+
+// NewServiceDispatcher 创建服务分发器
+func NewServiceDispatcher(strategy DispatchStrategy, bruteScanner *brute.BruteScanner) *ServiceDispatcher {
+	return &ServiceDispatcher{
+		strategy:     strategy,
+		bruteScanner: bruteScanner,
+	}
+}
+
+// Dispatch 执行分发逻辑
+// 这是一个阻塞方法，直到所有派生的 Phase 2 任务完成
+func (d *ServiceDispatcher) Dispatch(ctx context.Context, pCtx *PipelineContext) {
+	// Phase 2a: High Priority (Web & Vuln)
+	// "Vuln First"
+	d.dispatchHighPriority(ctx, pCtx)
+
+	// Phase 2b: Low Priority (Brute Force)
+	// "Brute Last"
+	d.dispatchLowPriority(ctx, pCtx)
+}
+
+// dispatchHighPriority 分发高优先级任务 (Web, Vuln)
+func (d *ServiceDispatcher) dispatchHighPriority(ctx context.Context, pCtx *PipelineContext) {
+	var wg sync.WaitGroup
+
+	// 1. Web Scan
+	if d.shouldScanWeb(pCtx) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Placeholder for Web Scanner
+			// logger.Infof("[%s] [Phase 2] Dispatching Web Scan...", pCtx.IP)
+			// d.webScanner.Scan(ctx, pCtx.IP)
+		}()
+	}
+
+	// 2. Vuln Scan (Nuclei)
+	// Placeholder
+
+	// 等待高优先级任务完成，以确保 "Vuln First"
+	wg.Wait()
+}
+
+// dispatchLowPriority 分发低优先级任务 (Brute)
+func (d *ServiceDispatcher) dispatchLowPriority(ctx context.Context, pCtx *PipelineContext) {
+	if d.strategy == StrategyQuick {
+		return // 快速模式跳过爆破
+	}
+
+	if d.bruteScanner == nil {
+		return
+	}
+
+	var wg sync.WaitGroup
+
+	// 支持的爆破协议列表
+	// TODO: 从 BruteScanner 获取支持列表，而不是硬编码
+	supportedProtos := []string{
+		"ssh", "rdp", "mysql", "redis", "postgres", "mssql",
+		"ftp", "telnet", "smb", "oracle", "elasticsearch", "mongodb",
+	}
+
+	for _, proto := range supportedProtos {
+		ports := pCtx.GetPortsByService(proto)
+		if len(ports) > 0 {
+			for _, port := range ports {
+				wg.Add(1)
+				go func(p int, pr string) {
+					defer wg.Done()
+					d.runBruteTask(ctx, pCtx, p, pr)
+				}(port, proto)
+			}
+		}
+	}
+
+	wg.Wait()
+}
+
+func (d *ServiceDispatcher) runBruteTask(ctx context.Context, pCtx *PipelineContext, port int, service string) {
+	logger.Infof("[%s] [Phase 2] Dispatching Brute Scan for %s:%d...", pCtx.IP, service, port)
+
+	// 构造 Task
+	task := model.NewTask(model.TaskTypeBrute, pCtx.IP)
+	task.PortRange = fmt.Sprintf("%d", port)
+	task.Params["service"] = service
+
+	// 如果是全量模式，可能设置 stop_on_success = false ? 默认 true
+	task.Params["stop_on_success"] = true
+
+	// 执行
+	results, err := d.bruteScanner.Run(ctx, task)
+	if err != nil {
+		logger.Warnf("[%s] Brute scan failed for %s:%d: %v", pCtx.IP, service, port, err)
+		return
+	}
+
+	// 收集结果
+	for _, res := range results {
+		if res.Status == model.TaskStatusSuccess {
+			if bruteResults, ok := res.Result.(model.BruteResults); ok {
+				for _, r := range bruteResults {
+					pCtx.AddBruteResult(&r)
+				}
+			}
+		}
+	}
+}
+
+func (d *ServiceDispatcher) shouldScanWeb(pCtx *PipelineContext) bool {
+	// 简单的 Web 服务判定
+	return pCtx.HasService("http") ||
+		pCtx.HasService("https") ||
+		pCtx.HasService("http-alt") ||
+		pCtx.HasService("http-proxy")
+}

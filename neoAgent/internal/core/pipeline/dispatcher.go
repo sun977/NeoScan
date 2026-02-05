@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"neoagent/internal/core/model"
+	"neoagent/internal/core/options"
 	"neoagent/internal/core/scanner/brute"
 	"neoagent/internal/pkg/logger"
 )
@@ -24,15 +25,17 @@ const (
 type ServiceDispatcher struct {
 	strategy     DispatchStrategy
 	bruteScanner *brute.BruteScanner
+	opts         *options.ScanRunOptions // 全局选项，包含 Brute 开关和字典
 	// webScanner   *web.Scanner // Future
 	// vulnScanner  *vuln.Scanner // Future
 }
 
 // NewServiceDispatcher 创建服务分发器
-func NewServiceDispatcher(strategy DispatchStrategy, bruteScanner *brute.BruteScanner) *ServiceDispatcher {
+func NewServiceDispatcher(strategy DispatchStrategy, bruteScanner *brute.BruteScanner, opts *options.ScanRunOptions) *ServiceDispatcher {
 	return &ServiceDispatcher{
 		strategy:     strategy,
 		bruteScanner: bruteScanner,
+		opts:         opts,
 	}
 }
 
@@ -84,6 +87,12 @@ func (d *ServiceDispatcher) dispatchHighPriority(ctx context.Context, pCtx *Pipe
 
 // dispatchLowPriority 分发低优先级任务 (Brute)
 func (d *ServiceDispatcher) dispatchLowPriority(ctx context.Context, pCtx *PipelineContext) {
+	// 1. 检查全局开关
+	if d.opts != nil && !d.opts.EnableBrute {
+		logger.Debugf("[%s] [Phase 2] Brute Scan disabled by user.", pCtx.IP)
+		return
+	}
+
 	if d.strategy == StrategyQuick {
 		return // 快速模式跳过爆破
 	}
@@ -124,6 +133,16 @@ func (d *ServiceDispatcher) runBruteTask(ctx context.Context, pCtx *PipelineCont
 	task := model.NewTask(model.TaskTypeBrute, pCtx.IP)
 	task.PortRange = fmt.Sprintf("%d", port)
 	task.Params["service"] = service
+
+	// 传递自定义字典参数
+	if d.opts != nil {
+		if d.opts.BruteUsers != "" {
+			task.Params["users"] = d.opts.BruteUsers
+		}
+		if d.opts.BrutePass != "" {
+			task.Params["passwords"] = d.opts.BrutePass
+		}
+	}
 
 	// 如果是全量模式，可能设置 stop_on_success = false ? 默认 true
 	task.Params["stop_on_success"] = true

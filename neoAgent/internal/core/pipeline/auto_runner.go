@@ -53,9 +53,9 @@ func NewAutoRunner(targetInput string, concurrency int, portRange string, showSu
 		concurrency:     concurrency,
 		portRange:       portRange,
 		showSummary:     showSummary,
-		aliveScanner:    alive.NewIpAliveScanner(),
-		portScanner:     port_service.NewPortServiceScanner(),
-		osScanner:       os.NewScanner(),
+		aliveScanner:    factory.NewAliveScanner(),
+		portScanner:     factory.NewPortScanner(),
+		osScanner:       factory.NewOsScanner(),
 		dispatcher:      dispatcher, // 分发器
 		summaries:       make([]*PipelineContext, 0),
 	}

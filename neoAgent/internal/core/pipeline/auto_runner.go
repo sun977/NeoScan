@@ -7,6 +7,7 @@ import (
 
 	"neoagent/internal/core/factory"
 	"neoagent/internal/core/model"
+	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/scanner/alive"
 	"neoagent/internal/core/scanner/os"
@@ -22,10 +23,13 @@ type AutoRunner struct {
 	portRange       string
 	showSummary     bool
 
+	// Options
+	opts *options.ScanRunOptions
+
 	// Scanners
 	aliveScanner *alive.IpAliveScanner
 	portScanner  *port_service.PortServiceScanner
-	osScanner    *os.Scanner // 注意：这是 os 包的 Scanner struct，不是接口
+	osScanner    *os.Scanner
 	// 后续扫描器在这里添加
 
 	// Dispatcher (Phase 2)
@@ -36,23 +40,20 @@ type AutoRunner struct {
 	summaries []*PipelineContext
 }
 
-func NewAutoRunner(targetInput string, concurrency int, portRange string, showSummary bool) *AutoRunner {
-	if portRange == "" {
-		portRange = "top1000"
-	}
-
+func NewAutoRunner(opts *options.ScanRunOptions) *AutoRunner {
 	// 初始化 Phase 2 Scanners
 	// 使用 Factory 获取全功能 BruteScanner
 	bruteScanner := factory.NewFullBruteScanner()
 
 	// 初始化 Dispatcher
-	dispatcher := NewServiceDispatcher(StrategyFull, bruteScanner)
+	dispatcher := NewServiceDispatcher(StrategyFull, bruteScanner, opts)
 
 	return &AutoRunner{
-		targetGenerator: GenerateTargets(targetInput),
-		concurrency:     concurrency,
-		portRange:       portRange,
-		showSummary:     showSummary,
+		targetGenerator: GenerateTargets(opts.Target),
+		concurrency:     opts.Concurrency,
+		portRange:       opts.PortRange,
+		showSummary:     opts.ShowSummary,
+		opts:            opts,
 		aliveScanner:    factory.NewAliveScanner(),
 		portScanner:     factory.NewPortScanner(),
 		osScanner:       factory.NewOsScanner(),

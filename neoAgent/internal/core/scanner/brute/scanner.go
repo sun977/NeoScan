@@ -13,34 +13,8 @@ import (
 	"github.com/pterm/pterm"
 )
 
-// BruteResult 爆破结果
-type BruteResult struct {
-	Service  string `json:"service"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	Success  bool   `json:"success"`
-}
-
-// Headers 实现 TabularData 接口
-func (r BruteResult) Headers() []string {
-	return []string{"Service", "Host", "Port", "Username", "Password"}
-}
-
-// Rows 实现 TabularData 接口
-func (r BruteResult) Rows() [][]string {
-	return [][]string{{
-		r.Service,
-		r.Host,
-		utils.IntToString(r.Port),
-		r.Username,
-		r.Password,
-	}}
-}
-
 // BruteResults 结果集合，用于实现 TabularData 接口以便一次性打印所有结果
-type BruteResults []BruteResult
+type BruteResults []model.BruteResult
 
 // Headers 实现 TabularData 接口
 func (rs BruteResults) Headers() []string {
@@ -139,7 +113,7 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 	}
 	defer s.globalLimit.Release()
 
-	var results []BruteResult
+	var results []model.BruteResult
 	stopOnSuccess := true // 默认找到一个就停止
 	if v, ok := task.Params["stop_on_success"].(bool); ok {
 		stopOnSuccess = v
@@ -195,7 +169,7 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 					task.Target, port, auth.Username, auth.Password)
 
 				// 爆破成功
-				res := BruteResult{
+				res := model.BruteResult{
 					Service:  serviceName,
 					Host:     task.Target,
 					Port:     port,
@@ -205,52 +179,15 @@ func (s *BruteScanner) Run(ctx context.Context, task *model.Task) ([]*model.Task
 				}
 				results = append(results, res)
 
-				// QoS 反馈: 成功也算是一种"网络通畅"的信号，可以适当增加并发
-				// 但爆破成功主要取决于弱口令是否存在，而不是网络质量
-				// 这里为了保持 Limiter 活跃，可以调用 OnSuccess
-				s.globalLimit.OnSuccess()
-
 				if stopOnSuccess {
-					// 如果设置了 stopOnSuccess，跳出字典循环，继续下一个端口？
-					// 还是直接结束整个任务？
-					// 既然是 Brute 任务，通常认为攻破一个服务就够了。
-					// 但如果是多端口，也许用户想知道每个端口的情况？
-					// 根据 --stop-on-success 的语义："找到一个成功凭据后停止"。
-					// 这里的语义应该是针对"整个任务"。
-					// 所以我们直接返回。
-					return []*model.TaskResult{{
-						TaskID:      task.ID,
-						Status:      model.TaskStatusSuccess,
-						ExecutedAt:  startTime,
-						CompletedAt: time.Now(),
-						Result:      BruteResults(results),
-					}}, nil
+					goto FINISH
 				}
 			}
-
-			if err != nil {
-				// 错误处理
-				if err == ErrConnectionFailed {
-					// 网络错误 (超时/拒绝) -> 降低并发
-					s.globalLimit.OnFailure()
-
-					// 可选: 连续网络错误直接跳过该主机
-					// 这里简单处理：记录日志或继续
-				} else {
-					// 协议错误或认证失败 (ErrAuthFailed 通常为 nil error + false result，但也可能显式返回)
-					// 视为正常交互 -> 保持并发
-					s.globalLimit.OnSuccess()
-				}
-			} else {
-				// err == nil && !success (认证失败)
-				s.globalLimit.OnSuccess()
-			}
-
-			// 微小延迟，避免 CPU 100% 或触发极其敏感的防火墙
-			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
+FINISH:
+	// 6. 返回结果
 	return []*model.TaskResult{{
 		TaskID:      task.ID,
 		Status:      model.TaskStatusSuccess,

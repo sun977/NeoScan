@@ -28,15 +28,21 @@ type PipelineContext struct {
 	// 阶段 4: 操作系统精确识别
 	OSInfo *model.OsInfo
 
-	// 后续阶段在这里添加
+	// 阶段 5 (Phase 2): 攻击面评估结果
+	WebResults   []*model.WebResult
+	VulnResults  []*model.VulnResult
+	BruteResults []*model.BruteResult
 
 	mu sync.RWMutex
 }
 
 func NewPipelineContext(ip string) *PipelineContext {
 	return &PipelineContext{
-		IP:       ip,
-		Services: make(map[int]*model.PortServiceResult),
+		IP:           ip,
+		Services:     make(map[int]*model.PortServiceResult),
+		WebResults:   make([]*model.WebResult, 0),
+		VulnResults:  make([]*model.VulnResult, 0),
+		BruteResults: make([]*model.BruteResult, 0),
 	}
 }
 
@@ -64,4 +70,49 @@ func (c *PipelineContext) SetOS(info *model.OsInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.OSInfo = info
+}
+
+func (c *PipelineContext) AddWebResult(res *model.WebResult) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.WebResults = append(c.WebResults, res)
+}
+
+func (c *PipelineContext) AddVulnResult(res *model.VulnResult) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.VulnResults = append(c.VulnResults, res)
+}
+
+func (c *PipelineContext) AddBruteResult(res *model.BruteResult) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.BruteResults = append(c.BruteResults, res)
+}
+
+// Helper methods for Dispatcher
+
+// HasService checks if a service exists in the context
+func (c *PipelineContext) HasService(svcName string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, s := range c.Services {
+		if s.Service == svcName {
+			return true
+		}
+	}
+	return false
+}
+
+// GetPortsByService returns all ports running a specific service
+func (c *PipelineContext) GetPortsByService(svcName string) []int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	var ports []int
+	for port, s := range c.Services {
+		if s.Service == svcName {
+			ports = append(ports, port)
+		}
+	}
+	return ports
 }

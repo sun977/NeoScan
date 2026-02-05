@@ -8,6 +8,7 @@ import (
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/scanner/alive"
+	"neoagent/internal/core/scanner/brute"
 	"neoagent/internal/core/scanner/os"
 	"neoagent/internal/core/scanner/port_service"
 	"neoagent/internal/pkg/logger"
@@ -27,6 +28,9 @@ type AutoRunner struct {
 	osScanner    *os.Scanner // 注意：这是 os 包的 Scanner struct，不是接口
 	// 后续扫描器在这里添加
 
+	// Dispatcher (Phase 2)
+	dispatcher *ServiceDispatcher
+
 	// 结果收集器 (线程安全)
 	summaryMu sync.Mutex
 	summaries []*PipelineContext
@@ -36,6 +40,12 @@ func NewAutoRunner(targetInput string, concurrency int, portRange string, showSu
 	if portRange == "" {
 		portRange = "top1000"
 	}
+
+	// 初始化 Phase 2 Scanners
+	bruteScanner := brute.NewBruteScanner()
+	// 初始化 Dispatcher
+	dispatcher := NewServiceDispatcher(StrategyFull, bruteScanner)
+
 	return &AutoRunner{
 		targetGenerator: GenerateTargets(targetInput),
 		concurrency:     concurrency,
@@ -44,6 +54,7 @@ func NewAutoRunner(targetInput string, concurrency int, portRange string, showSu
 		aliveScanner:    alive.NewIpAliveScanner(),
 		portScanner:     port_service.NewPortServiceScanner(),
 		osScanner:       os.NewScanner(),
+		dispatcher:      dispatcher,  // 分发器
 		summaries:       make([]*PipelineContext, 0),
 	}
 }
@@ -254,10 +265,13 @@ func (r *AutoRunner) executePipeline(ctx context.Context, pCtx *PipelineContext)
 		logger.Debugf("[%s] OS Detection failed or inconclusive.", pCtx.IP)
 	}
 
-	// 后续扫描器在这里添加
-	// 例如：Web Scanner, Database Scanner, etc.
+	// 5. Phase 2: Dispatcher (Parallel Assessment)
+	if r.dispatcher != nil {
+		logger.Infof("[%s] Starting Phase 2 Assessment...", pCtx.IP)
+		r.dispatcher.Dispatch(ctx, pCtx)
+	}
 
-	// 5. Report / Output
+	// 6. Report / Output
 	r.report(pCtx)
 }
 
@@ -285,6 +299,19 @@ func (r *AutoRunner) report(pCtx *PipelineContext) {
 	} else {
 		fmt.Println("[Ports] No services identified.")
 	}
+
+	// Phase 2: Brute Force Results
+	if len(pCtx.BruteResults) > 0 {
+		fmt.Println("\n[Brute Force] Weak Credentials Found:")
+		var bruteTaskResults []*model.TaskResult
+		for _, res := range pCtx.BruteResults {
+			bruteTaskResults = append(bruteTaskResults, &model.TaskResult{
+				Result: *res,
+			})
+		}
+		console.PrintResults(bruteTaskResults)
+	}
+
 	fmt.Println("========================================")
 }
 

@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"neoagent/internal/core/factory"
 	"neoagent/internal/core/model"
-	"neoagent/internal/core/scanner/brute"
-	"neoagent/internal/core/scanner/brute/protocol"
 )
 
 // RunnerManager 管理所有的 Runner
@@ -22,23 +21,12 @@ func NewRunnerManager() *RunnerManager {
 	}
 
 	// 初始化并注册 BruteScanner
-	bs := brute.NewBruteScanner()
-	bs.RegisterCracker(protocol.NewSSHCracker())           // 注册 SSH 爆破器
-	bs.RegisterCracker(protocol.NewMySQLCracker())         // 注册 MySQL 爆破器
-	bs.RegisterCracker(protocol.NewRedisCracker())         // 注册 Redis 爆破器
-	bs.RegisterCracker(protocol.NewPostgresCracker())      // 注册 Postgres 爆破器
-	bs.RegisterCracker(protocol.NewFTPCracker())           // 注册 FTP 爆破器
-	bs.RegisterCracker(protocol.NewMongoCracker())         // 注册 MongoDB 爆破器
-	bs.RegisterCracker(protocol.NewClickHouseCracker())    // 注册 ClickHouse 爆破器
-	bs.RegisterCracker(protocol.NewSMBCracker())           // 注册 SMB 爆破器
-	bs.RegisterCracker(protocol.NewMSSQLCracker())         // 注册 MSSQL 爆破器
-	bs.RegisterCracker(protocol.NewOracleCracker())        // 注册 Oracle 爆破器
-	bs.RegisterCracker(protocol.NewOracleSIDCracker())     // 注册 Oracle SID 爆破器
-	bs.RegisterCracker(protocol.NewTelnetCracker())        // 注册 Telnet 爆破器
-	bs.RegisterCracker(protocol.NewElasticsearchCracker()) // 注册 Elasticsearch 爆破器
-	bs.RegisterCracker(protocol.NewSNMPCracker())          // 注册 SNMP 爆破器
-	bs.RegisterCracker(protocol.NewRDPCracker())           // 注册 RDP 爆破器
+	// 使用 Factory 获取全功能 BruteScanner
+	bs := factory.NewFullBruteScanner()
 	m.Register(bs)
+
+	// 注册其他 Runner (Alive, Port, OS, etc.)
+	// TODO: 使用 Global Factory 统一注册所有 Runner
 
 	return m
 }

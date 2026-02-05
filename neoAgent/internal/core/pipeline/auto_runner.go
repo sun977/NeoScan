@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
+	"neoagent/internal/core/factory"
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/scanner/alive"
-	"neoagent/internal/core/scanner/brute"
 	"neoagent/internal/core/scanner/os"
 	"neoagent/internal/core/scanner/port_service"
 	"neoagent/internal/pkg/logger"
@@ -42,7 +42,9 @@ func NewAutoRunner(targetInput string, concurrency int, portRange string, showSu
 	}
 
 	// 初始化 Phase 2 Scanners
-	bruteScanner := brute.NewBruteScanner()
+	// 使用 Factory 获取全功能 BruteScanner
+	bruteScanner := factory.NewFullBruteScanner()
+
 	// 初始化 Dispatcher
 	dispatcher := NewServiceDispatcher(StrategyFull, bruteScanner)
 
@@ -54,7 +56,7 @@ func NewAutoRunner(targetInput string, concurrency int, portRange string, showSu
 		aliveScanner:    alive.NewIpAliveScanner(),
 		portScanner:     port_service.NewPortServiceScanner(),
 		osScanner:       os.NewScanner(),
-		dispatcher:      dispatcher,  // 分发器
+		dispatcher:      dispatcher, // 分发器
 		summaries:       make([]*PipelineContext, 0),
 	}
 }

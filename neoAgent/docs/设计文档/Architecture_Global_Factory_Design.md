@@ -47,7 +47,7 @@ graph TD
 
 #### 2.2.1 Scanner Factory (工厂)
 *   **职责**: 负责实例化所有 Scanner，并根据场景（Profile）注入不同的配置。
-*   **位置**: `internal/core/scanner/factory.go`
+*   **位置**: `internal/core/factory/scanner_factory.go`
 *   **接口**:
     ```go
     type ScannerType string
@@ -62,7 +62,7 @@ graph TD
 
 #### 2.2.2 Brute Factory (子工厂)
 *   **职责**: 专门负责组装 Brute Scanner 的全套协议栈。
-*   **位置**: `internal/core/scanner/brute/factory.go` (已创建)
+*   **位置**: `internal/core/factory/brute_factory.go` (已创建)
 *   **逻辑**: 统一注册 SSH, RDP, MySQL 等 15+ 种协议，确保所有入口获得的爆破能力一致。
 
 #### 2.2.3 Capability Registry (能力注册表)

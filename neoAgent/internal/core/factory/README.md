@@ -1,0 +1,1 @@
+**Scanner Factory**: 引入 `internal/core/factory` 包 (已迁移至顶层)，作为所有 Scanner 的统一实例化入口。

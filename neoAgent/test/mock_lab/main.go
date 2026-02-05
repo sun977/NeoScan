@@ -93,14 +93,24 @@ func handleSSH(conn net.Conn) {
 	// 1. 发送 Banner
 	conn.Write([]byte("SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5\r\n"))
 
-	// 2. 读取客户端 Banner
+	// 2. 模拟 SSH 握手 (极简)
+	// 读取 Client Banner
 	buf := make([]byte, 1024)
-	conn.Read(buf)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return
+	}
+	fmt.Printf("[SSH] Client Banner: %s", string(buf[:n]))
 
-	// 3. 模拟后续交互（极其简化，仅为了让 Agent 不立即报错）
-	// 真实的 SSH 握手非常复杂，这里只需要让 Agent 的 SSH Client 认为连上了即可
-	// 但实际上 Agent 的 SSH Client 会进行密钥交换，这里 Mock Server 无法完成
-	// 所以 Agent 最终会报 Handshake Failed，但这足以证明 TCP 连通性和 Banner 识别
+	// 模拟密钥交换的初始化包，让客户端以为可以继续
+	// 这只是为了骗过极其简单的扫描器，对于 Go 的 crypto/ssh 可能不够
+	// 但我们的目标是 PortServiceScanner 能识别出是 SSH
+	// PortServiceScanner 只要读到 "SSH-" 开头的 Banner 就会认为是 SSH
+
+	// 对于 BruteScanner，它会尝试建立 SSH 连接
+	// 如果握手失败，它会报错。
+	// 为了演示 Pipeline 逻辑，我们可以接受 "Brute Scan Failed" 的结果
+	// 只要看到它尝试爆破了就行。
 }
 
 func handleRedis(conn net.Conn) {

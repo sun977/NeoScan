@@ -86,5 +86,15 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 		ctx["cookies"] = cookieMap
 	}
 
+	// 8. 提取 Favicon URL
+	// 注意: 这里只提取 URL，后续由 Scanner 决定是否下载并转换为 Base64
+	faviconURL, err := page.Eval(`() => {
+		let link = document.querySelector("link[rel*='icon']");
+		return link ? link.href : "";
+	}`)
+	if err == nil {
+		ctx["favicon_url"] = faviconURL.String()
+	}
+
 	return ctx, nil
 }

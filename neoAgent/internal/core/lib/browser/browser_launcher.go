@@ -49,7 +49,7 @@ func (l *BrowserLauncher) Launch(ctx context.Context) (*rod.Browser, error) {
 	// 1. 如果已经启动且连接正常，直接返回
 	if l.browser != nil {
 		// 简单的健康检查
-		if _, err := l.browser.Version(); err == nil {
+		if _, err := l.browser.Pages(); err == nil {
 			return l.browser, nil
 		}
 		// 连接断开，尝试清理并重启

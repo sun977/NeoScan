@@ -29,7 +29,7 @@ func NewBrowserManager() *BrowserManager {
 	if err != nil {
 		home = "."
 	}
-	
+
 	// 默认安装路径: ~/.neoagent/bin/chromium
 	installDir := filepath.Join(home, ".neoagent", "bin", "chromium")
 
@@ -60,40 +60,40 @@ func (m *BrowserManager) GetBrowserPath() (string, error) {
 	// 3. 检查本地缓存目录
 	// go-rod 的 launcher 默认会有查找逻辑，但我们需要确保下载到指定目录
 	// 这里我们使用 launcher 的逻辑来管理下载
-	
+
 	logger.Infof("[Browser] Browser not found, preparing to setup...")
-	
+
 	// 使用 go-rod 的 launcher 下载器
 	// 配置国内镜像源 (npm.taobao.org -> npmmirror.com)
 	// 注意: go-rod 默认使用 Host "npm.taobao.org"，但该域名已废弃
 	// 我们需要手动指定 Host 为 "registry.npmmirror.com"
 	l := launcher.NewBrowser()
-	l.Set("proxy-server", "") // 确保下载时不走代理 (或者走系统代理)
-	
+	// l.Set("proxy-server", "") // Browser struct does not have Set method
+
 	// 暂时只支持从官方源或镜像源下载
 	// TODO: 支持配置自定义镜像源
-	
+
 	// 执行下载
 	// launcher.Download 会自动处理版本和平台
 	logger.Infof("[Browser] Downloading Chromium to %s...", m.installDir)
 	// 注意: 这里的 launcher.NewBrowser() 只是配置，实际下载逻辑可能需要调用 install
 	// 由于 go-rod 的 API 变动，我们直接使用 launcher.New().Bin() 可能会触发下载
 	// 但为了更可控，我们使用 launcher.LookPath() 失败后的显式下载逻辑
-	
-	// 简化的实现：利用 go-rod 的自动下载能力，但指定 UserDataDir ? 
+
+	// 简化的实现：利用 go-rod 的自动下载能力，但指定 UserDataDir ?
 	// go-rod 的自动下载逻辑比较黑盒。为了稳健，我们先尝试查找，找不到则报错提示用户安装，
 	// 或者使用 launcher.NewBrowser().Get()
-	
+
 	// 修正策略：
 	// 我们不应该在此处直接下载，因为下载可能很慢且容易失败。
 	// 应该提供一个 explicit 的 Install 方法，或者在 GetBrowserPath 中明确告知正在下载。
-	
+
 	// 实际上 go-rod 提供了 launcher.NewBrowser().Get() 方法来下载
-	browserPath, err := launcher.NewBrowser().Get()
+	browserPath, err := l.Get()
 	if err != nil {
 		return "", fmt.Errorf("failed to download browser: %w", err)
 	}
-	
+
 	logger.Infof("[Browser] Chromium setup completed: %s", browserPath)
 	m.browserPath = browserPath
 	return browserPath, nil

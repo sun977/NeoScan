@@ -1,7 +1,7 @@
 package web
 
 import (
-	"strings"
+	"encoding/json"
 
 	"github.com/go-rod/rod"
 )
@@ -19,14 +19,15 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 
 	// 2. 获取标题
 	// rod 提供了 MustInfo().Title，但这里使用非 panic 版本
-	if info, err := page.Info(); err == nil {
+	if info, err1 := page.Info(); err1 == nil {
 		ctx["title"] = info.Title
 	}
 
 	// 3. 提取 Meta 标签
 	// 使用 JS 执行提取
 	metaMap := make(map[string]string)
-	metaRes, err := page.Eval(`() => {
+	// 使用 IIFE 确保立即执行并返回值
+	metaRes, err := page.Eval(`(() => {
 		const metas = document.getElementsByTagName('meta');
 		const result = {};
 		for (let i = 0; i < metas.length; i++) {
@@ -37,17 +38,18 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 			}
 		}
 		return result;
-	}`)
+	})()`)
 	if err == nil {
-		// rod 会将 JS 对象转换为 go-rod 的 json 结构，我们需要手动断言
-		// 注意: Eval 返回的是 *rod.Value, 需要 Value.Unmarshal 到具体类型
-		_ = metaRes.Unmarshal(&metaMap)
+		// metaRes.Value 是 gson.JSON，将其序列化为 bytes 再反序列化到 map
+		if valBytes, e := json.Marshal(metaRes.Value); e == nil {
+			_ = json.Unmarshal(valBytes, &metaMap)
+		}
 	}
 	ctx["meta"] = metaMap
 
 	// 4. 提取 Script 标签 (src)
 	var scripts []string
-	scriptRes, err := page.Eval(`() => {
+	scriptRes, err := page.Eval(`(() => {
 		const scripts = document.getElementsByTagName('script');
 		const result = [];
 		for (let i = 0; i < scripts.length; i++) {
@@ -56,9 +58,11 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 			}
 		}
 		return result;
-	}`)
+	})()`)
 	if err == nil {
-		_ = scriptRes.Unmarshal(&scripts)
+		if valBytes, e := json.Marshal(scriptRes.Value); e == nil {
+			_ = json.Unmarshal(valBytes, &scripts)
+		}
 	}
 	// 放入 dom.scripts，方便 matcher 匹配
 	ctx["dom"] = map[string]interface{}{
@@ -75,7 +79,7 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 	// go-rod 比较难直接获取 Response Headers，除非开启了 Network 监听
 	// 这是一个比较复杂的话题，通常需要 page.HijackRequests 或者监听 Event
 	// 简单起见，L1 阶段的 HTTP 请求已经获取了 Headers，这里主要关注 DOM 信息
-	
+
 	// 7. 提取 Cookies
 	cookies, err := page.Cookies(nil)
 	if err == nil {
@@ -88,12 +92,17 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 
 	// 8. 提取 Favicon URL
 	// 注意: 这里只提取 URL，后续由 Scanner 决定是否下载并转换为 Base64
-	faviconURL, err := page.Eval(`() => {
+	faviconURL, err := page.Eval(`(() => {
 		let link = document.querySelector("link[rel*='icon']");
 		return link ? link.href : "";
-	}`)
+	})()`)
 	if err == nil {
-		ctx["favicon_url"] = faviconURL.String()
+		var favStr string
+		if valBytes, e := json.Marshal(faviconURL.Value); e == nil {
+			if err := json.Unmarshal(valBytes, &favStr); err == nil {
+				ctx["favicon_url"] = favStr
+			}
+		}
 	}
 
 	return ctx, nil

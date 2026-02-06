@@ -7,8 +7,11 @@ type Input struct {
 	Protocol   string            // tcp, udp, http
 	StatusCode int               // HTTP Status Code
 	Banner     string            // Raw service banner
-	Headers    map[string]string // HTTP Headers
-	Body       string            // HTTP Body
+	Headers    map[string]string      // HTTP Headers
+	Body       string                 // HTTP Body
+	// RichContext 存储由 WebScanner (go-rod) 提取的高级特征
+	// e.g. "dom": map, "js": map, "meta": map, "cookies": map
+	RichContext map[string]interface{}
 	// 可扩展字段: Cert info, Icon hash...
 }
 

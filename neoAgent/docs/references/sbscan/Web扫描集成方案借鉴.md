@@ -25,18 +25,18 @@
 
 ```mermaid
 graph TD
-    subgraph Core [NeoAgent Core]
+    subgraph Core ["NeoAgent Core"]
         Dispatcher[Service Dispatcher]
         Limiter[QoS Limiter]
     end
 
-    subgraph Plugin [Web Scan Plugin]
-        WS[WebScanner (Logic)]
-        BM[BrowserManager (Infra)]
-        Rod[Rod Adapter (Driver)]
+    subgraph Plugin ["Web Scan Plugin"]
+        WS["WebScanner (Logic)"]
+        BM["BrowserManager (Infra)"]
+        Rod["Rod Adapter (Driver)"]
     end
 
-    subgraph External [External Resources]
+    subgraph External ["External Resources"]
         Chromium[Chromium Binary]
         Rules[Fingerprint Rules]
     end
@@ -50,12 +50,42 @@ graph TD
     WS -->|Match| Rules
 ```
 
-### 2.1 核心组件
+### 2.1 目录结构规划
+```text
+neoAgent/
+├── internal/
+│   ├── core/
+│   │   ├── scanner/
+│   │   │   ├── web/                # [新增] Web 扫描模块
+│   │   │   │   ├── web_scanner.go  # 扫描器入口 (实现 Scanner 接口)
+│   │   │   │   ├── fingerprint.go  # 指纹识别逻辑 (Wappalyzer 适配)
+│   │   │   │   ├── screenshot.go   # 截图逻辑
+│   │   │   │   └── types.go        # WebInfo, Screenshot 等数据结构
+│   │   │   └── ...
+│   │   └── lib/
+│   │       ├── browser/            # [新增] 浏览器管理库 (Infrastructure)
+│   │       │   ├── manager.go      # BrowserManager (下载、路径管理)
+│   │       │   ├── launcher.go     # Chromium 启动参数配置 (Headless, Sandbox)
+│   │       │   ├── rod_adapter.go  # go-rod 封装 (Page, Navigate, Eval)
+│   │       │   └── process.go      # 进程组管理 (清理僵尸进程)
+│   │       └── ...
+│   └── pkg/
+│       └── fingerprint/            # [新增] 通用指纹库 (可复用于非 Scanner 场景)
+│           ├── rules/              # 内置 JSON 规则
+│           └── matcher.go          # 规则匹配引擎
+└── .neoscan/                      # [运行时]
+    ├── bin/
+    │   └── chromium/               # 自动下载的 Chromium 二进制
+    └── rules/
+        └── wappalyzer.json         # 外部规则文件
+```
+
+### 2.2 核心组件
 1.  **BrowserManager (基础设施)**
     *   **职责**: 管理 Chromium 生命周期。
     *   **关键特性**:
         *   **Lazy Load**: 首次使用时自动检测环境，若缺失则从国内源/官方源下载。
-        *   **Path Isolation**: 下载到 `.neoagent/bin/`，不污染系统路径。
+        *   **Path Isolation**: 下载到 `.neoscan/bin/`，不污染系统路径。
         *   **Process Group**: 确保 Agent 退出时强制清理所有僵尸 Chrome 进程。
 
 2.  **WebScanner (业务逻辑)**

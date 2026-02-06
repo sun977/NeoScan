@@ -73,7 +73,7 @@ neoAgent/
 │       └── fingerprint/            # [新增] 通用指纹库 (可复用于非 Scanner 场景)
 │           ├── rules/              # 内置 JSON 规则
 │           └── matcher.go          # 规则匹配引擎
-└── .neoscan/                      # [运行时]
+└── .neoagent/                      # [运行时]
     ├── bin/
     │   └── chromium/               # 自动下载的 Chromium 二进制
     └── rules/
@@ -85,7 +85,7 @@ neoAgent/
     *   **职责**: 管理 Chromium 生命周期。
     *   **关键特性**:
         *   **Lazy Load**: 首次使用时自动检测环境，若缺失则从国内源/官方源下载。
-        *   **Path Isolation**: 下载到 `.neoscan/bin/`，不污染系统路径。
+        *   **Path Isolation**: 下载到 `.neoagent/bin/`，不污染系统路径。
         *   **Process Group**: 确保 Agent 退出时强制清理所有僵尸 Chrome 进程。
 
 2.  **WebScanner (业务逻辑)**
@@ -97,6 +97,19 @@ neoAgent/
 
 3.  **RodAdapter (驱动适配)**
     *   **职责**: 封装 `go-rod` 细节，提供统一接口 (`Navigate`, `Screenshot`, `Eval`)。
+
+### 2.3 指纹规则标准 (Fingerprint Standard)
+
+**决策**: 采用 **Wappalyzer** 标准作为 Agent 与 Master 交互的唯一指纹格式。
+
+*   **Master 职责**: 规则中台。
+    *   维护全量规则库。
+    *   将第三方规则（如 Ehole/Goby/自定义正则）**吸纳并转化**为 Wappalyzer JSON 格式。
+    *   通过 API 将清洗后的规则下发给 Agent。
+*   **Agent 职责**: 执行引擎。
+    *   不处理复杂的规则转换，只识别 Wappalyzer 格式。
+    *   利用 `pkg/matcher` 实现通用的逻辑匹配。
+    *   利用 `go-rod` 提取 DOM/JS/Meta 等多维度数据供匹配引擎使用。
 
 ---
 
@@ -124,7 +137,7 @@ neoAgent/
 | :--- | :--- | :--- |
 | **浏览器获取** | 每次运行检查，依赖网络 | **Cache + Version Check**。首次下载后复用，支持离线包分发。 |
 | **并发模型** | 协程池 (Goroutine Pool) | **QoS 动态流控 (AIMD)**。根据 CPU/内存负载动态调整并发，防止服务器卡死。 |
-| **指纹库** | 硬编码/内置规则 | **规则引擎分离**。支持加载外部 JSON 规则库，便于更新。 |
+| **指纹库** | 硬编码/内置规则 | **规则引擎分离**。采用 Wappalyzer 标准，支持加载外部 JSON 规则库，便于更新。 |
 | **进程管理** | 基础管理 | **进程组管理 (Process Group)**。更严格的资源回收机制。 |
 
 ## 5. 范围界定 (Scope)

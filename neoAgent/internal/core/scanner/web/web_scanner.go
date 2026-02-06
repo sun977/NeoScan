@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -97,7 +96,8 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 	// 启用 Network 域
 	// page.MustWaitOpen() // 确保页面已打开? OpenPage 已经返回了 page
 	// 开启网络事件监听
-	stop := proto.NetworkResponseReceived{}.On(page, func(e *proto.NetworkResponseReceived) {
+	// 使用 page.EachEvent 监听事件 (非阻塞模式运行)
+	waitEvents := page.EachEvent(func(e *proto.NetworkResponseReceived) bool {
 		// 我们主要关注 Document 类型的响应，且通常是最后一个（考虑重定向）
 		// 或者匹配 targetURL 的那个
 		// 简单起见，我们记录每一个 Document 的响应，最后留下的就是最终页面的
@@ -107,16 +107,14 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 
 			statusCode = e.Response.Status
 			remoteIP = e.Response.RemoteIPAddress
-			remotePort = e.Response.RemotePort
+			// 修正: RemotePort 是 *int，需要判空并解引用
+			if e.Response.RemotePort != nil {
+				remotePort = *e.Response.RemotePort
+			}
 
 			// Headers
 			for k, v := range e.Response.Headers {
-				var val string
-				if err := json.Unmarshal(v, &val); err == nil {
-					respHeaders[k] = val
-				} else {
-					respHeaders[k] = string(v)
-				}
+				respHeaders[k] = v.String()
 			}
 
 			// Content-Length
@@ -127,12 +125,14 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 				// 如果 Header 里没有，尝试使用 EncodedDataLength
 				// 注意: 这可能不准确，因为它是传输长度
 				if e.Response.EncodedDataLength > 0 {
-					contentLength = e.Response.EncodedDataLength
+					contentLength = int64(e.Response.EncodedDataLength)
 				}
 			}
 		}
+		return false
 	})
-	defer stop()
+	go waitEvents()
+	// defer stop() // EachEvent 会在 page 关闭时自动停止，或者我们可以手动控制，这里简单起见让它随 page 生命周期
 
 	// 4. 导航到目标 URL
 	if err := page.Navigate(targetURL); err != nil {
@@ -224,20 +224,32 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 	}
 
 	// 10. 构造结果
+	// 获取网络信息快照 (Thread Safety)
+	respMutex.Lock()
+	finalStatusCode := statusCode
+	finalContentLength := contentLength
+	finalIP := remoteIP
+	finalPort := remotePort
+	finalHeaders := make(map[string]string)
+	for k, v := range respHeaders {
+		finalHeaders[k] = v
+	}
+	respMutex.Unlock()
+
 	// 兜底 IP/Port
-	if remoteIP == "" {
+	if finalIP == "" {
 		// 尝试从 task 解析? 或者直接用 Target (如果是 IP)
 		// 这里留空，让 Master 端去 resolve 或者后续处理
 		// 为了满足契约，如果是 IP 形式的 Target，可以直接填
 		if isIP(task.Target) {
-			remoteIP = task.Target
+			finalIP = task.Target
 		}
 	}
-	if remotePort == 0 {
+	if finalPort == 0 {
 		// 尝试从 task.PortRange 解析
 		// ...
 		if task.PortRange != "" {
-			fmt.Sscanf(task.PortRange, "%d", &remotePort)
+			fmt.Sscanf(task.PortRange, "%d", &finalPort)
 		}
 	}
 
@@ -248,12 +260,12 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 		CompletedAt: time.Now(),
 		Result: &model.WebResult{
 			URL:             targetURL,
-			IP:              remoteIP,
-			Port:            remotePort,
+			IP:              finalIP,
+			Port:            finalPort,
 			Title:           extractTitleFromCtx(richCtx),
-			StatusCode:      statusCode,
-			ContentLength:   contentLength,
-			ResponseHeaders: respHeaders,
+			StatusCode:      finalStatusCode,
+			ContentLength:   finalContentLength,
+			ResponseHeaders: finalHeaders,
 			TechStack:       convertMatchesToTechStack(matches),
 			Screenshot:      screenshotBase64,
 			Favicon:         faviconBase64,

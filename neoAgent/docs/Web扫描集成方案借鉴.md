@@ -58,8 +58,8 @@ neoAgent/
 │   │   ├── scanner/
 │   │   │   ├── web/                # [新增] Web 扫描模块
 │   │   │   │   ├── web_scanner.go  # 扫描器入口 (实现 Scanner 接口)
-│   │   │   │   ├── fingerprint.go  # 指纹识别逻辑 (Wappalyzer 适配)
 │   │   │   │   ├── screenshot.go   # 截图逻辑
+│   │   │   │   ├── context.go      # [调整] Rich Context 构建 (提取 DOM/JS/Meta)
 │   │   │   │   └── types.go        # WebInfo, Screenshot 等数据结构
 │   │   │   └── ...
 │   │   └── lib/
@@ -70,17 +70,20 @@ neoAgent/
 │   │       │   └── process.go      # 进程组管理 (清理僵尸进程)
 │   │       └── ...
 │   └── pkg/
-│       └── fingerprint/            # [新增] 通用指纹库 (可复用于非 Scanner 场景)
-│           ├── rules/              # 内置 JSON 规则
-│           └── matcher.go          # 规则匹配引擎
+│       ├── fingerprint/            # [复用] 指纹 SDK (Input, Match, Engine)
+│       │   ├── types.go            # Input (含 Rich Context), Match
+│       │   └── ...
+│       └── matcher/                # [复用] 通用规则匹配引擎
+│           ├── matcher.go          # MatchRule 定义与逻辑判断
+│           └── ...
 └── .neoagent/                      # [运行时]
     ├── bin/
     │   └── chromium/               # 自动下载的 Chromium 二进制
     └── rules/
-        └── wappalyzer.json         # 外部规则文件
+        └── web_fingerprints.json   # [调整] 统一后的 MatchRule 格式规则库
 ```
 
-### 2.2 核心组件
+### 2.3 核心组件
 1.  **BrowserManager (基础设施)**
     *   **职责**: 管理 Chromium 生命周期。
     *   **关键特性**:
@@ -95,10 +98,19 @@ neoAgent/
         *   **L2 (Deep)**: 启动 Browser，获取 DOM、执行 JS 提取变量、计算 Favicon Hash。
         *   **L3 (Visual)**: 全屏截图。
 
-3.  **RodAdapter (驱动适配)**
+3.  **Fingerprint SDK (规则引擎)**
+    *   **职责**: 连接 WebScanner (IO) 和 Matcher (Logic) 的桥梁。
+    *   **复用模块**:
+        *   `internal/pkg/fingerprint`: 定义统一的 `Input` (含 Rich Context) 和 `Match` (结果)。
+        *   `internal/pkg/matcher`: 提供通用的 JSON 逻辑匹配树 (`AND/OR`, `Regex`, `Contains`)。
+    *   **数据流**:
+        *   `WebScanner` -> 提取 DOM/JS/Meta -> `fingerprint.Input.RichContext`
+        *   `fingerprint.Input` -> `matcher.Match(Context, Rule)` -> `fingerprint.Match`
+
+4.  **RodAdapter (驱动适配)**
     *   **职责**: 封装 `go-rod` 细节，提供统一接口 (`Navigate`, `Screenshot`, `Eval`)。
 
-### 2.3 指纹规则标准 (Fingerprint Standard)
+### 2.4 指纹规则标准 (Fingerprint Standard)
 
 **决策**: 采用 **NeoScan 内部统一标准 (matcher.MatchRule)** 作为 Agent 与 Master 交互的指纹格式。
 

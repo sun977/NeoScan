@@ -100,16 +100,16 @@ neoAgent/
 
 ### 2.3 指纹规则标准 (Fingerprint Standard)
 
-**决策**: 采用 **Wappalyzer** 标准作为 Agent 与 Master 交互的唯一指纹格式。
+**决策**: 采用 **NeoScan 内部统一标准 (matcher.MatchRule)** 作为 Agent 与 Master 交互的指纹格式。
 
 *   **Master 职责**: 规则中台。
     *   维护全量规则库。
-    *   将第三方规则（如 Ehole/Goby/自定义正则）**吸纳并转化**为 Wappalyzer JSON 格式。
-    *   通过 API 将清洗后的规则下发给 Agent。
+    *   **统一转换**: 将 Wappalyzer、Ehole、Goby 等第三方规则转换为 NeoScan 的 `matcher.MatchRule` JSON 格式。
+    *   通过 API 将标准化的规则下发给 Agent。
 *   **Agent 职责**: 执行引擎。
-    *   不处理复杂的规则转换，只识别 Wappalyzer 格式。
-    *   利用 `pkg/matcher` 实现通用的逻辑匹配。
-    *   利用 `go-rod` 提取 DOM/JS/Meta 等多维度数据供匹配引擎使用。
+    *   **零转换**: 只识别 `matcher.MatchRule` 格式，无需解析 Wappalyzer 原始 JSON。
+    *   **上下文构建**: 利用 `go-rod` 提取 DOM/JS/Meta 等多维度数据，构建 Rich Context Map。
+    *   **通用匹配**: 将 Context 丢给 `pkg/matcher` 进行逻辑判断。
 
 ---
 

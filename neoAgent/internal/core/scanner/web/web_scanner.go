@@ -3,7 +3,9 @@ package web
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"neoagent/internal/core/model"
 	"neoagent/internal/pkg/fingerprint"
 	"neoagent/internal/pkg/fingerprint/engines/http"
+	fpModel "neoagent/internal/pkg/fingerprint/model"
 	"neoagent/internal/pkg/logger"
 
 	"github.com/go-rod/rod/lib/proto"
@@ -30,7 +33,8 @@ type WebScanner struct {
 	// 资源限制 (QoS)
 	limiter *qos.AdaptiveLimiter
 
-	mu sync.Mutex
+	mu       sync.Mutex
+	initOnce sync.Once
 }
 
 // NewWebScanner 创建 Web 扫描器
@@ -56,6 +60,9 @@ func (s *WebScanner) Name() model.TaskType {
 
 // Run 执行扫描任务
 func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error) {
+	// 确保指纹规则已加载
+	s.ensureInit()
+
 	// 1. 获取 QoS 令牌
 	if err := s.limiter.Acquire(ctx); err != nil {
 		return nil, err
@@ -114,13 +121,21 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 
 			// Headers
 			for k, v := range e.Response.Headers {
-				respHeaders[k] = v.String()
+				var val string
+				if err1 := json.Unmarshal([]byte(v.String()), &val); err1 == nil {
+					respHeaders[k] = val
+				} else {
+					respHeaders[k] = v.String()
+				}
 			}
 
 			// Content-Length
 			// 尝试从 Header 获取，或者从 EncodedDataLength
 			if cl, ok := e.Response.Headers["Content-Length"]; ok {
-				fmt.Sscanf(cl.String(), "%d", &contentLength)
+				var clVal string
+				if err2 := json.Unmarshal([]byte(cl.String()), &clVal); err2 == nil {
+					fmt.Sscanf(clVal, "%d", &contentLength)
+				}
 			} else {
 				// 如果 Header 里没有，尝试使用 EncodedDataLength
 				// 注意: 这可能不准确，因为它是传输长度
@@ -135,9 +150,9 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 	// defer stop() // EachEvent 会在 page 关闭时自动停止，或者我们可以手动控制，这里简单起见让它随 page 生命周期
 
 	// 4. 导航到目标 URL
-	if err := page.Navigate(targetURL); err != nil {
+	if err3 := page.Navigate(targetURL); err3 != nil {
 		s.limiter.OnFailure()
-		return nil, fmt.Errorf("failed to navigate: %w", err)
+		return nil, fmt.Errorf("failed to navigate: %w", err3)
 	}
 
 	// 5. 等待加载完成
@@ -147,8 +162,8 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 	defer cancel()
 
 	// 注意: page.Timeout 会返回一个新的 page 对象，需要链式调用
-	if err := page.Context(waitCtx).WaitLoad(); err != nil {
-		logger.Warnf("[WebScanner] WaitLoad timeout for %s: %v", targetURL, err)
+	if err4 := page.Context(waitCtx).WaitLoad(); err4 != nil {
+		logger.Warnf("[WebScanner] WaitLoad timeout for %s: %v", targetURL, err4)
 		// 超时也继续尝试提取，因为可能部分加载了
 	}
 
@@ -316,4 +331,44 @@ func extractTitleFromCtx(ctx map[string]interface{}) string {
 func isIP(target string) bool {
 	// 简单判断，实际可以使用 net.ParseIP
 	return strings.Count(target, ".") == 3 && !strings.ContainsAny(target, "abcdefghijklmnopqrstuvwxyz")
+}
+
+// ensureInit 确保指纹规则已加载
+func (s *WebScanner) ensureInit() {
+	s.initOnce.Do(func() {
+		// 尝试加载指纹规则
+		// 优先顺序:
+		// 1. 环境变量/配置指定的路径 (暂未实现)
+		// 2. 默认路径 rules/fingerprint/web/web_fingerprints.json
+		// 3. 开发环境路径 ../rules/fingerprint/web/web_fingerprints.json
+
+		paths := []string{
+			"rules/fingerprint/web/web_fingerprints.json",
+			"../rules/fingerprint/web/web_fingerprints.json",
+			"../../rules/fingerprint/web/web_fingerprints.json",
+			"neoAgent/rules/fingerprint/web/web_fingerprints.json",
+		}
+
+		var rules []fpModel.FingerRule
+		var loadedPath string
+
+		for _, path := range paths {
+			content, err := os.ReadFile(path)
+			if err == nil {
+				if err := json.Unmarshal(content, &rules); err == nil {
+					loadedPath = path
+					break
+				} else {
+					logger.Warnf("[WebScanner] Failed to unmarshal rules from %s: %v", path, err)
+				}
+			}
+		}
+
+		if len(rules) > 0 {
+			s.fpEngine.Reload(rules)
+			logger.Infof("[WebScanner] Loaded %d fingerprint rules from %s", len(rules), loadedPath)
+		} else {
+			logger.Warnf("[WebScanner] No fingerprint rules loaded")
+		}
+	})
 }

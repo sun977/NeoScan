@@ -99,21 +99,34 @@ func (r OsInfo) Rows() [][]string {
 
 // WebResult Web扫描结果
 type WebResult struct {
-	URL         string `json:"url"`
-	Title       string `json:"title"`
-	StatusCode  int    `json:"status_code"`
-	Server      string `json:"server"`
-	Fingerprint string `json:"fingerprint"` // 识别到的指纹
+	URL             string            `json:"url"`
+	IP              string            `json:"ip"`
+	Port            int               `json:"port"`
+	Title           string            `json:"title"`
+	StatusCode      int               `json:"status_code"`
+	ContentLength   int64             `json:"content_length"`
+	ResponseHeaders map[string]string `json:"headers,omitempty"`
+	TechStack       []string          `json:"tech_stack,omitempty"` // 识别到的技术栈
+	Screenshot      string            `json:"screenshot,omitempty"` // Base64
+	Favicon         string            `json:"favicon,omitempty"`    // Base64
 }
 
 // Headers 实现 TabularData 接口
 func (r WebResult) Headers() []string {
-	return []string{"URL", "Status", "Title", "Server", "Fingerprint"}
+	return []string{"URL", "Status", "Title", "TechStack"}
 }
 
 // Rows 实现 TabularData 接口
 func (r WebResult) Rows() [][]string {
-	return [][]string{{r.URL, fmt.Sprintf("%d", r.StatusCode), r.Title, r.Server, r.Fingerprint}}
+	stack := ""
+	if len(r.TechStack) > 0 {
+		stack = fmt.Sprintf("%v", r.TechStack)
+		// 简单的截断显示
+		if len(stack) > 50 {
+			stack = stack[:47] + "..."
+		}
+	}
+	return [][]string{{r.URL, fmt.Sprintf("%d", r.StatusCode), r.Title, stack}}
 }
 
 // VulnResult 漏洞扫描结果

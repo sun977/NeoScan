@@ -3,7 +3,6 @@ package browser
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"sync"
 
 	"neoagent/internal/pkg/logger"
@@ -15,10 +14,10 @@ import (
 
 // BrowserLauncher 负责启动浏览器实例
 type BrowserLauncher struct {
-	manager *BrowserManager
-	proxy   string // 代理地址 (e.g. socks5://127.0.0.1:1080)
+	manager  *BrowserManager
+	proxy    string // 代理地址 (e.g. socks5://127.0.0.1:1080)
 	headless bool
-	
+
 	// 浏览器实例 (全局复用)
 	browser *rod.Browser
 	mu      sync.Mutex
@@ -50,7 +49,7 @@ func (l *BrowserLauncher) Launch(ctx context.Context) (*rod.Browser, error) {
 	// 1. 如果已经启动且连接正常，直接返回
 	if l.browser != nil {
 		// 简单的健康检查
-		if err := l.browser.Ping(); err == nil {
+		if _, err := l.browser.Version(); err == nil {
 			return l.browser, nil
 		}
 		// 连接断开，尝试清理并重启
@@ -127,7 +126,7 @@ func (l *BrowserLauncher) Close() error {
 func (l *BrowserLauncher) OpenPage(ctx context.Context, browser *rod.Browser, targetURL string) (*rod.Page, error) {
 	// 创建新页面 (Incognito Context 更好，但 rod 默认是 default context)
 	// 建议使用 MustIncognito().Page(url) 来隔离 Cookie
-	
+
 	// 这里使用默认上下文，后续可以优化为 Incognito
 	page, err := browser.Page(proto.TargetCreateTarget{URL: targetURL})
 	if err != nil {
@@ -136,10 +135,10 @@ func (l *BrowserLauncher) OpenPage(ctx context.Context, browser *rod.Browser, ta
 
 	// 设置视口大小 (影响截图和响应式页面)
 	if err := page.SetViewport(&proto.EmulationSetDeviceMetricsOverride{
-		Width:  1920,
-		Height: 1080,
+		Width:             1920,
+		Height:            1080,
 		DeviceScaleFactor: 1,
-		Mobile: false,
+		Mobile:            false,
 	}); err != nil {
 		// 非致命错误，记录即可
 		logger.Warnf("[Browser] Failed to set viewport: %v", err)

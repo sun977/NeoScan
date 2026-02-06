@@ -90,6 +90,7 @@ neoAgent/
         *   **Lazy Load**: 首次使用时自动检测环境，若缺失则从国内源/官方源下载。
         *   **Path Isolation**: 下载到 `.neoagent/bin/`，不污染系统路径。
         *   **Process Group**: 确保 Agent 退出时强制清理所有僵尸 Chrome 进程。
+        *   **Proxy Integration**: [关键] 启动时自动注入 `--proxy-server` 参数，确保流量遵循 Agent 全局代理配置 (SOCKS5/HTTP)。
 
 2.  **WebScanner (业务逻辑)**
     *   **职责**: 执行具体的扫描流程。

@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Nginx",
+    "header": "Server: nginx",
+    "enabled": true
+  },
+  {
+    "name": "Apache",
+    "header": "Server: Apache",
+    "enabled": true
+  },
+  {
+    "name": "PHP",
+    "header": "X-Powered-By: PHP",
+    "enabled": true
+  },
+  {
+    "name": "ASP.NET",
+    "header": "X-Powered-By: ASP.NET",
+    "enabled": true
+  },
+  {
+    "name": "Express",
+    "header": "X-Powered-By: Express",
+    "enabled": true
+  },
+  {
+    "name": "Django",
+    "body": "csrfmiddlewaretoken",
+    "enabled": true
+  },
+  {
+    "name": "Spring Boot",
+    "body": "Whitelabel Error Page",
+    "enabled": true
+  },
+  {
+    "name": "WordPress",
+    "body": "wp-content",
+    "enabled": true
+  },
+  {
+    "name": "Vue.js",
+    "body": "data-v-",
+    "enabled": true
+  },
+  {
+    "name": "React",
+    "body": "react-root",
+    "enabled": true
+  }
+]

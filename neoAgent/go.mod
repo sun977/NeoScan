@@ -8,6 +8,7 @@ require (
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-rod/rod v0.106.8
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/gosnmp/gosnmp v1.43.2
 	github.com/huin/asn1ber v0.0.0-20120622192748-af09f62e6358
@@ -79,7 +80,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
-	github.com/go-rod/rod v0.106.8 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goburrow/cache v0.1.4 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect

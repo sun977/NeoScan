@@ -129,14 +129,14 @@ neoAgent/
 ## 3. 实施路线图 (Roadmap)
 
 ### Phase 1: 基础设施建设 (Infra)
-*   [ ] 实现 `BrowserManager`，复用 `sbscan` 的下载逻辑但增强路径管理。
-*   [ ] 实现 `Process Group` 信号处理，防止僵尸进程。
-*   [ ] 验证 Linux 无 GUI 环境下的运行 (Xvfb/Headless)。
+*   [x] 实现 `BrowserManager`，复用 `sbscan` 的下载逻辑但增强路径管理。
+*   [x] 实现 `Process Group` 信号处理，防止僵尸进程。
+*   [x] 验证 Linux 无 GUI 环境下的运行 (Xvfb/Headless)。
 
 ### Phase 2: 核心能力建设 (Capability)
-*   [ ] 实现 `WebScanner` 基础框架。
-*   [ ] 移植 Wappalyzer / FingerprintHub 规则库解析器。
-*   [ ] 实现截图功能 (`CaptureScreenshot`)。
+*   [x] 实现 `WebScanner` 基础框架。
+*   [x] 移植 Wappalyzer / FingerprintHub 规则库解析器。
+*   [x] 实现截图功能 (`CaptureScreenshot`)。
 
 ### Phase 3: 集成与优化 (Optimization)
 *   [ ] 集成到 `ServiceDispatcher`，实现 `scan run` 流程自动触发。

@@ -212,6 +212,14 @@ func convertInputToMap(input *fingerprint.Input) map[string]interface{} {
 	data["all_headers"] = allHeadersStr
 	data["all_response"] = allHeadersStr + "\n" + input.Body
 
+	// 合并 RichContext (WebScanner 数据)
+	// 这允许 matcher 直接访问 input.RichContext 中的字段，如 "dom", "js", "meta" 等
+	if input.RichContext != nil {
+		for k, v := range input.RichContext {
+			data[k] = v
+		}
+	}
+
 	return data
 }
 

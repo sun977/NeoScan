@@ -167,6 +167,11 @@ func (d *ServiceDispatcher) runBruteTask(ctx context.Context, pCtx *PipelineCont
 }
 
 func (d *ServiceDispatcher) shouldScanWeb(pCtx *PipelineContext) bool {
+	// 检查用户是否显式禁用了 Web 扫描
+	if d.opts != nil && d.opts.NoWeb {
+		return false
+	}
+
 	// 简单的 Web 服务判定
 	return pCtx.HasService("http") ||
 		pCtx.HasService("https") ||
@@ -204,7 +209,11 @@ func (d *ServiceDispatcher) runWebScan(ctx context.Context, pCtx *PipelineContex
 			task.PortRange = fmt.Sprintf("%d", p)
 			// WebScanner 需要 Target 是 URL 吗？不需要，它自己会 normalizeURL (ip + port -> http://ip:port)
 			// 但我们需要传递一些配置，比如是否启用截图
-			task.Params["screenshot"] = true // 默认开启截图
+			if d.opts != nil {
+				task.Params["screenshot"] = d.opts.WebScreenshot
+			} else {
+				task.Params["screenshot"] = false // 默认关闭
+			}
 
 			results, err := d.webScanner.Run(ctx, task)
 			if err != nil {

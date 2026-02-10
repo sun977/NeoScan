@@ -71,9 +71,37 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 
 	// 5. 提取 JS 全局变量 (针对 Wappalyzer 规则)
 	// Wappalyzer 的规则里有 "js": {"wp": ...} 这种，意味着检查 window.wp 是否存在
-	// 这里我们无法预知所有变量，只能根据规则按需提取，或者提取一些常见的
-	// 目前先留空，等待后续根据规则动态生成 JS 代码
-	ctx["js"] = map[string]interface{}{}
+	// 策略：提取 window 对象下所有非内置的 Key，或者简单粗暴提取所有第一层 Key
+	// 为了性能和兼容性，我们提取 window 的所有属性名，后续由 Matcher 决定匹配哪个
+	// 注意：只提取 Key，不提取 Value，因为 Value 可能是复杂对象导致序列化失败
+	// 如果规则需要匹配 Value (如版本号)，需要更复杂的逻辑，目前 V1 版本先支持"存在性"检查
+	var jsKeys []string
+	jsRes, err := page.Eval(`(() => {
+		const keys = [];
+		// 遍历 window 对象的可枚举属性
+		for (const key in window) {
+			keys.push(key);
+		}
+		// 也可以补充一些不可枚举但常见的，或者直接使用 Object.getOwnPropertyNames(window)
+		// 这里为了保险起见，结合两者，去重
+		const allKeys = new Set(Object.getOwnPropertyNames(window));
+		for (const key in window) {
+			allKeys.add(key);
+		}
+		return Array.from(allKeys);
+	})()`)
+	if err == nil {
+		if valBytes, e := json.Marshal(jsRes.Value); e == nil {
+			_ = json.Unmarshal(valBytes, &jsKeys)
+		}
+	}
+	// 将 keys 转为 map[string]interface{} 格式，Value 暂时为空，方便统一接口
+	// 后续如果 Matcher 需要检查 Value，这里需要改为提取具体 Value
+	jsMap := make(map[string]interface{})
+	for _, key := range jsKeys {
+		jsMap[key] = "" // 占位，表示存在
+	}
+	ctx["js"] = jsMap
 
 	// 6. 提取 Headers
 	// go-rod 比较难直接获取 Response Headers，除非开启了 Network 监听

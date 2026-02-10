@@ -139,8 +139,8 @@ neoAgent/
 *   [x] 实现截图功能 (`CaptureScreenshot`)。
 
 ### Phase 3: 集成与优化 (Optimization)
-*   [ ] 集成到 `ServiceDispatcher`，实现 `scan run` 流程自动触发。
-*   [ ] 配置独立的 QoS 策略 (建议默认并发 <= 5)。
+*   [x] 集成到 `ServiceDispatcher`，实现 `scan run` 流程自动触发。
+*   [x] 配置独立的 QoS 策略 (建议默认并发 <= 5)。
 
 ---
 

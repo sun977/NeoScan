@@ -44,7 +44,7 @@ type WebScanner struct {
 func NewWebScanner() *WebScanner {
 	bm := browser.NewBrowserManager()
 	// 初始化空的指纹引擎
-	// TODO: 从配置文件或 embedded FS 加载指纹规则
+	// 指纹规则将在首次运行 Run 时通过 ensureInit 自动加载（TODO: 从配置文件或 embedded FS 加载指纹规则）
 	fpEngine := fpHttp.NewHTTPEngine(nil)
 
 	return &WebScanner{
@@ -85,8 +85,14 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 	// TODO: 支持从 Task 参数中读取 Proxy
 	br, err := s.browserLauncher.Launch(ctx)
 	if err != nil {
-		s.limiter.OnFailure()
-		return nil, fmt.Errorf("failed to launch browser: %w", err)
+		logger.Warnf("[WebScanner] Failed to launch browser: %v. Falling back to HTTP client.", err)
+		res, errFallback := s.fallbackScan(ctx, task, targetURL, startTime)
+		if errFallback != nil {
+			s.limiter.OnFailure()
+			return nil, fmt.Errorf("browser launch failed (%v) and fallback failed: %w", err, errFallback)
+		}
+		s.limiter.OnSuccess()
+		return res, nil
 	}
 
 	// 3. 打开空白页面并设置监听
@@ -381,6 +387,9 @@ func (s *WebScanner) ensureInit() {
 			"rules/fingerprint/web/web_fingerprints.json",
 			"../rules/fingerprint/web/web_fingerprints.json",
 			"../../rules/fingerprint/web/web_fingerprints.json",
+			"../../../rules/fingerprint/web/web_fingerprints.json",
+			"../../../../rules/fingerprint/web/web_fingerprints.json",
+			"../../../../../rules/fingerprint/web/web_fingerprints.json", // For unit tests in internal/core/scanner/web
 			"neoAgent/rules/fingerprint/web/web_fingerprints.json",
 		}
 
@@ -485,6 +494,7 @@ func (s *WebScanner) fallbackScan(ctx context.Context, task *model.Task, targetU
 	input := &fingerprint.Input{
 		Target:      task.Target,
 		Body:        bodyStr,
+		Headers:     headers,
 		RichContext: richCtx,
 	}
 

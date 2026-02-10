@@ -16,13 +16,19 @@ type ScanRunOptions struct {
 	EnableBrute bool   // --brute
 	BruteUsers  string // --users
 	BrutePass   string // --pass
+
+	// Web 扫描相关选项
+	NoWeb         bool // --no-web (默认自动扫描 Web，此标志用于禁用)
+	WebScreenshot bool // --screenshot (默认关闭，需显式开启)
 }
 
 func NewScanRunOptions() *ScanRunOptions {
 	return &ScanRunOptions{
-		Concurrency: 10,
-		PortRange:   "top1000",
-		EnableBrute: false, // 默认不开启爆破
+		Concurrency:   10,        // 默认 10 个 IP 并发
+		PortRange:     "top1000", // 默认 top1000
+		EnableBrute:   false,     // 默认关闭爆破
+		NoWeb:         false,     // 默认开启 Web 扫描
+		WebScreenshot: false,     // 默认关闭截图
 	}
 }
 

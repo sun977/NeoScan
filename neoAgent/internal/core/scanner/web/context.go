@@ -70,38 +70,79 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 	}
 
 	// 5. 提取 JS 全局变量 (针对 Wappalyzer 规则)
-	// Wappalyzer 的规则里有 "js": {"wp": ...} 这种，意味着检查 window.wp 是否存在
-	// 策略：提取 window 对象下所有非内置的 Key，或者简单粗暴提取所有第一层 Key
-	// 为了性能和兼容性，我们提取 window 的所有属性名，后续由 Matcher 决定匹配哪个
-	// 注意：只提取 Key，不提取 Value，因为 Value 可能是复杂对象导致序列化失败
-	// 如果规则需要匹配 Value (如版本号)，需要更复杂的逻辑，目前 V1 版本先支持"存在性"检查
-	var jsKeys []string
+	// 使用 Iframe Trick 过滤掉浏览器内置的全局变量，只保留用户/框架定义的变量
+	// 同时尝试提取值 (仅限基本类型)，用于后续可能的版本匹配
+	var jsVars map[string]interface{}
 	jsRes, err := page.Eval(`(() => {
-		const keys = [];
-		// 遍历 window 对象的可枚举属性
-		for (const key in window) {
-			keys.push(key);
+		try {
+			// 1. 创建一个干净的 iframe 用于获取标准全局变量列表
+			const iframe = document.createElement('iframe');
+			iframe.style.display = 'none';
+			document.body.appendChild(iframe);
+			// 某些情况下 iframe.contentWindow 可能为空或受限，需防御性编程
+			if (!iframe.contentWindow) {
+				document.body.removeChild(iframe);
+				return {}; 
+			}
+			
+			const cleanWindow = iframe.contentWindow;
+			const standardGlobals = new Set(Object.getOwnPropertyNames(cleanWindow));
+			
+			// 补充一些常见的标准但在 iframe 中可能缺失的
+			['alert', 'confirm', 'prompt', 'print', 'postMessage'].forEach(k => standardGlobals.add(k));
+
+			document.body.removeChild(iframe);
+
+			// 2. 获取当前窗口的全局变量
+			const currentGlobals = Object.getOwnPropertyNames(window);
+			const customGlobals = {};
+
+			// 3. 差集计算
+			for (const key of currentGlobals) {
+				if (!standardGlobals.has(key)) {
+					try {
+						const val = window[key];
+						const type = typeof val;
+						
+						if (val === null) {
+							customGlobals[key] = null;
+						} else if (type === 'string') {
+							// 限制字符串长度，防止过大
+							customGlobals[key] = val.length > 100 ? val.substring(0, 100) + '...' : val;
+						} else if (type === 'number' || type === 'boolean') {
+							customGlobals[key] = val;
+						} else if (type === 'object') {
+							// 对于对象，尝试简单的特征描述，或者是特定的已知对象提取版本
+							// 这里简单标记为 [Object]
+							customGlobals[key] = '[Object]';
+						} else if (type === 'function') {
+							customGlobals[key] = '[Function]';
+						} else {
+							customGlobals[key] = '[' + type + ']';
+						}
+					} catch (e) {
+						// 某些属性访问可能抛出异常 (如 cross-origin 限制)
+						customGlobals[key] = '[Error]';
+					}
+				}
+			}
+			return customGlobals;
+		} catch (e) {
+			return { 'error': e.toString() };
 		}
-		// 也可以补充一些不可枚举但常见的，或者直接使用 Object.getOwnPropertyNames(window)
-		// 这里为了保险起见，结合两者，去重
-		const allKeys = new Set(Object.getOwnPropertyNames(window));
-		for (const key in window) {
-			allKeys.add(key);
-		}
-		return Array.from(allKeys);
 	})()`)
+
 	if err == nil {
+		// jsRes.Value 是 gson.JSON
 		if valBytes, e := json.Marshal(jsRes.Value); e == nil {
-			_ = json.Unmarshal(valBytes, &jsKeys)
+			_ = json.Unmarshal(valBytes, &jsVars)
 		}
+	} else {
+		// 如果执行失败，初始化为空 map
+		jsVars = make(map[string]interface{})
 	}
-	// 将 keys 转为 map[string]interface{} 格式，Value 暂时为空，方便统一接口
-	// 后续如果 Matcher 需要检查 Value，这里需要改为提取具体 Value
-	jsMap := make(map[string]interface{})
-	for _, key := range jsKeys {
-		jsMap[key] = "" // 占位，表示存在
-	}
-	ctx["js"] = jsMap
+
+	ctx["js"] = jsVars
 
 	// 6. 提取 Headers
 	// go-rod 比较难直接获取 Response Headers，除非开启了 Network 监听

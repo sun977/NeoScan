@@ -73,5 +73,9 @@ func NewRunScanCmd() *cobra.Command {
 	flags.StringVar(&opts.BruteUsers, "users", "", "自定义爆破用户名 (逗号分隔或文件)")
 	flags.StringVar(&opts.BrutePass, "pass", "", "自定义爆破密码 (逗号分隔或文件)")
 
+	// Web 参数
+	flags.BoolVar(&opts.NoWeb, "no-web", false, "禁用 Web 指纹扫描")
+	flags.BoolVar(&opts.WebScreenshot, "screenshot", false, "启用 Web 截图 (默认关闭)")
+
 	return cmd
 }

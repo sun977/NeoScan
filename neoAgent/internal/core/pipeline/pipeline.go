@@ -116,3 +116,16 @@ func (c *PipelineContext) GetPortsByService(svcName string) []int {
 	}
 	return ports
 }
+
+// GetAllServices returns a copy of all identified services
+func (c *PipelineContext) GetAllServices() map[int]*model.PortServiceResult {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	
+	// Create a copy to avoid race conditions
+	copy := make(map[int]*model.PortServiceResult)
+	for k, v := range c.Services {
+		copy[k] = v
+	}
+	return copy
+}

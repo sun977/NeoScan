@@ -70,7 +70,12 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 	defer s.limiter.Release()
 
 	startTime := time.Now()
-	targetURL := normalizeURL(task.Target, task.PortRange)
+	// 尝试从 Params 中获取协议提示 (http/https)
+	var protocolHint string
+	if p, ok := task.Params["protocol"].(string); ok {
+		protocolHint = p
+	}
+	targetURL := normalizeURL(task.Target, task.PortRange, protocolHint)
 
 	// 2. 启动浏览器 (Lazy Load)
 	// 这里我们每次 Scan 都尝试 Launch，Launch 内部会复用已启动的 Browser
@@ -292,12 +297,21 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 }
 
 // normalizeURL 简单的 URL 规范化
-func normalizeURL(target string, port string) string {
+func normalizeURL(target string, port string, protocol string) string {
 	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
 		return target
 	}
-	// 默认 HTTP，如果端口是 443 则 HTTPS
-	if port == "443" {
+	// 如果有明确的协议提示，直接使用
+	if protocol == "https" {
+		return "https://" + target
+	}
+	if protocol == "http" {
+		return "http://" + target
+	}
+
+	// 默认猜测
+	// 如果端口是 443, 8443 则倾向于 HTTPS
+	if port == "443" || port == "8443" {
 		return "https://" + target
 	}
 	return "http://" + target

@@ -2,9 +2,12 @@ package web
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -14,7 +17,7 @@ import (
 	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
 	"neoagent/internal/pkg/fingerprint"
-	"neoagent/internal/pkg/fingerprint/engines/http"
+	fpHttp "neoagent/internal/pkg/fingerprint/engines/http"
 	fpModel "neoagent/internal/pkg/fingerprint/model"
 	"neoagent/internal/pkg/logger"
 
@@ -28,7 +31,7 @@ type WebScanner struct {
 	browserLauncher *browser.BrowserLauncher
 
 	// 指纹引擎 (复用 internal/pkg/fingerprint)
-	fpEngine *http.HTTPEngine
+	fpEngine *fpHttp.HTTPEngine
 
 	// 资源限制 (QoS)
 	limiter *qos.AdaptiveLimiter
@@ -42,7 +45,7 @@ func NewWebScanner() *WebScanner {
 	bm := browser.NewBrowserManager()
 	// 初始化空的指纹引擎
 	// TODO: 从配置文件或 embedded FS 加载指纹规则
-	fpEngine := http.NewHTTPEngine(nil)
+	fpEngine := fpHttp.NewHTTPEngine(nil)
 
 	return &WebScanner{
 		browserManager:  bm,
@@ -156,8 +159,14 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 
 	// 4. 导航到目标 URL
 	if err3 := page.Navigate(targetURL); err3 != nil {
-		s.limiter.OnFailure()
-		return nil, fmt.Errorf("failed to navigate: %w", err3)
+		logger.Warnf("[WebScanner] Navigation failed for %s: %v. Falling back to HTTP client.", targetURL, err3)
+		res, err1 := s.fallbackScan(ctx, task, targetURL, startTime)
+		if err1 != nil {
+			s.limiter.OnFailure()
+			return nil, fmt.Errorf("navigation and fallback failed: %w", err1)
+		}
+		s.limiter.OnSuccess()
+		return res, nil
 	}
 
 	// 5. 等待加载完成
@@ -301,24 +310,31 @@ func normalizeURL(target string, port string, protocol string) string {
 	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
 		return target
 	}
+
+	host := target
+	// 如果端口存在且不是标准端口，且 target 中没有端口，则追加
+	if port != "" && port != "80" && port != "443" && !strings.Contains(target, ":") {
+		host = target + ":" + port
+	}
+
 	// 如果有明确的协议提示，直接使用
 	if protocol == "https" {
-		return "https://" + target
+		return "https://" + host
 	}
 	if protocol == "http" {
-		return "http://" + target
+		return "http://" + host
 	}
 
 	// 默认猜测
 	switch port {
 	case "443", "8443", "9443", "10443":
-		return "https://" + target
+		return "https://" + host
 	case "80", "8080", "8000", "8008", "8888":
-		return "http://" + target
+		return "http://" + host
 	default:
 		// 其他端口默认为 http，如果失败，Scanner 内部其实很难再自动切 https
 		// 所以前面的 Service Detection 准确性很重要
-		return "http://" + target
+		return "http://" + host
 	}
 }
 
@@ -390,4 +406,122 @@ func (s *WebScanner) ensureInit() {
 			logger.Warnf("[WebScanner] No fingerprint rules loaded")
 		}
 	})
+}
+
+// fallbackScan 当 Headless Browser 失败时，降级使用标准库 net/http 进行扫描
+// 主要用于处理一些特殊情况，如 HTTPS 证书错误、网络问题等(chromium 意外情况兜底)
+func (s *WebScanner) fallbackScan(ctx context.Context, task *model.Task, targetURL string, startTime time.Time) ([]*model.TaskResult, error) {
+	// 1. 创建 HTTP Client (忽略证书错误)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment, // 支持系统代理
+	}
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   15 * time.Second,
+	}
+
+	// 2. 发起请求
+	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	// 模拟浏览器 UA，防止被拦截
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// 3. 读取响应
+	// 限制读取 2MB，防止大文件
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+	if err != nil {
+		return nil, err
+	}
+	bodyStr := string(bodyBytes)
+
+	// 4. 提取信息 (Title, Headers)
+	headers := make(map[string]string)
+	for k, v := range resp.Header {
+		headers[k] = strings.Join(v, ", ")
+	}
+
+	// 简单提取 Title
+	var title string
+	lowerBody := strings.ToLower(bodyStr)
+	start := strings.Index(lowerBody, "<title>")
+	if start != -1 {
+		end := strings.Index(lowerBody[start:], "</title>")
+		if end != -1 {
+			title = bodyStr[start+5 : start+end] // +5 for <title> length
+			// Wait, <title> is 7 chars. start points to '<'.
+			// "0123456" -> "<title>"
+			// start + 7 is correct.
+		}
+	}
+	// Correction: strings.Index returns index of first char.
+	// if "<title>" is at 0.
+	// lowerBody[0:] starts at 0.
+	// end is index in slice lowerBody[start:].
+	// So absolute end is start + end.
+	// Content is bodyStr[start+7 : start+end].
+	if start != -1 {
+		end := strings.Index(lowerBody[start:], "</title>")
+		if end != -1 {
+			title = bodyStr[start+7 : start+end]
+		}
+	}
+
+	// 5. 指纹匹配
+	richCtx := map[string]interface{}{
+		"body":    bodyStr,
+		"headers": headers,
+		"title":   title,
+	}
+
+	input := &fingerprint.Input{
+		Target:      task.Target,
+		Body:        bodyStr,
+		RichContext: richCtx,
+	}
+
+	var matches []fingerprint.Match
+	if s.fpEngine != nil {
+		matches, _ = s.fpEngine.Match(input)
+	}
+
+	// 6. 构造结果
+	finalIP := ""
+	finalPort := 0
+	if isIP(task.Target) {
+		finalIP = task.Target
+	}
+	if task.PortRange != "" {
+		fmt.Sscanf(task.PortRange, "%d", &finalPort)
+	}
+
+	result := &model.TaskResult{
+		TaskID:      task.ID,
+		Status:      model.TaskStatusSuccess,
+		ExecutedAt:  startTime,
+		CompletedAt: time.Now(),
+		Result: &model.WebResult{
+			URL:             targetURL,
+			IP:              finalIP,
+			Port:            finalPort,
+			Title:           title,
+			StatusCode:      resp.StatusCode,
+			ContentLength:   resp.ContentLength,
+			ResponseHeaders: headers,
+			TechStack:       convertMatchesToTechStack(matches),
+			Screenshot:      "", // Fallback 模式无截图
+			Favicon:         "", // 暂不提取 Favicon
+		},
+	}
+
+	logger.Infof("[WebScanner] Fallback scan success for %s", targetURL)
+	return []*model.TaskResult{result}, nil
 }

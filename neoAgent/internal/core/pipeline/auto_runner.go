@@ -42,11 +42,12 @@ type AutoRunner struct {
 
 func NewAutoRunner(opts *options.ScanRunOptions) *AutoRunner {
 	// 初始化 Phase 2 Scanners
-	// 使用 Factory 获取全功能 BruteScanner
+	// 使用 Factory 获取全功能 BruteScanner 和 WebScanner
 	bruteScanner := factory.NewFullBruteScanner()
+	webScanner := factory.NewWebScanner()
 
 	// 初始化 Dispatcher
-	dispatcher := NewServiceDispatcher(StrategyFull, bruteScanner, opts)
+	dispatcher := NewServiceDispatcher(StrategyFull, bruteScanner, webScanner, opts)
 
 	return &AutoRunner{
 		targetGenerator: GenerateTargets(opts.Target),

@@ -310,11 +310,16 @@ func normalizeURL(target string, port string, protocol string) string {
 	}
 
 	// 默认猜测
-	// 如果端口是 443, 8443 则倾向于 HTTPS
-	if port == "443" || port == "8443" {
+	switch port {
+	case "443", "8443", "9443", "10443":
 		return "https://" + target
+	case "80", "8080", "8000", "8008", "8888":
+		return "http://" + target
+	default:
+		// 其他端口默认为 http，如果失败，Scanner 内部其实很难再自动切 https
+		// 所以前面的 Service Detection 准确性很重要
+		return "http://" + target
 	}
-	return "http://" + target
 }
 
 // convertMatchesToTechStack 转换指纹格式为 TechStack 列表

@@ -86,7 +86,60 @@ func (e *HTTPEngine) Match(input *fingerprint.Input) ([]fingerprint.Match, error
 func compileRule(rule model.FingerRule) CompiledRule {
 	var conditions []matcher.MatchRule
 
-	// 1. Status Code
+	// 1. Title
+	if rule.Title != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Field:      "title",
+			Operator:   "contains",
+			Value:      rule.Title,
+			IgnoreCase: true,
+		})
+	}
+
+	// 2. Header (处理标准 Header 字段)
+	if rule.Header != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Field:      "all_headers",
+			Operator:   "contains",
+			Value:      rule.Header,
+			IgnoreCase: true,
+		})
+	}
+
+	// 3. Server (支持 server 字段或 header 中的 Server)
+	if rule.Server != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Or: []matcher.MatchRule{
+				{Field: "server", Operator: "contains", Value: rule.Server, IgnoreCase: true},
+				{Field: "all_headers", Operator: "contains", Value: rule.Server, IgnoreCase: true},
+			},
+		})
+	}
+
+	// 4. X-Powered-By (支持 x_powered_by 字段或 header 中的 X-Powered-By)
+	if rule.XPoweredBy != "" {
+		conditions = append(conditions, matcher.MatchRule{
+			Or: []matcher.MatchRule{
+				{Field: "x_powered_by", Operator: "contains", Value: rule.XPoweredBy, IgnoreCase: true},
+				{Field: "all_headers", Operator: "contains", Value: rule.XPoweredBy, IgnoreCase: true},
+			},
+		})
+	}
+
+	// 5. Body / Response / Footer / Subtitle (统一查 Body)
+	// 这些字段在 Master 文档中被定义为 body 的别名或特定区域匹配，但在简单实现中统一查 body
+	for _, val := range []string{rule.Body, rule.Response, rule.Footer, rule.Subtitle} {
+		if val != "" {
+			conditions = append(conditions, matcher.MatchRule{
+				Field:      "body",
+				Operator:   "contains",
+				Value:      val,
+				IgnoreCase: true,
+			})
+		}
+	}
+
+	// 6. Status Code
 	if rule.StatusCode != "" {
 		if strings.Contains(rule.StatusCode, ",") {
 			// List check
@@ -108,45 +161,21 @@ func compileRule(rule model.FingerRule) CompiledRule {
 		}
 	}
 
-	// 2. Body
-	if rule.Body != "" {
-		conditions = append(conditions, matcher.MatchRule{
-			Field:    "body",
-			Operator: "contains",
-			Value:    rule.Body,
-		})
-	}
-
-	// 3. Header (Specific header check)
-	if rule.Header != "" {
-		// 假设 header 字段格式为 "Key: Value"
-		if strings.Contains(rule.Header, ":") {
-			parts := strings.SplitN(rule.Header, ":", 2)
-			key := strings.TrimSpace(parts[0])
-			val := strings.TrimSpace(parts[1])
-			conditions = append(conditions, matcher.MatchRule{
-				Field:      "headers." + key,
-				Operator:   "contains",
-				Value:      val,
-				IgnoreCase: true,
-			})
-		} else {
-			// 否则在 all_headers 中查找
-			conditions = append(conditions, matcher.MatchRule{
-				Field:      "all_headers",
-				Operator:   "contains",
-				Value:      rule.Header,
-				IgnoreCase: true,
-			})
-		}
-	}
-
-	// 4. Match (JSON rule or Regex)
+	// 7. Match (JSON rule or Regex)
 	if rule.Match != "" {
 		var complexRule matcher.MatchRule
 		if strings.HasPrefix(strings.TrimSpace(rule.Match), "{") {
 			if err := json.Unmarshal([]byte(rule.Match), &complexRule); err == nil {
 				conditions = append(conditions, complexRule)
+			} else {
+				// 解析失败，回退为正则
+				if re, err := regexp.Compile(rule.Match); err == nil {
+					conditions = append(conditions, matcher.MatchRule{
+						Field:    "all_response",
+						Operator: "regex",
+						Value:    re,
+					})
+				}
 			}
 		} else {
 			// Treat as regex on all_response
@@ -158,16 +187,6 @@ func compileRule(rule model.FingerRule) CompiledRule {
 				})
 			}
 		}
-	}
-
-	// 5. Title
-	if rule.Title != "" {
-		conditions = append(conditions, matcher.MatchRule{
-			Field:      "title",
-			Operator:   "contains",
-			Value:      rule.Title,
-			IgnoreCase: true,
-		})
 	}
 
 	if len(conditions) == 0 {

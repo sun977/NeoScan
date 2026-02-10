@@ -1,9 +1,12 @@
 package scan
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"neoagent/internal/core/factory"
 	"neoagent/internal/core/options"
 
 	"github.com/spf13/cobra"
@@ -11,6 +14,7 @@ import (
 
 func NewWebScanCmd() *cobra.Command {
 	opts := options.NewWebScanOptions()
+	var screenshot bool
 
 	cmd := &cobra.Command{
 		Use:   "web",
@@ -21,12 +25,31 @@ func NewWebScanCmd() *cobra.Command {
 				return err
 			}
 
-			// 注入全局输出参数
-			opts.Output = globalOutputOptions
+			// 1. 创建 Scanner
+			scanner := factory.NewWebScanner()
 
+			// 2. 构造 Task
 			task := opts.ToTask()
-			taskJSON, _ := json.MarshalIndent(task, "", "  ")
-			fmt.Printf("Web Scan Task Created:\n%s\n", string(taskJSON))
+			// 注入截图参数 (CLI 参数 -> Task Params)
+			task.Params["screenshot"] = screenshot
+
+			fmt.Printf("[*] Starting Web Scan against %s (Ports: %s)...\n", opts.Target, opts.Ports)
+			
+			// 3. 执行扫描
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+
+			results, err := scanner.Run(ctx, task)
+			if err != nil {
+				return fmt.Errorf("scan failed: %w", err)
+			}
+
+			// 4. 输出结果
+			for _, res := range results {
+				resJSON, _ := json.MarshalIndent(res.Result, "", "  ")
+				fmt.Printf("\n[+] Scan Result:\n%s\n", string(resJSON))
+			}
+			
 			return nil
 		},
 	}
@@ -36,6 +59,9 @@ func NewWebScanCmd() *cobra.Command {
 	flags.StringVarP(&opts.Ports, "ports", "p", opts.Ports, "端口范围")
 	flags.StringVar(&opts.Path, "path", opts.Path, "扫描路径")
 	flags.StringVarP(&opts.Method, "method", "m", opts.Method, "HTTP 方法")
+	
+	// 添加截图参数
+	flags.BoolVar(&screenshot, "screenshot", false, "启用网页截图")
 
 	cmd.MarkFlagRequired("target")
 

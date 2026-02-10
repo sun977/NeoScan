@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"neoagent/internal/core/model"
@@ -180,35 +181,82 @@ func (d *ServiceDispatcher) shouldScanWeb(pCtx *PipelineContext) bool {
 }
 
 func (d *ServiceDispatcher) runWebScan(ctx context.Context, pCtx *PipelineContext) {
-	// 遍历所有 Web 端口
-	// TODO: 优化逻辑，避免重复扫描 (http/https 可能在同一端口?)
-	webPorts := pCtx.GetPortsByService("http")
-	webPorts = append(webPorts, pCtx.GetPortsByService("https")...)
-	webPorts = append(webPorts, pCtx.GetPortsByService("http-alt")...)
-	webPorts = append(webPorts, pCtx.GetPortsByService("http-proxy")...)
+	// 1. 获取所有服务 (Thread-Safe)
+	services := pCtx.GetAllServices()
 
-	// 去重
-	seenPorts := make(map[int]bool)
-	var uniquePorts []int
-	for _, p := range webPorts {
-		if !seenPorts[p] {
-			seenPorts[p] = true
-			uniquePorts = append(uniquePorts, p)
+	// 2. 筛选 Web 目标 (Port -> Protocol Hint)
+	// 使用 map 去重，Key 为 Port
+	targets := make(map[int]string)
+
+	for port, svc := range services {
+		isWeb := false
+		protocol := ""
+
+		// 规则 1: Service Name
+		if svc.Service == "http" || svc.Service == "http-alt" || svc.Service == "http-proxy" || svc.Service == "wbem-http" {
+			isWeb = true
+			protocol = "http"
+		} else if svc.Service == "https" || svc.Service == "ssl/http" || svc.Service == "ssl/https" {
+			isWeb = true
+			protocol = "https"
+		}
+
+		// 规则 2: Product Name (Common Web Servers)
+		if !isWeb {
+			// 转换为小写进行匹配
+			prod := ""
+			if svc.Product != "" {
+				prod = svc.Product
+			} else if svc.Banner != "" {
+				prod = svc.Banner // 如果没有 Product，尝试看 Banner
+			}
+
+			// 简单的关键词匹配
+			// 注意: 这种匹配可能误报，但 WebScanner 本身有容错，如果不是 Web 会失败
+			if len(prod) > 0 {
+				prodLower := strings.ToLower(prod)
+				// 常见 Web 服务器特征
+				keywords := []string{"html", "http", "apache", "nginx", "iis", "jetty", "tomcat", "node.js", "express", "php", "jsp"}
+				for _, kw := range keywords {
+					if strings.Contains(prodLower, kw) {
+						isWeb = true
+						break
+					}
+				}
+			}
+		}
+
+		if isWeb {
+			// 如果端口是 443/8443，即使 Service 没说是 https，我们也倾向于 https
+			// 除非 Service 明确说是 http
+			if (port == 443 || port == 8443) && protocol == "http" {
+				// 保持 http，因为 Nmap 可能已经探测过了
+				// 但如果 protocol 为空，则设为 https
+			}
+			if (port == 443 || port == 8443) && protocol == "" {
+				protocol = "https"
+			}
+			targets[port] = protocol
 		}
 	}
 
+	// 3. 执行扫描
 	var wg sync.WaitGroup
-	for _, port := range uniquePorts {
+	for port, protocol := range targets {
 		wg.Add(1)
-		go func(p int) {
+		go func(p int, proto string) {
 			defer wg.Done()
-			logger.Infof("[%s] [Phase 2] Dispatching Web Scan for port %d...", pCtx.IP, p)
+			logger.Infof("[%s] [Phase 2] Dispatching Web Scan for port %d (Proto: %s)...", pCtx.IP, p, proto)
 
 			// 构造 Task
 			task := model.NewTask(model.TaskTypeWebScan, pCtx.IP)
 			task.PortRange = fmt.Sprintf("%d", p)
-			// WebScanner 需要 Target 是 URL 吗？不需要，它自己会 normalizeURL (ip + port -> http://ip:port)
-			// 但我们需要传递一些配置，比如是否启用截图
+			// 传递 Protocol Hint
+			if proto != "" {
+				task.Params["protocol"] = proto
+			}
+
+			// 截图配置
 			if d.opts != nil {
 				task.Params["screenshot"] = d.opts.WebScreenshot
 			} else {
@@ -229,7 +277,7 @@ func (d *ServiceDispatcher) runWebScan(ctx context.Context, pCtx *PipelineContex
 					}
 				}
 			}
-		}(port)
+		}(port, protocol)
 	}
 	wg.Wait()
 }

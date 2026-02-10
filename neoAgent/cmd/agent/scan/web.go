@@ -2,12 +2,12 @@ package scan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"neoagent/internal/core/factory"
 	"neoagent/internal/core/options"
+	"neoagent/internal/core/reporter"
 
 	"github.com/spf13/cobra"
 )
@@ -34,7 +34,7 @@ func NewWebScanCmd() *cobra.Command {
 			task.Params["screenshot"] = screenshot
 
 			fmt.Printf("[*] Starting Web Scan against %s (Ports: %s)...\n", opts.Target, opts.Ports)
-			
+
 			// 3. 执行扫描
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
@@ -45,11 +45,20 @@ func NewWebScanCmd() *cobra.Command {
 			}
 
 			// 4. 输出结果
-			for _, res := range results {
-				resJSON, _ := json.MarshalIndent(res.Result, "", "  ")
-				fmt.Printf("\n[+] Scan Result:\n%s\n", string(resJSON))
+			console := reporter.NewConsoleReporter()
+			console.PrintResults(results)
+
+			// 保存 JSON 结果 (如果指定)
+			if globalOutputOptions.OutputJson != "" {
+				saveJsonResult(globalOutputOptions.OutputJson, results)
 			}
-			
+			// 保存 CSV 结果 (如果指定)
+			if globalOutputOptions.OutputCsv != "" {
+				if err := reporter.SaveCsvResult(globalOutputOptions.OutputCsv, results); err != nil {
+					fmt.Printf("[-] Failed to save csv: %v\n", err)
+				}
+			}
+
 			return nil
 		},
 	}
@@ -59,7 +68,7 @@ func NewWebScanCmd() *cobra.Command {
 	flags.StringVarP(&opts.Ports, "ports", "p", opts.Ports, "端口范围")
 	flags.StringVar(&opts.Path, "path", opts.Path, "扫描路径")
 	flags.StringVarP(&opts.Method, "method", "m", opts.Method, "HTTP 方法")
-	
+
 	// 添加截图参数
 	flags.BoolVar(&screenshot, "screenshot", false, "启用网页截图")
 

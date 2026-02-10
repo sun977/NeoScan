@@ -214,10 +214,11 @@ func (d *ServiceDispatcher) runWebScan(ctx context.Context, pCtx *PipelineContex
 		protocol := ""
 
 		// 规则 1: Service Name
-		if svc.Service == "http" || svc.Service == "http-alt" || svc.Service == "http-proxy" || svc.Service == "wbem-http" {
+		switch svc.Service {
+		case "http", "http-alt", "http-proxy", "wbem-http":
 			isWeb = true
 			protocol = "http"
-		} else if svc.Service == "https" || svc.Service == "ssl/http" || svc.Service == "ssl/https" {
+		case "https", "ssl/http", "ssl/https":
 			isWeb = true
 			protocol = "https"
 		}

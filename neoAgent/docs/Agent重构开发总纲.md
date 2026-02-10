@@ -111,6 +111,7 @@ neoAgent/
     - [ ] 集成 Nuclei 等重型工具。
     - [x] 实现 Web 指纹识别与爬虫。
     - [x] Web Scanner 完善与集成。
+    - [x] **稳定性加固**: Linux 平台下的权限修复与 Segfault 防护。
 
 ---
 

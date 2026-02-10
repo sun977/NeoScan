@@ -91,6 +91,7 @@ neoAgent/
         *   **Path Isolation**: 下载到 `.neoagent/bin/`，不污染系统路径。
         *   **Process Group**: 确保 Agent 退出时强制清理所有僵尸 Chrome 进程。
         *   **Proxy Integration**: [关键] 启动时自动注入 `--proxy-server` 参数，确保流量遵循 Agent 全局代理配置 (SOCKS5/HTTP)。
+        *   **Auto Permission Fix**: [新增] Linux 环境下自动检测并修复 Chromium 二进制的可执行权限，防止复制导致的权限丢失。
 
 2.  **WebScanner (业务逻辑)**
     *   **职责**: 执行具体的扫描流程。
@@ -98,6 +99,7 @@ neoAgent/
         *   **L1 (Fast)**: 纯 HTTP 请求，获取 Header/Static HTML。
         *   **L2 (Deep)**: 启动 Browser，获取 DOM、执行 JS 提取变量、计算 Favicon Hash。
         *   **L3 (Visual)**: 全屏截图。
+    *   **Panic Recovery**: [新增] 内置 Recover 机制，确保单次扫描的崩溃（如 Segfault）不会导致 Agent 进程退出。
 
 3.  **Fingerprint SDK (规则引擎)**
     *   **职责**: 连接 WebScanner (IO) 和 Matcher (Logic) 的桥梁。
@@ -132,11 +134,17 @@ neoAgent/
 *   [x] 实现 `BrowserManager`，复用 `sbscan` 的下载逻辑但增强路径管理。
 *   [x] 实现 `Process Group` 信号处理，防止僵尸进程。
 *   [x] 验证 Linux 无 GUI 环境下的运行 (Xvfb/Headless)。
+*   [x] **跨平台兼容性增强**:
+    *   [x] 解决 Linux 环境下 Chromium 权限丢失问题 (`chmod +x` 自动修复)。
+    *   [x] 解决跨平台编译导致的 Segfault 问题 (`CGO_ENABLED=0` + Panic Recovery)。
 
 ### Phase 2: 核心能力建设 (Capability)
 *   [x] 实现 `WebScanner` 基础框架。
 *   [x] 移植 Wappalyzer / FingerprintHub 规则库解析器。
 *   [x] 实现截图功能 (`CaptureScreenshot`)。
+*   [x] **网络事件监听增强**:
+    *   [x] 实现 `page.EachEvent` 监听 Document 响应，精准获取 Status Code 和 IP/Port。
+    *   [x] 解决 SPA 应用返回 404/200 状态码的误判问题。
 
 ### Phase 3: 集成与优化 (Optimization)
 *   [x] 集成到 `ServiceDispatcher`，实现 `scan run` 流程自动触发。
@@ -152,6 +160,7 @@ neoAgent/
 | **并发模型** | 协程池 (Goroutine Pool) | **QoS 动态流控 (AIMD)**。根据 CPU/内存负载动态调整并发，防止服务器卡死。 |
 | **指纹库** | 硬编码/内置规则 | **规则引擎分离**。采用 Wappalyzer 标准，支持加载外部 JSON 规则库，便于更新。 |
 | **进程管理** | 基础管理 | **进程组管理 (Process Group)**。更严格的资源回收机制。 |
+| **稳定性** | 可能会因 CGO/权限问题崩溃 | **Production Ready**。内置 Panic Recovery、权限自修复、静态编译支持。 |
 
 ## 5. 范围界定 (Scope)
 

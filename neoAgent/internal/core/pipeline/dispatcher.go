@@ -173,11 +173,32 @@ func (d *ServiceDispatcher) shouldScanWeb(pCtx *PipelineContext) bool {
 		return false
 	}
 
-	// 简单的 Web 服务判定
-	return pCtx.HasService("http") ||
-		pCtx.HasService("https") ||
-		pCtx.HasService("http-alt") ||
-		pCtx.HasService("http-proxy")
+	// 遍历所有服务，检查是否有 Web 相关服务
+	services := pCtx.GetAllServices()
+	for _, svc := range services {
+		// 规则 1: Service Name
+		if svc.Service == "http" || svc.Service == "http-alt" || svc.Service == "http-proxy" || svc.Service == "wbem-http" ||
+			svc.Service == "https" || svc.Service == "ssl/http" || svc.Service == "ssl/https" {
+			return true
+		}
+
+		// 规则 2: Product Name (Common Web Servers)
+		prod := svc.Product
+		if prod == "" {
+			prod = svc.Banner
+		}
+		if len(prod) > 0 {
+			prodLower := strings.ToLower(prod)
+			keywords := []string{"html", "http", "apache", "nginx", "iis", "jetty", "tomcat", "node.js", "express", "php", "jsp"}
+			for _, kw := range keywords {
+				if strings.Contains(prodLower, kw) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func (d *ServiceDispatcher) runWebScan(ctx context.Context, pCtx *PipelineContext) {

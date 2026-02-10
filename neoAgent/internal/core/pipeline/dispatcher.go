@@ -8,6 +8,7 @@ import (
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/scanner/brute"
+	"neoagent/internal/core/scanner/web"
 	"neoagent/internal/pkg/logger"
 )
 
@@ -25,16 +26,17 @@ const (
 type ServiceDispatcher struct {
 	strategy     DispatchStrategy
 	bruteScanner *brute.BruteScanner
+	webScanner   *web.WebScanner
 	opts         *options.ScanRunOptions // 全局选项，包含 Brute 开关和字典
-	// webScanner   *web.Scanner // Future
 	// vulnScanner  *vuln.Scanner // Future
 }
 
 // NewServiceDispatcher 创建服务分发器
-func NewServiceDispatcher(strategy DispatchStrategy, bruteScanner *brute.BruteScanner, opts *options.ScanRunOptions) *ServiceDispatcher {
+func NewServiceDispatcher(strategy DispatchStrategy, bruteScanner *brute.BruteScanner, webScanner *web.WebScanner, opts *options.ScanRunOptions) *ServiceDispatcher {
 	return &ServiceDispatcher{
 		strategy:     strategy,
 		bruteScanner: bruteScanner,
+		webScanner:   webScanner,
 		opts:         opts,
 	}
 }
@@ -60,9 +62,7 @@ func (d *ServiceDispatcher) dispatchHighPriority(ctx context.Context, pCtx *Pipe
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			logger.Infof("[%s] [Phase 2] Dispatching Web Scan...", pCtx.IP)
-			// TODO: 调用真实的 Web Scanner
-			// d.webScanner.Scan(ctx, pCtx.IP)
+			d.runWebScan(ctx, pCtx)
 		}()
 	}
 
@@ -172,4 +172,55 @@ func (d *ServiceDispatcher) shouldScanWeb(pCtx *PipelineContext) bool {
 		pCtx.HasService("https") ||
 		pCtx.HasService("http-alt") ||
 		pCtx.HasService("http-proxy")
+}
+
+func (d *ServiceDispatcher) runWebScan(ctx context.Context, pCtx *PipelineContext) {
+	// 遍历所有 Web 端口
+	// TODO: 优化逻辑，避免重复扫描 (http/https 可能在同一端口?)
+	webPorts := pCtx.GetPortsByService("http")
+	webPorts = append(webPorts, pCtx.GetPortsByService("https")...)
+	webPorts = append(webPorts, pCtx.GetPortsByService("http-alt")...)
+	webPorts = append(webPorts, pCtx.GetPortsByService("http-proxy")...)
+
+	// 去重
+	seenPorts := make(map[int]bool)
+	var uniquePorts []int
+	for _, p := range webPorts {
+		if !seenPorts[p] {
+			seenPorts[p] = true
+			uniquePorts = append(uniquePorts, p)
+		}
+	}
+
+	var wg sync.WaitGroup
+	for _, port := range uniquePorts {
+		wg.Add(1)
+		go func(p int) {
+			defer wg.Done()
+			logger.Infof("[%s] [Phase 2] Dispatching Web Scan for port %d...", pCtx.IP, p)
+
+			// 构造 Task
+			task := model.NewTask(model.TaskTypeWebScan, pCtx.IP)
+			task.PortRange = fmt.Sprintf("%d", p)
+			// WebScanner 需要 Target 是 URL 吗？不需要，它自己会 normalizeURL (ip + port -> http://ip:port)
+			// 但我们需要传递一些配置，比如是否启用截图
+			task.Params["screenshot"] = true // 默认开启截图
+
+			results, err := d.webScanner.Run(ctx, task)
+			if err != nil {
+				logger.Warnf("[%s] Web scan failed for port %d: %v", pCtx.IP, p, err)
+				return
+			}
+
+			// 收集结果
+			for _, res := range results {
+				if res.Status == model.TaskStatusSuccess {
+					if webRes, ok := res.Result.(*model.WebResult); ok {
+						pCtx.AddWebResult(webRes)
+					}
+				}
+			}
+		}(port)
+	}
+	wg.Wait()
 }

@@ -100,13 +100,13 @@ func (l *BrowserLauncher) Launch(ctx context.Context) (*rod.Browser, error) {
 		return nil, fmt.Errorf("failed to connect to browser: %w", err)
 	}
 
-	// 7. 配置 Browser Context
-	// 忽略证书错误 (再次确认)
-	// 这一步对于 rod 来说可能不是必须的，因为启动参数已经加了，但为了保险
-	// browser.IgnoreCertErrors(true) // rod v0.113+ 已废弃此方法，改为启动参数控制
+	// 7. 设置全局 IgnoreCertErrors
+	// 虽然启动参数加了 ignore-certificate-errors，但有些场景下(如 iframe)可能仍需通过 CDP 命令忽略
+	// 这是一个保险措施
+	// browser.IgnoreCertErrors(true) // rod v0.106+ 不需要手动调，参数已足够
 
 	l.browser = browser
-	return browser, nil
+	return l.browser, nil
 }
 
 // Close 关闭浏览器
@@ -122,27 +122,39 @@ func (l *BrowserLauncher) Close() error {
 	return nil
 }
 
-// OpenPage 打开新页面并应用通用配置
-func (l *BrowserLauncher) OpenPage(ctx context.Context, browser *rod.Browser, targetURL string) (*rod.Page, error) {
-	// 创建新页面 (Incognito Context 更好，但 rod 默认是 default context)
-	// 建议使用 MustIncognito().Page(url) 来隔离 Cookie
+// OpenPage 打开新页面并配置 (如忽略证书错误)
+func (l *BrowserLauncher) OpenPage(ctx context.Context, browser *rod.Browser, url string) (*rod.Page, error) {
+	// 创建新页面 (incognito context by default if browser was launched incognito, but here we share context)
+	// 使用 MustIncognito? No, we use default context for now.
 
-	// 这里使用默认上下文，后续可以优化为 Incognito
-	page, err := browser.Page(proto.TargetCreateTarget{URL: targetURL})
+	// CreateTarget allows us to create page with url directly
+	// But usually we create blank page then navigate to capture events
+	var page *rod.Page
+	var err error
+
+	if url == "" {
+		page, err = browser.Page(proto.TargetCreateTarget{URL: "about:blank"})
+	} else {
+		page, err = browser.Page(proto.TargetCreateTarget{URL: url})
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	// 设置视口大小 (影响截图和响应式页面)
-	if err := page.SetViewport(&proto.EmulationSetDeviceMetricsOverride{
-		Width:             1920,
-		Height:            1080,
-		DeviceScaleFactor: 1,
-		Mobile:            false,
-	}); err != nil {
-		// 非致命错误，记录即可
-		logger.Warnf("[Browser] Failed to set viewport: %v", err)
-	}
+	// 关联 Context
+	page = page.Context(ctx)
+
+	// 忽略证书错误 (再次确保)
+	// 虽然启动参数已设置，但在某些版本 Chromium 中，Page 级别的 Security 检查可能仍需 Bypass
+	// 通过 CDP 命令 Security.setIgnoreCertificateErrors
+	// 这是一个保险措施，防止 HTTPS 报错
+	// 注意: 需要先启用 Security 域，但在 rod 中直接调用即可
+	// err = proto.SecuritySetIgnoreCertificateErrors{Ignore: true}.Call(page)
+	// 简化: rod 并没有直接暴露这个 helper 在 Page 上?
+	// 实际上，启动参数 --ignore-certificate-errors 通常已足够全局生效。
+	// 如果需要，可以使用 page.MustEval(`...`) 或者 hijack。
+	// 这里暂不额外处理，除非发现问题。
 
 	return page, nil
 }

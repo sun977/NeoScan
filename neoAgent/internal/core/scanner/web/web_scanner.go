@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -62,13 +63,26 @@ func (s *WebScanner) Name() model.TaskType {
 }
 
 // Run 执行扫描任务
-func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error) {
+func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*model.TaskResult, err error) {
+	// 0. Panic Recovery (Linus Style: Don't let a single crash take down the whole agent)
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("[WebScanner] PANIC RECOVERED: %v", r)
+			// 打印堆栈信息，方便定位 Segfault/Panic 位置
+			// debug.Stack() 需要 import runtime/debug
+			// 简单起见，我们至少返回一个错误结果，而不是让进程崩溃
+			err = fmt.Errorf("panic during web scan: %v", r)
+			// 尝试返回一个失败的任务结果
+			results = nil
+		}
+	}()
+
 	// 确保指纹规则已加载
 	s.ensureInit()
 
 	// 1. 获取 QoS 令牌
-	if err := s.limiter.Acquire(ctx); err != nil {
-		return nil, err
+	if err1 := s.limiter.Acquire(ctx); err1 != nil {
+		return nil, err1
 	}
 	defer s.limiter.Release()
 
@@ -118,17 +132,24 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 	// page.MustWaitOpen() // 确保页面已打开? OpenPage 已经返回了 page
 	// 开启网络事件监听
 	// 使用 page.EachEvent 监听事件 (非阻塞模式运行)
+	// 注意: 需要确保 page.Close() 会停止监听，或者我们应该手动 stop
 	waitEvents := page.EachEvent(func(e *proto.NetworkResponseReceived) bool {
-		// 我们主要关注 Document 类型的响应，且通常是最后一个（考虑重定向）
-		// 或者匹配 targetURL 的那个
-		// 简单起见，我们记录每一个 Document 的响应，最后留下的就是最终页面的
+		// 我们主要关注 Document 类型的响应
+		// 对于 SPA 页面，初始 HTML 可能只是一个骨架，但也算 Document
+		// 某些情况下，重定向后的最终页面才是我们想要的
+
+		// 调试日志: 打印所有响应类型和URL
+		// logger.Debugf("[WebScanner] Response: %s %s %s", e.Type, e.Response.URL, e.Response.Status)
+
 		if e.Type == proto.NetworkResourceTypeDocument {
+			logger.Infof("[WebScanner] Document Response: Status=%d URL=%s", e.Response.Status, e.Response.URL)
 			respMutex.Lock()
 			defer respMutex.Unlock()
 
+			// 只有当响应状态码有效时才更新 (排除 0 或 weird status)
+			// 或者，我们记录最后一次 Document 响应
 			statusCode = e.Response.Status
 			remoteIP = e.Response.RemoteIPAddress
-			// 修正: RemotePort 是 *int，需要判空并解引用
 			if e.Response.RemotePort != nil {
 				remotePort = *e.Response.RemotePort
 			}
@@ -144,7 +165,6 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 			}
 
 			// Content-Length
-			// 尝试从 Header 获取，或者从 EncodedDataLength
 			if cl, ok := e.Response.Headers["Content-Length"]; ok {
 				var clVal string
 				if err2 := json.Unmarshal([]byte(cl.String()), &clVal); err2 == nil {
@@ -281,10 +301,26 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 		}
 	}
 	if finalPort == 0 {
-		// 尝试从 task.PortRange 解析
-		// ...
-		if task.PortRange != "" {
-			fmt.Sscanf(task.PortRange, "%d", &finalPort)
+		// 优先尝试从 URL 中解析端口
+		if u, err := url.Parse(targetURL); err == nil {
+			if port := u.Port(); port != "" {
+				fmt.Sscanf(port, "%d", &finalPort)
+			} else {
+				// 如果 URL 没写端口，根据协议推断
+				if u.Scheme == "https" {
+					finalPort = 443
+				} else if u.Scheme == "http" {
+					finalPort = 80
+				}
+			}
+		}
+
+		// 如果还是 0，尝试从 task.PortRange 解析 (作为最后的兜底)
+		if finalPort == 0 && task.PortRange != "" {
+			// 只有当 PortRange 是单个端口时才采纳，避免 "80,443" 这种列表被解析为 80
+			if !strings.Contains(task.PortRange, ",") && !strings.Contains(task.PortRange, "-") {
+				fmt.Sscanf(task.PortRange, "%d", &finalPort)
+			}
 		}
 	}
 

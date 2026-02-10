@@ -113,7 +113,7 @@ type WebResult struct {
 
 // Headers 实现 TabularData 接口
 func (r WebResult) Headers() []string {
-	return []string{"URL", "Status", "Title", "TechStack"}
+	return []string{"URL", "IP", "Port", "Status", "Len", "Title", "Server", "TechStack"}
 }
 
 // Rows 实现 TabularData 接口
@@ -126,7 +126,29 @@ func (r WebResult) Rows() [][]string {
 			stack = stack[:47] + "..."
 		}
 	}
-	return [][]string{{r.URL, fmt.Sprintf("%d", r.StatusCode), r.Title, stack}}
+
+	server := ""
+	if r.ResponseHeaders != nil {
+		if s, ok := r.ResponseHeaders["Server"]; ok {
+			server = s
+		} else if s, ok := r.ResponseHeaders["server"]; ok {
+			server = s
+		}
+	}
+	if len(server) > 30 {
+		server = server[:27] + "..."
+	}
+
+	return [][]string{{
+		r.URL,
+		r.IP,
+		fmt.Sprintf("%d", r.Port),
+		fmt.Sprintf("%d", r.StatusCode),
+		fmt.Sprintf("%d", r.ContentLength),
+		r.Title,
+		server,
+		stack,
+	}}
 }
 
 // VulnResult 漏洞扫描结果

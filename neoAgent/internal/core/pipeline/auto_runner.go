@@ -304,6 +304,18 @@ func (r *AutoRunner) report(pCtx *PipelineContext) {
 		fmt.Println("[Ports] No services identified.")
 	}
 
+	// Phase 2: Web Scan Results
+	if len(pCtx.WebResults) > 0 {
+		fmt.Println("\n[Web Scan] Web Services Identified:")
+		var webTaskResults []*model.TaskResult
+		for _, res := range pCtx.WebResults {
+			webTaskResults = append(webTaskResults, &model.TaskResult{
+				Result: *res,
+			})
+		}
+		console.PrintResults(webTaskResults)
+	}
+
 	// Phase 2: Brute Force Results
 	if len(pCtx.BruteResults) > 0 {
 		fmt.Println("\n[Brute Force] Weak Credentials Found:")

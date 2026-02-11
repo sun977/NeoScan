@@ -100,7 +100,7 @@ echo "Go Version: $GO_VERSION"
 echo "Output: $OUTPUT"
 echo "========================================"
 
-LDFLAGS="-w -s -X 'neoagent/internal/pkg/version.BuildTime=$BUILD_TIME' -X 'neoagent/internal/pkg/version.GitCommit=$GIT_COMMIT' -X 'neoagent/internal/pkg/version.GoVersion=$GO_VERSION'"
+LDFLAGS="-w -s -X 'neoagent/internal/pkg/version.Version=$VERSION' -X 'neoagent/internal/pkg/version.BuildTime=$BUILD_TIME' -X 'neoagent/internal/pkg/version.GitCommit=$GIT_COMMIT' -X 'neoagent/internal/pkg/version.GoVersion=$GO_VERSION'"
 
 export GOOS=$TARGET_OS
 export GOARCH=$TARGET_ARCH

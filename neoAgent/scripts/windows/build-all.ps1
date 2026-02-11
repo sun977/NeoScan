@@ -40,7 +40,7 @@ if (-not (Test-Path $ReleaseDir)) {
 }
 
 if ([string]::IsNullOrEmpty($Version)) {
-    $Version = (Select-String -Path "$ProjectRoot\internal\pkg\version\version.go" -Pattern "^Version\s*=" | ForEach-Object { $_.Line -replace '.*"([^"]+)".*', '$1' })
+    $Version = (Select-String -Path "$ProjectRoot\internal\pkg\version\version.go" -Pattern "^\s*Version\s*=" | ForEach-Object { $_.Line -replace '.*"([^"]+)".*', '$1' })
 }
 
 Write-Host "========================================" -ForegroundColor Cyan

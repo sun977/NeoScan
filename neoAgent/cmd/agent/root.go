@@ -47,6 +47,17 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
+	// 全局 Panic Recovery (Linus Style: Catch everything, even stupid user errors)
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "\n[FATAL] Agent crashed unexpectedly: %v\n", r)
+			// 在 Debug 模式下打印堆栈，但在生产环境只显示友好的错误
+			// 避免吓坏用户
+			// debug.Stack() // 如果需要堆栈
+			os.Exit(1)
+		}
+	}()
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

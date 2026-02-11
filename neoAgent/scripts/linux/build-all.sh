@@ -14,7 +14,7 @@
 #   ./build-all.sh -v 2.12.0         使用指定版本号编译所有平台版本
 #
 # 输出目录：release/
-# 输出文件格式：neoAgent-{VERSION}-{OS}-{ARCH}.{EXT}
+# 输出文件格式：neoScan-Agent-{VERSION}-{OS}-{ARCH}.{EXT}
 #
 # 作者：NeoScan Team
 # 版本：1.0.0
@@ -70,12 +70,12 @@ echo "Release Directory: $RELEASE_DIR"
 echo "========================================"
 
 PLATFORMS=(
-    "windows:amd64:neoAgent-$VERSION-windows-amd64.exe"
-    "windows:arm64:neoAgent-$VERSION-windows-arm64.exe"
-    "linux:amd64:neoAgent-$VERSION-linux-amd64"
-    "linux:arm64:neoAgent-$VERSION-linux-arm64"
-    "darwin:amd64:neoAgent-$VERSION-darwin-amd64"
-    "darwin:arm64:neoAgent-$VERSION-darwin-arm64"
+    "windows:amd64:neoScan-Agent-$VERSION-windows-amd64.exe"
+    "windows:arm64:neoScan-Agent-$VERSION-windows-arm64.exe"
+    "linux:amd64:neoScan-Agent-$VERSION-linux-amd64"
+    "linux:arm64:neoScan-Agent-$VERSION-linux-arm64"
+    "darwin:amd64:neoScan-Agent-$VERSION-darwin-amd64"
+    "darwin:arm64:neoScan-Agent-$VERSION-darwin-arm64"
 )
 
 for PLATFORM in "${PLATFORMS[@]}"; do
@@ -88,9 +88,9 @@ for PLATFORM in "${PLATFORMS[@]}"; do
     if [ $? -eq 0 ]; then
         SOURCE_PATH="$PROJECT_ROOT/bin"
         if [ "$OS" = "windows" ]; then
-            SOURCE_PATH="$SOURCE_PATH/neoAgent.exe"
+            SOURCE_PATH="$SOURCE_PATH/neoScan-Agent.exe"
         else
-            SOURCE_PATH="$SOURCE_PATH/neoAgent"
+            SOURCE_PATH="$SOURCE_PATH/neoScan-Agent"
         fi
 
         DEST_PATH="$RELEASE_DIR/$OUTPUT"

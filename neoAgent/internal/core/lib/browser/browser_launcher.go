@@ -77,8 +77,12 @@ func (l *BrowserLauncher) Launch(ctx context.Context) (*rod.Browser, error) {
 		Set("disable-extensions").
 		// 忽略证书错误 (关键! 否则无法扫描 HTTPS 站点)
 		Set("ignore-certificate-errors").
-		// 设置 User-Agent
-		Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		// 允许所有 Mixed Content (HTTPS 页面加载 HTTP 资源) --- 可选
+		Set("allow-insecure-localhost").
+		// 允许运行不安全的内容 (如 HTTP 资源加载 HTTPS 页面) --- 可选
+		Set("allow-running-insecure-content").
+		// 设置 User-Agent --- 自定义 User-Agent 以标识 NeoScan 代理
+		Set("user-agent", "Mozilla/5.0 (compatible; NeoScan-Agent/2.11.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
 	// 4. 配置代理 (Proxy Integration)
 	if l.proxy != "" {

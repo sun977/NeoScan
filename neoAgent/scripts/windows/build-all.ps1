@@ -62,19 +62,10 @@ $Platforms = @(
 foreach ($Platform in $Platforms) {
     Write-Host "Building for $($Platform.OS)/$($Platform.Arch)..." -ForegroundColor Yellow
 
-    & "$PSScriptRoot\build.ps1" -TargetOS $Platform.OS -TargetArch $Platform.Arch -Version $Version
+    $DestPath = Join-Path $ReleaseDir $Platform.Output
+    & "$PSScriptRoot\build.ps1" -TargetOS $Platform.OS -TargetArch $Platform.Arch -Version $Version -Output $DestPath
 
     if ($LASTEXITCODE -eq 0) {
-        $SourcePath = Join-Path $ProjectRoot "bin"
-        if ($Platform.OS -eq "windows") {
-            $SourcePath = Join-Path $SourcePath "neoScan-Agent.exe"
-        } else {
-            $SourcePath = Join-Path $SourcePath "neoScan-Agent"
-        }
-
-        $DestPath = Join-Path $ReleaseDir $Platform.Output
-        Copy-Item -Path $SourcePath -Destination $DestPath -Force
-
         Write-Host "Created: $DestPath" -ForegroundColor Green
     } else {
         Write-Host "Failed to build for $($Platform.OS)/$($Platform.Arch)" -ForegroundColor Red

@@ -16,7 +16,7 @@
 
 .PARAMETER Output
     输出文件名
-    默认值：neoAgent.exe（Windows）或 neoAgent（Linux/macOS）
+    默认值：neoScan-Agent.exe（Windows）或 neoScan-Agent（Linux/macOS）
 
 .PARAMETER Version
     指定版本号，如果不指定则从 version.go 文件读取
@@ -68,7 +68,7 @@ $GitCommit = git rev-parse --short HEAD 2>$null
 if ($LASTEXITCODE -ne 0) { $GitCommit = "unknown" }
 $GoVersion = (go version | ForEach-Object { $_.Split()[2] })
 
-$BinaryName = "neoAgent"
+$BinaryName = "neoScan-Agent"
 if ($TargetOS -eq "windows") {
     $BinaryName = "$BinaryName.exe"
 }

@@ -23,7 +23,7 @@
     日期：2026-02-11
 
     输出目录：release/
-    输出文件格式：neoAgent-{VERSION}-{OS}-{ARCH}.{EXT}
+    输出文件格式：neoScan-Agent-{VERSION}-{OS}-{ARCH}.{EXT}
 #>
 
 param(
@@ -51,12 +51,12 @@ Write-Host "Release Directory: $ReleaseDir" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 
 $Platforms = @(
-    @{OS = "windows"; Arch = "amd64"; Output = "neoAgent-$Version-windows-amd64.exe"},
-    @{OS = "windows"; Arch = "arm64"; Output = "neoAgent-$Version-windows-arm64.exe"},
-    @{OS = "linux"; Arch = "amd64"; Output = "neoAgent-$Version-linux-amd64"},
-    @{OS = "linux"; Arch = "arm64"; Output = "neoAgent-$Version-linux-arm64"},
-    @{OS = "darwin"; Arch = "amd64"; Output = "neoAgent-$Version-darwin-amd64"},
-    @{OS = "darwin"; Arch = "arm64"; Output = "neoAgent-$Version-darwin-arm64"}
+    @{OS = "windows"; Arch = "amd64"; Output = "neoScan-Agent-$Version-windows-amd64.exe"},
+    @{OS = "windows"; Arch = "arm64"; Output = "neoScan-Agent-$Version-windows-arm64.exe"},
+    @{OS = "linux"; Arch = "amd64"; Output = "neoScan-Agent-$Version-linux-amd64"},
+    @{OS = "linux"; Arch = "arm64"; Output = "neoScan-Agent-$Version-linux-arm64"},
+    @{OS = "darwin"; Arch = "amd64"; Output = "neoScan-Agent-$Version-darwin-amd64"},
+    @{OS = "darwin"; Arch = "arm64"; Output = "neoScan-Agent-$Version-darwin-arm64"}
 )
 
 foreach ($Platform in $Platforms) {
@@ -67,9 +67,9 @@ foreach ($Platform in $Platforms) {
     if ($LASTEXITCODE -eq 0) {
         $SourcePath = Join-Path $ProjectRoot "bin"
         if ($Platform.OS -eq "windows") {
-            $SourcePath = Join-Path $SourcePath "neoAgent.exe"
+            $SourcePath = Join-Path $SourcePath "neoScan-Agent.exe"
         } else {
-            $SourcePath = Join-Path $SourcePath "neoAgent"
+            $SourcePath = Join-Path $SourcePath "neoScan-Agent"
         }
 
         $DestPath = Join-Path $ReleaseDir $Platform.Output

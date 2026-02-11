@@ -79,7 +79,7 @@ BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GO_VERSION=$(go version | awk '{print $3}')
 
-BINARY_NAME="neoAgent"
+BINARY_NAME="neoScan-Agent"
 if [ "$TARGET_OS" = "windows" ]; then
     BINARY_NAME="$BINARY_NAME.exe"
 fi

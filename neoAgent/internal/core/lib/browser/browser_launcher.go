@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"neoagent/internal/pkg/logger"
+	"neoagent/internal/pkg/version"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -82,7 +83,7 @@ func (l *BrowserLauncher) Launch(ctx context.Context) (*rod.Browser, error) {
 		// 允许运行不安全的内容 (如 HTTP 资源加载 HTTPS 页面) --- 可选
 		Set("allow-running-insecure-content").
 		// 设置 User-Agent --- 自定义 User-Agent 以标识 NeoScan 代理
-		Set("user-agent", "Mozilla/5.0 (compatible; NeoScan-Agent/2.11.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		Set("user-agent", version.GetUserAgent())
 
 	// 4. 配置代理 (Proxy Integration)
 	if l.proxy != "" {

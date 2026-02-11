@@ -83,19 +83,21 @@ for PLATFORM in "${PLATFORMS[@]}"; do
 
     echo "Building for $OS/$ARCH..."
 
-    "$BASH_SOURCE" -o "$OS" -a "$ARCH" -v "$VERSION"
+    DEST_PATH="$RELEASE_DIR/$OUTPUT"
+
+    BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    GO_VERSION=$(go version | awk '{print $3}')
+
+    LDFLAGS="-w -s -X 'neoagent/internal/pkg/version.Version=$VERSION' -X 'neoagent/internal/pkg/version.BuildTime=$BUILD_TIME' -X 'neoagent/internal/pkg/version.GitCommit=$GIT_COMMIT' -X 'neoagent/internal/pkg/version.GoVersion=$GO_VERSION'"
+
+    export GOOS=$OS
+    export GOARCH=$ARCH
+
+    cd "$PROJECT_ROOT"
+    go build -ldflags="$LDFLAGS" -o "$DEST_PATH" ./cmd/agent
 
     if [ $? -eq 0 ]; then
-        SOURCE_PATH="$PROJECT_ROOT/bin"
-        if [ "$OS" = "windows" ]; then
-            SOURCE_PATH="$SOURCE_PATH/neoScan-Agent.exe"
-        else
-            SOURCE_PATH="$SOURCE_PATH/neoScan-Agent"
-        fi
-
-        DEST_PATH="$RELEASE_DIR/$OUTPUT"
-        cp -f "$SOURCE_PATH" "$DEST_PATH"
-
         echo "Created: $DEST_PATH"
     else
         echo "Failed to build for $OS/$ARCH"

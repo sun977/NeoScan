@@ -59,7 +59,7 @@ done
 mkdir -p "$RELEASE_DIR"
 
 if [ -z "$VERSION" ]; then
-    VERSION=$(grep -E "^Version\s*=" "$PROJECT_ROOT/internal/pkg/version/version.go" | awk -F'"' '{print $2}')
+    VERSION=$(grep -E "^\s*Version\s*=" "$PROJECT_ROOT/internal/pkg/version/version.go" | awk -F'"' '{print $2}')
 fi
 
 echo "========================================"

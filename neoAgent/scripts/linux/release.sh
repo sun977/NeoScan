@@ -47,7 +47,7 @@ if [ ! -f "$VERSION_FILE" ]; then
     exit 1
 fi
 
-sed -i "s/Version\s*=\s*\"[^\"]*\"/Version = \"$VERSION\"/" "$VERSION_FILE"
+sed -i "s/[[:space:]]*Version[[:space:]]*=[[:space:]]*\"[^\"]*\"/Version = \"$VERSION\"/" "$VERSION_FILE"
 
 echo "Step 1/4: Updated version file to $VERSION"
 

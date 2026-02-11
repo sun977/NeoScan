@@ -72,7 +72,7 @@ done
 mkdir -p "$OUTPUT_DIR"
 
 if [ -z "$VERSION" ]; then
-    VERSION=$(grep -E "^Version\s*=" "$PROJECT_ROOT/internal/pkg/version/version.go" | awk -F'"' '{print $2}')
+    VERSION=$(grep -E "^\s*Version\s*=" "$PROJECT_ROOT/internal/pkg/version/version.go" | awk -F'"' '{print $2}')
 fi
 
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

@@ -7,15 +7,12 @@
 
 package version
 
-const (
+var (
 	Version    = "2.11.0" // 版本号 -- 发布时候更新版本号
 	APIVersion = "2.0"
-)
-
-var (
-	BuildTime string
-	GitCommit string
-	GoVersion string
+	BuildTime  string
+	GitCommit  string
+	GoVersion  string
 )
 
 func GetVersion() string {

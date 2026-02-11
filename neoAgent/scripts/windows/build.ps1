@@ -89,7 +89,7 @@ Write-Host "Go Version: $GoVersion" -ForegroundColor Green
 Write-Host "Output: $Output" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 
-$LdFlags = "-w -s -X 'neoagent/internal/pkg/version.BuildTime=$BuildTime' -X 'neoagent/internal/pkg/version.GitCommit=$GitCommit' -X 'neoagent/internal/pkg/version.GoVersion=$GoVersion'"
+$LdFlags = "-w -s -X 'neoagent/internal/pkg/version.Version=$Version' -X 'neoagent/internal/pkg/version.BuildTime=$BuildTime' -X 'neoagent/internal/pkg/version.GitCommit=$GitCommit' -X 'neoagent/internal/pkg/version.GoVersion=$GoVersion'"
 
 $Env:GOOS = $TargetOS
 $Env:GOARCH = $TargetArch

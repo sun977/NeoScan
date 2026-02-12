@@ -1,7 +1,47 @@
-/.DS_Store
-/.trae
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 modules.xml
 vcs.xml
 NeoScan.iml
-.idea/*
-.vscode/*
+
+# Trae IDE
+.trae
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Release builds
+release/
+
+# Data files
+*.json
+*.csv
+
+# Config files with sensitive info
+.env
+configs/config.yaml
+
+# Logs
+*.log

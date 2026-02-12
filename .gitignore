@@ -22,26 +22,24 @@ NeoScan.iml
 *.so
 *.dylib
 bin/
+bfg.jar
 
 # Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool
 *.out
-
+ 
 # Go workspace file
 go.work
 
 # Release builds
 release/
 
-# Data files
-*.json
-*.csv
 
-# Config files with sensitive info
-.env
-configs/config.yaml
+# # Config files with sensitive info
+# .env
+# configs/config.yaml
 
 # Logs
 *.log

@@ -108,10 +108,26 @@ neoAgent/
     - [x] **Step 5**: 更新 `cmd/agent/server.go` (实际为 `app.go`) 入口。
     - [x] **Step 6**: 统一 Server 模式扫描器初始化逻辑 (`setup/core.go` -> `RunnerManager` Factory)。
 - [x] **4.3 高级能力集成**:
-    - [ ] 集成 Nuclei 等重型工具。
-    - [x] 实现 Web 指纹识别与爬虫。
+    - [x] 实现 Web 指纹识别。
     - [x] Web Scanner 完善与集成。
     - [x] **稳定性加固**: Linux 平台下的权限修复与 Segfault 防护。
+
+### 阶段五：深度探测与漏洞扫描 (Deep Recon & Vulnerability Scanning) —— **Exploitation**
+**目标**: 补齐 Web 深度信息收集、真正的漏洞扫描引擎以及主动暴露面试探能力。
+**状态**: 🏃 **进行中**
+
+- [ ] **5.1 Web 扫描深度增强 (Web Crawler & Passive Analyzer)**:
+    - [ ] 实现 Web Crawler，浅度爬取页面链接 (`<a>`) 和 JS 接口。
+    - [ ] 收集 GET/POST 参数、表单 (`<form>`) 字段等攻击面输入点。
+    - [ ] 增加正则引擎，被动扫描源码中的敏感信息泄露 (AK/SK、Token 等)。
+- [ ] **5.2 漏洞扫描原子能力落地 (Vuln Scanner)**:
+    - [ ] 封装 Nuclei 执行引擎 (`internal/core/scanner/vuln`)。
+    - [ ] 根据 WebScanner 识别出的技术栈动态过滤 Nuclei 模板。
+    - [ ] 真实落地 "Vuln First" 调度策略，打通全流程。
+- [ ] **5.3 目录与子域名扫描 (Dir & Subdomain Scanner)**:
+    - [ ] 实现 DirScanner，基于高并发 HTTP 请求进行敏感路径/备份文件爆破。
+    - [ ] 实现 SubdomainScanner，基于并发 DNS 解析进行子域名枚举。
+    - [ ] 完善对应 CLI 命令的底层调用联调。
 
 ---
 

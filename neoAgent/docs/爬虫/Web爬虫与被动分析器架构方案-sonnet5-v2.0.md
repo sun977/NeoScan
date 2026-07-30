@@ -1,6 +1,6 @@
 # NeoScan Web 爬虫与被动分析器架构方案 v2.0
 
-> 本文档独立于 `Web爬虫与被动分析器设计方案-v1.0.md` 给出，基于对 `BrowsertrixCrawler`、`Firecrawl` 源码的实际研读，
+> 本文档独立于 `Web爬虫与被动分析器设计方案-gemini3-v1.0.md` 给出，基于对 `BrowsertrixCrawler`、`Firecrawl` 源码的实际研读，
 > 结合 NeoScan 现有代码（`internal/core/scanner/web`、`internal/core/pipeline`、`internal/core/factory`、`internal/pkg/fingerprint`）
 > 给出的重新思考版本。核心目标只有一个：**用最少的新概念，把 Phase 5.1 的活干完，并且不破坏现有任何东西。**
 
@@ -15,7 +15,9 @@
 - Browsertrix 要解决的是**多容器分布式、可暂停可恢复的网页存档**（要保证 crawl 状态可以在 Pod 重启后 replay）。
 - Firecrawl 要解决的是 **SaaS 化的"给我一个 URL，尽最大可能返回可用内容"**（要应对反爬、PDF、Twitter、Wikipedia 等各种奇葩站点）。
 
-NeoScan 是**单进程 Agent，跑一次扫描，目的是发现攻击面**，不需要断点续爬、不需要跨引擎瀑布重试、不需要分布式状态机。如果照搬这套东西，就是"用航母的锅炉去烧开水"——这是典型的 **过度设计**，是要不得的。
+> **术语澄清**：这里说的"单进程"特指**单个 Agent 处理一次 Web 爬虫任务这个粒度**，不是说 NeoScan 整体架构是单机的——NeoScan 本身是 Master + 多 Agent 的分布式集群，这一点不冲突。Browsertrix 引入 Redis 分布式队列，是因为它的**单次 crawl 任务**会被多个浏览器容器联合分布式完成，且要支持暂停后从另一台机器 Resume；而 NeoScan 的"一次 Web 扫描任务"是分配给单个 Agent 独立完成的原子 Task（爬一个站点产出几十到几百个 URL），不存在"一个 Task 需要多台 Agent 联合爬"的场景。集群层面的并行（多机器分摊多个扫描目标）NeoScan 早已具备，这里讨论的是**单个 Task 内部**要不要照搬 Browsertrix 的跨进程状态机，答案是不需要。
+
+NeoScan 单个 Agent 处理一次爬虫任务时，**跑一次扫描，目的是发现攻击面**，不需要断点续爬、不需要跨引擎瀑布重试、不需要分布式状态机。如果照搬这套东西，就是"用航母的锅炉去烧开水"——这是典型的 **过度设计**，是要不得的。
 
 真正的问题是：**现有 `WebScanner` 只探测了首页，攻击面收集停留在"单点快照"，没有"顺藤摸瓜"的能力**。要解决的就是这一个问题，别的都不要碰。
 
@@ -184,7 +186,63 @@ func (c *Crawler) worker(ctx context.Context, queue chan *item, wg *sync.WaitGro
 
 ---
 
-## 五、第四层：破坏性分析——会破坏什么？
+## 五、并发模型专项说明：为什么用 Goroutine，不用多进程
+
+这是一个在方案评审中被明确提出的问题：**NeoScan 整体是 Master + 多 Agent 的分布式系统，为什么爬虫内部提速不用"多开几个 Agent 子进程"的方式，而是用 Goroutine？** 这个问题问得对，值得单独展开说清楚，避免和上一节的"单进程"表述混淆。
+
+### 5.1 先分清楚两个不同层级的"并发"
+
+| 层级 | NeoScan 现状 | 是否需要变更 |
+|---|---|---|
+| 集群层：多机器分摊多个扫描目标 | ✅ 已有，Master 分发 Task，多个 Agent 并行拉取执行 | 不涉及本次讨论范围 |
+| 单机层：单个 Agent 内多个 IP 目标并行跑 Pipeline | ✅ 已有，见 `pipeline/auto_runner.go` 的 `sem := make(chan struct{}, r.concurrency)` + `go func(){...}()` | 不涉及本次讨论范围 |
+| 单任务层：一次 Web 爬虫任务内部，多个 URL 怎么并行抓取 | ❌ 待实现，本方案 `crawler.Options.Concurrency` 要解决的就是这一层 | **本节讨论的就是这一层该用 Goroutine 还是子进程** |
+
+三层需求是叠加关系，不是互斥关系。本方案不改变前两层（它们已经工作得很好），只在第三层引入并发能力。
+
+### 5.2 数据结构/资源模型分析：爬虫任务的本质是 IO 密集型
+
+一次 HTTP 请求的耗时构成：
+
+```
+DNS 解析(ms) + TCP 握手(ms) + TLS 握手(ms) + 服务器处理(ms) + 数据传输(ms)
+                                  ↑
+                     这段时间 CPU 基本在"睡觉"（等待网络 IO 返回）
+```
+
+Go 的 Goroutine 从设计第一天起就是为了解决这类问题：一个 Goroutine 发起 HTTP 请求后进入 `netpoller` 挂起等待，调度器立刻把 CPU 让给另一个 Goroutine 干活。1 个 OS 线程能同时"照看"成千上万个等待中的 Goroutine——这是 Go runtime 内置的能力，不需要开发者手动管理线程池。
+
+而"多进程"要解决的是另一类问题：CPU 密集型任务的并行计算，或者语言运行时本身存在全局锁（如 Python 的 GIL，必须用多进程绕开）。Go 没有 GIL，`runtime.GOMAXPROCS` 默认等于 CPU 核心数，单个 Go 进程内部本身就能吃满所有 CPU 核心。**开多个 Agent 子进程不会让程序多用一个 CPU 核心，因为单进程早就能用满了；对于本来就不怎么用 CPU 的 IO 密集型爬虫任务，多开进程唯一的效果是多消耗几份内存。**
+
+### 5.3 特殊情况识别：子进程方案会引入哪些真实成本
+
+| 维度 | Goroutine（进程内并发） | 子进程（fork 多个 Agent 实例） |
+|---|---|---|
+| 创建开销 | 约 2KB 初始栈，微秒级创建 | 完整 OS 进程，MB 级内存，毫秒级 fork+exec |
+| 通信成本 | 内存直接共享（`chan` / 指针传递），零拷贝 | 必须走 IPC（管道/socket/临时文件），需要额外的序列化/反序列化代码 |
+| 结果聚合 | 直接写回同一个 `PipelineContext`（复用现有 `pCtx.AddWebResult`） | 子进程结果需要序列化成 JSON/Proto，父进程再反序列化聚合，多一层转换和错误处理代码 |
+| QoS 限流 | 一个 `qos.AdaptiveLimiter` 实例天然对所有 Goroutine 生效 | 每个子进程是独立内存空间，限流状态要么各自为政（多进程叠加并发可能打爆目标站点），要么需要额外的跨进程共享存储来同步限流状态 |
+| 崩溃隔离 | 一个 Goroutine panic 默认会拖垮整个进程，**但** `WebScanner.Run()` 已经用 `defer recover()` 兜底（见 `web_scanner.go` 第 67-78 行），这个问题已被现有架构解决 | 子进程崩溃确实不影响父进程，但这个优势在本场景没有对应的真实痛点——访问一个恶意页面不会让整个 Chromium 段错误，遇到的异常本来就该在 Goroutine 内被 `recover` 兜住 |
+| 与现有架构的关系 | 与 `AutoRunner.Run()` 已有的模型完全一致，直接复用同一套 Semaphore + WaitGroup 范式 | 需要在 Master-Agent 协议之外，再造一整套"Agent 内部子 Agent"的调度、心跳、结果回收机制——等于在一个分布式系统里再套一层小分布式系统 |
+
+**一句话说清楚**：子进程方案是在解决一个不存在的问题（"Go 单进程并发能力不够用"），代价是引入一整套全新的 IPC、状态同步、限流协调基础设施。这正是需要被砍掉的过度设计。
+
+### 5.4 真正该是"子进程"的东西，其实已经是子进程了
+
+现有代码里，Chromium 浏览器本身就是一个独立 OS 子进程（`internal/core/lib/browser/browser_manager.go` 中 `launcher.Get()` 拉起的是真实的 `chrome`/`chrome.exe` 二进制），Agent 进程通过 CDP 协议远程控制它，而不是把浏览器内嵌进 Agent 进程里跑。这是唯一"应该独立于 Agent 主进程"的重型组件，而它已经是子进程了，不需要为此再做任何调整。
+
+需要子进程隔离的判断标准很简单：**这个组件是否有独立的、与 Go runtime 不兼容的运行时（如 Chromium 的 V8 + Blink）？** 如果是，用子进程 + 协议通信（CDP/gRPC）隔离，这是对的，NeoScan 已经这么做了。如果只是"多个 HTTP 请求要并发跑"，那和进程隔离半点关系都没有，纯粹是 Goroutine 该干的事。
+
+### 5.5 结论：本方案的并发落地方式
+
+1. **单站点内的多 URL 并行抓取**：Goroutine Worker Pool，即第八节 `crawler.go` 里 `for i := 0; i < c.concurrency; i++ { go c.worker(...) }` 的设计，默认并发数 5，可通过 `crawler.Options.Concurrency` 调整。
+2. **多个 IP 目标之间的并行**：复用现有 `AutoRunner.Run()` 的 Semaphore 模型，不做任何改动。
+3. **跨 Agent 的并行**：由 Master 的任务分发机制负责，不属于本方案（爬虫 Scanner）的职责范围。
+4. **不引入任何形式的 Agent 内部子进程/多开 Agent 实例方案**。如果未来遇到真正 CPU 密集型的瓶颈（比如超大规模正则匹配、密码爆破哈希计算），应当先用 `pprof` 实测确认瓶颈所在，再决定是否需要更重的并行方案——**先测量，再优化，不要没测量就上重型架构**。
+
+---
+
+## 六、第四层：破坏性分析——会破坏什么？
 
 逐条过一遍现有链路，确认零破坏：
 
@@ -198,7 +256,7 @@ func (c *Crawler) worker(ctx context.Context, queue chan *item, wg *sync.WaitGro
 
 ---
 
-## 六、第五层：实用性验证
+## 七、第五层：实用性验证
 
 - 这个问题在生产环境真实存在吗？**是**——"进度文档"里 Phase 5.1 明确写着当前是"单点首页探测"，下游 Vuln Scanner（Phase 5.2）需要更多攻击面输入点才有意义，这不是臆想出来的需求。
 - 方案的复杂度是否匹配问题的严重性？**匹配**——三个新文件，一个新依赖库，一次 `WebResult` 字段扩展，一个 Task 参数扩展。这是能在 1-2 个迭代内交付、能被单元测试完整覆盖的规模。
@@ -206,37 +264,22 @@ func (c *Crawler) worker(ctx context.Context, queue chan *item, wg *sync.WaitGro
 
 ---
 
-## 七、最终架构设计
+## 八、最终架构设计
 
-### 7.1 模块与数据流
+### 8.1 模块与数据流
 
-```
-                        ┌───────────────────────────────┐
-                        │        WebScanner.Run()         │
-                        │  1. go-rod 首页探测 (不变)       │
-                        │  2. 提取 richCtx / matches       │
-                        │  3. 首页 WebResult (不变)        │
-                        │  4. if task.Params["crawl"]:     │
-                        │       crawler.Crawl(seedURL)     │────┐
-                        └───────────────────────────────┘    │
-                                                                │
-                        ┌───────────────────────────────┐    │
-                        │      crawler.Crawler (新增)      │◄───┘
-                        │  - BFS Worker Pool (net/http)    │
-                        │  - visited map 去重 + Scope 判断  │
-                        │  - 复用 WebScanner 的 AdaptiveLimiter │
-                        │  - extract.go: goquery 提取 <a>/<form>│
-                        │  - leak.go: 正则敏感信息检测       │
-                        └───────────────────────────────┘
-                                       │
-                                       ▼
-                     每访问一个页面 -> 产出一个 *model.WebResult（Depth>0）
-                                       │
-                                       ▼
-                    WebScanner.Run() 汇总为 []*model.TaskResult 一次性返回
-                                       │
-                                       ▼
-                  ServiceDispatcher.runWebScan -> pCtx.AddWebResult (循环调用，逻辑不变)
+```mermaid
+flowchart TD
+    A["WebScanner.Run()<br/>1. go-rod 首页探测（不变）<br/>2. 提取 richCtx / matches<br/>3. 首页 WebResult（不变）<br/>4. if task.Params[crawl]: 触发爬取"]
+    B["crawler.Crawler（新增）<br/>- BFS Worker Pool（net/http）<br/>- visited map 去重 + Scope 判断<br/>- 复用 WebScanner 的 AdaptiveLimiter<br/>- extract.go：goquery 提取 a/form<br/>- leak.go：正则敏感信息检测"]
+    C["每访问一个页面<br/>产出一个 *model.WebResult（Depth>0）"]
+    D["WebScanner.Run() 汇总为<br/>[]*model.TaskResult 一次性返回"]
+    E["ServiceDispatcher.runWebScan<br/>-> pCtx.AddWebResult（循环调用，逻辑不变）"]
+
+    A -->|crawler.Crawl seedURL| B
+    B --> C
+    C --> D
+    D --> E
 ```
 
 关键设计点：**爬虫不是一个独立的 Scanner/TaskType，而是 `WebScanner` 内部按需触发的一个"深度补充阶段"**。这是与 v1.0 的第二个重大分歧——v1.0 倾向于把 crawler 做成 web 包下平行的子系统，本方案认为它应该是 WebScanner 生命周期里的一环，因为：
@@ -245,7 +288,7 @@ func (c *Crawler) worker(ctx context.Context, queue chan *item, wg *sync.WaitGro
 2. 复用同一个限流器实例，语义更自洽，不用在 Dispatcher 层协调两个独立 Scanner 的并发关系。
 3. 保持 `model.TaskTypeWebScan` 单一职责："给我一个 IP:Port，把这个 Web 服务的攻击面摸清楚"——不管摸清楚的手段是首页快照还是深挖 3 层，对外都是同一个任务类型，Dispatcher 不需要为"web_scan" 和 "web_crawl" 两种任务类型分别写分发规则。
 
-### 7.2 核心类型（放在 `internal/core/scanner/web/crawler/crawler.go`）
+### 8.2 核心类型（放在 `internal/core/scanner/web/crawler/crawler.go`）
 
 ```go
 package crawler
@@ -286,7 +329,7 @@ func (c *Crawler) Crawl(ctx context.Context, seedURL string, seedLinks []string)
 
 `Crawl` 的第三个参数 `seedLinks`——这是刻意设计：首页在 go-rod 阶段已经拿到了 JS 渲染后的真实链接（`ExtractRichContext` 目前没提取 `<a>`，需要补一个小函数 `ExtractLinks(page)`，10 行代码），把这批链接作为 BFS 的第一层种子，避免爬虫重新用 `net/http` 打一次首页（首页可能是 SPA，`net/http` 拿到的是空壳）。这正是 v1.0 中"智能降级策略"的合理内核，本方案把它保留并做得更精确：**不是"首页用浏览器、其余用 HTTP"这种简单的深度切分，而是"浏览器只用于拿到 JS 渲染后的种子链接，一旦拿到链接，后续遍历全部走 HTTP"**。
 
-### 7.3 URL 归一化与去重（`crawler.go` 内部函数，不单独成文件）
+### 8.3 URL 归一化与去重（`crawler.go` 内部函数，不单独成文件）
 
 ```go
 func normalizeKey(raw string) string {
@@ -313,7 +356,7 @@ func normalizeKey(raw string) string {
 
 不做参数值归一化（比如把 `?id=1` 和 `?id=2` 视为相同），因为那是"猜测"，不同的 `id` 值完全可能对应不同的业务对象（IDOR 漏洞检测还就指望这个差异）。**唯一需要防的是"同一个资源被不同顺序/大小写的 URL 重复访问"，不是"业务上相似的 URL"。** 如果真遇到 1000 个自增 ID 的爬取地狱，用 `MaxPages` 硬上限兜底即可，这是实用主义，不是理论洁癖。
 
-### 7.4 攻击面提取（`extract.go`）
+### 8.4 攻击面提取（`extract.go`）
 
 ```go
 func ExtractLinksAndForms(baseURL string, body string) (links []string, forms []model.FormInfo, params []string) {
@@ -356,7 +399,7 @@ func ExtractLinksAndForms(baseURL string, body string) (links []string, forms []
 
 引入 `goquery` 是本方案唯一的新依赖，理由：它是 Go 生态里最成熟的 HTML 解析库（对标 jQuery API），比手写正则解析 HTML 靠谱得多——**这不是过度设计，是用对的工具做对的事**。v1.0 也建议了同样的库，这一点结论一致。
 
-### 7.5 被动泄露检测（`leak.go`）
+### 8.5 被动泄露检测（`leak.go`）
 
 ```go
 type leakRule struct {
@@ -386,9 +429,9 @@ func DetectLeaks(body string) []model.LeakInfo {
 
 ---
 
-## 八、与现有代码的具体接入点
+## 九、与现有代码的具体接入点
 
-### 8.1 `internal/core/scanner/web/web_scanner.go`
+### 9.1 `internal/core/scanner/web/web_scanner.go`
 
 在第 6 步"提取 Rich Context"之后（约第 211 行）追加：
 
@@ -419,11 +462,11 @@ if enable, ok := task.Params["crawl"].(bool); ok && enable {
 
 （伪代码，实际实现需要注意 `results` 变量在函数末尾已经是 `return []*model.TaskResult{result}, nil` 的单元素写法，需要改成 `append` 模式——这是本次改动里对现有函数**唯一**的结构性调整，且是纯增量、无副作用的调整。）
 
-### 8.2 `internal/core/options/scan_web.go` 和 `cmd/agent/scan/web.go`
+### 9.2 `internal/core/options/scan_web.go` 和 `cmd/agent/scan/web.go`
 
 新增两个 CLI flag：`--crawl`（bool，默认 false）、`--crawl-depth`（int，默认 2），走 `task.Params["crawl"] / ["crawl_depth"]` 透传，与现有 `--screenshot` 参数模式完全一致，零学习成本。
 
-### 8.3 `internal/core/pipeline/dispatcher.go`
+### 9.3 `internal/core/pipeline/dispatcher.go`
 
 `runWebScan` 中构造 Task 的地方（约 274 行）追加两行：
 
@@ -434,7 +477,7 @@ task.Params["crawl_depth"] = d.opts.WebCrawlDepth
 
 `ServiceDispatcher` 内部逻辑完全不动，因为它本来就是"构造 Task -> 调用 Run -> 收集结果 -> AddWebResult"，爬虫产出的多条 `WebResult` 走的是一模一样的路径。
 
-### 8.4 `go.mod`
+### 9.4 `go.mod`
 
 新增一行依赖：
 
@@ -444,7 +487,7 @@ github.com/PuerkitoBio/goquery v1.9.x
 
 ---
 
-## 九、实施顺序（Sprint 拆分）
+## 十、实施顺序（Sprint 拆分）
 
 和 v1.0 一样按 Sprint 走，但每个 Sprint 的验收标准更具体、更小：
 
@@ -471,7 +514,7 @@ github.com/PuerkitoBio/goquery v1.9.x
 
 ---
 
-## 十、与 v1.0 方案的关键分歧总结
+## 十一、与 v1.0 方案的关键分歧总结
 
 | 维度 | v1.0 方案 | 本方案 (v2.0) |
 |---|---|---|
@@ -482,5 +525,6 @@ github.com/PuerkitoBio/goquery v1.9.x
 | DenialReason | 独立类型系统 + 常量枚举 | 一条 `logger.Debugf` 日志，无需类型 |
 | 限流 | "接入现有 AdaptiveLimiter"（提及但未强调复用同一实例） | 强制共享 WebScanner 已持有的同一实例，语义统一 |
 | 结果承载 | 提及"塞入 WebResult"但未定义具体字段 | 明确定义 `Depth/Forms/Params/Leaks` 四个新增字段，向后兼容 |
+| 并发模型 | 未明确讨论 | 明确限定为 Goroutine Worker Pool（进程内并发），不引入 Agent 内部子进程；理由见第五节 |
 
 两版本在"方向"上是一致的（HTTP 优先、浏览器仅探路、attack surface 提取、被动泄露检测），这部分判断都是对的，说明这确实是正确的技术方向。分歧全部集中在"复杂度控制"上——v1.0 明显受两个参考项目的架构影响过深，把它们为分布式/多租户场景设计的复杂机制（优先级队列、相似度聚合、独立类型系统）也一并搬了过来。本方案的核心贡献是：**把"正确的方向"和"过度的复杂度"剥离开，只保留前者。**

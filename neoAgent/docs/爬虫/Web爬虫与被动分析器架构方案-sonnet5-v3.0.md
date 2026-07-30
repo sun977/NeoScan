@@ -311,6 +311,8 @@ type Page struct {
     Forms      []model.FormInfo
     Params     []string
     Leaks      []model.LeakInfo
+    // 注意：这里不放 TechStack。crawler 包只负责产出原始响应数据，
+    // 指纹识别是否要做、怎么做，是调用方 WebScanner 的职责，见 8.6 节。
 }
 
 type Crawler struct {
@@ -427,6 +429,88 @@ func DetectLeaks(body string) []model.LeakInfo {
 
 规则先内置 4-5 条最高频的（AK/SK、JWT、内网 IP），**不要一上来就搞规则文件加载/热更新体系**——`rules/fingerprint/web/` 目录现有的 JSON 规则加载机制是给指纹用的，泄露检测的正则如果以后条数多了，参照同样的模式加一个 `rules/leak/leak_rules.json` 即可，那是"确实需要时再加"的复杂度，现在不需要为一个 4 条规则的功能设计配置文件加载器。
 
+### 8.6 与现有指纹识别 / 资产识别的融合（补充）
+
+这是一个前几版方案里遗漏的问题：**爬虫产出的每一个子页面，要不要过一遍现有的指纹识别引擎？** 答案必须是 **要**，而且这恰恰是爬虫这个功能真正的核心价值之一——不是"顺便识别一下"，而是**爬虫本质上就是资产识别的覆盖率放大器**。原因很直接：一个 IP:Port 下的技术栈从来不是单一的，`/` 首页可能是 Nginx 静态站，`/admin` 是一个 Vue 后台，`/api/swagger-ui` 是 Swagger 面板，`/druid` 是 Druid 监控台——这些技术栈只有真正访问到对应路径才能被识别出来，只扫首页永远只能看到冰山一角。
+
+#### 8.6.1 先看现有指纹链路的真实结构（这是判断"该怎么融合"的前提）
+
+读了 `internal/pkg/matcher/matcher.go`、`internal/pkg/fingerprint/engines/http/http_engine.go`、`internal/pkg/fingerprint/identifier.go`、以及 `web_scanner.go` 的完整实现之后，可以确认两个关键事实：
+
+**事实一：指纹识别是天然与传输方式解耦的纯函数式转换**，一份 HTTP 响应进去，一组匹配结果出来：
+
+```
+matcher.Match(data map[string]interface{}, rule MatchRule) bool
+        ▲ 通用条件树引擎，不关心数据是 go-rod 来的还是 net/http 来的
+        │
+fpHttp.HTTPEngine.Match(input *fingerprint.Input) []Match
+        ▲ 把 Input(Body/Headers/StatusCode/RichContext) 压平成 map，交给 matcher
+```
+
+`fingerprint.Input` 就是个纯数据结构（`Body string`、`Headers map[string]string`、`StatusCode int`），构造它不需要浏览器——这一点在 `WebScanner.fallbackScan()` 里已经被验证过一次了（第 530-540 行，`fallbackScan` 本来就是用 `net/http` 构造 `Input` 后调用同一个 `s.fpEngine.Match`）。
+
+**事实二：现有代码里，`fpEngine.Match` 的调用方只有 `WebScanner` 一个**（`Run()` 里对首页调一次、`fallbackScan()` 里对降级请求调一次）。指纹引擎从来不是"哪个组件的一部分"，它是被 `WebScanner` 统一持有、统一调度的一个能力。
+
+#### 8.6.2 融合方式：不下沉到 crawler，而是在 WebScanner 里统一编排
+
+**上一版方案的错误**：把 `fpEngine` 作为参数传给 `crawler.New()`，让 `Crawler` 结构体持有一个 `fpEngine` 字段，在 worker 内部直接调用。这是一个不必要的耦合——它让 `crawler` 包平白无故认识了 `fingerprint` 包，而 `crawler` 真正需要做的事情只是"发现 URL、发起请求、抓取原始数据"。
+
+**修正后的分工**（对齐第八节开头就定下的原则："爬虫只做爬虫该做的事"）：
+
+- `crawler` 包**不 import `fingerprint` 包**，`Crawler`/`Page` 都不出现任何指纹相关的字段。`Page` 只承载抓取到的原始数据：`URL/StatusCode/Title/Body/Headers/Forms/Params/Leaks`。
+- 指纹识别的调用点收敛回 `WebScanner`——它本来就已经是这件事的唯一调用方。`WebScanner.Run()` 在拿到 `cr.Crawl()` 返回的 `[]*Page` 之后，**用一个循环对每个 Page 各调一次 `s.fpEngine.Match`**，复用的是它已经为首页写好的那几行"构造 Input → Match → 转 TechStack"代码：
+
+```go
+// crawler 返回的是纯数据，WebScanner 统一负责后处理（指纹识别）
+pages := cr.Crawl(ctx, targetURL, seedLinks)
+for _, p := range pages {
+    input := &fingerprint.Input{Target: task.Target, Body: p.Body, Headers: p.Headers, StatusCode: p.StatusCode}
+    var techStack []string
+    if matches, err := s.fpEngine.Match(input); err == nil {
+        techStack = convertMatchesToTechStack(matches) // 复用现有函数，不重新写
+    }
+    results = append(results, &model.TaskResult{
+        TaskID: task.ID, Status: model.TaskStatusSuccess,
+        ExecutedAt: startTime, CompletedAt: time.Now(),
+        Result: &model.WebResult{
+            URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode,
+            Title: p.Title, ResponseHeaders: p.Headers,
+            Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
+            TechStack: techStack,
+            IP: finalIP, Port: finalPort,
+        },
+    })
+}
+```
+
+这样 `crawler.New()` 的签名保持最初的样子（`New(opts Options, limiter *qos.AdaptiveLimiter) *Crawler`，不需要多塞一个 `fpEngine` 参数），`Crawler` 结构体也不需要 `fpEngine` 字段。**三个组件各自只认识自己该认识的东西**：
+
+- `crawler`：发现 URL、抓数据，只认识 `net/http` 和自己的 `Page` 结构体。
+- `fpEngine`/`matcher`：给数据、返匹配结果，只认识 `fingerprint.Input`，不认识谁在调用它。
+- `WebScanner`：唯一的编排者，既持有 `crawler`，也持有 `fpEngine`，负责把两者的产出粘合成最终的 `WebResult` 列表——这正是它现在已经在做的事情（对首页），加了爬虫之后只是循环次数从 1 次变成 N 次，调用方式不变。
+
+#### 8.6.3 为什么这样分层是对的——数据结构层面的论证
+
+引用第一层分析里已经定下的原则：**爬虫内部产出多少个 URL，就向 Pipeline 报多少条 `WebResult`。** 现在把这条原则和指纹识别放在一起看：
+
+- 每个子页面独立调用一次 `fpEngine.Match`，产出独立的 `TechStack`，装进独立的 `WebResult.TechStack` 字段（`WebResult` 本来就有这个字段，见现有 `model.WebResult.TechStack []string`，不需要新增）。
+- 首页的技术栈和 `/admin` 页面的技术栈**不应该被合并成一个大列表**塞进同一条 `WebResult`——如果这么做，下游 Vuln Scanner 拿到"这个 IP 上有 Nginx + Vue + Swagger + Druid"这样一个大杂烩列表，根本不知道该对哪个端点打哪个模板。**保持"一个 URL 一条独立结果，携带自己独立的指纹"，本质上和第一节"决策1"是同一个原则的自然延伸**：消除特殊情况的方法，就是让每个数据单元自己携带自己的完整上下文，不做人为的聚合。
+
+#### 8.6.4 诚实地回答融合的代价和边界
+
+不用"完美"这种不负责任的词，说清楚真实的代价：
+
+| 维度 | 结论 |
+|---|---|
+| 耦合层面 | **零耦合**。`crawler` 包完全不认识 `fingerprint` 包，指纹识别的调用逻辑只存在于 `WebScanner` 内部，与上一版方案相比减少了一个跨包依赖、一个构造函数参数、一个结构体字段。 |
+| 复用层面 | **完全复用现有代码**。`WebScanner.Run()` 里现成的"构造 Input → Match → 转 TechStack"代码直接在循环里再跑一遍，`convertMatchesToTechStack` 函数不用动。 |
+| 精度层面 | **有真实短板，需要说明**：现有 `fingerprint.Input` 的匹配依据是 `Body/Headers/StatusCode/RichContext`，其中 `RichContext`（DOM/JS 全局变量/Meta 标签，见 `context.go`）**只有 go-rod 能提取**，`net/http` 拿到的纯 HTML 字符串里没有"执行后的 JS 变量"。所以爬虫子页面的指纹匹配精度会略低于首页——**这是用 `net/http` 换爬取速度必然要付出的代价，不是设计缺陷**。对于依赖 JS 变量特征的指纹规则，子页面可能识别不出来；但对于依赖 `Body/Headers/Title/StatusCode` 的规则（指纹库里的绝大多数规则），子页面和首页的识别能力完全一致。 |
+| 一致性层面 | **完全一致**。同一份规则文件、同一个 `HTTPEngine` 实例、同一套 `matcher.Match` 逻辑，不存在"首页一套判断标准、子页面另一套"的割裂。 |
+
+一句话总结：**通过把指纹识别的调用点收敛在 `WebScanner` 一处，而不是下沉进 `crawler`，实现了零跨包耦合的融合；精度层面有一个诚实的、可解释的、且代价可接受的降级（子页面拿不到 JS 渲染后的富上下文），这是"HTTP 优先于浏览器"这个核心设计决策的自然结果，需要写进文档里让使用者知情，而不是假装不存在。**
+
+如果未来发现某些目标站点的关键指纹强依赖 JS 变量、子页面识别率明显不够，对应的补救手段也不需要动架构：把 `crawler.Options` 加一个 `HeadlessForKeyPages bool` 开关，对高置信度可能是后台/框架入口的少数路径（比如命中 `admin/login/manage/console` 等关键词的 URL）才升级成 go-rod 访问，绝大多数路径依然走 `net/http`。这是"确实需要时再加"的复杂度，现在不需要在第一版里做。
+
 ---
 
 ## 九、与现有代码的具体接入点
@@ -443,9 +527,15 @@ if enable, ok := task.Params["crawl"].(bool); ok && enable {
         depth = d
     }
     seedLinks := ExtractLinks(page) // context.go 新增的小函数，同 ExtractRichContext 风格
-    cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter)
+    cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter) // crawler 不认识 fpEngine，见 8.6.2 节
     pages := cr.Crawl(ctx, targetURL, seedLinks)
     for _, p := range pages {
+        // 指纹识别的调用点收敛在 WebScanner 这一层，复用本函数已有的 Input/Match/转换逻辑
+        input := &fingerprint.Input{Target: task.Target, Body: p.Body, Headers: p.Headers, StatusCode: p.StatusCode}
+        var techStack []string
+        if pMatches, errFp := s.fpEngine.Match(input); errFp == nil {
+            techStack = convertMatchesToTechStack(pMatches)
+        }
         results = append(results, &model.TaskResult{
             TaskID: task.ID, Status: model.TaskStatusSuccess,
             ExecutedAt: startTime, CompletedAt: time.Now(),
@@ -453,6 +543,7 @@ if enable, ok := task.Params["crawl"].(bool); ok && enable {
                 URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode,
                 Title: p.Title, ResponseHeaders: p.Headers,
                 Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
+                TechStack: techStack, // 新增：每个子页面独立的指纹识别结果，见 8.6 节
                 IP: finalIP, Port: finalPort,
             },
         })

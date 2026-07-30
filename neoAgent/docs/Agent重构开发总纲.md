@@ -116,10 +116,13 @@ neoAgent/
 **目标**: 补齐 Web 深度信息收集、真正的漏洞扫描引擎以及主动暴露面试探能力。
 **状态**: 🏃 **进行中**
 
-- [ ] **5.1 Web 扫描深度增强 (Web Crawler & Passive Analyzer)**:
-    - [ ] 实现 Web Crawler，浅度爬取页面链接 (`<a>`) 和 JS 接口。
-    - [ ] 收集 GET/POST 参数、表单 (`<form>`) 字段等攻击面输入点。
-    - [ ] 增加正则引擎，被动扫描源码中的敏感信息泄露 (AK/SK、Token 等)。
+- [ ] **5.1 Web 扫描深度增强 (Web Crawler & Passive Analyzer)** — 🏃 **进行中，详细拆分见** [`docs/爬虫/Web爬虫与被动分析器实施文档-v1.0.md`](./爬虫/Web爬虫与被动分析器实施文档-v1.0.md)：
+    - [ ] **Sprint 0**：依赖引入 (`goquery`) + `crawler` 包骨架 + `WebResult` 新增字段 (`Depth/Forms/Params/Leaks`)。
+    - [ ] **Sprint 1**：`crawler` 核心 BFS 爬取引擎（并发 worker、去重、深度/页数上限、`-race` 无死锁）。
+    - [ ] **Sprint 2**：攻击面提取 `extract.go`（链接/表单/URL 参数，基于 `goquery`）。
+    - [ ] **Sprint 3**：被动泄露检测 `leak.go`（AK/SK、JWT、内网 IP 正则规则 + 脱敏）。
+    - [ ] **Sprint 4**：`web_scanner.go` 收口重构（`fallbackScan` → `fallbackFetch` + `buildWebResult` 统一收口，零功能回归）。
+    - [ ] **Sprint 5**：三处接入点改造 (`scan_web.go`/`scan_run.go`/`dispatcher.go`/`task_to_core.go`) + 自动决策 (`decideCrawlDepth`) + 按需浏览器升级 (`escalateIfNeeded`) + 端到端联调。
 - [ ] **5.2 漏洞扫描原子能力落地 (Vuln Scanner)**:
     - [ ] 封装 Nuclei 执行引擎 (`internal/core/scanner/vuln`)。
     - [ ] 根据 WebScanner 识别出的技术栈动态过滤 Nuclei 模板。

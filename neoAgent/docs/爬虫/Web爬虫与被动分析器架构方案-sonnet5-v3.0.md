@@ -331,6 +331,36 @@ func (c *Crawler) Crawl(ctx context.Context, seedURL string, seedLinks []string)
 
 `Crawl` 的第三个参数 `seedLinks`——这是刻意设计：首页在 go-rod 阶段已经拿到了 JS 渲染后的真实链接（`ExtractRichContext` 目前没提取 `<a>`，需要补一个小函数 `ExtractLinks(page)`，10 行代码），把这批链接作为 BFS 的第一层种子，避免爬虫重新用 `net/http` 打一次首页（首页可能是 SPA，`net/http` 拿到的是空壳）。这正是 v1.0 中"智能降级策略"的合理内核，本方案把它保留并做得更精确：**不是"首页用浏览器、其余用 HTTP"这种简单的深度切分，而是"浏览器只用于拿到 JS 渲染后的种子链接，一旦拿到链接，后续遍历全部走 HTTP"**。
 
+#### 8.2.1 爬虫会调用浏览器吗？—— 不会，`Crawler` 结构体里没有、也不应该有 go-rod 的任何东西
+
+这是一个必须明确写清楚的边界，因为直觉上"爬虫要爬 JS 渲染的 SPA 页面，是不是也得用浏览器"是个合理的疑问。答案是否定的，原因不是"图省事"，而是**成本账算下来根本不划算**：
+
+```mermaid
+flowchart LR
+    subgraph 浏览器路径["若爬虫也用 go-rod（否决方案）"]
+        direction TB
+        B1["每个子页面都要:<br/>拉起/复用 Chromium 进程<br/>OpenPage 开一个新 Tab<br/>Navigate + WaitLoad(网络空闲)<br/>执行若干段 JS Eval 提取 DOM"]
+        B2["单页耗时: 秒级<br/>内存: 每个 Tab 占用数十 MB<br/>并发数: 受限于 Chromium 能开的 Tab 数"]
+    end
+    subgraph HTTP路径["爬虫实际方案：net/http"]
+        direction TB
+        H1["每个子页面:<br/>一次 http.Client.Do(GET)<br/>读 body，io.LimitReader 限制大小"]
+        H2["单页耗时: 毫秒级<br/>内存: 一次响应体大小<br/>并发数: 仅受 Goroutine/QoS 限流器约束，轻松上百"]
+    end
+```
+
+| 维度 | go-rod（浏览器） | net/http（爬虫实际选择） |
+|---|---|---|
+| 单页耗时 | 通常 1-3 秒（要等 Navigate + WaitLoad + JS 执行） | 通常几十到几百毫秒 |
+| 资源占用 | 每个 Tab 数十 MB 内存，且 `BrowserManager`（见 `internal/core/lib/browser/browser_manager.go`）管理的是**一个独立的 Chromium 子进程**，不是 Go 内部对象 | 一次 HTTP 响应体的内存，用完即释放 |
+| 并发扩展性 | 受 Chromium 本身能同时开多少 Tab 限制，开太多 Tab 反而会让浏览器自己变卡甚至崩溃 | 受 `qos.AdaptiveLimiter` 和 Goroutine 数量控制，轻松支持几十上百并发 |
+| 爬 100 个 URL 的总耗时 | 100 × 1~3s ≈ 1.5~5 分钟（还没算并发抢占 Tab 的排队） | 100 个 URL 并发 5 跑，几秒到十几秒量级 |
+| 是否需要 | 只有"必须执行 JS 才能拿到真实内容"的场景才需要（即 SPA 首屏渲染） | 绝大多数子页面是服务端渲染的 HTML、API 响应、静态资源，`net/http` 直接能拿到完整内容 |
+
+**结论**：浏览器是为了解决"首页可能是 SPA 空壳，必须跑一遍 JS 才能看到真实 DOM 和链接"这一个具体问题而存在的，这个问题**只在首页第一次探测时存在一次**——一旦通过 go-rod 拿到了 JS 渲染后的真实链接列表（`seedLinks`），后续每一层 BFS 遍历，目标 URL 是链接里已经写死的具体地址（`/admin`、`/api/v1/users` 这种），不再需要"执行 JS 才能发现"，`net/http` 直接请求就能拿到完整响应。**用浏览器爬完整个站点，是用"渲染一次页面"的解法去解决"发起一百次请求"的问题，这是原本就该避免的过度设计。**
+
+如果坚持要用浏览器爬每一层，`Crawler` 就得持有 `*browser.BrowserLauncher`，`crawler` 包就得 import `lib/browser`，还得处理"并发爬取时多个 Goroutine 抢 Tab"的资源竞争问题——这一整套复杂度，只是为了应付"极少数子页面本身也是 SPA"这种边缘情况。真遇到这种页面，代价是**这一个 URL 的指纹识别精度打折扣**（见 8.6.4 节），而不是整个爬虫都要背上浏览器的重量级成本。这是成本和收益不对等的典型案例，答案很明确：不做。
+
 ### 8.3 URL 归一化与去重（`crawler.go` 内部函数，不单独成文件）
 
 ```go
@@ -511,47 +541,203 @@ for _, p := range pages {
 
 如果未来发现某些目标站点的关键指纹强依赖 JS 变量、子页面识别率明显不够，对应的补救手段也不需要动架构：把 `crawler.Options` 加一个 `HeadlessForKeyPages bool` 开关，对高置信度可能是后台/框架入口的少数路径（比如命中 `admin/login/manage/console` 等关键词的 URL）才升级成 go-rod 访问，绝大多数路径依然走 `net/http`。这是"确实需要时再加"的复杂度，现在不需要在第一版里做。
 
+### 8.7 顺带修一个真实缺陷：`fallbackScan` 现在会掐断爬虫机会
+
+这一节不是新功能，是接入爬虫之前必须正视的一个**现有代码缺陷**——不修的话，爬虫开关在浏览器不可用的场景下会完全失效，是一个真实的功能陷阱，不是假想的洁癖。
+
+#### 8.7.1 问题在哪：`fallbackScan` 是一条独立的"死胡同"
+
+现有 `Run()` 里有两处调用 `s.fallbackScan(...)`（浏览器启动失败、Navigate 失败），每次调用后都直接 `return res, nil`（`web_scanner.go` 第 103-109 行、第 189-195 行）。`fallbackScan` 内部产出唯一一条 `WebResult` 就结束了整个任务，`task.Params["crawl"]` 这个参数在这条路径上**从头到尾没有被读取过**：
+
+```mermaid
+flowchart TD
+    Start["Run() 开始"] --> TryLaunch{"go-rod 启动/Navigate"}
+    TryLaunch -->|成功| CrawlOK["能读 task.Params[crawl]<br/>能触发爬虫"]
+    TryLaunch -->|失败| Fallback["fallbackScan()<br/>直接 return，忽略 crawl 参数"]
+    Fallback -.->|"❌ 现状：爬虫机会被跳过"| Dead["任务结束，只有 1 条首页结果"]
+```
+
+后果：只要目标站点导致 Chromium 启动失败或者 Navigate 超时（证书问题、反爬拦截、内存不足等都可能触发），用户即使显式传了 `--crawl`，也拿不到任何深度爬取的结果，而且**没有任何报错或警告**——这是最危险的一类 bug：静默失效。
+
+#### 8.7.2 为什么现有代码会这样：两条路径在写的时候就是各自独立实现的
+
+回到第一层数据结构分析：`fallbackScan` 和 `Run()` 主干都是"HTTP 响应 → 指纹匹配 → 组装 WebResult"，但因为是分别写的两个函数，`fallbackScan` 完全没有意识到"深度爬取"这个后续步骤的存在。这不是设计失误，是**这两段代码从一开始就没有被放在一起看过**，直到这次引入爬虫，才第一次需要把它们摆到同一张流程图里对比。
+
+#### 8.7.3 修复方案：把"探测首页"和"决定要不要深挖"拆成两个阶段，中间不受探测手段影响
+
+核心思路一句话说清：**不管首页是用 go-rod 探测成功的，还是降级用 `net/http` 探测的，只要拿到了首页的 `body/headers/statusCode`，后面"要不要触发爬虫"这个判断逻辑都应该走同一条路**。
+
+```mermaid
+flowchart TD
+    Start["Run() 开始"] --> TryLaunch{"go-rod 启动 + Navigate"}
+    TryLaunch -->|成功| RichCtx["ExtractRichContext<br/>+ ExtractLinks 拿种子链接"]
+    TryLaunch -->|失败| FallbackFetch["fallbackScan 改造为:<br/>只负责'用 net/http 拿首页数据'<br/>+ ExtractLinksAndForms 拿种子链接<br/>不再自己 return"]
+
+    RichCtx --> Unified["统一后续处理:<br/>1. buildWebResult(首页数据) -> 首页 WebResult<br/>2. 首页专属: 截图/Favicon（仅 go-rod 路径可用）<br/>3. 读 task.Params[crawl] 判断是否深挖"]
+    FallbackFetch --> Unified
+
+    Unified -->|crawl=true| Crawl["cr.Crawl(seedURL, seedLinks)<br/>产出多条子页面 WebResult"]
+    Unified -->|crawl=false/默认| Done["results = [首页 WebResult]"]
+    Crawl --> Done2["results = [首页WebResult, 子页面WebResult...]"]
+
+    Done --> Return["return results, nil"]
+    Done2 --> Return
+```
+
+具体改法：
+
+1. **`fallbackScan` 改名为职责更准确的 `fallbackFetch`（或保留原名但改变返回值）**：不再自己组装 `WebResult` 并 `return`，而是返回原始数据 `(body string, headers map[string]string, statusCode int, err error)`，交回 `Run()` 主干处理。
+2. **`Run()` 主干统一收口**：不管首页数据是 go-rod 给的还是 `fallbackFetch` 给的，走同一段"组装首页 `WebResult` → 判断 `crawl` 参数 → 决定是否触发爬虫"的逻辑。
+3. **截图和 Favicon 保持路径相关**：这两步天然依赖浏览器（截图需要渲染后的页面，Favicon 提取用的是 `page.Eval`），`fallbackFetch` 路径没有这两项是预期行为，不是遗漏——`WebResult.Screenshot/Favicon` 为空即可，不需要特殊处理。
+
+#### 8.7.4 顺带做的第二件事：把三处重复的"Input → Match → WebResult"代码收编成一个函数
+
+现有代码里，"构造 `fingerprint.Input` → 调 `fpEngine.Match` → `convertMatchesToTechStack` → 组一条 `model.WebResult`"这个模式，在 `Run()` 主干（第 216-240 行 + 第 327-344 行）和 `fallbackScan`（第 523-540 行 + 第 552-569 行）里各写了一遍，加上爬虫子页面循环（8.6.2 节）又要写第三遍——三处几乎相同的代码是重复的信号，应该收编成一个函数：
+
+```go
+// buildWebResult 是三条数据来源（go-rod 首页 / fallback 首页 / 爬虫子页面）共用的收口函数
+// pageData 只要求调用方提供最基本的响应数据，不关心这份数据是怎么抓到的
+type pageData struct {
+    URL        string
+    Depth      int
+    StatusCode int
+    Title      string
+    Body       string
+    Headers    map[string]string
+    Forms      []model.FormInfo // 爬虫路径才有，首页路径为 nil
+    Params     []string
+    Leaks      []model.LeakInfo
+    Screenshot string // 仅 go-rod 首页路径可能非空
+    Favicon    string // 仅 go-rod 首页路径可能非空
+}
+
+func (s *WebScanner) buildWebResult(task *model.Task, startTime time.Time, ip string, port int, pd pageData) *model.TaskResult {
+    input := &fingerprint.Input{Target: task.Target, Body: pd.Body, Headers: pd.Headers, StatusCode: pd.StatusCode}
+    var techStack []string
+    if matches, err := s.fpEngine.Match(input); err == nil {
+        techStack = convertMatchesToTechStack(matches)
+    }
+    return &model.TaskResult{
+        TaskID: task.ID, Status: model.TaskStatusSuccess,
+        ExecutedAt: startTime, CompletedAt: time.Now(),
+        Result: &model.WebResult{
+            URL: pd.URL, Depth: pd.Depth, StatusCode: pd.StatusCode, Title: pd.Title,
+            ResponseHeaders: pd.Headers, TechStack: techStack,
+            Forms: pd.Forms, Params: pd.Params, Leaks: pd.Leaks,
+            Screenshot: pd.Screenshot, Favicon: pd.Favicon,
+            IP: ip, Port: port,
+        },
+    }
+}
+```
+
+三处调用点变成：
+
+- go-rod 首页路径：`s.buildWebResult(task, startTime, finalIP, finalPort, pageData{URL: targetURL, Body: richCtx["body"].(string), Headers: finalHeaders, StatusCode: finalStatusCode, Title: ..., Screenshot: screenshotBase64, Favicon: faviconBase64})`
+- fallback 首页路径：同一个函数，`Screenshot`/`Favicon` 留空
+- 爬虫子页面循环：`for _, p := range pages { s.buildWebResult(task, startTime, finalIP, finalPort, pageData{URL: p.URL, Depth: p.Depth, Body: p.Body, ...}) }`
+
+#### 8.7.5 这算不算方案范围蔓延？—— 不算，理由是"不做就会埋雷"
+
+按照实用主义标准过一遍：这不是"顺便重构一下让代码更好看"的技术洁癖，而是接入爬虫这个动作本身就会同时触碰这两处代码（`fallbackScan` 的返回逻辑、三处重复的 Input/Match 代码），如果不趁这次机会理顺：
+
+- `fallbackScan` 不修，爬虫开关在浏览器不可用时静默失效，这是会被用户在生产环境踩到的真实 bug，不是理论风险。
+- 三处重复代码不合并，以后指纹识别逻辑要调整（比如 `fingerprint.Input` 加新字段），就要同时改三个地方，改漏一处是必然会发生的事，不是"万一"。
+
+这两点工作量都很小（`fallbackScan` 改返回值签名、抽一个 `buildWebResult` 函数），风险是"不做的代价远大于做的成本"，符合第五层实用性验证的判断标准，所以列入本次实施范围，而不是另开一个 Sprint。
+
 ---
 
 ## 九、与现有代码的具体接入点
 
 ### 9.1 `internal/core/scanner/web/web_scanner.go`
 
-在第 6 步"提取 Rich Context"之后（约第 211 行）追加：
+这一节按照 8.7 节定下的"统一收口"方案，给出改造后的 `Run()` 骨架（伪代码，突出改动点，不是完整实现）：
 
 ```go
-// 6.5 深度爬取 (可选，由 Task.Params["crawl"] 控制)
-if enable, ok := task.Params["crawl"].(bool); ok && enable {
-    depth := 2
-    if d, ok := task.Params["crawl_depth"].(int); ok && d > 0 {
-        depth = d
-    }
-    seedLinks := ExtractLinks(page) // context.go 新增的小函数，同 ExtractRichContext 风格
-    cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter) // crawler 不认识 fpEngine，见 8.6.2 节
-    pages := cr.Crawl(ctx, targetURL, seedLinks)
-    for _, p := range pages {
-        // 指纹识别的调用点收敛在 WebScanner 这一层，复用本函数已有的 Input/Match/转换逻辑
-        input := &fingerprint.Input{Target: task.Target, Body: p.Body, Headers: p.Headers, StatusCode: p.StatusCode}
-        var techStack []string
-        if pMatches, errFp := s.fpEngine.Match(input); errFp == nil {
-            techStack = convertMatchesToTechStack(pMatches)
+func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*model.TaskResult, err error) {
+    // ... 0/1/2 步：panic recovery、QoS、URL 归一化，均不变 ...
+
+    var (
+        homeBody       string
+        homeHeaders    map[string]string
+        homeStatusCode int
+        homeTitle      string
+        seedLinks      []string
+        screenshotB64  string
+        faviconB64     string
+    )
+
+    br, errLaunch := s.browserLauncher.Launch(ctx)
+    if errLaunch == nil {
+        page, errOpen := s.browserLauncher.OpenPage(ctx, br, "")
+        if errOpen == nil {
+            defer page.Close()
+            // ... 原 3/4/5 步：监听网络、Navigate、WaitLoad，不变 ...
+            if errNav := page.Navigate(targetURL); errNav == nil {
+                richCtx, _ := ExtractRichContext(page)
+                homeBody, _ = richCtx["body"].(string)
+                homeTitle = extractTitleFromCtx(richCtx)
+                homeHeaders = respHeaders // 网络监听捕获的 headers，逻辑不变
+                homeStatusCode = statusCode
+                seedLinks = ExtractLinks(page) // 新增：提取首页 <a> 链接作为爬虫种子
+
+                // 截图/Favicon 只在这条路径做，逻辑与现状一致
+                if capture, ok := task.Params["screenshot"].(bool); ok && capture {
+                    screenshotB64 = takeScreenshot(page)
+                }
+                faviconB64 = extractFavicon(page, richCtx)
+            }
         }
-        results = append(results, &model.TaskResult{
-            TaskID: task.ID, Status: model.TaskStatusSuccess,
-            ExecutedAt: startTime, CompletedAt: time.Now(),
-            Result: &model.WebResult{
-                URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode,
-                Title: p.Title, ResponseHeaders: p.Headers,
-                Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
-                TechStack: techStack, // 新增：每个子页面独立的指纹识别结果，见 8.6 节
-                IP: finalIP, Port: finalPort,
-            },
-        })
     }
+
+    // 8.7.3: go-rod 路径失败（Launch/OpenPage/Navigate 任一环节），统一降级到 fallbackFetch
+    // 注意：fallbackFetch 只负责"拿数据"，不再自己组装 WebResult 并 return
+    if homeBody == "" {
+        body, headers, statusCode, title, links, errFetch := s.fallbackFetch(ctx, targetURL)
+        if errFetch != nil {
+            s.limiter.OnFailure()
+            return nil, fmt.Errorf("both browser and fallback fetch failed: %w", errFetch)
+        }
+        homeBody, homeHeaders, homeStatusCode, homeTitle, seedLinks = body, headers, statusCode, title, links
+    }
+
+    // 8.7.4: 三处重复代码收编为 buildWebResult，首页和爬虫子页面共用同一个函数
+    finalIP, finalPort := resolveIPPort(task, targetURL, /* 网络监听捕获的 remoteIP/remotePort */)
+    homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
+        URL: targetURL, Depth: 0, StatusCode: homeStatusCode, Title: homeTitle,
+        Body: homeBody, Headers: homeHeaders, Screenshot: screenshotB64, Favicon: faviconB64,
+    })
+    results = append(results, homeResult)
+
+    // 6.5 深度爬取 (可选，由 Task.Params["crawl"] 控制)
+    // 关键修正点：这里读参数、触发爬虫的时机，不再依赖"go-rod 是否成功"，
+    // 不管首页数据是哪条路径拿到的，只要拿到了 seedLinks 就能爬
+    if enable, ok := task.Params["crawl"].(bool); ok && enable {
+        depth := 2
+        if d, ok := task.Params["crawl_depth"].(int); ok && d > 0 {
+            depth = d
+        }
+        cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter) // crawler 不认识 fpEngine，见 8.6.2 节
+        pages := cr.Crawl(ctx, targetURL, seedLinks)
+        for _, p := range pages {
+            results = append(results, s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
+                URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode, Title: p.Title,
+                Body: p.Body, Headers: p.Headers, Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
+            }))
+        }
+    }
+
+    s.limiter.OnSuccess()
+    return results, nil
 }
 ```
 
-（伪代码，实际实现需要注意 `results` 变量在函数末尾已经是 `return []*model.TaskResult{result}, nil` 的单元素写法，需要改成 `append` 模式——这是本次改动里对现有函数**唯一**的结构性调整，且是纯增量、无副作用的调整。）
+跟现状相比，改动点集中在三处，均在 8.7 节讲清楚了理由：
+
+1. `fallbackScan` → `fallbackFetch`：不再自己 `return`，只返回原始数据，交回 `Run()` 统一处理（修复"降级路径爬虫失效"的缺陷）。
+2. 新增 `buildWebResult`：首页（不管哪条路径拿到的）和爬虫子页面统一走这一个函数，不再三处重复。
+3. `results` 从 `return []*model.TaskResult{result}, nil` 的单元素写法改成 `append` 模式——这是接入爬虫**必须**做的改动，不是可选项。
 
 ### 9.2 `internal/core/options/scan_web.go` 和 `cmd/agent/scan/web.go`
 
@@ -596,12 +782,18 @@ github.com/PuerkitoBio/goquery v1.9.x
 - `leak.go`：4-5 条内置正则规则 + 命中脱敏。
 - 里程碑：对含测试用 AK/SK 字符串的页面能正确识别并脱敏输出。
 
-**Sprint 4（接入与联调，约 1 天）**
-- `web_scanner.go` / `scan_web.go` / `dispatcher.go` 三处接入点改造。
-- 端到端跑 `scan web --crawl --crawl-depth=2` 和 `scan run` 全流程验证输出一致性。
+**Sprint 4（`web_scanner.go` 顺带重构，约 0.5-1 天，见 8.7 节）**
+- `fallbackScan` 改造为 `fallbackFetch`：只返回原始数据，不再自己组装 `WebResult` 并 `return`。
+- 抽出 `buildWebResult(task, startTime, ip, port, pageData) *model.TaskResult`，替换掉现有三处（go-rod 首页、fallback 首页）即将变成三处（+ 爬虫子页面循环）的重复代码。
+- 单元测试：验证 go-rod 路径和 fallback 路径产出的首页 `WebResult` 字段一致（除 Screenshot/Favicon 外）。
+- 里程碑：`fallbackFetch` 返回值能正确喂给 `crawler.Crawl()`，浏览器不可用时 `--crawl` 依然生效——这是本次修复的核心验收点。
+
+**Sprint 5（接入与联调，约 1 天）**
+- `web_scanner.go` 挂上 `crawler.Crawl` 调用、`scan_web.go` / `dispatcher.go` 两处接入点改造。
+- 端到端跑 `scan web --crawl --crawl-depth=2` 和 `scan run` 全流程验证输出一致性，额外验证"强制 Chromium 启动失败（如破坏 `bin/chromium` 路径）+ `--crawl`"场景下依然能拿到子页面结果。
 - 里程碑：CLI、CSV、JSON 三种输出下 `Depth/Forms/Params/Leaks` 字段一致、无回归。
 
-全部工作量预计 **4-5 天**，不需要引入任何外部中间件，不需要新的 TaskType，不需要新的 Scanner 接口实现。这是与 v1.0（隐含一个更大的"Frontier 系统"）相比更小、更可控、且完全兼容现有架构的路径。
+全部工作量预计 **5-6 天**（比最初的 4-5 天多出的 0.5-1 天用于 Sprint 4 的重构，理由见 8.7.5 节：这不是范围蔓延，是接入爬虫本身就会触碰到的代码，顺手理顺比留着技术债更划算），不需要引入任何外部中间件，不需要新的 TaskType，不需要新的 Scanner 接口实现。这是与 v1.0（隐含一个更大的"Frontier 系统"）相比更小、更可控、且完全兼容现有架构的路径。
 
 ---
 
@@ -617,5 +809,8 @@ github.com/PuerkitoBio/goquery v1.9.x
 | 限流 | "接入现有 AdaptiveLimiter"（提及但未强调复用同一实例） | 强制共享 WebScanner 已持有的同一实例，语义统一 |
 | 结果承载 | 提及"塞入 WebResult"但未定义具体字段 | 明确定义 `Depth/Forms/Params/Leaks` 四个新增字段，向后兼容 |
 | 并发模型 | 未明确讨论 | 明确限定为 Goroutine Worker Pool（进程内并发），不引入 Agent 内部子进程；理由见第五节 |
+| 爬虫是否用浏览器 | 未明确讨论 | 明确限定为**从不使用**：`Crawler` 不 import `lib/browser`，浏览器只负责首页探测拿 `seedLinks`，深挖全程 `net/http`；理由见 8.2.1 节的成本对比 |
+| 指纹识别与爬虫的融合方式 | 未讨论 | 明确限定为**收敛在 `WebScanner` 一处编排**，`crawler` 包不认识 `fingerprint` 包，零跨包耦合；理由见 8.6 节 |
+| `fallbackScan` 与爬虫的关系 | 未讨论（v1.0 未发现这个缺陷） | 明确识别并修复：现状里 `fallbackScan` 会静默吞掉 `crawl` 参数，改造为 `fallbackFetch` 只返回数据、不再自行 `return`，让浏览器不可用时爬虫依然生效；理由见 8.7 节 |
 
-两版本在"方向"上是一致的（HTTP 优先、浏览器仅探路、attack surface 提取、被动泄露检测），这部分判断都是对的，说明这确实是正确的技术方向。分歧全部集中在"复杂度控制"上——v1.0 明显受两个参考项目的架构影响过深，把它们为分布式/多租户场景设计的复杂机制（优先级队列、相似度聚合、独立类型系统）也一并搬了过来。本方案的核心贡献是：**把"正确的方向"和"过度的复杂度"剥离开，只保留前者。**
+两版本在"方向"上是一致的（HTTP 优先、浏览器仅探路、attack surface 提取、被动泄露检测），这部分判断都是对的，说明这确实是正确的技术方向。分歧全部集中在"复杂度控制"上——v1.0 明显受两个参考项目的架构影响过深，把它们为分布式/多租户场景设计的复杂机制（优先级队列、相似度聚合、独立类型系统）也一并搬了过来。本方案的核心贡献是：**把"正确的方向"和"过度的复杂度"剥离开，只保留前者；并且在实现细节上，主动找出了 v1.0 完全没有触及的一个现有代码缺陷（`fallbackScan`）顺手修复。**

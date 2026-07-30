@@ -109,6 +109,26 @@ type WebResult struct {
 	TechStack       []string          `json:"tech_stack,omitempty"` // 识别到的技术栈
 	Screenshot      string            `json:"screenshot,omitempty"` // Base64
 	Favicon         string            `json:"favicon,omitempty"`    // Base64
+
+	// --- 以下为爬虫功能新增字段，均为 omitempty，不影响现有序列化 ---
+	Depth  int        `json:"depth,omitempty"`  // 爬取深度，0 = 首页
+	Forms  []FormInfo `json:"forms,omitempty"`  // 表单/输入点
+	Params []string   `json:"params,omitempty"` // URL Query 参数名集合
+	Leaks  []LeakInfo `json:"leaks,omitempty"`  // 被动泄露检测结果
+}
+
+// FormInfo 表单信息（攻击面输入点）
+type FormInfo struct {
+	Action string   `json:"action"`
+	Method string   `json:"method"`
+	Fields []string `json:"fields"`
+}
+
+// LeakInfo 被动泄露检测命中信息
+type LeakInfo struct {
+	Type    string `json:"type"`              // aws_ak / aliyun_ak / jwt / internal_ip / ...
+	Match   string `json:"match"`             // 脱敏后的命中内容，禁止存储明文密钥
+	Context string `json:"context,omitempty"` // 命中上下文片段（可选）
 }
 
 // Headers 实现 TabularData 接口

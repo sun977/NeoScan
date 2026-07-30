@@ -282,6 +282,8 @@ flowchart TD
     D --> E
 ```
 
+> 这张图是粗粒度的模块数据流示意，第 4 步"`if task.Params[crawl]: 触发爬取`"只是简化表达。**这一步实际包含两层独立的决策**——要不要触发爬虫（8.9 节，含自动判断）、爬虫过程中要不要按需升级浏览器（8.8 节）——完整链路见 8.9.6 节的详细流程图。
+
 关键设计点：**爬虫不是一个独立的 Scanner/TaskType，而是 `WebScanner` 内部按需触发的一个"深度补充阶段"**。这是与 v1.0 的第二个重大分歧——v1.0 倾向于把 crawler 做成 web 包下平行的子系统，本方案认为它应该是 WebScanner 生命周期里的一环，因为：
 
 1. 只有 WebScanner 拿到首页之后，才知道该不该继续深挖（比如首页 404，直接不用爬）。
@@ -539,7 +541,7 @@ for _, p := range pages {
 
 一句话总结：**通过把指纹识别的调用点收敛在 `WebScanner` 一处，而不是下沉进 `crawler`，实现了零跨包耦合的融合；精度层面有一个诚实的、可解释的、且代价可接受的降级（子页面拿不到 JS 渲染后的富上下文），这是"HTTP 优先于浏览器"这个核心设计决策的自然结果，需要写进文档里让使用者知情，而不是假装不存在。**
 
-如果未来发现某些目标站点的关键指纹强依赖 JS 变量、子页面识别率明显不够，对应的补救手段也不需要动架构：把 `crawler.Options` 加一个 `HeadlessForKeyPages bool` 开关，对高置信度可能是后台/框架入口的少数路径（比如命中 `admin/login/manage/console` 等关键词的 URL）才升级成 go-rod 访问，绝大多数路径依然走 `net/http`。这是"确实需要时再加"的复杂度，现在不需要在第一版里做。
+子页面识别率不够这个问题，**不用等"未来发现"再补救**——8.8 节给出的三层检测 + 按需升级机制，第一版就直接解决它，不是留到以后的技术债。
 
 ### 8.7 顺带修一个真实缺陷：`fallbackScan` 现在会掐断爬虫机会
 
@@ -646,6 +648,267 @@ func (s *WebScanner) buildWebResult(task *model.Task, startTime time.Time, ip st
 
 这两点工作量都很小（`fallbackScan` 改返回值签名、抽一个 `buildWebResult` 函数），风险是"不做的代价远大于做的成本"，符合第五层实用性验证的判断标准，所以列入本次实施范围，而不是另开一个 Sprint。
 
+### 8.8 分层探测与浏览器升级机制：解决 JS 重定向和 SPA 空壳
+
+这一节回答一个在方案评审中被明确提出的问题：**爬虫全程只用 `net/http`，那 JS 跳转、SPA 空壳这类"不执行 JS 就看不到真实内容"的页面怎么办？** 8.2.1 节已经说明了"爬虫不该用浏览器爬每一层"的成本账，但成本账只回答了"默认不用"，没有回答"真遇到了怎么办"。不回答这个问题，方案就是不完整的——不能假装这类页面不存在。
+
+#### 8.8.1 先分清楚：这不是"要不要用浏览器"，而是"谁来判断、什么时候判断"
+
+借鉴 `BrowsertrixCrawler` 的 Direct Fetch 分层过滤思想（先用最便宜的手段判断，只有确认需要"重"处理才启动昂贵资源），但**不照搬它的实现**——Browsertrix 的分层过滤是为了在"抓不抓这个 URL"之前先判断资源类型（图片/PDF 直接跳过浏览器），解决的是资源类型识别问题；NeoScan 要解决的是另一个问题：**HTML 页面本身抓到了，但内容是空的或者跳转的，怎么判断"这个页面需要重新用浏览器打一次"**。两个问题看起来像，但判断依据完全不同，所以只借鉴"分层过滤、贵操作后置"这个原则，具体特征判断要自己设计。
+
+三层检测全部基于 `net/http` 已经拿到的响应数据做静态判断，**不产生任何额外的网络请求**，也不需要执行任何 JS：
+
+```mermaid
+flowchart TD
+    Fetch["net/http 抓到一个页面<br/>(body, headers, statusCode)"] --> L1{"第一层: Header 重定向检测<br/>3xx + Location，或 meta refresh"}
+    L1 -->|命中| Follow["直接跟随跳转目标<br/>net/http 请求新 URL<br/>(不算异常，是正常重定向)"]
+    L1 -->|未命中| L2{"第二层: JS 重定向特征检测<br/>body 里的 location.href=/<br/>window.location.replace(...)"}
+    L2 -->|命中| Escalate1["标记 NeedsEscalation=true<br/>Reason=js_redirect"]
+    L2 -->|未命中| L3{"第三层: SPA 空壳检测<br/>body 长度 < 阈值<br/>且 <div id=root/app> 只有空标签<br/>且几乎没有可见文本节点"}
+    L3 -->|命中| Escalate2["标记 NeedsEscalation=true<br/>Reason=spa_shell"]
+    L3 -->|未命中| Normal["正常页面<br/>Page 数据直接使用"]
+
+    Escalate1 --> ReportBack["Crawler 把这个 Page<br/>连同 NeedsEscalation 标记<br/>一起返回给 WebScanner"]
+    Escalate2 --> ReportBack
+```
+
+#### 8.8.2 三层检测各自的判断规则（都是纯字符串/Header 判断，没有一个需要浏览器）
+
+| 层级 | 检测目标 | 判断依据 | 处理方式 |
+|---|---|---|---|
+| 第一层：HTTP 层重定向 | 服务端标准跳转 | `StatusCode` 在 301/302/303/307/308，或 `<meta http-equiv="refresh" content="0;url=...">` | **不算需要升级**，这是 `net/http` 能原生处理的场景，直接跟随跳转即可（`http.Client` 默认行为，或手动取 `Location` 头再发一次请求） |
+| 第二层：JS 重定向 | 页面靠 JS 跳转，服务端返回 200 但内容是跳转脚本 | body 命中正则 `location\.(href|replace|assign)\s*=` 或 `window\.location\s*=`，且 body 总长度很短（典型的"跳转页"body 通常在 1KB 以内，不会是一个正常的业务页面） | 标记 `NeedsEscalation=true, Reason="js_redirect"`，把原始 URL 交给 `WebScanner` |
+| 第三层：SPA 空壳 | React/Vue 等 SPA 首次请求返回的是空壳 HTML | body 里能找到 `<div id="root">`/`<div id="app">` 之类的挂载点，但挂载点内部没有子元素或只有空白字符，同时整个 body 去除 `<script>`/`<style>` 标签后的可见文本长度低于阈值（比如 200 字符） | 标记 `NeedsEscalation=true, Reason="spa_shell"` |
+
+三层的顺序是有意义的：**先处理确定性最高、成本最低的情况**（HTTP 跳转，`net/http` 直接就能跟）,再处理需要正则匹配的情况（JS 重定向），最后才是需要"数 DOM 节点"的情况（SPA 空壳，判断成本相对最高，放最后）。这正是"分层过滤、贵的判断放后面"这条原则的体现，不过这里的"贵"指的是判断逻辑的复杂度，不是网络开销——三层判断全部是内存里的字符串操作，微秒级，和"用不用浏览器"（秒级）完全不是一个数量级，不需要在这三层判断之间做任何取舍。
+
+#### 8.8.3 谁来做这三层检测：`crawler` 包内部，但结论只是一个信号，不擅自决策
+
+延续 8.6.2 节定下的分工原则——`crawler` 包只负责产出原始数据和事实性标注，不做"要不要用浏览器"这个决策：
+
+```go
+// Page 在原有字段基础上新增两个信号字段（crawler 包内，不引入 fingerprint/browser 依赖）
+type Page struct {
+    URL        string
+    Depth      int
+    StatusCode int
+    Title      string
+    Body       string
+    Headers    map[string]string
+    Forms      []model.FormInfo
+    Params     []string
+    Leaks      []model.LeakInfo
+
+    NeedsEscalation bool   // 新增：三层检测认为这个页面需要浏览器重新渲染
+    EscalationReason string // 新增："js_redirect" / "spa_shell"，用于日志和排查，不是业务分支依据
+}
+
+// detectEscalation 是 crawler 包内的纯函数，三层检测的落地实现
+// 只读 Page 已有的 body/headers/statusCode，不发起任何新请求
+func detectEscalation(body string, statusCode int) (needs bool, reason string) {
+    if isJSRedirect(body) {
+        return true, "js_redirect"
+    }
+    if isSPAShell(body) {
+        return true, "spa_shell"
+    }
+    return false, ""
+}
+```
+
+`Crawler.worker` 在 `fetchAndExtract` 之后顺手调用一次 `detectEscalation`，把结果写进 `Page`，**不改变 BFS 主循环的控制流**——命中 `NeedsEscalation` 的页面依然正常入队它抓到的链接（哪怕这些链接可能来自跳转前的空壳，抓到多少算多少，不因为"可能不准"就跳过整个页面的链接提取），只是多了一个标注字段。检测本身不阻塞、不重试、不产生副作用，第三节"3 层缩进检验"里定的复杂度上限不受影响。
+
+#### 8.8.4 `WebScanner` 侧的按需升级：谁真正决定要不要打开浏览器
+
+`Crawler.Crawl()` 返回 `[]*Page` 之后，`WebScanner.Run()` 在调用 `buildWebResult` 组装最终结果**之前**，多一步筛选：
+
+```go
+pages := cr.Crawl(ctx, targetURL, seedLinks)
+
+var toEscalate []*crawler.Page
+for _, p := range pages {
+    if p.NeedsEscalation {
+        toEscalate = append(toEscalate, p)
+    }
+}
+
+// 只对命中三层检测的少数页面才启动浏览器，绝大多数页面走正常路径
+if len(toEscalate) > 0 && len(toEscalate) <= s.opts.MaxEscalationPages { // 硬上限默认 10，防止某个站点大面积触发导致浏览器被打爆
+    br, err := s.browserLauncher.Launch(ctx) // 复用已有的 BrowserLauncher，不新建实例
+    if err == nil {
+        for _, p := range toEscalate {
+            if renderedBody, renderedLinks, ok := s.renderWithBrowser(ctx, br, p.URL); ok {
+                p.Body = renderedBody          // 用渲染后的真实内容替换空壳/跳转页内容
+                seedLinksExtra := renderedLinks // 从渲染后的 DOM 里补充发现的新链接
+                cr.EnqueueExtra(seedLinksExtra, p.Depth) // 追加进爬虫队列继续 BFS，见 8.8.5
+            }
+            // 渲染失败也不报错中断，保留原始 net/http 抓到的内容，降级但不失败
+        }
+    }
+}
+
+for _, p := range pages {
+    results = append(results, s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
+        URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode, Title: p.Title,
+        Body: p.Body, Headers: p.Headers, Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
+    }))
+}
+```
+
+这里的关键设计点，逐条对应前面几节已经定下的原则，没有一条是新发明的：
+
+1. **决策权在 `WebScanner`，不在 `crawler`**：`crawler` 只吐出"我怀疑这个页面需要浏览器"的信号（`NeedsEscalation`），要不要真的启动浏览器、启动几个、超限了怎么办，全部是 `WebScanner` 的编排逻辑。这和 8.6.2 节"`crawler` 不认识 `fingerprint` 包"是同一个原则的延伸——现在可以说得更准确：**`crawler` 也不认识 `browser` 包**，`Crawler` 结构体自始至终没有、也不会有 `browserLauncher` 字段，8.2.1 节的结论不需要因为这个新机制而改写。
+2. **硬上限兜底，不是无脑升级**：`MaxEscalationPages` 防止"整站都是 SPA"这种情况导致爬虫对每个页面都去开浏览器，退化成 8.2.1 节明确否决掉的"用浏览器爬每一层"方案。默认值给 10——一个站点如果有超过 10 个页面命中空壳/跳转特征，大概率是整个技术栈的问题（比如整站都是同一个 SPA 框架），再往下升级边际收益递减，不如把配额花在别的目标上。
+3. **浏览器实例复用，不新开一套资源管理**：`s.browserLauncher` 就是 `Run()` 开头首页探测用的同一个实例（`BrowserManager` 内部本来就会复用已启动的 Chromium 进程），不为这个机制单独设计一套浏览器池。
+4. **失败降级，不失败中断**：渲染失败（超时、崩溃）时保留 `net/http` 原始抓到的内容继续走后续流程，不因为"升级失败"就让整个爬虫任务报错——这呼应第八节开头就定下的原则：爬虫是发现攻击面的工具，拿到打了折扣的数据也比任务直接失败强。
+
+#### 8.8.5 升级后发现的新链接怎么办：正常汇入 BFS 队列，不是特殊分支
+
+`SPA` 空壳被渲染后，可能会发现一批全新的链接（比如 `/dashboard`、`/settings` 这些只有 JS 路由展开后才存在的路径）。这些链接的处理方式和 8.2 节"首页种子链接"完全一致——**通过浏览器拿到的链接，全部只是给 BFS 队列补充种子，后续这些新链接的抓取依然全程走 `net/http`**，不会因为"这批链接是浏览器发现的"就对它们也用浏览器抓取。`Crawler.EnqueueExtra` 只是把新链接按照原有的 `visited` 去重、`MaxDepth`、`MaxPages` 规则重新走一遍入队逻辑，是复用 BFS 主循环里 `enqueue` 的能力，不是新写一条特殊路径。
+
+这保证了一个不变量：**全爬虫周期内，浏览器只会被启动"命中三层检测的页面数量"这么多次，且每次只用来读一次渲染后的 DOM，不会因为升级机制的引入而让浏览器重新变成遍历的主力**，8.2.1 节的成本对比结论继续成立。
+
+#### 8.8.6 这算不算方案范围蔓延？—— 不算，理由和 8.7.5 节一致
+
+按照实用主义标准检验：JS 重定向和 SPA 空壳不是理论上"可能存在"的边缘情况，是现代 Web 应用的常态——用 React/Vue 起步的后台管理系统、单页应用文档站点，在安全扫描场景里只会越来越常见。如果第一版方案对这类站点直接"什么都抓不到"，爬虫在相当一部分真实目标上会直接失效，这比"精度打折"严重得多，够得上"生产环境真实存在的问题"这条标准。
+
+工作量上：三层检测是纯函数，`renderWithBrowser` 复用的是 `web_scanner.go` 里已经写好的 Navigate/WaitLoad/ExtractRichContext 逻辑（抽成一个可复用的私有方法），不需要新的外部依赖，不需要新的数据存储，符合"和问题的严重性匹配"的复杂度标准，纳入 Sprint 5（接入与联调）范围。
+
+### 8.9 是否触发爬虫的自动决策机制：减少人工参与
+
+这一节要解决的问题和 8.8 节**不是同一件事**，容易混淆，先划清边界：
+
+> 8.8 节回答的是"爬虫已经在跑了，某个具体页面要不要临时借用浏览器重新渲染"；本节回答的是更早、更上游的一个问题——**"首页刚探测完，压根还没开始爬，到底值不值得触发这整个爬虫流程"**。两者是上下游关系，判断依据、发生时机完全不同，8.8 节的三层检测机制不受本节任何改动影响。
+
+#### 8.9.1 现状问题：`crawl` 开关是人工/硬编码决定的，首页数据被浪费
+
+现状有两条路径设置 `task.Params["crawl"]`，共同问题是：**决策发生在拿到首页真实响应之前，决策者只能是人，不是数据**。
+
+| 路径 | 决策方式 |
+|---|---|
+| Master 下发任务（`internal/service/adapter/task_to_core.go` 第 88 行） | 只要任务类型是 `web_scan`，无条件硬编码 `coreTask.Params["crawl"] = true`，不区分目标是 API 接口、静态文件还是真实业务系统 |
+| CLI（现状文档描述为 9.2 节修改前的设计）| `--crawl` bool flag，默认 `false`，需要用户在扫描前手动判断"这个目标值不值得爬"；本节之后 9.2/9.3 节已同步改为三态设计，见下 |
+
+两条路径的决策时刻都在 `WebScanner.Run()` 执行之前，此时系统对目标一无所知。但 `Run()` 执行到决定要不要爬虫的那一行代码时，**首页的 `statusCode`、`Content-Type`、`seedLinks` 早就已经拿到手了**——这些数据被摆在那里没有用来决策，是白白浪费的信息，属于"该用数据判断的地方，退化成了靠人猜"。
+
+#### 8.9.2 决策依据：只用三个免费信号，不引入指纹识别结果
+
+判断该不该爬的信号，全部取自 `Run()` 主干已经拿到的数据，**不产生任何额外网络请求**，也**不依赖指纹识别结果**——指纹匹配是否命中某个框架，和"这个页面有没有链接可以往下爬"是两个不同维度的问题，用指纹结果做爬虫决策是在借用一个不相关维度的信号，会让 `decideCrawlDepth` 的判断逻辑和指纹规则库产生不必要的隐性耦合，故不采纳：
+
+| 信号 | 判断逻辑 | 结论倾向 |
+|---|---|---|
+| 首页状态码 | `4xx/5xx`（401/403 除外，这两种也可能是有价值的后台登录页） | **不爬**——首页都打不通，深挖没有意义 |
+| `Content-Type` | 非 `text/html`（如 `application/json`、图片、二进制文件） | **不爬**——这是一个 API 端点或文件资源，天然没有 `<a>` 标签可供 BFS |
+| 首页同源链接数（`seedLinks` 长度） | 为 0 | **不爬**——没有任何入口可以继续遍历，触发爬虫只是空转一次 Worker Pool 然后立刻退出 |
+
+三个条件都不命中，才判定为"值得爬"，给出默认深度：
+
+```go
+// decideCrawlDepth 根据首页响应特征自动判断是否触发爬虫、爬多深
+// 输入全部来自 Run() 主干已经拿到的数据，不产生任何新请求，不依赖指纹识别结果
+// 返回 0 表示不爬
+func decideCrawlDepth(statusCode int, contentType string, seedLinksCount int) int {
+    if statusCode >= 400 && statusCode != 401 && statusCode != 403 {
+        return 0
+    }
+    if !strings.Contains(contentType, "text/html") {
+        return 0
+    }
+    if seedLinksCount == 0 {
+        return 0
+    }
+    return 2 // 默认深度，与手动指定 --crawl 时的默认值保持一致
+}
+```
+
+#### 8.9.3 优先级：用户显式指定 > 自动判断，向后兼容零妥协
+
+`crawl` 参数的角色从"必须由人显式给出"降级为"人可以显式覆盖，不给就自动判断"，`Run()` 里的读取逻辑：
+
+```go
+enableCrawl, explicit := task.Params["crawl"].(bool)
+depth := 0
+switch {
+case explicit && !enableCrawl:
+    depth = 0 // 用户显式关闭，尊重用户，不做任何自动判断
+case explicit && enableCrawl:
+    depth = 2
+    if d, ok := task.Params["crawl_depth"].(int); ok && d > 0 {
+        depth = d
+    }
+default:
+    // task.Params 里没有传 "crawl" 这个 key，才走自动判断
+    // 这是本节新增的分支，老调用方因为一直都显式传参，不会落入这里，行为不变
+    depth = decideCrawlDepth(homeStatusCode, homeHeaders["Content-Type"], len(seedLinks))
+}
+
+if depth > 0 {
+    cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter)
+    // ... 后续逻辑不变，见 9.1 节
+}
+```
+
+`explicit`（即 `task.Params["crawl"]` 是否存在这个 key）是区分"人工决定"和"自动决定"的唯一开关，没有第三种状态，符合"好品味"的判断标准——不需要一个额外的 `auto_crawl` 字段来表示"启用自动模式"，"没传 = 自动"这个语义本身就是最简洁的表达。
+
+#### 8.9.4 顺带清理一个不再需要的硬编码
+
+`internal/service/adapter/task_to_core.go` 第 88 行的 `coreTask.Params["crawl"] = true` 需要删除。这一行现在做的事情——"只要是 `web_scan` 任务就无脑开爬虫"——正是本节要治理的问题本身，留着它会导致 Master 下发的任务永远落入 8.9.3 节的 `explicit && enableCrawl` 分支，自动判断逻辑永远没有生效的机会。删掉这一行之后，Master 下发的 `web_scan` 任务会自然地走向自动判断分支，比现状的"来者不拒"更精确，且不需要 Master 侧做任何配合改动。
+
+#### 8.9.5 这解决了什么问题，边界在哪里
+
+一句话说清：**把"要不要爬"这个决策，从任务下发时刻的盲猜，挪到了首页探测完成后的数据驱动判断，减少了人在扫描前必须预判目标类型的负担**。
+
+边界要说清楚，不夸大效果：
+
+- 这不是机器学习，也不是什么"智能"引擎，就是三个 if 判断，可读、可调试、可解释，符合第四节"3 层缩进检验"的复杂度标准。
+- 判断依据只覆盖"首页层面"的信号，不覆盖"这个业务系统内部有没有漏洞值得爬"这种更深层的价值判断——那已经超出爬虫模块的职责范围，是 Vuln Scanner 该关心的事。
+- 用户永远可以用 `--crawl=true` / `--crawl=false` 显式覆盖自动判断结果（`--crawl` 不传或传 `auto` 才是自动模式，见 9.2 节的三态 flag 设计），这是自动化和人工控制之间的安全阀，不存在"自动判断出错却无法干预"的情况。
+
+#### 8.9.6 完整决策链路：从参数解析到结果汇总
+
+8.1 节的模块数据流图是粗粒度的，第 4 步只写了一句"`if task.Params[crawl]: 触发爬取`"，没有体现本节（是否触发爬虫的自动判断）和 8.8 节（三层检测 + 按需升级）的细节。下面这张图是对 8.1 节的完整展开，覆盖从 CLI/Master 参数进入，到最终结果汇总的全过程，本方案里"要不要爬"和"爬的时候要不要用浏览器"这两层决策在图上的位置一目了然：
+
+```mermaid
+flowchart TD
+    Start(["任务入口<br/>CLI: --crawl=auto/true/false（9.2节）<br/>Master: task_to_core.go 不再硬编码 crawl（8.9.4节）"]) --> Parse{"解析 task.Params[crawl]<br/>key 是否存在？"}
+
+    Parse -->|"不存在（auto，默认路径）"| Home["首页探测：go-rod 优先，失败降级 fallbackFetch（8.7节）<br/>拿到 statusCode / Content-Type / seedLinks"]
+    Parse -->|"存在，值为 false"| ForceOff["用户显式关闭<br/>depth = 0，不做自动判断（8.9.3节）"]
+    Parse -->|"存在，值为 true"| Home2["首页探测（同上）"]
+
+    Home --> Auto{"decideCrawlDepth 自动判断（8.9.2节）<br/>状态码 4xx/5xx（401/403除外）？<br/>Content-Type 非 text/html？<br/>seedLinks 数量为 0？"}
+    Auto -->|"命中任一条件"| AutoOff["depth = 0<br/>不触发爬虫"]
+    Auto -->|"三条件都不命中"| AutoOn["depth = 默认值 2"]
+
+    Home2 --> Explicit["depth = crawl_depth 或默认 2（8.9.3节）"]
+
+    ForceOff --> BuildHomeOnly["只产出首页 WebResult"]
+    AutoOff --> BuildHomeOnly
+
+    AutoOn --> Crawl["crawler.Crawl(ctx, targetURL, seedLinks)<br/>BFS 遍历，crawler 不认识 fpEngine/browser（8.6.2/8.8.4节）"]
+    Explicit --> Crawl
+
+    Crawl --> PerPage["对每个抓到的页面做三层检测<br/>detectEscalation（8.8.2/8.8.3节）"]
+    PerPage --> NeedEsc{"NeedsEscalation？"}
+    NeedEsc -->|"否"| UsePage["直接用 net/http 抓到的内容"]
+    NeedEsc -->|"是，且未超 MaxEscalationPages"| Escalate["WebScanner.escalateIfNeeded<br/>借用 go-rod 重新渲染（8.8.4节）<br/>失败则降级，保留原始内容不中断"]
+    Escalate --> NewLinks["渲染出的新链接<br/>汇入 BFS 队列继续爬（8.8.5节）"]
+    NewLinks --> Crawl
+
+    UsePage --> BuildAll["buildWebResult 统一组装<br/>首页 + 全部子页面（8.7节）"]
+    BuildHomeOnly --> Collect["results = []*model.TaskResult"]
+    BuildAll --> Collect
+
+    Collect --> Dispatch["ServiceDispatcher.runWebScan<br/>-> pCtx.AddWebResult（循环调用，逻辑不变）"]
+```
+
+图上两层决策点分别对应本方案两处不同的机制，容易混的地方再强调一次：
+
+- **`Parse` → `Auto` 这条链路**：回答"要不要开始爬"，即本节（8.9）的内容，只在 BFS 开始之前判断一次。
+- **`PerPage` → `NeedEsc` → `Escalate` 这条链路**：回答"爬到的某个具体页面要不要重新渲染"，即 8.8 节的内容，在 BFS 过程中对每个页面反复判断。
+
+两条链路谁都不依赖谁——就算 `Auto` 判断为"不爬"，也完全不影响 8.8 节机制的独立性（因为爬虫压根没启动，8.8 节自然没有触发的机会）；反过来 8.8 节的按需升级结果，也不会反过来影响 8.9 节已经做完的"要不要爬"这个判断。
+
 ---
 
 ## 九、与现有代码的具体接入点
@@ -710,16 +973,31 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
     })
     results = append(results, homeResult)
 
-    // 6.5 深度爬取 (可选，由 Task.Params["crawl"] 控制)
+    // 6.5 深度爬取。判断优先级：用户显式指定 > 自动判断，见 8.9.3 节
     // 关键修正点：这里读参数、触发爬虫的时机，不再依赖"go-rod 是否成功"，
     // 不管首页数据是哪条路径拿到的，只要拿到了 seedLinks 就能爬
-    if enable, ok := task.Params["crawl"].(bool); ok && enable {
-        depth := 2
+    enableCrawl, explicit := task.Params["crawl"].(bool)
+    depth := 0
+    switch {
+    case explicit && !enableCrawl:
+        depth = 0 // 用户显式关闭，不做任何自动判断
+    case explicit && enableCrawl:
+        depth = 2
         if d, ok := task.Params["crawl_depth"].(int); ok && d > 0 {
             depth = d
         }
-        cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter) // crawler 不认识 fpEngine，见 8.6.2 节
+    default:
+        // task.Params 里没有 "crawl" 这个 key，才走自动判断，见 8.9.2 节
+        depth = decideCrawlDepth(homeStatusCode, homeHeaders["Content-Type"], len(seedLinks))
+    }
+
+    if depth > 0 {
+        cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter) // crawler 不认识 fpEngine/browser，见 8.6.2/8.8.4 节
         pages := cr.Crawl(ctx, targetURL, seedLinks)
+
+        // 8.8.4: 按需升级——只对三层检测标记 NeedsEscalation 的少数页面启动浏览器重新渲染
+        s.escalateIfNeeded(ctx, cr, pages) // 内部含 MaxEscalationPages 硬上限判断，失败降级不中断
+
         for _, p := range pages {
             results = append(results, s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
                 URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode, Title: p.Title,
@@ -733,26 +1011,41 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 }
 ```
 
-跟现状相比，改动点集中在三处，均在 8.7 节讲清楚了理由：
+跟现状相比，改动点集中在五处，均在 8.7/8.8/8.9 节讲清楚了理由：
 
 1. `fallbackScan` → `fallbackFetch`：不再自己 `return`，只返回原始数据，交回 `Run()` 统一处理（修复"降级路径爬虫失效"的缺陷）。
 2. 新增 `buildWebResult`：首页（不管哪条路径拿到的）和爬虫子页面统一走这一个函数，不再三处重复。
 3. `results` 从 `return []*model.TaskResult{result}, nil` 的单元素写法改成 `append` 模式——这是接入爬虫**必须**做的改动，不是可选项。
+4. 新增 `escalateIfNeeded`：爬虫产出的页面里，命中三层检测的极少数页面按需升级浏览器重新渲染（8.8 节），这一步在 `crawler.Crawl()` 返回之后、`buildWebResult` 组装最终结果之前，不影响前三处改动的逻辑。
+5. 新增 `decideCrawlDepth` 判断分支（即上面的 `switch` 块，8.9 节）：`task.Params["crawl"]` 从"必须传"变成"不传就自动判断"，这是当前这个历史包裹中唯一会改变现有调用方行为的地方，但只影响"从不显式传 `crawl` 参数"的调用方，这种调用方在历史上不存在（现有两条路径都是显式传 `true`/`false`），所以不算破坏兼容性。
 
 ### 9.2 `internal/core/options/scan_web.go` 和 `cmd/agent/scan/web.go`
 
-新增两个 CLI flag：`--crawl`（bool，默认 false）、`--crawl-depth`（int，默认 2），走 `task.Params["crawl"] / ["crawl_depth"]` 透传，与现有 `--screenshot` 参数模式完全一致，零学习成本。
+新增两个 CLI flag：`--crawl`、`--crawl-depth`（int，默认 2）。
+
+**一个必须注意的细节**：`--crawl` 不能定义成普通的 bool flag（默认 `false`）——因为 `pflag.Bool` 不管用户传不传，都会有一个确定的 `true`/`false` 值，没有"未传"这个第三态，会导致 8.9.3 节的自动判断分支永远进不去（CLI 路径永远显式传了 `crawl=false`）。正确做法是用三态字符串 flag：
+
+```go
+cmd.Flags().String("crawl", "auto", "是否启用深度爬取: auto(默认，自动判断)/true/false")
+```
+
+`scan_web.go` 解析时按值分流：`"auto"` 时不写入 `task.Params["crawl"]`（保持 key 缺失，触发 8.9.2 节的自动判断）；`"true"`/`"false"` 时写入对应的 bool，走 8.9.3 节的显式分支。这是唯一能同时满足"CLI 默认零参数可用"和"用户能显式覆盖"两个要求的方式，比新增一个独立的 `--auto-crawl` bool flag 更简洁——不需要两个 flag 表达三种状态，一个三态 flag 就够。
 
 ### 9.3 `internal/core/pipeline/dispatcher.go`
 
-`runWebScan` 中构造 Task 的地方（约 274 行）追加两行：
+`runWebScan` 中构造 Task 的地方（约 274 行），同样要避免把 Go bool 的 zero value 误当成"用户显式选择"写进去：
 
 ```go
-task.Params["crawl"] = d.opts.WebCrawl        // 新增 ScanRunOptions 字段
-task.Params["crawl_depth"] = d.opts.WebCrawlDepth
+// ScanRunOptions.WebCrawl 类型改为 *bool（nil = 用户未指定，走自动判断）
+if d.opts.WebCrawl != nil {
+    task.Params["crawl"] = *d.opts.WebCrawl
+}
+task.Params["crawl_depth"] = d.opts.WebCrawlDepth // int 类型不受影响，0 表示用默认深度，不存在歧义
 ```
 
-`ServiceDispatcher` 内部逻辑完全不动，因为它本来就是"构造 Task -> 调用 Run -> 收集结果 -> AddWebResult"，爬虫产出的多条 `WebResult` 走的是一模一样的路径。
+`*bool` 而不是 `bool` 是这里的关键——`bool` 类型无法区分"用户没填这个选项"和"用户显式填了 false"，`*bool` 的 `nil` 才能准确表达"没有意见，交给系统判断"。这是本方案里第一次需要用指针类型表达"可选布尔值"的地方，值得写清楚，不然实现时容易顺手写成 `bool` 导致 8.9 节的自动判断名存实亡。
+
+`ServiceDispatcher` 内部其余逻辑完全不动，因为它本来就是"构造 Task -> 调用 Run -> 收集结果 -> AddWebResult"，爬虫产出的多条 `WebResult` 走的是一模一样的路径。
 
 ### 9.4 `go.mod`
 
@@ -788,12 +1081,17 @@ github.com/PuerkitoBio/goquery v1.9.x
 - 单元测试：验证 go-rod 路径和 fallback 路径产出的首页 `WebResult` 字段一致（除 Screenshot/Favicon 外）。
 - 里程碑：`fallbackFetch` 返回值能正确喂给 `crawler.Crawl()`，浏览器不可用时 `--crawl` 依然生效——这是本次修复的核心验收点。
 
-**Sprint 5（接入与联调，约 1 天）**
+**Sprint 5（接入与联调，约 1.5-2 天，含 8.8 节按需升级机制）**
 - `web_scanner.go` 挂上 `crawler.Crawl` 调用、`scan_web.go` / `dispatcher.go` 两处接入点改造。
-- 端到端跑 `scan web --crawl --crawl-depth=2` 和 `scan run` 全流程验证输出一致性，额外验证"强制 Chromium 启动失败（如破坏 `bin/chromium` 路径）+ `--crawl`"场景下依然能拿到子页面结果。
-- 里程碑：CLI、CSV、JSON 三种输出下 `Depth/Forms/Params/Leaks` 字段一致、无回归。
+- `detectEscalation` 三层检测函数（`crawler` 包内纯函数，见 8.8.2/8.8.3 节）：HTTP 重定向跟随、JS 重定向正则、SPA 空壳 DOM 特征判断，各配一组单元测试用例（正常页面/跳转页/SPA 空壳三类 fixture）。
+- `s.escalateIfNeeded` + `renderWithBrowser`（`web_scanner.go` 内，见 8.8.4 节）：复用已有 Navigate/WaitLoad/ExtractRichContext 逻辑，`MaxEscalationPages` 硬上限、失败降级不中断两条分支都要有对应测试。
+- 端到端跑 `scan web --crawl --crawl-depth=2` 和 `scan run` 全流程验证输出一致性，额外验证两个场景：①"强制 Chromium 启动失败（如破坏 `bin/chromium` 路径）+ `--crawl`"场景下依然能拿到子页面结果；②对一个真实 SPA 站点（如一个 React 后台 demo）跑 `--crawl`，验证空壳页面被正确升级、渲染后的新链接被正常汇入 BFS 继续爬取。
+- 里程碑：CLI、CSV、JSON 三种输出下 `Depth/Forms/Params/Leaks` 字段一致、无回归；SPA 站点的爬取结果里能看到浏览器只被启动了"命中三层检测的页面数量"这么多次，而不是每个页面都启动一次。
+- `decideCrawlDepth` 自动判断函数（`web_scanner.go` 内纯函数，见 8.9.2 节）：状态码分支、Content-Type 分支、seedLinks 数量分支各配一组单元测试；`--crawl` 三态 flag（`auto`/`true`/`false`）与 `task.Params["crawl"]` 的映射关系配一组测试，验证 `auto` 时不写 key、`true`/`false` 时正确写 bool。
+- 端到端验证：不传 `--crawl`（即 `auto`）对一个 404 目标、一个纯 JSON API 目标、一个正常多页面站点分别跑 `scan web`，验证前两者不触发爬虫、第三者正确触发；同时验证 `--crawl=false` 能强制关闭第三者的自动判断结果。
+- 里程碑：三类目标（404/API/正常站点）在不传 `--crawl` 时的爬虫触发结果符合 8.9.2 节判断表；`task_to_core.go` 第 88 行硬编码已删除，Master 下发的 `web_scan` 任务同样能被自动判断正确分流。
 
-全部工作量预计 **5-6 天**（比最初的 4-5 天多出的 0.5-1 天用于 Sprint 4 的重构，理由见 8.7.5 节：这不是范围蔓延，是接入爬虫本身就会触碰到的代码，顺手理顺比留着技术债更划算），不需要引入任何外部中间件，不需要新的 TaskType，不需要新的 Scanner 接口实现。这是与 v1.0（隐含一个更大的"Frontier 系统"）相比更小、更可控、且完全兼容现有架构的路径。
+全部工作量预计 **7-9 天**（比 6.5-8 天再增加 0.5-1 天用于 Sprint 5 内新增的 8.9 节自动决策机制；理由见 8.9 节：这是把"要不要爬"这个决策从人工挪到数据驱动的最小实现，工作量集中在几个 if 判断和一个三态 flag 上，不是新系统），不需要引入任何外部中间件，不需要新的 TaskType，不需要新的 Scanner 接口实现。这是与 v1.0（隐含一个更大的"Frontier 系统"）相比更小、更可控、且完全兼容现有架构的路径。
 
 ---
 
@@ -809,8 +1107,37 @@ github.com/PuerkitoBio/goquery v1.9.x
 | 限流 | "接入现有 AdaptiveLimiter"（提及但未强调复用同一实例） | 强制共享 WebScanner 已持有的同一实例，语义统一 |
 | 结果承载 | 提及"塞入 WebResult"但未定义具体字段 | 明确定义 `Depth/Forms/Params/Leaks` 四个新增字段，向后兼容 |
 | 并发模型 | 未明确讨论 | 明确限定为 Goroutine Worker Pool（进程内并发），不引入 Agent 内部子进程；理由见第五节 |
-| 爬虫是否用浏览器 | 未明确讨论 | 明确限定为**从不使用**：`Crawler` 不 import `lib/browser`，浏览器只负责首页探测拿 `seedLinks`，深挖全程 `net/http`；理由见 8.2.1 节的成本对比 |
+| 爬虫是否用浏览器 | 未明确讨论 | **默认从不使用，但按需可升级**：`Crawler` 从不 import `lib/browser`，也不持有浏览器实例；深挖全程 `net/http`；只有命中三层检测（8.8 节）的极少数页面，由 `WebScanner`（不是 `crawler`）临时借用浏览器重新渲染一次，决策权始终在编排层，不在遍历层；理由见 8.2.1 节的成本对比 + 8.8 节的完整机制 |
 | 指纹识别与爬虫的融合方式 | 未讨论 | 明确限定为**收敛在 `WebScanner` 一处编排**，`crawler` 包不认识 `fingerprint` 包，零跨包耦合；理由见 8.6 节 |
 | `fallbackScan` 与爬虫的关系 | 未讨论（v1.0 未发现这个缺陷） | 明确识别并修复：现状里 `fallbackScan` 会静默吞掉 `crawl` 参数，改造为 `fallbackFetch` 只返回数据、不再自行 `return`，让浏览器不可用时爬虫依然生效；理由见 8.7 节 |
+| JS 重定向 / SPA 空壳处理 | 未讨论 | 明确给出**三层静态检测 + WebScanner 侧按需升级**机制：不产生额外网络请求，命中才升级、有硬上限、失败降级不中断；不是"未来再加"的开关，是第一版就交付的能力；理由见 8.8 节 |
+| 是否触发爬虫的决策方式 | 隐含由人工/上层调用方决定（未讨论） | 明确给出**首页响应特征驱动的自动判断**：默认不传参数时，用状态码/Content-Type/链接数三个免费信号自动决定要不要爬，用户仍可用 `--crawl=true/false` 显式覆盖；`task_to_core.go` 里"只要是 web_scan 就无脑开"的硬编码予以清理；理由见 8.9 节 |
 
-两版本在"方向"上是一致的（HTTP 优先、浏览器仅探路、attack surface 提取、被动泄露检测），这部分判断都是对的，说明这确实是正确的技术方向。分歧全部集中在"复杂度控制"上——v1.0 明显受两个参考项目的架构影响过深，把它们为分布式/多租户场景设计的复杂机制（优先级队列、相似度聚合、独立类型系统）也一并搬了过来。本方案的核心贡献是：**把"正确的方向"和"过度的复杂度"剥离开，只保留前者；并且在实现细节上，主动找出了 v1.0 完全没有触及的一个现有代码缺陷（`fallbackScan`）顺手修复。**
+两版本在"方向"上是一致的（HTTP 优先、浏览器仅探路、attack surface 提取、被动泄露检测），这部分判断都是对的，说明这确实是正确的技术方向。分歧全部集中在"复杂度控制"上——v1.0 明显受两个参考项目的架构影响过深，把它们为分布式/多租户场景设计的复杂机制（优先级队列、相似度聚合、独立类型系统）也一并搬了过来。本方案的核心贡献是：**把"正确的方向"和"过度的复杂度"剥离开，只保留前者；并且在实现细节上，主动找出了 v1.0 完全没有触及的一个现有代码缺陷（`fallbackScan`）顺手修复，同时把"JS重定向/SPA空壳"和"要不要爬需要人工决定"这两个 v1.0 完全没碰过的真实痛点，用不破坏既有分层的最小机制第一版就解决掉。**
+
+---
+
+## 十二、一次关键的架构讨论：能不能把整个 Web 扫描都交给爬虫自己决定？
+
+这一节记录一次在方案定稿前被明确提出、也被明确否决的架构提议，把结论和理由写下来，是为了防止同样的问题在未来被反复重新讨论——**这不是没考虑过的方向，是考虑过之后确认不该走的方向**。
+
+### 12.1 提议是什么
+
+"有了爬虫之后，能不能把整个 Web 资产扫描探测的任务都交给爬虫，爬虫自己选择是否调用浏览器，这样结构上是不是更简单？"
+
+翻译成代码层面，这个提议要求 `Crawler` 反过来持有 `BrowserLauncher` 和 `fpEngine`，`WebScanner.Run()` 退化成一行 `s.crawler.Crawl(...)` 的薄壳，甚至可以直接取消 `WebScanner`，让 `Crawler` 自己实现 `Scanner` 接口。
+
+### 12.2 结论
+
+❌ **不采纳**。这不是"更简单"，是把三个不同职责的组件（决策编排、遍历执行、浏览器生命周期管理）焊死进一个对象里，复杂度总量没有减少，只是从一个专职编排的类，转移并集中到了一个本该只负责遍历的类身上，而且转移之后更难拆分。
+
+### 12.3 关键理由
+
+1. **"要不要用浏览器"是只在首页发生一次的策略决策，不是每个 URL 都要重新判断的通用能力**。判断依据（是不是 SPA 空壳、有没有反爬拦截）必须先拿到一次 HTTP 响应之后才能得出，这本质上是"探测完首页之后的下一步该怎么走"，属于编排层的职责，不属于"发现 URL、抓数据"这个遍历器的本职工作。8.8 节的三层检测机制已经证明：**把决策权留在 `WebScanner`，`crawler` 只上报信号**，同样能解决"部分子页面需要浏览器"的问题，且不需要 `crawler` 认识 `browser` 包。
+2. **合并之后，`crawler` 包要背负四样它本不该关心的东西**：浏览器生命周期管理（Launch/OpenPage/Navigate/Close，含截图和 favicon 提取这种只在首页需要做一次的动作）、指纹引擎调用、QoS 限流、以及对外暴露 `Scanner` 接口。这四样东西现在分别由 `WebScanner`（前三样）和 `WebScanner` 自身实现 `Scanner` 接口（第四样）承担，合并只是把它们从一个类挪到另一个类，复杂度并未消失。
+3. **对应到项目既定的分层标准（Controller/Handler → Service → Repository → Database）**：`WebScanner` 是 Service 层，负责业务决策（首页用什么手段拿数据、拿到后要不要深挖、指纹怎么标注）；`Crawler` 是 Repository 层，只做数据访问（BFS 遍历、发 HTTP、抓 body），不掺业务判断。让 Repository 层反过来决定业务逻辑，在任何分层架构里都是要打回重写的设计，爬虫不应该是例外。
+4. **职责边界模糊之后，未来没法拆**：如果明天要给"是否升级浏览器"加一条新规则（比如识别到 WAF 特征换 User-Agent 重试而不是无脑上浏览器），在合并后的架构里，这条逻辑该写在 `Crawler` 的哪个方法里会变得含糊，因为 `Crawler` 此时什么业务判断都在做。保持现在的分层，这条新规则显然只应该加在 `WebScanner.escalateIfNeeded` 里，`Crawler` 完全不用动。
+
+### 12.4 这次讨论沉淀下来的原则
+
+**爬虫应该像一个哑巴执行者：调用者给一批 URL，它负责把这些 URL 的原始数据抓回来，附带上"这个页面看起来需要浏览器重新渲染"这样的事实性信号；但它自己永远不会去启动浏览器、不会去调用指纹引擎、不会去决定这次任务算不算成功。** 这条原则在 8.6.2 节（指纹识别）和 8.8.3/8.8.4 节（浏览器升级）里已经被具体实现两次，12.3 节是把它们背后的同一条设计原则显式地写出来，作为以后审查任何"要不要往 `crawler` 包里加东西"提议时的判断标准：**这个东西是"发现 URL、抓数据"本身需要的能力，还是"决定怎么处理这些数据"的业务判断？前者进 `crawler`，后者留在 `WebScanner`，没有例外。**

@@ -26,8 +26,12 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 	// 3. 提取 Meta 标签
 	// 使用 JS 执行提取
 	metaMap := make(map[string]string)
-	// 使用 IIFE 确保立即执行并返回值
-	metaRes, err := page.Eval(`(() => {
+	// 注意：传给 page.Eval 的必须是一个函数本身（() => {...}），不能写成 IIFE
+	// （(() => {...})()）。rod 内部会把传入的 JS 字符串包装成
+	// `function() { return (js).apply(this, arguments) }`，如果 js 写成 IIFE，
+	// 包装后就变成对 IIFE 的返回值（一个普通对象/数组）调用 .apply()，
+	// 而这个返回值根本没有 .apply 方法，会抛出 TypeError，导致 err != nil。
+	metaRes, err := page.Eval(`() => {
 		const metas = document.getElementsByTagName('meta');
 		const result = {};
 		for (let i = 0; i < metas.length; i++) {
@@ -38,7 +42,7 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 			}
 		}
 		return result;
-	})()`)
+	}`)
 	if err == nil {
 		// metaRes.Value 是 gson.JSON，将其序列化为 bytes 再反序列化到 map
 		if valBytes, e := json.Marshal(metaRes.Value); e == nil {
@@ -49,7 +53,7 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 
 	// 4. 提取 Script 标签 (src)
 	var scripts []string
-	scriptRes, err := page.Eval(`(() => {
+	scriptRes, err := page.Eval(`() => {
 		const scripts = document.getElementsByTagName('script');
 		const result = [];
 		for (let i = 0; i < scripts.length; i++) {
@@ -58,7 +62,7 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 			}
 		}
 		return result;
-	})()`)
+	}`)
 	if err == nil {
 		if valBytes, e := json.Marshal(scriptRes.Value); e == nil {
 			_ = json.Unmarshal(valBytes, &scripts)
@@ -73,7 +77,7 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 	// 使用 Iframe Trick 过滤掉浏览器内置的全局变量，只保留用户/框架定义的变量
 	// 同时尝试提取值 (仅限基本类型)，用于后续可能的版本匹配
 	var jsVars map[string]interface{}
-	jsRes, err := page.Eval(`(() => {
+	jsRes, err := page.Eval(`() => {
 		try {
 			// 1. 创建一个干净的 iframe 用于获取标准全局变量列表
 			const iframe = document.createElement('iframe');
@@ -130,7 +134,7 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 		} catch (e) {
 			return { 'error': e.toString() };
 		}
-	})()`)
+	}`)
 
 	if err == nil {
 		// jsRes.Value 是 gson.JSON
@@ -161,10 +165,10 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 
 	// 8. 提取 Favicon URL
 	// 注意: 这里只提取 URL，后续由 Scanner 决定是否下载并转换为 Base64
-	faviconURL, err := page.Eval(`(() => {
+	faviconURL, err := page.Eval(`() => {
 		let link = document.querySelector("link[rel*='icon']");
 		return link ? link.href : "";
-	})()`)
+	}`)
 	if err == nil {
 		var favStr string
 		if valBytes, e := json.Marshal(faviconURL.Value); e == nil {
@@ -206,7 +210,7 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 //   ExtractRichContext 里提取 meta/scripts/js 全局变量用的是同一套模式，
 //   本文件保持风格一致，不额外发明新的类型转换方式。
 func ExtractLinks(page *rod.Page) []string {
-	res, err := page.Eval(`(() => {
+	res, err := page.Eval(`() => {
 		const anchors = document.getElementsByTagName('a');
 		const result = [];
 		for (let i = 0; i < anchors.length; i++) {
@@ -215,7 +219,7 @@ func ExtractLinks(page *rod.Page) []string {
 			}
 		}
 		return result;
-	})()`)
+	}`)
 	if err != nil {
 		// JS 执行失败（比如页面已经关闭、上下文丢失），种子链接拿不到就返回 nil，
 		// 调用方（WebScanner）看到空切片自然就不会触发深度爬取，是安全的降级。

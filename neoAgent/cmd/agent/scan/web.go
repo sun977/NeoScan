@@ -72,6 +72,10 @@ func NewWebScanCmd() *cobra.Command {
 	// 添加截图参数
 	flags.BoolVar(&screenshot, "screenshot", false, "启用网页截图")
 
+	// 深度爬取参数
+	flags.StringVar(&opts.Crawl, "crawl", opts.Crawl, "是否启用深度爬取: auto(默认，自动判断)/true/false")
+	flags.IntVar(&opts.CrawlDepth, "crawl-depth", opts.CrawlDepth, "爬取深度（仅 --crawl=true 时生效）")
+
 	cmd.MarkFlagRequired("target")
 
 	return cmd

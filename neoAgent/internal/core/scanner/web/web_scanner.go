@@ -23,6 +23,7 @@ import (
 	fpModel "neoagent/internal/pkg/fingerprint/model"
 	"neoagent/internal/pkg/logger"
 
+	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 )
 
@@ -63,17 +64,20 @@ func (s *WebScanner) Name() model.TaskType {
 	return model.TaskTypeWebScan
 }
 
-// Run 执行扫描任务
+// Run 执行扫描任务。
+//
+// 整体结构是"统一收口一次 return"：不管首页数据是 go-rod 拿到的还是降级
+// fallback 拿到的，最终都在函数末尾组装一次结果、判断一次是否需要深度爬取、
+// return 一次——不再像重构前那样在浏览器启动失败/导航失败两处提前 return，
+// 那两处提前 return 各自绕过了后面的 BFS 触发逻辑，是"降级路径爬虫失效"
+// 缺陷的根源（架构方案 8.7 节）。现在不管走到哪条路径，body 一旦拿到手，
+// 后面的收口、决策、BFS 都是同一段代码，不存在"某条路径漏掉某个步骤"的可能。
 func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*model.TaskResult, err error) {
 	// 0. Panic Recovery (Linus Style: Don't let a single crash take down the whole agent)
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("[WebScanner] PANIC RECOVERED: %v", r)
-			// 打印堆栈信息，方便定位 Segfault/Panic 位置
-			// debug.Stack() 需要 import runtime/debug
-			// 简单起见，我们至少返回一个错误结果，而不是让进程崩溃
 			err = fmt.Errorf("panic during web scan: %v", r)
-			// 尝试返回一个失败的任务结果
 			results = nil
 		}
 	}()
@@ -88,242 +92,215 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	defer s.limiter.Release()
 
 	startTime := time.Now()
-	// 尝试从 Params 中获取协议提示 (http/https)
 	var protocolHint string
 	if p, ok := task.Params["protocol"].(string); ok {
 		protocolHint = p
 	}
 	targetURL := normalizeURL(task.Target, task.PortRange, protocolHint)
 
-	// 2. 启动浏览器 (Lazy Load)
-	// 这里我们每次 Scan 都尝试 Launch，Launch 内部会复用已启动的 Browser
-	// TODO: 支持从 Task 参数中读取 Proxy
-	br, err := s.browserLauncher.Launch(ctx)
-	if err != nil {
-		logger.Warnf("[WebScanner] Failed to launch browser: %v. Falling back to HTTP client.", err)
-		res, errFallback := s.runFallback(ctx, task, targetURL, startTime)
-		if errFallback != nil {
-			s.limiter.OnFailure()
-			return nil, fmt.Errorf("browser launch failed (%v) and fallback failed: %w", err, errFallback)
-		}
-		s.limiter.OnSuccess()
-		return res, nil
-	}
-
-	// 3. 打开空白页面并设置监听
-	// 我们先打开空白页，设置好事件监听，然后再 Navigate，这样能捕获到完整的网络请求
-	page, err := s.browserLauncher.OpenPage(ctx, br, "")
-	if err != nil {
-		s.limiter.OnFailure()
-		return nil, fmt.Errorf("failed to open page: %w", err)
-	}
-	defer page.Close()
-
-	// 监听网络响应，提取 IP, Port, Status, Headers
 	var (
-		remoteIP      string
-		remotePort    int
-		statusCode    int
-		contentLength int64
-		respHeaders   = make(map[string]string)
-		respMutex     sync.Mutex
+		homeBody       string
+		homeHeaders    map[string]string
+		homeStatusCode int
+		homeContentLen int64
+		homeTitle      string
+		homeRichCtx    map[string]interface{}
+		seedLinks      []string
+		screenshotB64  string
+		faviconB64     string
+		remoteIP       string
+		remotePort     int
 	)
 
-	// 启用 Network 域
-	// page.MustWaitOpen() // 确保页面已打开? OpenPage 已经返回了 page
-	// 开启网络事件监听
-	// 使用 page.EachEvent 监听事件 (非阻塞模式运行)
-	// 注意: 需要确保 page.Close() 会停止监听，或者我们应该手动 stop
-	waitEvents := page.EachEvent(func(e *proto.NetworkResponseReceived) bool {
-		// 我们主要关注 Document 类型的响应
-		// 对于 SPA 页面，初始 HTML 可能只是一个骨架，但也算 Document
-		// 某些情况下，重定向后的最终页面才是我们想要的
+	// --- go-rod 路径：Launch -> OpenPage -> 监听网络 -> Navigate -> WaitLoad -> ExtractRichContext ---
+	if br, errLaunch := s.browserLauncher.Launch(ctx); errLaunch == nil {
+		if page, errOpen := s.browserLauncher.OpenPage(ctx, br, ""); errOpen == nil {
+			defer page.Close()
 
-		// 调试日志: 打印所有响应类型和URL
-		// logger.Debugf("[WebScanner] Response: %s %s %s", e.Type, e.Response.URL, e.Response.Status)
+			var respMutex sync.Mutex
+			waitEvents := page.EachEvent(func(e *proto.NetworkResponseReceived) bool {
+				if e.Type == proto.NetworkResourceTypeDocument {
+					respMutex.Lock()
+					defer respMutex.Unlock()
+					homeStatusCode = e.Response.Status
+					remoteIP = e.Response.RemoteIPAddress
+					if e.Response.RemotePort != nil {
+						remotePort = *e.Response.RemotePort
+					}
+					if homeHeaders == nil {
+						homeHeaders = make(map[string]string)
+					}
+					for k, v := range e.Response.Headers {
+						var val string
+						if err1 := json.Unmarshal([]byte(v.String()), &val); err1 == nil {
+							homeHeaders[k] = val
+						} else {
+							homeHeaders[k] = v.String()
+						}
+					}
+					if cl, ok := e.Response.Headers["Content-Length"]; ok {
+						var clVal string
+						if err2 := json.Unmarshal([]byte(cl.String()), &clVal); err2 == nil {
+							fmt.Sscanf(clVal, "%d", &homeContentLen)
+						}
+					} else if e.Response.EncodedDataLength > 0 {
+						homeContentLen = int64(e.Response.EncodedDataLength)
+					}
+				}
+				return false
+			})
+			go waitEvents()
 
-		if e.Type == proto.NetworkResourceTypeDocument {
-			logger.Infof("[WebScanner] Document Response: Status=%d URL=%s", e.Response.Status, e.Response.URL)
-			respMutex.Lock()
-			defer respMutex.Unlock()
+			if errNav := page.Navigate(targetURL); errNav == nil {
+				waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+				if errWait := page.Context(waitCtx).WaitLoad(); errWait != nil {
+					logger.Warnf("[WebScanner] WaitLoad timeout for %s: %v", targetURL, errWait)
+				}
+				cancel()
 
-			// 只有当响应状态码有效时才更新 (排除 0 或 weird status)
-			// 或者，我们记录最后一次 Document 响应
-			statusCode = e.Response.Status
-			remoteIP = e.Response.RemoteIPAddress
-			if e.Response.RemotePort != nil {
-				remotePort = *e.Response.RemotePort
-			}
+				richCtx, errCtx := ExtractRichContext(page)
+				if errCtx == nil {
+					homeRichCtx = richCtx
+					homeBody, _ = richCtx["body"].(string)
+					homeTitle = extractTitleFromCtx(richCtx)
+					seedLinks = ExtractLinks(page)
 
-			// Headers
-			for k, v := range e.Response.Headers {
-				var val string
-				if err1 := json.Unmarshal([]byte(v.String()), &val); err1 == nil {
-					respHeaders[k] = val
+					if capture, ok := task.Params["screenshot"].(bool); ok && capture {
+						if buf, errShot := page.Screenshot(true, nil); errShot == nil {
+							screenshotB64 = base64.StdEncoding.EncodeToString(buf)
+						} else {
+							logger.Warnf("[WebScanner] Screenshot failed: %v", errShot)
+						}
+					}
+					faviconB64 = extractFaviconFromPage(page, richCtx)
 				} else {
-					respHeaders[k] = v.String()
-				}
-			}
-
-			// Content-Length
-			if cl, ok := e.Response.Headers["Content-Length"]; ok {
-				var clVal string
-				if err2 := json.Unmarshal([]byte(cl.String()), &clVal); err2 == nil {
-					fmt.Sscanf(clVal, "%d", &contentLength)
+					logger.Warnf("[WebScanner] Failed to extract rich context: %v", errCtx)
 				}
 			} else {
-				// 如果 Header 里没有，尝试使用 EncodedDataLength
-				// 注意: 这可能不准确，因为它是传输长度
-				if e.Response.EncodedDataLength > 0 {
-					contentLength = int64(e.Response.EncodedDataLength)
-				}
+				logger.Warnf("[WebScanner] Navigation failed for %s: %v. Will fallback.", targetURL, errNav)
 			}
 		}
-		return false
-	})
-	go waitEvents()
-	// defer stop() // EachEvent 会在 page 关闭时自动停止，或者我们可以手动控制，这里简单起见让它随 page 生命周期
+	} else {
+		logger.Warnf("[WebScanner] Failed to launch browser: %v. Will fallback.", errLaunch)
+	}
 
-	// 4. 导航到目标 URL
-	if err3 := page.Navigate(targetURL); err3 != nil {
-		logger.Warnf("[WebScanner] Navigation failed for %s: %v. Falling back to HTTP client.", targetURL, err3)
-		res, err1 := s.runFallback(ctx, task, targetURL, startTime)
-		if err1 != nil {
+	// --- 统一降级：只要 go-rod 路径没有拿到 body，一律走 fallbackFetch。
+	// 这一处判断取代了重构前分散在 Launch 失败、Navigate 失败两处的降级调用，
+	// 是修复"降级路径爬虫失效"缺陷的核心改动——不管什么原因导致 go-rod 拿不到
+	// body，后面统一走同一条路径继续组装结果、判断是否需要深度爬取。
+	if homeBody == "" {
+		body, headers, statusCode, title, links, errFetch := s.fallbackFetch(ctx, targetURL)
+		if errFetch != nil {
 			s.limiter.OnFailure()
-			return nil, fmt.Errorf("navigation and fallback failed: %w", err1)
+			return nil, fmt.Errorf("both browser and fallback fetch failed: %w", errFetch)
 		}
-		s.limiter.OnSuccess()
-		return res, nil
+		homeBody, homeHeaders, homeStatusCode, homeTitle, seedLinks = body, headers, statusCode, title, links
+		homeRichCtx = nil // fallback 路径没有富上下文
+		homeContentLen = 0
 	}
 
-	// 5. 等待加载完成
-	// 使用 MustWaitLoad 等待页面加载完成 (network idle)
-	// 设置超时，防止挂死
-	waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
+	finalIP, finalPort := resolveIPPortForResult(task, targetURL, remoteIP, remotePort)
 
-	// 注意: page.Timeout 会返回一个新的 page 对象，需要链式调用
-	if err4 := page.Context(waitCtx).WaitLoad(); err4 != nil {
-		logger.Warnf("[WebScanner] WaitLoad timeout for %s: %v", targetURL, err4)
-		// 超时也继续尝试提取，因为可能部分加载了
-	}
+	// Forms/Params 是首页攻击面信息。go-rod 路径没有顺手提取过（ExtractLinks 只管链接），
+	// fallback 路径也一样（fallbackFetch 同理只返回 links）。这里用已经拿到的 homeBody
+	// 统一提取一次，保证首页结果无论走哪条数据源，Forms/Params 都不缺失。
+	_, homeForms, homeParams := crawler.ExtractLinksAndForms(targetURL, homeBody)
 
-	// 6. 提取 Rich Context (DOM/JS/Meta)
-	richCtx, err := ExtractRichContext(page)
-	if err != nil {
-		logger.Warnf("[WebScanner] Failed to extract rich context: %v", err)
-	}
-
-	// 7. 提取正文（供 buildWebResult 组装 fingerprint.Input.Body 使用）
-	var pageBody string
-	if body, ok := richCtx["body"].(string); ok {
-		pageBody = body
-	}
-
-	// 8. 截图 (如果启用)
-	var screenshotBase64 string
-	if capture, ok := task.Params["screenshot"].(bool); ok && capture {
-		if buf, err := page.Screenshot(true, nil); err == nil {
-			screenshotBase64 = base64.StdEncoding.EncodeToString(buf)
-		} else {
-			logger.Warnf("[WebScanner] Screenshot failed: %v", err)
-		}
-	}
-
-	// 9. 获取 Favicon
-	var faviconBase64 string
-	if favURL, ok := richCtx["favicon_url"].(string); ok && favURL != "" {
-		// 尝试获取资源
-		// 注意: GetResource 可能需要资源已经被加载过
-		// 如果是外部链接，可能需要 page.Eval fetch
-		// 简单尝试: 使用 page.GetResourceContent (如果缓存中有)
-		// 或者直接 Eval fetch
-		// 这里使用一个通用的 JS fetch 转 base64 方法
-		res, err := page.Eval(`(url) => {
-			return fetch(url)
-				.then(response => response.blob())
-				.then(blob => new Promise((resolve, reject) => {
-					const reader = new FileReader();
-					reader.onloadend = () => resolve(reader.result); // data:image/png;base64,...
-					reader.onerror = reject;
-					reader.readAsDataURL(blob);
-				}));
-		}`, favURL)
-
-		if err == nil {
-			// 结果是 data URL，需要去掉前缀
-			dataURL := res.Value.String()
-			if idx := strings.Index(dataURL, ","); idx != -1 {
-				faviconBase64 = dataURL[idx+1:]
-			}
-		}
-	}
-
-	// 10. 构造结果
-	// 获取网络信息快照 (Thread Safety)
-	respMutex.Lock()
-	finalStatusCode := statusCode
-	finalContentLength := contentLength
-	finalIP := remoteIP
-	finalPort := remotePort
-	finalHeaders := make(map[string]string)
-	for k, v := range respHeaders {
-		finalHeaders[k] = v
-	}
-	respMutex.Unlock()
-
-	// 兜底 IP/Port
-	if finalIP == "" {
-		// 尝试从 task 解析? 或者直接用 Target (如果是 IP)
-		// 这里留空，让 Master 端去 resolve 或者后续处理
-		// 为了满足契约，如果是 IP 形式的 Target，可以直接填
-		if isIP(task.Target) {
-			finalIP = task.Target
-		}
-	}
-	if finalPort == 0 {
-		// 优先尝试从 URL 中解析端口
-		if u, err := url.Parse(targetURL); err == nil {
-			if port := u.Port(); port != "" {
-				fmt.Sscanf(port, "%d", &finalPort)
-			} else {
-				// 如果 URL 没写端口，根据协议推断
-				if u.Scheme == "https" {
-					finalPort = 443
-				} else if u.Scheme == "http" {
-					finalPort = 80
-				}
-			}
-		}
-
-		// 如果还是 0，尝试从 task.PortRange 解析 (作为最后的兜底)
-		if finalPort == 0 && task.PortRange != "" {
-			// 只有当 PortRange 是单个端口时才采纳，避免 "80,443" 这种列表被解析为 80
-			if !strings.Contains(task.PortRange, ",") && !strings.Contains(task.PortRange, "-") {
-				fmt.Sscanf(task.PortRange, "%d", &finalPort)
-			}
-		}
-	}
-
-	// go-rod 路径的首页也统一走 buildWebResult 收口，不再自己重复一遍
-	// "构造 fingerprint.Input -> 匹配指纹 -> 组装 WebResult"的逻辑。
-	// RichContext 显式传入完整的 richCtx（含 DOM/JS 变量/Meta/Cookies），
-	// 这是 go-rod 路径相比 fallback/爬虫路径的核心优势，必须保留，否则
-	// 依赖这些字段的指纹规则会在这次收口重构后失效。
-	result := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
-		URL:           targetURL,
-		StatusCode:    finalStatusCode,
-		Title:         extractTitleFromCtx(richCtx),
-		Body:          pageBody,
-		Headers:       finalHeaders,
-		ContentLength: finalContentLength,
-		RichContext:   richCtx,
-		Screenshot:    screenshotBase64,
-		Favicon:       faviconBase64,
+	homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
+		URL: targetURL, Depth: 0, StatusCode: homeStatusCode, Title: homeTitle,
+		Body: homeBody, Headers: homeHeaders, ContentLength: homeContentLen, RichContext: homeRichCtx,
+		Forms: homeForms, Params: homeParams,
+		Screenshot: screenshotB64, Favicon: faviconB64,
 	})
+	results = append(results, homeResult)
+
+	// --- 是否触发深度爬取：三态判断，见 resolveCrawlDepth ---
+	depth := s.resolveCrawlDepth(task, homeStatusCode, homeHeaders, seedLinks)
+	if depth > 0 && len(seedLinks) > 0 {
+		cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter)
+		pages := cr.Crawl(ctx, targetURL, seedLinks)
+
+		s.escalateIfNeeded(ctx, cr, pages)
+
+		for _, p := range pages {
+			results = append(results, s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
+				URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode, Title: p.Title,
+				Body: p.Body, Headers: p.Headers, Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
+			}))
+		}
+	}
 
 	s.limiter.OnSuccess()
-	return []*model.TaskResult{result}, nil
+	return results, nil
+}
+
+// resolveIPPortForResult 把首页结果需要展示的 IP/Port 归拢成一个函数：优先用
+// go-rod 网络事件里拿到的真实远端 IP/Port（remoteIP/remotePort），拿不到
+// （比如走的是 fallback 路径，net/http 不会暴露底层连接的远端地址）就依次
+// 退化：Target 本身是 IP 就直接用；Port 从 targetURL 解析，解析不出来再从
+// task.PortRange 兜底（且只在 PortRange 是单个端口时采纳，避免 "80,443"
+// 这种列表被误解析成 80）。
+//
+// 这段逻辑在重构前是内联在 Run() 里的一段近 30 行的代码（现状第 275-306 行），
+// 抽成独立函数是因为 Sprint 5 里 finalIP/finalPort 现在要在 homeResult 和
+// 爬虫子页面结果之间共用，内联写法没法复用。
+func resolveIPPortForResult(task *model.Task, targetURL, remoteIP string, remotePort int) (ip string, port int) {
+	ip = remoteIP
+	if ip == "" && isIP(task.Target) {
+		ip = task.Target
+	}
+
+	port = remotePort
+	if port == 0 {
+		if u, errParse := url.Parse(targetURL); errParse == nil {
+			if p := u.Port(); p != "" {
+				fmt.Sscanf(p, "%d", &port)
+			} else if u.Scheme == "https" {
+				port = 443
+			} else if u.Scheme == "http" {
+				port = 80
+			}
+		}
+		if port == 0 && task.PortRange != "" &&
+			!strings.Contains(task.PortRange, ",") && !strings.Contains(task.PortRange, "-") {
+			fmt.Sscanf(task.PortRange, "%d", &port)
+		}
+	}
+	return ip, port
+}
+
+// extractFaviconFromPage 从已经导航完成的页面里取 favicon 并转成 base64。
+//
+// 这段逻辑在重构前是内联在 Run() 里的（现状第 234-260 行），抽成独立函数纯粹是
+// 为了让 Run() 主干的可读性不被这段和主流程无关的细节拖累，行为完全不变：
+// 用页面里探测到的 favicon_url，通过 page.Eval 执行一段 JS fetch，把结果
+// data URL 转成不带前缀的纯 base64 字符串。任何一步失败都返回空字符串，
+// 不影响调用方（favicon 是锦上添花的信息，不是关键路径）。
+func extractFaviconFromPage(page *rod.Page, richCtx map[string]interface{}) string {
+	favURL, ok := richCtx["favicon_url"].(string)
+	if !ok || favURL == "" {
+		return ""
+	}
+
+	res, err := page.Eval(`(url) => {
+		return fetch(url)
+			.then(response => response.blob())
+			.then(blob => new Promise((resolve, reject) => {
+				const reader = new FileReader();
+				reader.onloadend = () => resolve(reader.result); // data:image/png;base64,...
+				reader.onerror = reject;
+				reader.readAsDataURL(blob);
+			}));
+	}`, favURL)
+	if err != nil {
+		return ""
+	}
+
+	dataURL := res.Value.String()
+	if idx := strings.Index(dataURL, ","); idx != -1 {
+		return dataURL[idx+1:]
+	}
+	return ""
 }
 
 // normalizeURL 简单的 URL 规范化
@@ -430,56 +407,6 @@ func (s *WebScanner) ensureInit() {
 			logger.Warnf("[WebScanner] No fingerprint rules loaded")
 		}
 	})
-}
-
-// runFallback 是 Run() 主干里两处降级路径（浏览器启动失败 / 导航失败）共用的
-// 桥接函数：调用 fallbackFetch 完成抓取，再调用 buildWebResult 完成组装，
-// 拼成 Run() 现阶段仍然需要的 ([]*model.TaskResult, error) 返回形状。
-//
-// 为什么需要这一层桥接，而不是让 Run() 直接分别调用 fallbackFetch 和
-// buildWebResult 两个函数：Sprint 4 明确不改 Run() 的对外行为和主干结构
-// （那是 Sprint 5 的任务），Run() 里这两处调用点在重构前后都应该是
-// "一行代码换取一个完整结果"的形态，不应该在 Sprint 4 阶段就把 Run() 主干
-// 展开成多行组装代码——那样等于提前做了本该由 Sprint 5 做的主干重排，
-// 反而增加了这次改动的影响面。runFallback 只是把 "fetch + build" 这两步
-// 钉在一起，交换到 Run() 眼里和原来调用 fallbackScan 没有区别。
-func (s *WebScanner) runFallback(ctx context.Context, task *model.Task, targetURL string, startTime time.Time) ([]*model.TaskResult, error) {
-	body, headers, statusCode, title, _, err := s.fallbackFetch(ctx, targetURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Forms/Params 是首页攻击面信息，fallback 路径下顺手用已经抓到的 body 提取一遍，
-	// 和 crawler 包对子页面的处理方式保持一致，不让 fallback 路径的首页数据比
-	// 爬虫子页面的数据更"贫瘠"。这里没有直接用 fallbackFetch 已经返回的 links——
-	// 那是同一次 ExtractLinksAndForms 调用的另外两个返回值，本该一次拿全，
-	// 但 fallbackFetch 的签名（对齐实施文档，也是 Sprint 5 要复用的形状）只对外
-	// 暴露 links，不暴露 forms/params，所以这里只能就着 body 再解析一遍。
-	// 多付出的这次 DOM 解析成本，只发生在"浏览器不可用，降级到 fallback"这个
-	// 本就是异常路径的场景，不是每次扫描都要付出的代价，可以接受。
-	_, forms, params := crawler.ExtractLinksAndForms(targetURL, body)
-
-	finalIP := ""
-	finalPort := 0
-	if isIP(task.Target) {
-		finalIP = task.Target
-	}
-	if task.PortRange != "" {
-		fmt.Sscanf(task.PortRange, "%d", &finalPort)
-	}
-
-	result := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
-		URL:        targetURL,
-		StatusCode: statusCode,
-		Title:      title,
-		Body:       body,
-		Headers:    headers,
-		Forms:      forms,
-		Params:     params,
-	})
-
-	logger.Infof("[WebScanner] Fallback scan success for %s", targetURL)
-	return []*model.TaskResult{result}, nil
 }
 
 // fallbackFetch 当 Headless Browser 失败时，降级使用标准库 net/http 抓取首页原始数据。
@@ -672,4 +599,112 @@ func (s *WebScanner) buildWebResult(task *model.Task, startTime time.Time, ip st
 			Leaks:           pd.Leaks,
 		},
 	}
+}
+
+// decideCrawlDepth 基于首页免费信号自动判断是否需要深度爬取，返回 0 表示不爬。
+// 判断依据只有三个：状态码、Content-Type、种子链接数量，不引入任何需要额外网络
+// 请求的信号——自动决策的前提是"零额外成本"，否则决策本身就变成了新的负担。
+func decideCrawlDepth(statusCode int, contentType string, seedLinksCount int) int {
+	if statusCode >= 400 && statusCode != 401 && statusCode != 403 {
+		return 0 // 4xx/5xx 明确失败页面不爬，但 401/403 可能是"存在但需要认证"，仍值得看一眼
+	}
+	if !strings.Contains(strings.ToLower(contentType), "text/html") {
+		return 0 // 非 HTML（纯 JSON API、文件下载等）没有链接可爬
+	}
+	if seedLinksCount == 0 {
+		return 0 // 首页没有任何链接，没有 BFS 起点
+	}
+	return 2 // 默认深度 2
+}
+
+// resolveCrawlDepth 综合三态参数（task.Params["crawl"] 显式开启/显式关闭/未指定）
+// 与首页自动判断，得出最终爬取深度。三态优先级：显式参数 > 自动判断，这是
+// "用户明确表达的意图永远盖过系统的猜测"这条原则在爬虫开关上的落地。
+func (s *WebScanner) resolveCrawlDepth(task *model.Task, statusCode int, headers map[string]string, seedLinks []string) int {
+	enableCrawl, explicit := task.Params["crawl"].(bool)
+	switch {
+	case explicit && !enableCrawl:
+		return 0
+	case explicit && enableCrawl:
+		depth := 2
+		if d, ok := task.Params["crawl_depth"].(int); ok && d > 0 {
+			depth = d
+		}
+		return depth
+	default:
+		contentType := headers["Content-Type"]
+		return decideCrawlDepth(statusCode, contentType, len(seedLinks))
+	}
+}
+
+// defaultMaxEscalationPages 是单次扫描里允许被升级渲染的页面数上限。升级渲染要
+// 启动真实的 Headless Browser 打开页面，成本远高于 net/http 请求，架构方案 8.8.4
+// 节的成本账已经说明升级只应该发生在"极少数页面"身上；一旦某次扫描里需要升级的
+// 页面超过这个上限，更可能是识别逻辑对这个站点整体误判（比如整站都是同一种
+// 会触发误报的框架特征），继续升级只会成倍放大浏览器开销，不如干脆放弃，保留
+// net/http 抓到的原始内容。
+const defaultMaxEscalationPages = 10
+
+// escalateIfNeeded 对 BFS 爬到的页面里被 crawler 标记为"需要升级"的页面
+// （NeedsEscalation，见 crawler.go 的三层检测），用真实浏览器重新渲染一遍，
+// 把渲染后的正文和新发现的链接回填进爬虫，让 JS 渲染出来的内容也能被后续的
+// 指纹匹配、被动泄露检测覆盖到，新链接也能继续汇入 BFS。
+//
+// 这里的 for 循环是刻意串行渲染每个待升级页面（不是并发开多个浏览器 Tab）：
+// 升级是极少数页面的兜底路径，不值得为它单独设计并发控制，串行、简单、够用，
+// defaultMaxEscalationPages 已经把最坏情况锁定在个位数次串行渲染，量级可接受。
+func (s *WebScanner) escalateIfNeeded(ctx context.Context, cr *crawler.Crawler, pages []*crawler.Page) {
+	var toEscalate []*crawler.Page
+	for _, p := range pages {
+		if p.NeedsEscalation {
+			toEscalate = append(toEscalate, p)
+		}
+	}
+	if len(toEscalate) == 0 || len(toEscalate) > defaultMaxEscalationPages {
+		return
+	}
+
+	br, err := s.browserLauncher.Launch(ctx)
+	if err != nil {
+		logger.Warnf("[WebScanner] escalation skipped, browser launch failed: %v", err)
+		return
+	}
+
+	for _, p := range toEscalate {
+		renderedBody, renderedLinks, ok := s.renderWithBrowser(ctx, br, p.URL)
+		if !ok {
+			continue // 失败降级：保留原始 net/http 抓到的内容，不中断
+		}
+		p.Body = renderedBody
+		cr.EnqueueExtra(renderedLinks, p.Depth)
+	}
+}
+
+// renderWithBrowser 用给定的浏览器实例打开一个页面、等待加载、提取正文与链接。
+// 任何一步失败都返回 ok=false，调用方 escalateIfNeeded 会据此保留原始内容，
+// 不会因为升级失败导致这个页面的数据整个丢失。
+func (s *WebScanner) renderWithBrowser(ctx context.Context, br *rod.Browser, targetURL string) (body string, links []string, ok bool) {
+	page, err := s.browserLauncher.OpenPage(ctx, br, "")
+	if err != nil {
+		return "", nil, false
+	}
+	defer page.Close()
+
+	if err := page.Navigate(targetURL); err != nil {
+		return "", nil, false
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	_ = page.Context(waitCtx).WaitLoad() // 超时也继续尝试提取
+
+	richCtx, err := ExtractRichContext(page)
+	if err != nil {
+		return "", nil, false
+	}
+	body, _ = richCtx["body"].(string)
+	if body == "" {
+		return "", nil, false
+	}
+	links = ExtractLinks(page)
+	return body, links, true
 }

@@ -278,9 +278,16 @@ func (d *ServiceDispatcher) runWebScan(ctx context.Context, pCtx *PipelineContex
 				task.Params["protocol"] = proto
 			}
 
-			// 截图配置
+			// 截图配置 + 深度爬取配置（三态：显式 true/false 覆盖自动判断，
+			// 未指定则不写 key，交给 WebScanner.resolveCrawlDepth 自动判断）
 			if d.opts != nil {
 				task.Params["screenshot"] = d.opts.WebScreenshot
+				if d.opts.WebCrawl != nil {
+					task.Params["crawl"] = *d.opts.WebCrawl
+				}
+				if d.opts.WebCrawlDepth > 0 {
+					task.Params["crawl_depth"] = d.opts.WebCrawlDepth
+				}
 			} else {
 				task.Params["screenshot"] = false // 默认关闭
 			}

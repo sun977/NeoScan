@@ -1,0 +1,31 @@
+[
+  {
+    "task_id": "",
+    "status": "success",
+    "result": {
+      "url": "http://127.0.0.1:18080",
+      "ip": "127.0.0.1",
+      "port": 18080,
+      "title": "Home",
+      "status_code": 200,
+      "content_length": 247,
+      "headers": {
+        "Content-Length": "247",
+        "Content-Type": "text/html; charset=utf-8",
+        "Date": "Fri, 31 Jul 2026 12:52:39 GMT"
+      },
+      "forms": [
+        {
+          "action": "/login",
+          "method": "POST",
+          "fields": [
+            "user",
+            "pass"
+          ]
+        }
+      ]
+    },
+    "executed_at": "2026-07-31T20:52:39.1968244+08:00",
+    "completed_at": "2026-07-31T20:52:40.0427926+08:00"
+  }
+]

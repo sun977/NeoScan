@@ -14,6 +14,7 @@ import (
 func NewRunScanCmd() *cobra.Command {
 	// 使用 Core Options
 	opts := options.NewScanRunOptions()
+	var webCrawl string // 局部变量，三态字符串，不能直接绑定到 opts.WebCrawl（*bool）
 
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -26,6 +27,17 @@ func NewRunScanCmd() *cobra.Command {
   neoAgent scan run -t 10.0.0.1 --brute
   neoAgent scan run -t 10.0.0.1 --brute --users root,admin --pass 123456`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// 三态字符串解析为 *bool，必须在 opts.Validate() 之前完成
+			switch webCrawl {
+			case "true":
+				v := true
+				opts.WebCrawl = &v
+			case "false":
+				v := false
+				opts.WebCrawl = &v
+			// "auto" 或其他值：opts.WebCrawl 保持 nil，交给自动判断
+			}
+
 			if err := opts.Validate(); err != nil {
 				return err
 			}
@@ -76,6 +88,8 @@ func NewRunScanCmd() *cobra.Command {
 	// Web 参数
 	flags.BoolVar(&opts.NoWeb, "no-web", false, "禁用 Web 指纹扫描")
 	flags.BoolVar(&opts.WebScreenshot, "screenshot", false, "启用 Web 截图 (默认关闭)")
+	flags.StringVar(&webCrawl, "crawl", "auto", "是否启用深度爬取: auto(默认，自动判断)/true/false")
+	flags.IntVar(&opts.WebCrawlDepth, "crawl-depth", 2, "爬取深度（仅 --crawl=true 时生效）")
 
 	return cmd
 }

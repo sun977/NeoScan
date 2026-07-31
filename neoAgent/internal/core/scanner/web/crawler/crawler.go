@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -339,18 +340,68 @@ func (c *Crawler) fetchAndExtract(ctx context.Context, it *item) (*Page, []strin
 	// 直接对原始 HTML 全文做正则扫描，不会有这个问题。
 	leaks := DetectLeaks(body)
 
+	// 三层检测（架构方案 8.8.2/8.8.3 节）：识别这个页面是不是"看起来抓到了，
+	// 实际内容是空的"——常见于纯 JS 跳转的中间页、或者 SPA 首屏骨架。这两种
+	// 情况下 net/http 抓到的 body 对指纹匹配/泄露检测/表单提取都没有意义，
+	// 需要交给 escalateIfNeeded 用真实浏览器重新渲染一遍。HTTP 3xx 跳转这
+	// 一层由 http.Client 的默认重定向行为处理，这里不需要重复实现。
+	needsEscalation, escalationReason := detectEscalation(body)
+
 	page := &Page{
-		URL:        it.URL,
-		Depth:      it.Depth,
-		StatusCode: resp.StatusCode,
-		Title:      extractTitle(body),
-		Body:       body,
-		Headers:    headers,
-		Forms:      forms,
-		Params:     params,
-		Leaks:      leaks,
+		URL:              it.URL,
+		Depth:            it.Depth,
+		StatusCode:       resp.StatusCode,
+		Title:            extractTitle(body),
+		Body:             body,
+		Headers:          headers,
+		Forms:            forms,
+		Params:           params,
+		Leaks:            leaks,
+		NeedsEscalation:  needsEscalation,
+		EscalationReason: escalationReason,
 	}
 	return page, links, true
+}
+
+// jsRedirectPattern 匹配常见的 JS 跳转写法（location.href/replace/assign 赋值、
+// window.location 赋值），只在页面很小（< 1KB）时才判定为"跳转型中间页"，避免
+// 把"页面里某处业务逻辑用到了 location.href"的正常大页面也误判。
+//
+// spaRootPattern 匹配 SPA 常见的挂载点写法（id="root"/"app" 且标签内容为空），
+// 只是命中这个正则还不能断定是空壳——很多 SSR 的 React/Vue 应用也用同样的
+// 挂载点写法，但服务端已经把内容渲染进去了，不会是空标签。真正的判断在
+// isSPAShell 里：命中挂载点正则之后，还要求"去掉 script/style 标签后剩下的
+// 可见文本少于 200 字符"，两个条件同时满足才是真正的空壳（对应 7.4 节
+// TestDetectEscalation_NoFalsePositiveOnNormalReactApp 要防止的误报场景）。
+var (
+	jsRedirectPattern = regexp.MustCompile(`(?i)(location\.(href|replace|assign)\s*=|window\.location\s*=)`)
+	spaRootPattern    = regexp.MustCompile(`(?i)<div[^>]+id=["'](root|app)["'][^>]*>\s*</div>`)
+	tagStripPattern   = regexp.MustCompile(`(?is)<(script|style)[^>]*>.*?</(script|style)>`)
+	htmlTagPattern    = regexp.MustCompile(`(?is)<[^>]+>`)
+)
+
+// detectEscalation 判断一个页面是否需要用真实浏览器升级渲染。
+func detectEscalation(body string) (needs bool, reason string) {
+	if isJSRedirect(body) {
+		return true, "js_redirect"
+	}
+	if isSPAShell(body) {
+		return true, "spa_shell"
+	}
+	return false, ""
+}
+
+func isJSRedirect(body string) bool {
+	return len(body) < 1024 && jsRedirectPattern.MatchString(body)
+}
+
+func isSPAShell(body string) bool {
+	if !spaRootPattern.MatchString(body) {
+		return false
+	}
+	stripped := tagStripPattern.ReplaceAllString(body, "")
+	visibleText := htmlTagPattern.ReplaceAllString(stripped, "")
+	return len(strings.TrimSpace(visibleText)) < 200
 }
 
 // extractTitle 从 HTML 文本里取出 <title> 标签内的文字，用作 Page.Title。

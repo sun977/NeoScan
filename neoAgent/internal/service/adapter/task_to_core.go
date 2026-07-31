@@ -85,8 +85,13 @@ func (t *TaskTranslator) ToCoreTask(ct *clientModel.Task) (*model.Task, error) {
 
 	case "web_scan", "webScan":
 		coreTask.Type = model.TaskTypeWebScan
-		coreTask.Params["crawl"] = true
 		coreTask.Params["method"] = "GET"
+		// 不再写死 coreTask.Params["crawl"] = true。
+		// 若 Master 下发的任务里携带了爬虫相关的显式参数，会在上面第 3 步
+		// "合并 Meta 到 Params" 时随 meta 一起透传进来；若当前 Master 协议
+		// 尚未定义对应字段，这里不写 crawl，效果是这条路径自然落入
+		// WebScanner.resolveCrawlDepth 的 default 分支（自动判断），
+		// 与 CLI 任务的决策路径保持统一。
 
 	case "api_scan", "apiScan":
 		coreTask.Type = model.TaskTypeWebScan

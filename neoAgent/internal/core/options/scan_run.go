@@ -18,8 +18,10 @@ type ScanRunOptions struct {
 	BrutePass   string // --pass
 
 	// Web 扫描相关选项
-	NoWeb         bool // --no-web (默认自动扫描 Web，此标志用于禁用)
-	WebScreenshot bool // --screenshot (默认关闭，需显式开启)
+	NoWeb         bool  // --no-web (默认自动扫描 Web，此标志用于禁用)
+	WebScreenshot bool  // --screenshot (默认关闭，需显式开启)
+	WebCrawl      *bool // nil = 未指定，交给自动判断；非 nil = 用户显式指定
+	WebCrawlDepth int
 }
 
 func NewScanRunOptions() *ScanRunOptions {

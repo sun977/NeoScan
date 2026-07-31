@@ -114,15 +114,16 @@ neoAgent/
 
 ### 阶段五：深度探测与漏洞扫描 (Deep Recon & Vulnerability Scanning) —— **Exploitation**
 **目标**: 补齐 Web 深度信息收集、真正的漏洞扫描引擎以及主动暴露面试探能力。
-**状态**: 🏃 **进行中**
+**状态**: 🏃 **进行中**（5.1 已完成，5.2/5.3 待启动）
 
-- [ ] **5.1 Web 扫描深度增强 (Web Crawler & Passive Analyzer)** — 🏃 **进行中，详细拆分见** [`docs/爬虫/Web爬虫与被动分析器实施文档-v1.0.md`](./爬虫/Web爬虫与被动分析器实施文档-v1.0.md)：
+- [x] **5.1 Web 扫描深度增强 (Web Crawler & Passive Analyzer)** — 🟢 **已完成，Sprint 0-6 全部收尾**，详细拆分见 [`docs/爬虫/Web爬虫与被动分析器实施文档-v1.0.md`](./爬虫/Web爬虫与被动分析器实施文档-v1.0.md)：
     - [x] **Sprint 0**：依赖引入 (`goquery`) + `crawler` 包骨架 + `WebResult` 新增字段 (`Depth/Forms/Params/Leaks`)。
     - [x] **Sprint 1**：`crawler` 核心 BFS 爬取引擎（并发 worker、去重、深度/页数上限，`-race` 检测通过，无死锁）。
     - [x] **Sprint 2**：攻击面提取 `extract.go`（链接/表单/URL 参数，基于 `goquery`）。
     - [x] **Sprint 3**：被动泄露检测 `leak.go`（AK/SK、JWT、内网 IP 正则规则 + 脱敏）。
     - [x] **Sprint 4**：`web_scanner.go` 收口重构（`fallbackScan` → `fallbackFetch` + `buildWebResult` 统一收口，零功能回归）。
-    - [ ] **Sprint 5**：三处接入点改造 (`scan_web.go`/`scan_run.go`/`dispatcher.go`/`task_to_core.go`) + 自动决策 (`decideCrawlDepth`) + 按需浏览器升级 (`escalateIfNeeded`) + 端到端联调。
+    - [x] **Sprint 5**：三处接入点改造 (`scan_web.go`/`scan_run.go`/`dispatcher.go`/`task_to_core.go`) + 自动决策 (`decideCrawlDepth`/`resolveCrawlDepth`) + 按需浏览器升级 (`escalateIfNeeded`/`renderWithBrowser`) + 端到端联调。
+    - [x] **Sprint 6**：多端口并发探测 + 协议自适应双发选优（真实站点测试驱动发现并修复的原生缺陷：`--ports` 范围字符串未真正多端口探测、协议猜错后无纠错机会、go-rod 路径误将协议不匹配的 400 当成扫描成功）。
 - [ ] **5.2 漏洞扫描原子能力落地 (Vuln Scanner)**:
     - [ ] 封装 Nuclei 执行引擎 (`internal/core/scanner/vuln`)。
     - [ ] 根据 WebScanner 识别出的技术栈动态过滤 Nuclei 模板。

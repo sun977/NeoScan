@@ -91,6 +91,88 @@ convertMatchesToTechStack(matches) → WebResult.TechStack []string
 
 也就是说，就算规则命中了"这是 Nginx"，也不知道是 Nginx 1.18 还是 1.24——而版本号往往才是判断"是否存在已知 CVE"的关键输入，直接决定了后续 Phase 5.2 漏洞扫描（Nuclei 定向打击）能不能做到精准。
 
+#### 3.2.1 能不能只改规则文件不改代码？—— 不能，原因很具体
+
+一个很自然的想法：规则文件是平铺 JSON，字段种类和个数看起来不受限，那是不是直接在 `web_fingerprints.json` 的 Nginx 规则里加一个 `"version_pattern": "nginx/([\\d.]+)"` 字段就能让版本号出现在结果里？
+
+答案是不能，原因不在"规则能不能加字段"，而在于**规则文件加载后要落到一个写死的 Go 结构体上**：
+
+```5:20:neoAgent/internal/pkg/fingerprint/model/rule.go
+type FingerRule struct {
+	Name       string `json:"name"`
+	StatusCode string `json:"status_code"`
+	URL        string `json:"url"`
+	Title      string `json:"title"`
+	Subtitle   string `json:"subtitle"`
+	Footer     string `json:"footer"`
+	Header     string `json:"header"`
+	Response   string `json:"response"`
+	Server     string `json:"server"`
+	XPoweredBy string `json:"x_powered_by"`
+	Body       string `json:"body"`
+	Match      string `json:"match"`
+	Enabled    bool   `json:"enabled"`
+	Source     string `json:"source"`
+}
+```
+
+`FingerRule` 里没有 `VersionPattern` 字段，`encoding/json.Unmarshal` 遇到 JSON 里的未知键值对会**静默丢弃**（不报错、不警告），规则文件里加的那行字纯粹是摆设，根本进不了内存。
+
+就算退一步假设这个字段加上了，链路上还有两道硬编码的墙拦着：
+
+1. **`compileRule`** 只认识自己手写过 `if rule.XXX != ""` 判断的字段，不认识的字段直接被忽略，不会参与匹配条件编译。
+2. **`Match()` 命中之后的字段赋值**是写死的固定列表（`Product/Vendor/Type/CPE/Confidence/Source`），`Version` 根本不在赋值范围内，就算前面两道墙都跨过去，命中之后也没人去跑什么正则、没人给 `Version` 赋值。
+
+结论：**匹配条件（是否命中规则）是数据驱动的，可以只改 JSON；但"结果提取"（命中之后再从数据里抠一个值出来）目前整个引擎里完全没有这个环节，属于代码能力缺失，绕不开改代码。**
+
+#### 3.2.2 改代码时容易踩的坑：为每种提取需求加一个专属字段
+
+如果决定要改代码，最直觉的做法是照着 `version_pattern` 的思路，缺什么加什么字段。但这个思路本身有陷阱：今天要提取版本号加 `version_pattern`，明天要提取发行时间就得再加 `release_date_pattern`，后天要提取构建号又得加 `build_number_pattern`……`FingerRule` 结构体会跟着诉求线性膨胀，`compileRule` 里的 `if` 分支也会跟着无限堆叠。这是**"头痛医头"式的补丁模式**，每加一种新的提取诉求都要重新发布 Agent 二进制，长期看维护成本很高，应当尽量避免。
+
+#### 3.2.3 更好的方向：把"提取"做成一个通用能力，而不是一堆专属字段
+
+版本号、发行时间、构建号……这些诉求有一个共同本质：**命中规则之后，从某个字段里用正则抠一个值出来，存到一个有名字的槽位里**。抠什么、存到哪，应该是规则里的**数据**，不应该表现为 Go 结构体里新增的字段名。
+
+对应的设计是给 `FingerRule` **只加一次**通用字段：
+
+```json
+{
+  "name": "Nginx",
+  "header": "Server: nginx",
+  "extract": [
+    { "field": "server", "pattern": "nginx/([\\d.]+)", "as": "version" }
+  ],
+  "enabled": true
+}
+```
+
+未来如果某条规则要同时提版本号和发行时间，是在 `extract` 数组里加一条，不是在结构体里加字段：
+
+```json
+{
+  "name": "SomeServer",
+  "extract": [
+    { "field": "server", "pattern": "SomeServer/([\\d.]+)", "as": "version" },
+    { "field": "body", "pattern": "Build Date: ([\\d-]+)", "as": "release_date" }
+  ]
+}
+```
+
+代码侧只需要改一次：`compileRule` 不需要感知 `extract` 的具体内容，原样透传到 `CompiledRule.Original.Extract` 上即可；`Match()` 命中之后加一段**通用循环**，遍历 `Extract` 数组，对指定字段跑指定正则，把捕获组塞进结果的对应槽位。这段代码写死一次之后，后续无论想提取什么新字段，都只需要改 JSON 规则，不需要再碰 Go 代码、不需要重新发布 Agent。
+
+#### 3.2.4 两种方案的优劣对比
+
+| 维度 | 方案 A：专属字段（`version_pattern`/`release_date_pattern`/...） | 方案 B：通用提取器（`extract` 数组） |
+|---|---|---|
+| 首次实现成本 | 低，只解决版本号这一个诉求，改动最小 | 略高，需要多设计一层数组结构和通用循环 |
+| 新增一种提取诉求的成本 | 高，每次都要加字段 + 改 `compileRule` + 改 `Match()`，必须重新发布 Agent | 极低，只改 JSON 规则文件，Agent 二进制不用动 |
+| 规则文件可读性 | 字段名直接（`version_pattern` 一看就懂） | 需要理解 `field/pattern/as` 三元组的约定，略绕 |
+| 长期可维护性 | 差，字段和 if 分支会随需求线性膨胀，是技术债 | 好，一次投入，长期免改代码，符合"消除特殊情况"的设计原则 |
+| 与 Wappalyzer/Goby 规则转换的兼容性 | 差，专属字段名和第三方格式对不上，转换器要为每种字段单独写映射 | 好，第三方规则的版本提取语法（如 Wappalyzer 的 `\1` 占位符）可以统一转换成 `extract` 数组的形式，转换器逻辑更收敛 |
+| 结果存放位置 | 版本号可以直接复用 `fingerprint.Match.Version` 现成字段 | 如果 `as` 的值不是 `version`（比如 `release_date`），`Match` 结构体目前没有现成字段承接，需要额外补一个 `Extra map[string]string` 兜底槽位 |
+
+【核心判断】✅ 如果只解决"版本号"这一个具体诉求、且能确定未来不会有第二种提取需求，方案 A 更快；但既然已经预见到"今天版本号、明天发行时间"这种诉求会持续出现，应该直接做方案 B，一次把"提取"这个能力做成通用循环，避免陷入"一个需求加一次代码、加一次发布"的循环。这也是本文档 2.2 节里提到的匹配引擎"数据驱动、消除特殊情况"设计理念的延续，规则数据的可扩展性不应该止步于"是否命中"，也要覆盖"命中后提取什么"。
+
 ### 3.3 CPE 是假的
 
 ```263:266:neoAgent/internal/pkg/fingerprint/engines/http/http_engine.go
@@ -176,7 +258,8 @@ Agent 侧当前的规则加载逻辑（`web_scanner.go` 的 `ensureInit`）是�
 
 ### 优先级 P2：补齐版本号提取 + 修正 CPE 生成
 
-- 在规则 Schema 中增加"版本提取正则"字段（类似 nmap-service-probes 的 `version_pattern`），命中后从 Body/Header 中截取版本号回填到 `Match.Version`
+- 在规则 Schema 中增加**通用提取器**字段（详见 3.2.3/3.2.4 节的方案 B：`extract: [{field, pattern, as}]` 数组结构），而不是每种提取诉求单独加一个专属字段（如 `version_pattern`）；命中规则后由引擎跑一段通用循环，把捕获组回填到 `Match.Version` 或未来的 `Match.Extra` 兜底槽位
+- 选择通用提取器而非专属字段的原因：版本号只是第一个诉求，后续大概率还会出现"发行时间""构建号"等类似提取需求，专属字段模式每次都要改结构体 + 改 `compileRule` + 改 `Match()` + 重新发布 Agent，通用提取器模式做一次之后只需要改 JSON 规则文件
 - `generateCPE` 需要一张 vendor/product 映射表（不能简单地把 product 名称塞两次），可以复用 NVD 官方 CPE 字典做产品名到标准 vendor/product 的映射
 - 这一项建议和 Phase 5.2（Nuclei 定向打击）一起规划，因为 Nuclei 的模板匹配强依赖准确的 product+version，单独做意义有限
 

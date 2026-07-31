@@ -1,10 +1,12 @@
-# NeoScan Web 爬虫与被动分析器实施文档 v1.0
+# NeoScan Web 爬虫与被动分析器实施文档 v1.1
 
 > 本文档是 `Web爬虫与被动分析器架构方案-sonnet5-v3.0.md`（以下简称"架构方案"）的**唯一施工图纸**。架构方案负责回答"为什么这么设计"，本文档只负责回答"具体改哪个文件、哪一行、写成什么样、怎么验收"。
 >
 > **约定**：本文档中所有"现状代码"均已于撰写时逐行核实（文件路径、行号、函数签名），不是从架构方案的伪代码直接照抄。如果实施过程中发现现状与本文档描述不一致（比如行号因为其他改动漂移），以现状代码为准，但改动的**结构和顺序**必须遵守本文档，不允许自由发挥架构。
 >
 > **文档定位**：Sprint 0-5 共 6 个阶段，每个阶段给出「改动文件清单 → 新增/修改的函数签名 → 详细步骤 → 验收标准（含具体命令）→ 本阶段结束时代码必须能编译通过」。**开发严禁跳跃阶段**——Sprint N 的代码必须先跑通验收标准，才能开始 Sprint N+1，因为后面每个阶段都依赖前面阶段产出的真实类型（不是接口占位）。
+>
+> **v1.1 变更说明（2026-07-31）**：Sprint 0-5（Phase 5.1）已全部验收完毕并投入真实站点测试。测试过程中发现两个 `Run()` 主流程的原生缺陷（不是新需求，是现有代码一直存在但没暴露的 bug），追加 **Sprint 6：多端口探测与协议自适应** 修复，详见第七节之后新增的章节。
 
 ---
 
@@ -55,11 +57,13 @@ flowchart LR
     S1 --> S3
     S3 --> S4["Sprint 4<br/>web_scanner.go 收口重构<br/>(fallbackFetch/buildWebResult)"]
     S4 --> S5["Sprint 5<br/>三处接入点 + 自动决策 + 按需升级联调"]
+    S5 --> S6["Sprint 6<br/>多端口探测 + 协议自适应<br/>(真实站点测试后追加)"]
 ```
 
 - Sprint 2、3 都依赖 Sprint 1 产出的 `crawler.Page`/`crawler.Crawler` 类型，但 2、3 之间互相独立，可以并行开发（都只是往 `Page` 上追加字段的纯函数）。
 - Sprint 4 **不依赖** Sprint 1-3 的任何代码，只重构 `web_scanner.go` 内部现有逻辑，理论上可以和 Sprint 1-3 并行，但由于 Sprint 5 要把 Sprint 1-4 的产出粘合在一起，建议按顺序做，避免合并冲突。
 - Sprint 5 是唯一的集成点，前面所有 Sprint 都不改 `web_scanner.go` 的对外行为（Sprint 4 只做内部收口，不改 `Run()` 的输入输出契约）。
+- Sprint 6 依赖 Sprint 5 已经稳定的 `Run()` 主干（首页收口 → 决策 → BFS → 按需升级），是在这条主干**外层**包一层"多端口循环"、在 `fallbackFetch` 失败路径上补一次"协议翻转重试"，不改动 Sprint 1-5 内部任何一行已验收代码，属于纯增量。
 
 ---
 
@@ -1435,6 +1439,118 @@ go test ./... -race
 
 ---
 
+## 七之二、Sprint 6：多端口探测与协议自适应（1-1.5 天）
+
+### 7a.0 背景：两个真实缺陷，均由 Sprint 5 之后的真实站点测试发现
+
+这两个问题**不是新需求**，是 `Run()` 现有代码里一直存在、Sprint 0-5 的单元测试没有覆盖到的真实 bug，测试用的都是 `httptest.NewServer`（单端口、单协议），没有覆盖"一个目标同时有 HTTP/HTTPS 两个独立服务"或"协议猜错"这两种场景，所以之前没暴露。
+
+**缺陷一：`--ports` 传范围字符串时，`WebScanner` 从未真正探测多个端口**
+
+`internal/core/options/scan_web.go` 第 22 行，`WebScanOptions` 默认 `Ports: "80,443"`——也就是说**不加任何参数的最基础用法**，`task.PortRange` 拿到的就是字符串 `"80,443"`。但 `web_scanner.go` 第 99 行 `targetURL := normalizeURL(task.Target, task.PortRange, protocolHint)` 把这个字符串原样传给 `normalizeURL`，而 `normalizeURL`（第 307-337 行）内部全部是对 `port` 参数做**精确字符串比较**（`port != "80"`、`switch port { case "443": ... }`），整串 `"80,443"` 既不等于 `"80"` 也不等于 `"443"`，也不会命中 `switch` 里任何一个 `case`，于是：
+- 第 314 行 `host = target + ":" + port` 会把 host 拼成非法的 `target:80,443`（如果 `target` 本身没带冒号）
+- 第 327 行 `switch port` 永远落进 `default` 分支，返回 `http://`
+
+净效果：**`Run()` 从头到尾只探测一个（大概率还是错误猜测出来的）URL，产出一份结果**，`--ports` 参数形同虚设。真实验证过程：`https://www.baidu.com`（默认走 443）能扫到，是因为凑巧走的是 `strings.HasPrefix(target, "https://")` 那个提前 return 分支（用户在 `-t` 里直接带了完整协议），不代表 `"80,443"` 这个范围字符串被正确解析过。
+
+**缺陷二：非标准端口猜错协议后，没有任何纠错机会**
+
+`normalizeURL` 第 332-335 行自己的注释已经承认：「其他端口默认为 http，如果失败，Scanner 内部其实很难再自动切 https」。真实测试命中过这个缺陷：对 `10.201.28.126:9000`（实际是 HTTPS 服务）不显式指定协议时，`normalizeURL` 猜成 `http://`，请求发过去后拿到的是 nginx 返回的 `400 The plain HTTP request was sent to HTTPS port`——**这是一次拿到了响应但协议不对**的场景；而如果目标是"HTTPS 打到一个只监听 HTTP 明文的端口"或者"目标端口防火墙丢包"，则完全拿不到任何响应（超时/`EOF`/`connection reset`），错误文本因平台、Go 版本、对端实现而完全不一致，**不能靠 `strings.Contains` 匹配错误文案来判断"是不是猜错协议了"**，这种方案在目标沉默失败时必然漏判。
+
+### 7a.1 改动文件清单
+
+| 文件 | 操作 |
+|---|---|
+| `internal/core/scanner/web/web_scanner.go` | `Run()` 拆分出 `runOnePort` 私有方法；新增端口范围解析、多端口并发编排逻辑；`fallbackFetch` 失败路径新增协议翻转重试 |
+| `internal/core/scanner/web/web_scanner_multiport_test.go` | 新增：多端口场景（同一目标 80 + 443 各自独立服务）覆盖测试 |
+| `internal/core/scanner/web/web_scanner_protocol_test.go` | 新增：协议翻转重试的触发/不触发边界测试 |
+
+**不改动的文件（明确排除，避免范围蔓延）**：`crawler/` 包下所有文件（Sprint 1-3 产出）、`buildWebResult`/`resolveCrawlDepth`/`escalateIfNeeded`（Sprint 4-5 产出）。Sprint 6 只改 `Run()` 这一层编排逻辑，不碰下游已验收的能力。
+
+### 7a.2 设计一：多端口探测——`Run()` 拆分为"编排层 + 单端口执行层"
+
+**核心判断**：不重新发明端口范围解析，直接复用 `internal/core/scanner/port_service/nmap_service` 包已有的 `ParsePortList(s string) []int` 函数（支持 `"80,443"`、`"1-100"`、`"top100"/"top1000"` 别名，逐行核实过，见该包 `parser.go` 第 181 行）。这是"好品味"的具体体现：现成的、已经过测试的解析逻辑就在旁边的包里，没有理由为 `WebScanner` 重新写一份端口范围解析正则。
+
+**新签名**：
+
+```go
+// runOnePort 是 Sprint 0-5 里 Run() 函数体的原样内容（去掉最外层的 QoS Acquire/Release，
+// 那部分现在只需要在 Run() 里做一次，不需要每个端口重复获取令牌），
+// 输入变成"已经确定好协议+端口的完整 URL"，输出是这个端口对应的完整结果集
+// （首页结果 + 该端口触发的 BFS 子页面结果，如果有）。
+func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, targetURL string, startTime time.Time) ([]*model.TaskResult, error)
+
+// Run 变成纯编排：解析端口列表 -> 对每个端口算出 targetURL -> 并发调用 runOnePort -> 汇总
+func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*model.TaskResult, err error)
+```
+
+**`Run()` 编排逻辑步骤**：
+
+1. QoS `Acquire`/`ensureInit` 保持在 `Run()` 顶层只做一次，不要每个端口重复获取限流令牌（否则并发数会失控——`s.limiter` 本来就是"整个扫描器的资源保护阀"，不是"每个端口各自的"）。
+2. 用 `nmap_service.ParsePortList(task.PortRange)` 解析出端口列表；如果解析结果为空（比如 `task.PortRange` 本身是空字符串），按 Sprint 0-5 现状行为兜底：只探测一次、端口交给 `normalizeURL` 自己判断（保持向后兼容，不让老的调用方式报错）。
+3. 对端口列表去重（`ParsePortList` 不保证输入不重复，比如用户手滑传 `"80,80,443"`）。
+4. 每个端口调用一次 `normalizeURL(task.Target, port, protocolHint)` 算出各自的 `targetURL`。
+5. 多个端口之间**并发**执行 `runOnePort`（用 `sync.WaitGroup` + 收集结果的 `mutex` 保护的 slice，或者 `errgroup`，具体选型看项目现有并发风格是否已有偏好，`crawler.go` 用的是原生 `sync.WaitGroup`，本 Sprint 保持一致不引入新依赖），每个端口内部仍然受 `s.limiter` 统一限流。
+6. 单个端口的 `runOnePort` 失败（返回 `error`）**不能让其他端口的结果也丢失**——这是"一个目标多个独立 Web 服务"场景下的核心正确性要求：80 端口探测失败不该连累 443 端口的正确结果消失。因此 `Run()` 汇总时，对每个端口的 `(results, err)` 分别处理：`err != nil` 只记录日志（`logger.Warnf`），不中断其他端口，也不让整个 `Run()` 返回 error；只有**所有端口全部失败**时，`Run()` 才返回 error（把最后一个错误或者用 `errors.Join` 拼接的错误返回给调用方，具体哪种方式实现时再定，原则是不能吞掉所有错误信息）。
+
+**必须覆盖的测试场景**（`web_scanner_multiport_test.go`）：
+
+- `TestRun_MultiPort_BothServicesReachable`：起两个 `httptest.NewServer`（模拟同一目标的 80 和 443 两个独立服务，内容不同），断言 `Run()` 返回的结果里两个端口的内容都存在，互不覆盖。
+- `TestRun_MultiPort_OneUnreachable`：两个端口中一个正常、一个直接拒绝连接，断言正常端口的结果仍然完整返回，不因为另一个端口失败而丢失。
+- `TestRun_MultiPort_EmptyPortRange`：`task.PortRange` 为空字符串时，行为与 Sprint 5 现状完全一致（回归测试，防止本次改动破坏老的调用方式，比如 `task_to_core.go` 如果有不传端口范围的调用路径）。
+- `TestRun_MultiPort_DuplicatePorts`：`task.PortRange = "80,80,443"`，断言 80 端口只被探测一次（结果里不会出现两条重复的 80 端口结果）。
+
+### 7a.3 设计二：协议自适应——仅在"确认无响应"时翻转协议重试一次
+
+**核心判断（已与用户对齐两轮，收窄到最终版本）**：判断依据不能是"错误文本里有没有某个特征字符串"（脆弱，依赖对端实现，目标沉默失败时完全失效），必须是"传输层连接有没有建立成功"这个 Go 标准库自身就能提供的、平台无关的结构化信号。
+
+**触发条件（必须同时满足，缺一不可）**：
+
+1. 这个端口的协议是"猜"出来的，不是用户显式指定的（即调用 `normalizeURL` 时 `protocolHint == ""`，走的是内部 `switch port` 默认猜测分支）。
+2. go-rod 路径和 `fallbackFetch` 路径都失败，且失败原因发生在**应用层握手/协议不匹配阶段**，而不是**TCP 连接阶段**——用 `errors.As` 判断：
+   - 如果错误是 `*net.OpError` 且 `Op == "dial"`：说明 TCP 三次握手都没完成（端口没监听/网络不通/防火墙拒绝），这种情况**不重试**，换协议也连不上同一个端口，重试是浪费一次完整超时时间。
+   - 如果 TCP 连接已建立，但后续在 TLS 握手阶段失败（错误类型是 `tls.RecordHeaderError`，或者 `*net.OpError` 里 `Op` 是 `"read"`/`"remote error"` 这种发生在读数据阶段的错误），说明"端口是通的，但对端不认识我们发送的协议"——这才是**值得翻转协议重试**的场景。
+3. 满足以上两条，才把 `targetURL` 的 scheme 翻转（`http://` ↔ `https://`），只调用一次 `fallbackFetch` 重试（不需要重新走一遍 go-rod，翻转重试的目的只是"验证协议对不对"，用成本更低的 `net/http` 验证即可；如果 `fallbackFetch` 翻转后成功，直接采用这次的数据组装结果）。
+
+**必须遵守的边界（明确排除，避免过度设计）**：
+
+- 只翻转重试**一次**，翻转后依然失败就正常走现有报错路径，不允许二次翻转（会形成 `http→https→http→...` 的无意义循环）。
+- 不对"TCP 层都没连上"的情况做翻转重试——目标机器根本不可达时，换协议也无济于事，徒增一倍超时等待。
+- 不引入 httpx 那种"HTTP/HTTPS 无条件都探测一遍"的模式（见 `docs/爬虫/httpx与xray参考价值评估.md`），那是批量扫描器为了消除输入歧义而接受的双倍开销，与 NeoScan 单目标高成本扫描（可能启动浏览器、触发 BFS）的定位不匹配。
+- 翻转重试成功后，`homeResult.URL` 必须使用翻转后真正成功的协议，不能让最终结果里协议字段和实际抓取来源的协议对不上；同时用 `logger.Warnf` 记录一条"自动纠正协议：原猜测 X，实际为 Y"，保持对用户透明，不做静默黑魔法。
+- BFS 子页面爬取阶段（`crawler.Crawl`）**不需要**同样的协议翻转逻辑——子页面链接是从已成功抓取的页面里提取出的绝对/相对 URL，协议信息是明确的，不存在"猜"的环节，此处硬加纯属过度设计。
+
+**必须覆盖的测试场景**（`web_scanner_protocol_test.go`）：
+
+- `TestProtocolFallback_HTTPGuessedButHTTPSOnly_Retries`：起一个只监听 TLS 的 `httptest.NewTLSServer`，构造一个会被 `normalizeURL` 猜成 `http://` 的端口场景（比如非常规端口号），断言最终结果是通过翻转到 `https://` 后成功拿到的。
+- `TestProtocolFallback_ExplicitProtocolHint_NeverRetries`：`task.Params["protocol"]` 显式传了值，即使猜测的协议连接失败，也不应该触发翻转重试（因为触发条件第 1 条不满足）。
+- `TestProtocolFallback_TCPUnreachable_NeverRetries`：目标端口直接拒绝连接（`net.Dial` 阶段失败），断言不会触发翻转重试，且总耗时不应该出现"两倍超时"的现象（可以用 `time.Since` 断言总耗时在一个超时窗口以内，而不是两个）。
+- `TestProtocolFallback_RetryFailsToo_ReturnsOriginalError`：翻转重试后依然失败，断言最终返回的 error 不为 nil，且不会有第二次翻转（可以用一个计数器包装 `http.RoundTripper` 断言总请求次数恰好是 2 次：原始 1 次 + 翻转重试 1 次）。
+
+### 7a.4 Sprint 6 验收标准
+
+```powershell
+cd c:\mytools\code\go\NeoScan\neoAgent
+go build ./...
+go vet ./...
+go test ./internal/core/scanner/web/... -race
+```
+
+全部通过后，额外做一次真实站点回归（不进自动化测试，人工执行）：
+
+```powershell
+# 验证多端口：找一个已知同时开 80 和 443 的目标，断言两个端口都出现在结果里
+go run ./cmd/agent scan web -t <目标> -p 80,443
+
+# 验证协议翻转：找一个非标准端口但实际是 HTTPS 的目标（比如之前测过的 10.201.28.126:9000），
+# 不显式传 protocol，断言最终能正常拿到结果而不是报错
+go run ./cmd/agent scan web -t <目标> -p 9000
+```
+
+两项都通过后，Sprint 6 才算完成。
+
+---
+
 ## 八、收尾：文档与开发进度更新
 
 以下操作在 Sprint 5 验收全部通过之后进行，**不要提前做**：
@@ -1443,6 +1559,11 @@ go test ./... -race
 2. 更新 `internal/core/scanner/web/README.md`：在"核心能力"里补充"深度爬取"一节，更新架构 Mermaid 图（加上 crawler 节点），更新"输出字段说明"表格加入 `depth/forms/params/leaks`。
 
 这两处文档更新**只在代码全部验收通过后**进行，避免文档和代码状态不一致。
+
+**Sprint 6 完成后，额外补充**：
+
+3. 更新 `neoAgent/docs/开发进度.md`：在 Changelog 追加 Sprint 6 交付记录（多端口探测、协议自适应翻转重试），并注明这是真实站点测试驱动发现并修复的原生缺陷，不是新增能力需求。
+4. 更新 `internal/core/scanner/web/README.md`：第 1.4 节「智能调度」补充"多端口并发探测"与"协议自适应重试"两条能力说明；第 5 节「开发指南」补充 `runOnePort` 的位置说明。
 
 ---
 
@@ -1455,6 +1576,10 @@ go test ./... -race
 | 三处接入点漏改一处，自动判断名存实亡 | 0.2 节列出的路径遗漏 | 7.3 节按 (a)-(e) 五个子项逐条勾选，Code Review 时逐条对照检查 |
 | SPA 空壳检测误报，把正常 SSR 页面也升级 | 阈值（200 字符）设置不合理 | 7.4 节 `TestDetectEscalation_NoFalsePositiveOnNormalReactApp` 是专门为这个风险设计的用例，实施时如发现真实站点误报率高，可调整阈值，但必须补充对应的回归测试用例 |
 | 现有单测因签名变更编译失败但被忽略 | Sprint 4 只改生产代码没改测试 | Sprint 4 验收标准明确写了 `go test ./internal/core/scanner/web/...`，不通过不能进入 Sprint 5 |
+| 多端口并发探测导致资源占用/QPS 失控 | Sprint 6 每个端口各自调用 `runOnePort`，如果误用独立的限流器而不是共享 `s.limiter` | 7a.2 节明确要求"QoS Acquire/Release 只在 Run() 顶层做一次"，Code Review 时检查 `runOnePort` 内部不能出现第二次 `s.limiter.Acquire` |
+| 协议翻转重试对"目标彻底不可达"场景造成双倍超时 | 触发条件误判，把 TCP dial 失败也当成"协议猜错"去重试 | 7a.3 节触发条件第 2 条用 `errors.As` 严格区分 `dial` 阶段和握手/读取阶段失败，`TestProtocolFallback_TCPUnreachable_NeverRetries` 是专门覆盖这个风险的用例，必须断言总耗时不超过一个超时窗口 |
+| 协议翻转重试形成无限循环 | 翻转后再次失败，代码误判又翻转回去 | 7a.3 节明确"只翻转重试一次"，`TestProtocolFallback_RetryFailsToo_ReturnsOriginalError` 用请求计数断言总请求数恰好为 2 |
+| 多端口结果互相覆盖或一个端口失败拖累其他端口 | `Run()` 汇总逻辑没有对每个端口的 `(results, err)` 分别处理 | `TestRun_MultiPort_OneUnreachable` 是硬性门槛，必须断言正常端口结果完整存在 |
 
 ---
 

@@ -1,6 +1,10 @@
 # Web Scanner 模块
 
-`web` 模块是 NeoAgent 的核心组件之一，负责对 Web 服务进行深度分析和指纹识别。它采用了 **"Headless Browser + HTTP Fallback"** 的混合架构，既保证了对现代 SPA（单页应用）的解析能力，又具备了传统扫描器的鲁棒性。
+> **文档版本**: v2.0
+> **最后更新**: 2026-07-31
+> **更新说明**: 同步 Phase 5.1（Web 爬虫与被动分析器）Sprint 0-5 落地能力：新增第 2 节「BFS 深度爬取与被动分析」，修正第 3 节使用示例与第 5 节开发指南中已过时的方法名（`fallbackScan` → `fallbackFetch`）。
+
+`web` 模块是 NeoAgent 的核心组件之一，负责对 Web 服务进行深度分析、指纹识别、站内爬取与被动敏感信息检测。它采用了 **"Headless Browser + HTTP Fallback"** 的混合架构，既保证了对现代 SPA（单页应用）的解析能力，又具备了传统扫描器的鲁棒性。
 
 ## 1. 核心能力
 
@@ -26,6 +30,18 @@
 - **协议推断**: 自动识别非标准端口的 HTTP/HTTPS 协议（如 8443, 8080）。
 - **QoS 控制**: 内置自适应限流器，防止对目标造成过大压力或耗尽本地资源。
 
+### 1.5 BFS 深度爬取 (`crawler` 子包)
+首页扫描完成后，可对站内链接做广度优先遍历，发现更多攻击面（子页面、表单、参数）。
+- **三态开关**：`crawl` 参数支持 `auto`（默认，基于状态码/Content-Type/种子链接数三个免费信号自动判断是否值得深爬）、`true`（强制开启，`crawl-depth` 控制深度）、`false`（强制关闭）。用户显式意图永远盖过系统的自动判断。
+- **同源范围限制**：默认只在种子 URL 所在 Host 内爬取，不会跑到外部域名（`crawler.Options.AllowCrossHost`，默认为 `false`）。
+- **并发与硬上限**：内置 Worker Pool 并发抓取，`MaxPages`（默认 200）防止爬虫在大型站点上失控。
+- **按需浏览器升级**：对 `net/http` 抓取到的、被静态检测判定为「JS 跳转」或「SPA 空壳页」的页面，用 Headless Browser 串行重新渲染一次，回填正文与新链接；`defaultMaxEscalationPages`（默认 10）硬上限，超限直接放弃升级、保留原始内容，避免因识别误判导致浏览器开销失控。
+
+### 1.6 被动敏感信息检测 (Passive Leak Detection)
+在 BFS 爬取的同时，对每个页面的原始 HTML/JS 文本顺手做一遍正则扫描，不发起任何额外网络请求：
+- 内置规则：AWS AccessKey (`AKIA...`)、阿里云 AccessKey (`LTAI...`)、JWT、内网 IP（RFC 1918 三个私有网段）。
+- **强制脱敏**：命中的原始明文任何时候都不会出现在扫描结果或日志里，统一经过掩码处理（如 `AKIA****MNOP`）后才对外暴露。
+
 ## 2. 架构设计
 
 ```mermaid
@@ -34,7 +50,7 @@ graph TD
     Normalizer --> Browser{"启动浏览器"}
     
     Browser -- 成功 --> Render["页面渲染 & 等待"]
-    Browser -- 失败 --> Fallback["HTTP Client 降级"]
+    Browser -- 失败 --> Fallback["HTTP Client 降级 (fallbackFetch)"]
     
     Render --> Context["提取 Rich Context"]
     Fallback --> Context
@@ -49,7 +65,16 @@ graph TD
     end
     
     Context --> Matcher["指纹匹配引擎"]
-    Matcher --> Result["WebResult"]
+    Matcher --> HomeResult["首页 WebResult"]
+
+    Context --> Decide{"resolveCrawlDepth\n三态判断"}
+    Decide -- depth>0 --> BFS["crawler.Crawl\nBFS 深度爬取"]
+    Decide -- depth=0 --> Result["最终结果集"]
+    BFS --> Leak["被动泄露检测 + 脱敏"]
+    BFS --> Escalate["escalateIfNeeded\n按需浏览器升级"]
+    Leak --> Result
+    Escalate --> Result
+    HomeResult --> Result
 ```
 
 ## 3. 使用方式
@@ -66,14 +91,25 @@ neoAgent scan web -t 192.168.1.1 --ports 8443 --screenshot
 
 # 输出 JSON 格式
 neoAgent scan web -t www.example.com --oj result.json
+
+# 强制开启深度爬取，深度为 3
+neoAgent scan web -t www.example.com --crawl=true --crawl-depth 3
+
+# 强制关闭深度爬取，只扫首页
+neoAgent scan web -t www.example.com --crawl=false
 ```
 
+> `--crawl` 默认值为 `auto`：由 `decideCrawlDepth` 基于首页状态码、Content-Type、种子链接数自动判断是否值得深爬，无需手动干预。
+
 ### 3.2 全流程集成 (`scan run`)
-在自动化流水线中，`scan run` 会自动识别开放的 Web 端口并调度 Web Scanner。
+在自动化流水线中，`scan run` 会自动识别开放的 Web 端口并调度 Web Scanner，`--crawl`/`--crawl-depth` 参数与 `scan web` 语义完全一致。
 
 ```bash
-# 自动发现端口并扫描 Web 服务
+# 自动发现端口并扫描 Web 服务（爬虫开关默认 auto）
 neoAgent scan run -t 192.168.1.0/24
+
+# 全流程中强制开启深度爬取
+neoAgent scan run -t 192.168.1.0/24 --crawl=true
 ```
 
 ## 4. 输出字段说明
@@ -87,9 +123,16 @@ neoAgent scan run -t 192.168.1.0/24
 | `tech_stack` | 识别到的技术栈列表 (如 [Vue.js, jQuery, Nginx]) |
 | `screenshot` | 网页截图 (Base64 编码，仅在开启时返回) |
 | `headers` | 完整的响应头 |
+| `forms` | 页面提取到的表单信息（action/method/fields），BFS 子页面同样会提取 |
+| `depth` | 该页面相对首页的 BFS 深度，首页恒为 0 |
+| `leaks` | 命中的敏感信息泄露项（已脱敏），无命中则为空 |
 
 ## 5. 开发指南
 
 - **JS 提取逻辑**: 位于 `context.go`，使用 `iframe` 对比法提取全局变量。
-- **降级逻辑**: 位于 `web_scanner.go` 的 `fallbackScan` 方法。
+- **降级逻辑**: 位于 `web_scanner.go` 的 `fallbackFetch` 方法（只负责抓取，不组装结果、不跑指纹匹配）。
 - **指纹规则**: 默认加载 `rules/fingerprint/web/web_fingerprints.json`。
+- **BFS 爬取核心**: 位于 `crawler/crawler.go`，`Options.AllowCrossHost` 默认 `false`（零值即安全，只在种子 Host 内爬），显式传 `true` 才允许跨域。
+- **被动泄露检测规则**: 位于 `crawler/leak.go` 的 `defaultLeakRules`，新增规则类型直接往这个 slice 追加即可。
+- **爬取三态开关落地**: 位于 `web_scanner.go` 的 `decideCrawlDepth`（自动判断）与 `resolveCrawlDepth`（叠加 `task.Params["crawl"]` 显式开关）。
+- **详细设计文档**: 完整架构方案与 Sprint 实施记录见 [`docs/爬虫/Web爬虫与被动分析器架构方案-sonnet5-v3.0.md`](../../../../docs/爬虫/Web爬虫与被动分析器架构方案-sonnet5-v3.0.md) 与 [`docs/爬虫/Web爬虫与被动分析器实施文档-v1.0.md`](../../../../docs/爬虫/Web爬虫与被动分析器实施文档-v1.0.md)。

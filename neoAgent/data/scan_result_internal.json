@@ -1,0 +1,29 @@
+[
+  {
+    "task_id": "",
+    "status": "success",
+    "result": {
+      "url": "http://10.201.28.126",
+      "ip": "10.201.28.126",
+      "port": 80,
+      "title": "Welcome to CentOS",
+      "status_code": 200,
+      "content_length": 4762,
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Connection": "keep-alive",
+        "Content-Length": "4833",
+        "Content-Type": "text/html",
+        "Date": "Fri, 31 Jul 2026 13:49:53 GMT",
+        "ETag": "53762af0-12e1",
+        "Last-Modified": "Fri, 16 May 2014 15:12:48 GMT",
+        "Server": "nginx/1.20.1"
+      },
+      "tech_stack": [
+        "Nginx"
+      ]
+    },
+    "executed_at": "2026-07-31T21:49:51.8504546+08:00",
+    "completed_at": "2026-07-31T21:49:53.0900837+08:00"
+  }
+]

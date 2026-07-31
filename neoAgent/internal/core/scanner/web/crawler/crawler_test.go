@@ -18,11 +18,11 @@ func newTestLimiter() *qos.AdaptiveLimiter {
 
 func newTestOptions() Options {
 	return Options{
-		MaxDepth:     2,
-		MaxPages:     200,
-		Concurrency:  5,
-		Timeout:      5 * time.Second,
-		SameHostOnly: true,
+		MaxDepth:    2,
+		MaxPages:    200,
+		Concurrency: 5,
+		Timeout:     5 * time.Second,
+		// AllowCrossHost 不设置，零值 false，即默认同源限制生效
 	}
 }
 
@@ -132,8 +132,10 @@ func TestCrawl_Deduplication(t *testing.T) {
 	}
 }
 
-// TestCrawl_SameHostOnly 种子链接里混入一个外部域名的链接，断言外部链接不出现在结果里。
-func TestCrawl_SameHostOnly(t *testing.T) {
+// TestCrawl_SameHostOnlyByDefault 种子链接里混入一个外部域名的链接，断言在不做任何显式配置
+// （零值 Options，只设置 MaxDepth，和生产环境 web_scanner.go 的真实调用方式完全一致）的情况下，
+// 外部链接依然不出现在结果里——同源限制必须是零值安全的默认行为，不能依赖调用方记得显式开启。
+func TestCrawl_SameHostOnlyByDefault(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/internal", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, `<html><body>internal</body></html>`)
@@ -147,7 +149,9 @@ func TestCrawl_SameHostOnly(t *testing.T) {
 		"http://external.example.com/page",
 	}
 
-	cr := New(newTestOptions(), newTestLimiter())
+	// 刻意模拟生产环境 web_scanner.go 里的真实写法：crawler.Options{MaxDepth: depth}，
+	// 不显式设置任何跨域相关字段。
+	cr := New(Options{MaxDepth: 2}, newTestLimiter())
 	pages := cr.Crawl(context.Background(), ts.URL, seedLinks)
 
 	if len(pages) != 1 {
@@ -155,6 +159,38 @@ func TestCrawl_SameHostOnly(t *testing.T) {
 	}
 	if pages[0].URL != ts.URL+"/internal" {
 		t.Fatalf("unexpected page URL: %s", pages[0].URL)
+	}
+}
+
+// TestCrawl_AllowCrossHost 显式开启 AllowCrossHost 后，外部域名链接应当被正常爬取。
+func TestCrawl_AllowCrossHost(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `<html><body>internal</body></html>`)
+	})
+
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	externalMux := http.NewServeMux()
+	externalMux.HandleFunc("/page", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `<html><body>external</body></html>`)
+	})
+	externalTS := httptest.NewServer(externalMux)
+	defer externalTS.Close()
+
+	seedLinks := []string{
+		ts.URL + "/internal",
+		externalTS.URL + "/page",
+	}
+
+	opts := newTestOptions()
+	opts.AllowCrossHost = true
+	cr := New(opts, newTestLimiter())
+	pages := cr.Crawl(context.Background(), ts.URL, seedLinks)
+
+	if len(pages) != 2 {
+		t.Fatalf("expected 2 pages (internal + external), got %d", len(pages))
 	}
 }
 

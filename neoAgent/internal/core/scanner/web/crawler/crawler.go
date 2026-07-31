@@ -19,11 +19,15 @@ import (
 
 // Options 爬虫行为控制参数
 type Options struct {
-	MaxDepth     int           // 默认 2，由调用方（WebScanner）决定，crawler 不设默认值兜底以外的隐藏逻辑
-	MaxPages     int           // 硬上限，默认 200，防止爬虫失控
-	Concurrency  int           // 默认 5
-	Timeout      time.Duration // 单页超时，默认 10s
-	SameHostOnly bool          // 默认 true，只在同一 Host 内爬
+	MaxDepth       int           // 默认 2，由调用方（WebScanner）决定，crawler 不设默认值兜底以外的隐藏逻辑
+	MaxPages       int           // 硬上限，默认 200，防止爬虫失控
+	Concurrency    int           // 默认 5
+	Timeout        time.Duration // 单页超时，默认 10s
+	AllowCrossHost bool          // 是否允许跨 Host 爬取，默认 false（只在种子 Host 内爬）。
+	// 零值 Options{} 必须是"安全"的：过去用 SameHostOnly bool（默认应为 true）表达同源限制，
+	// 但 bool 零值是 false，调用方一旦忘记显式写 SameHostOnly:true，同源限制就悄悄失效——
+	// 生产环境唯一调用点 web_scanner.go 就踩了这个坑，实测对 baidu.com 爬出了 weibo.com/qq.com 等一堆外部域名。
+	// 反转字段语义后零值即安全默认值，不再需要调用方记得传参，也不需要构造函数里做兜底判断。
 }
 
 // Page 爬虫抓取到的单个页面的原始数据。
@@ -85,7 +89,7 @@ func New(opts Options, limiter *qos.AdaptiveLimiter) *Crawler {
 }
 
 // Crawl 执行一次 BFS 爬取。
-// seedURL: 首页 URL，仅用于确定 SameHostOnly 的判断基准（seedHost），不会被重复抓取。
+// seedURL: 首页 URL，仅用于确定同源范围的判断基准（seedHost），不会被重复抓取。
 // seedLinks: 首页阶段已经拿到的链接列表（go-rod 渲染后提取，或 fallback 阶段用 net/http 提取），
 //
 //	作为 BFS 第一层种子直接入队，crawler 内部不会再对 seedURL 本身发起一次 net/http 请求。
@@ -233,7 +237,7 @@ func (c *Crawler) shouldVisit(it *item) bool {
 
 // inScope 判断 URL 是否属于同源范围
 func (c *Crawler) inScope(rawURL string) bool {
-	if !c.opts.SameHostOnly {
+	if c.opts.AllowCrossHost {
 		return true
 	}
 	u, err := url.Parse(rawURL)

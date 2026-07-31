@@ -296,11 +296,15 @@ flowchart TD
 package crawler
 
 type Options struct {
-    MaxDepth    int           // 默认 2
-    MaxPages    int           // 硬上限，默认 200，防止爬虫失控
-    Concurrency int           // 默认 5，与 WebScanner 的 QoS 挂钩
-    Timeout     time.Duration // 单页超时，默认 10s
-    SameHostOnly bool         // 默认 true，只在同一 Host 内爬
+    MaxDepth       int           // 默认 2
+    MaxPages       int           // 硬上限，默认 200，防止爬虫失控
+    Concurrency    int           // 默认 5，与 WebScanner 的 QoS 挂钩
+    Timeout        time.Duration // 单页超时，默认 10s
+    AllowCrossHost bool          // 默认 false，只在种子 Host 内爬；
+    // 注意：字段语义是"是否允许跨域"而不是"是否限制同域"，零值 false 即安全默认值，
+    // 调用方不写这个字段也能保证同源限制生效（早期版本用 SameHostOnly bool 表达，
+    // 因为 bool 零值是 false，生产调用点忘记显式传 true 导致同源限制线上完全失效，
+    // 已修复为反转语义）。
 }
 
 type Page struct {

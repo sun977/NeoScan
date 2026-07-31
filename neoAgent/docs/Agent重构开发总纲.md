@@ -120,8 +120,8 @@ neoAgent/
     - [x] **Sprint 0**：依赖引入 (`goquery`) + `crawler` 包骨架 + `WebResult` 新增字段 (`Depth/Forms/Params/Leaks`)。
     - [x] **Sprint 1**：`crawler` 核心 BFS 爬取引擎（并发 worker、去重、深度/页数上限，`-race` 检测通过，无死锁）。
     - [x] **Sprint 2**：攻击面提取 `extract.go`（链接/表单/URL 参数，基于 `goquery`）。
-    - [ ] **Sprint 3**：被动泄露检测 `leak.go`（AK/SK、JWT、内网 IP 正则规则 + 脱敏）。
-    - [ ] **Sprint 4**：`web_scanner.go` 收口重构（`fallbackScan` → `fallbackFetch` + `buildWebResult` 统一收口，零功能回归）。
+    - [x] **Sprint 3**：被动泄露检测 `leak.go`（AK/SK、JWT、内网 IP 正则规则 + 脱敏）。
+    - [x] **Sprint 4**：`web_scanner.go` 收口重构（`fallbackScan` → `fallbackFetch` + `buildWebResult` 统一收口，零功能回归）。
     - [ ] **Sprint 5**：三处接入点改造 (`scan_web.go`/`scan_run.go`/`dispatcher.go`/`task_to_core.go`) + 自动决策 (`decideCrawlDepth`) + 按需浏览器升级 (`escalateIfNeeded`) + 端到端联调。
 - [ ] **5.2 漏洞扫描原子能力落地 (Vuln Scanner)**:
     - [ ] 封装 Nuclei 执行引擎 (`internal/core/scanner/vuln`)。

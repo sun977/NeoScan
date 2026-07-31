@@ -17,6 +17,7 @@ import (
 	"neoagent/internal/core/lib/browser"
 	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
+	"neoagent/internal/core/scanner/web/crawler"
 	"neoagent/internal/pkg/fingerprint"
 	fpHttp "neoagent/internal/pkg/fingerprint/engines/http"
 	fpModel "neoagent/internal/pkg/fingerprint/model"
@@ -100,7 +101,7 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	br, err := s.browserLauncher.Launch(ctx)
 	if err != nil {
 		logger.Warnf("[WebScanner] Failed to launch browser: %v. Falling back to HTTP client.", err)
-		res, errFallback := s.fallbackScan(ctx, task, targetURL, startTime)
+		res, errFallback := s.runFallback(ctx, task, targetURL, startTime)
 		if errFallback != nil {
 			s.limiter.OnFailure()
 			return nil, fmt.Errorf("browser launch failed (%v) and fallback failed: %w", err, errFallback)
@@ -186,7 +187,7 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	// 4. 导航到目标 URL
 	if err3 := page.Navigate(targetURL); err3 != nil {
 		logger.Warnf("[WebScanner] Navigation failed for %s: %v. Falling back to HTTP client.", targetURL, err3)
-		res, err1 := s.fallbackScan(ctx, task, targetURL, startTime)
+		res, err1 := s.runFallback(ctx, task, targetURL, startTime)
 		if err1 != nil {
 			s.limiter.OnFailure()
 			return nil, fmt.Errorf("navigation and fallback failed: %w", err1)
@@ -213,30 +214,10 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		logger.Warnf("[WebScanner] Failed to extract rich context: %v", err)
 	}
 
-	// 7. 构造 Input 并匹配指纹
-	input := &fingerprint.Input{
-		Target:      task.Target,
-		RichContext: richCtx,
-	}
-
-	// 填充基础字段
+	// 7. 提取正文（供 buildWebResult 组装 fingerprint.Input.Body 使用）
+	var pageBody string
 	if body, ok := richCtx["body"].(string); ok {
-		input.Body = body
-	}
-	// 将捕获到的 Headers 放入 Input (需要转换为 map[string][]string 或保持 map[string]string)
-	// 目前 fingerprint.Input 主要看 Body 和 Headers
-	// 这里我们需要适配一下类型，因为 rod 的 headers 是 map[string]json.RawMessage (v.String() 后是 string)
-	// 而 http.Header 是 map[string][]string
-	// 暂时只提取 Server, X-Powered-By 等关键头放入 RichContext 供 matcher 使用
-	// 或者修改 Input 结构体?
-	// 简单起见，我们将 respHeaders 放入 RichContext 的 "headers" 字段
-	richCtx["headers"] = respHeaders
-
-	// 调用指纹引擎匹配
-	// TODO: 确保 s.fpEngine 已初始化
-	var matches []fingerprint.Match
-	if s.fpEngine != nil {
-		matches, _ = s.fpEngine.Match(input)
+		pageBody = body
 	}
 
 	// 8. 截图 (如果启用)
@@ -324,24 +305,22 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		}
 	}
 
-	result := &model.TaskResult{
-		TaskID:      task.ID,
-		Status:      model.TaskStatusSuccess,
-		ExecutedAt:  startTime,
-		CompletedAt: time.Now(),
-		Result: &model.WebResult{
-			URL:             targetURL,
-			IP:              finalIP,
-			Port:            finalPort,
-			Title:           extractTitleFromCtx(richCtx),
-			StatusCode:      finalStatusCode,
-			ContentLength:   finalContentLength,
-			ResponseHeaders: finalHeaders,
-			TechStack:       convertMatchesToTechStack(matches),
-			Screenshot:      screenshotBase64,
-			Favicon:         faviconBase64,
-		},
-	}
+	// go-rod 路径的首页也统一走 buildWebResult 收口，不再自己重复一遍
+	// "构造 fingerprint.Input -> 匹配指纹 -> 组装 WebResult"的逻辑。
+	// RichContext 显式传入完整的 richCtx（含 DOM/JS 变量/Meta/Cookies），
+	// 这是 go-rod 路径相比 fallback/爬虫路径的核心优势，必须保留，否则
+	// 依赖这些字段的指纹规则会在这次收口重构后失效。
+	result := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
+		URL:           targetURL,
+		StatusCode:    finalStatusCode,
+		Title:         extractTitleFromCtx(richCtx),
+		Body:          pageBody,
+		Headers:       finalHeaders,
+		ContentLength: finalContentLength,
+		RichContext:   richCtx,
+		Screenshot:    screenshotBase64,
+		Favicon:       faviconBase64,
+	})
 
 	s.limiter.OnSuccess()
 	return []*model.TaskResult{result}, nil
@@ -453,93 +432,33 @@ func (s *WebScanner) ensureInit() {
 	})
 }
 
-// fallbackScan 当 Headless Browser 失败时，降级使用标准库 net/http 进行扫描
-// 主要用于处理一些特殊情况，如 HTTPS 证书错误、网络问题等(chromium 意外情况兜底)
-func (s *WebScanner) fallbackScan(ctx context.Context, task *model.Task, targetURL string, startTime time.Time) ([]*model.TaskResult, error) {
-	// 1. 创建 HTTP Client (忽略证书错误)
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		Proxy:           http.ProxyFromEnvironment, // 支持系统代理
-	}
-	client := &http.Client{
-		Transport: tr,
-		Timeout:   15 * time.Second,
-	}
-
-	// 2. 发起请求
-	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
+// runFallback 是 Run() 主干里两处降级路径（浏览器启动失败 / 导航失败）共用的
+// 桥接函数：调用 fallbackFetch 完成抓取，再调用 buildWebResult 完成组装，
+// 拼成 Run() 现阶段仍然需要的 ([]*model.TaskResult, error) 返回形状。
+//
+// 为什么需要这一层桥接，而不是让 Run() 直接分别调用 fallbackFetch 和
+// buildWebResult 两个函数：Sprint 4 明确不改 Run() 的对外行为和主干结构
+// （那是 Sprint 5 的任务），Run() 里这两处调用点在重构前后都应该是
+// "一行代码换取一个完整结果"的形态，不应该在 Sprint 4 阶段就把 Run() 主干
+// 展开成多行组装代码——那样等于提前做了本该由 Sprint 5 做的主干重排，
+// 反而增加了这次改动的影响面。runFallback 只是把 "fetch + build" 这两步
+// 钉在一起，交换到 Run() 眼里和原来调用 fallbackScan 没有区别。
+func (s *WebScanner) runFallback(ctx context.Context, task *model.Task, targetURL string, startTime time.Time) ([]*model.TaskResult, error) {
+	body, headers, statusCode, title, _, err := s.fallbackFetch(ctx, targetURL)
 	if err != nil {
 		return nil, err
 	}
-	// 模拟浏览器 UA，防止被拦截
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	// Forms/Params 是首页攻击面信息，fallback 路径下顺手用已经抓到的 body 提取一遍，
+	// 和 crawler 包对子页面的处理方式保持一致，不让 fallback 路径的首页数据比
+	// 爬虫子页面的数据更"贫瘠"。这里没有直接用 fallbackFetch 已经返回的 links——
+	// 那是同一次 ExtractLinksAndForms 调用的另外两个返回值，本该一次拿全，
+	// 但 fallbackFetch 的签名（对齐实施文档，也是 Sprint 5 要复用的形状）只对外
+	// 暴露 links，不暴露 forms/params，所以这里只能就着 body 再解析一遍。
+	// 多付出的这次 DOM 解析成本，只发生在"浏览器不可用，降级到 fallback"这个
+	// 本就是异常路径的场景，不是每次扫描都要付出的代价，可以接受。
+	_, forms, params := crawler.ExtractLinksAndForms(targetURL, body)
 
-	// 3. 读取响应
-	// 限制读取 2MB，防止大文件
-	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
-	if err != nil {
-		return nil, err
-	}
-	bodyStr := string(bodyBytes)
-
-	// 4. 提取信息 (Title, Headers)
-	headers := make(map[string]string)
-	for k, v := range resp.Header {
-		headers[k] = strings.Join(v, ", ")
-	}
-
-	// 简单提取 Title
-	var title string
-	lowerBody := strings.ToLower(bodyStr)
-	start := strings.Index(lowerBody, "<title>")
-	if start != -1 {
-		end := strings.Index(lowerBody[start:], "</title>")
-		if end != -1 {
-			title = bodyStr[start+5 : start+end] // +5 for <title> length
-			// Wait, <title> is 7 chars. start points to '<'.
-			// "0123456" -> "<title>"
-			// start + 7 is correct.
-		}
-	}
-	// Correction: strings.Index returns index of first char.
-	// if "<title>" is at 0.
-	// lowerBody[0:] starts at 0.
-	// end is index in slice lowerBody[start:].
-	// So absolute end is start + end.
-	// Content is bodyStr[start+7 : start+end].
-	if start != -1 {
-		end := strings.Index(lowerBody[start:], "</title>")
-		if end != -1 {
-			title = bodyStr[start+7 : start+end]
-		}
-	}
-
-	// 5. 指纹匹配
-	richCtx := map[string]interface{}{
-		"body":    bodyStr,
-		"headers": headers,
-		"title":   title,
-	}
-
-	input := &fingerprint.Input{
-		Target:      task.Target,
-		Body:        bodyStr,
-		Headers:     headers,
-		RichContext: richCtx,
-	}
-
-	var matches []fingerprint.Match
-	if s.fpEngine != nil {
-		matches, _ = s.fpEngine.Match(input)
-	}
-
-	// 6. 构造结果
 	finalIP := ""
 	finalPort := 0
 	if isIP(task.Target) {
@@ -549,25 +468,208 @@ func (s *WebScanner) fallbackScan(ctx context.Context, task *model.Task, targetU
 		fmt.Sscanf(task.PortRange, "%d", &finalPort)
 	}
 
-	result := &model.TaskResult{
+	result := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
+		URL:        targetURL,
+		StatusCode: statusCode,
+		Title:      title,
+		Body:       body,
+		Headers:    headers,
+		Forms:      forms,
+		Params:     params,
+	})
+
+	logger.Infof("[WebScanner] Fallback scan success for %s", targetURL)
+	return []*model.TaskResult{result}, nil
+}
+
+// fallbackFetch 当 Headless Browser 失败时，降级使用标准库 net/http 抓取首页原始数据。
+// 主要用于处理一些特殊情况，如 HTTPS 证书错误、网络问题等(chromium 意外情况兜底)。
+//
+// 与重构前的 fallbackScan 的关键区别：这个函数只负责"抓取"，不负责"组装 WebResult"、
+// 不负责"跑指纹匹配"。原来 fallbackScan 和 go-rod 路径（Run 方法主干）各自独立组装了
+// 一遍 WebResult + 指纹匹配的代码，两份逻辑分别维护，任何一处指纹匹配的细节改动
+// （比如后续要给 RichContext 多塞一个字段）都得同时改两个地方，改漏一处就是一次
+// 静默的行为不一致——这是"重复造成的隐性耦合"，比显式的函数调用耦合更危险，因为
+// 编译器不会提醒你漏改了。fallbackFetch 把"抓取"这个动作单独拎出来，"组装 WebResult"
+// 统一交给下面的 buildWebResult，两条数据来源（go-rod/fallback）从此共用同一份
+// 组装逻辑，不可能再出现"改了一处忘了改另一处"的问题。
+//
+// 返回的 links 是顺手用 Sprint 2 产出的 ExtractLinksAndForms 提取的首页种子链接，
+// 为 Sprint 5 挂上 crawler 后的 BFS 爬取做准备；Sprint 4 阶段 Run() 主干还不会用到
+// 这个返回值，但函数签名一次性按最终形态定义，避免 Sprint 5 时再改一次签名。
+func (s *WebScanner) fallbackFetch(ctx context.Context, targetURL string) (body string, headers map[string]string, statusCode int, title string, links []string, err error) {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment, // 支持系统代理
+	}
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   15 * time.Second,
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
+	if err != nil {
+		return "", nil, 0, "", nil, err
+	}
+	// 模拟浏览器 UA，防止被拦截
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", nil, 0, "", nil, err
+	}
+	defer resp.Body.Close()
+
+	// 限制读取 2MB，防止大文件把内存打爆
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+	if err != nil {
+		return "", nil, 0, "", nil, err
+	}
+	bodyStr := string(bodyBytes)
+
+	headers = make(map[string]string)
+	for k, v := range resp.Header {
+		headers[k] = strings.Join(v, ", ")
+	}
+
+	title = extractTitleFromHTML(bodyStr)
+
+	// 复用 crawler 包 Sprint 2 的产出提取首页种子链接，forms/params 这里不需要
+	// （首页的 Forms/Params 由 buildWebResult 的调用方按需通过 pageData 传入，
+	// fallbackFetch 只关心"抓取"这一件事）。
+	links, _, _ = crawler.ExtractLinksAndForms(targetURL, bodyStr)
+
+	logger.Infof("[WebScanner] Fallback fetch success for %s", targetURL)
+	return bodyStr, headers, resp.StatusCode, title, links, nil
+}
+
+// extractTitleFromHTML 从 HTML 文本里提取 <title> 标签内的文字。
+//
+// 这是从原 fallbackScan 里整理出来的干净版本：原实现里同一段"找 <title> 位置、
+// 截取内容"的逻辑被写了两遍——第一遍算错了偏移量（+5 而不是 +7），中间插了一堆
+// 注释自我纠正"为什么应该是 +7"，然后紧接着重新写了一遍正确的版本。这是历史遗留
+// 的调试痕迹（明显是原作者当场调试时留下的，忘了删掉第一次的错误尝试），本次重构
+// 顺手清理成一次到位的正确实现，不属于范围蔓延——重构一个函数时，路过一段自相
+// 矛盾的重复代码却假装没看见，才是不负责任的做法。
+func extractTitleFromHTML(bodyStr string) string {
+	lowerBody := strings.ToLower(bodyStr)
+	start := strings.Index(lowerBody, "<title>")
+	if start == -1 {
+		return ""
+	}
+	end := strings.Index(lowerBody[start:], "</title>")
+	if end == -1 {
+		return ""
+	}
+	// start 指向 '<title>' 的 '<'，这个标签本身占 7 个字符，所以内容从 start+7 开始；
+	// end 是在 lowerBody[start:] 这个子串里找到的相对偏移量，换算成绝对位置就是
+	// start+end，也就是 "</title>" 里 '<' 的位置，即内容的结束边界。
+	return bodyStr[start+7 : start+end]
+}
+
+// pageData 是 buildWebResult 的统一输入形状。三条数据来源——go-rod 首页探测、
+// fallback（net/http）首页抓取、爬虫子页面（Sprint 1-3 的 crawler.Page）——
+// 字段含义完全一致，都是"一个页面的原始数据 + 已提取的攻击面信息"，用同一个
+// 结构体表达可以让 buildWebResult 不用关心数据到底是从哪条路径来的。
+type pageData struct {
+	URL        string
+	Depth      int
+	StatusCode int
+	Title      string
+	Body       string
+	Headers    map[string]string
+
+	// ContentLength 默认取 0（表示"未显式指定"），此时 buildWebResult 会退化成用
+	// len(Body) 兜底。go-rod 路径应该显式传入从网络事件里拿到的真实传输长度
+	// （可能来自 Content-Length 响应头，也可能是 EncodedDataLength），因为这个值
+	// 反映的是"实际在网络上传输了多少字节"，和 len(Body)（解码后的正文长度，
+	// 可能因为 gzip 压缩等原因和传输字节数不同）是两个不同的语义，不能互相替代。
+	ContentLength int64
+
+	// RichContext 只有 go-rod 路径能提供（包含渲染后的 DOM/JS 变量/Meta/Cookies 等
+	// 指纹引擎可能用到的完整上下文）。fallback 和爬虫子页面走的是 net/http，没有
+	// 浏览器渲染结果，这里传 nil，buildWebResult 内部会退化成用 Body/Headers/Title
+	// 拼一个最小可用的 RichContext，保证指纹匹配在两条路径下都能正常工作，只是
+	// go-rod 路径的匹配精度更高（因为上下文信息更完整）。
+	RichContext map[string]interface{}
+
+	Forms      []model.FormInfo
+	Params     []string
+	Leaks      []model.LeakInfo
+	Screenshot string
+	Favicon    string
+}
+
+// buildWebResult 是首页与爬虫子页面共用的收口函数：接收 pageData 这一份统一的
+// 原始数据，跑一遍指纹匹配，组装成最终的 *model.TaskResult。
+//
+// 这个函数存在之前，"构造 fingerprint.Input -> 调用 fpEngine.Match -> 组装
+// WebResult" 这一整套逻辑在 Run() 主干（go-rod 路径）和 fallbackScan 里
+// 分别重复了一遍，Sprint 5 接入爬虫子页面后会变成第三份重复。三份几乎一样
+// 但又不完全一样的代码，是最容易滋生 bug 的地方——修一个地方的字段映射，
+// 另外两个地方不会自动跟着变。buildWebResult 把这套逻辑收口成一个函数，
+// 后续无论指纹匹配逻辑怎么演进，只需要改这一处。
+func (s *WebScanner) buildWebResult(task *model.Task, startTime time.Time, ip string, port int, pd pageData) *model.TaskResult {
+	// RichContext 优先使用调用方传入的（go-rod 路径的完整渲染上下文），
+	// 只有在调用方没有提供时（fallback/爬虫路径，天然没有浏览器渲染结果）
+	// 才现场拼一个最小版本。这里不能反过来无条件用 Body/Headers/Title 重新
+	// 拼一份，否则会把 go-rod 路径原本就有的 DOM/JS 变量/Meta 信息扔掉，
+	// 导致依赖这些字段的指纹规则在收口重构后失效——这是必须避免的功能回归。
+	richCtx := pd.RichContext
+	if richCtx == nil {
+		richCtx = map[string]interface{}{
+			"body":    pd.Body,
+			"headers": pd.Headers,
+			"title":   pd.Title,
+		}
+	} else {
+		// 与重构前 Run() 主干第 233 行的行为保持一致：headers 是在导航完成后
+		// 才从网络事件里收集到的，需要覆盖进已经提取好的 richCtx。
+		richCtx["headers"] = pd.Headers
+	}
+
+	input := &fingerprint.Input{
+		Target:      task.Target,
+		Body:        pd.Body,
+		Headers:     pd.Headers,
+		RichContext: richCtx,
+	}
+
+	var techStack []string
+	if s.fpEngine != nil {
+		if matches, err := s.fpEngine.Match(input); err == nil {
+			techStack = convertMatchesToTechStack(matches)
+		}
+	}
+
+	// ContentLength 优先用调用方显式传入的真实传输长度；调用方没传（fallback/
+	// 爬虫路径没有额外的网络层字节数统计）就退化成用解码后的正文长度兜底，
+	// 两条路径下这个字段都不会是 0（除非页面正文真的是空的）。
+	contentLength := pd.ContentLength
+	if contentLength == 0 {
+		contentLength = int64(len(pd.Body))
+	}
+
+	return &model.TaskResult{
 		TaskID:      task.ID,
 		Status:      model.TaskStatusSuccess,
 		ExecutedAt:  startTime,
 		CompletedAt: time.Now(),
 		Result: &model.WebResult{
-			URL:             targetURL,
-			IP:              finalIP,
-			Port:            finalPort,
-			Title:           title,
-			StatusCode:      resp.StatusCode,
-			ContentLength:   resp.ContentLength,
-			ResponseHeaders: headers,
-			TechStack:       convertMatchesToTechStack(matches),
-			Screenshot:      "", // Fallback 模式无截图
-			Favicon:         "", // 暂不提取 Favicon
+			URL:             pd.URL,
+			Depth:           pd.Depth,
+			IP:              ip,
+			Port:            port,
+			Title:           pd.Title,
+			StatusCode:      pd.StatusCode,
+			ContentLength:   contentLength,
+			ResponseHeaders: pd.Headers,
+			TechStack:       techStack,
+			Screenshot:      pd.Screenshot,
+			Favicon:         pd.Favicon,
+			Forms:           pd.Forms,
+			Params:          pd.Params,
+			Leaks:           pd.Leaks,
 		},
 	}
-
-	logger.Infof("[WebScanner] Fallback scan success for %s", targetURL)
-	return []*model.TaskResult{result}, nil
 }

@@ -284,7 +284,7 @@ func dedupeSeeds(links []string) []string {
 //  1. 用 net/http 发起真实的 GET 请求，拿到状态码、响应头、响应体（Sprint 1 就已完成，本次不变）。
 //  2. 把响应体交给 extract.go 的 ExtractLinksAndForms 做 DOM 解析，一次性拿到
 //     "继续爬取需要的链接" + "攻击面需要的表单/参数"，再交给 leak.go 的 DetectLeaks
-//     做敏感信息扫描（leak.go 是 Sprint 3 的产出，Sprint 2 阶段这一步还不存在）。
+//     做敏感信息扫描，三者共享同一份 body，不重复读取/传输响应体。
 //
 // 返回值里的 bool 表示"这次抓取是否成功"：
 //   - 网络层面的失败（连不上、超时、读 body 出错）返回 false，调用方 process 会据此
@@ -332,6 +332,13 @@ func (c *Crawler) fetchAndExtract(ctx context.Context, it *item) (*Page, []strin
 	// forms/params 是攻击面信息，直接挂到 Page 上，最终会原样透传进 WebResult。
 	links, forms, params := ExtractLinksAndForms(it.URL, body)
 
+	// 对同一份 body 顺手做一遍被动泄露检测（leak.go，Sprint 3）。这里刻意用原始
+	// body 而不是 goquery 解析后的纯文本：泄露的密钥/Token 经常出现在 <script>
+	// 标签里的 JS 代码中（比如前端硬编码了调用第三方 API 用的 AK/SK），如果先用
+	// goquery 提取"纯文本内容"会把 <script> 标签内容当成非正文丢弃，反而漏检。
+	// 直接对原始 HTML 全文做正则扫描，不会有这个问题。
+	leaks := DetectLeaks(body)
+
 	page := &Page{
 		URL:        it.URL,
 		Depth:      it.Depth,
@@ -341,6 +348,7 @@ func (c *Crawler) fetchAndExtract(ctx context.Context, it *item) (*Page, []strin
 		Headers:    headers,
 		Forms:      forms,
 		Params:     params,
+		Leaks:      leaks,
 	}
 	return page, links, true
 }

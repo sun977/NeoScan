@@ -48,5 +48,11 @@
     "name": "React",
     "body": "react-root",
     "enabled": true
+  },
+  {
+    "name": "WordPress",
+    "match": "{\"and\":[{\"field\":\"status_code\",\"operator\":\"equals\",\"value\":\"200\"},{\"field\":\"title\",\"operator\":\"contains\",\"value\":\"Log In\"},{\"field\":\"body\",\"operator\":\"regex\",\"value\":\"wp-.*\"}]}",
+    "enabled": true,
+    "source": "custom"
   }
 ]

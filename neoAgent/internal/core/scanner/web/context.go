@@ -176,3 +176,54 @@ func ExtractRichContext(page *rod.Page) (map[string]interface{}, error) {
 
 	return ctx, nil
 }
+
+// ExtractLinks 从 go-rod 已渲染完成的页面中提取 <a href> 链接列表，
+// 供爬虫（crawler 包）BFS 遍历使用的"第一层种子链接"。
+//
+// 为什么单独写一个函数，而不是复用 crawler 包里基于 goquery 的 ExtractLinksAndForms？
+//   两者处理的输入完全不同：
+//     - 这里的输入是 go-rod 已经跑完 JS、渲染出最终 DOM 之后的浏览器页面对象，
+//       页面上所有通过 JS 动态生成的链接（比如 Vue/React 渲染出来的 <a> 标签）
+//       在这一步都已经真实存在于 DOM 里了。
+//     - ExtractLinksAndForms 处理的输入是 net/http 拿到的原始 HTML 文本字符串，
+//       如果页面是 JS 动态渲染的（SPA），这段原始 HTML 里可能只有一个空的
+//       <div id="root"></div>，压根看不到真正的链接。
+//   所以首页种子链接优先用这个函数（如果 go-rod 可用），只有在 go-rod 启动/
+//   导航失败、降级到 net/http 的场景下，才会改用 ExtractLinksAndForms 提取种子。
+//
+// 原理：
+//   用 page.Eval 在浏览器上下文里执行一段 JS，遍历 document.getElementsByTagName('a')，
+//   取每个 <a> 标签的 .href 属性（注意不是 getAttribute('href')）。这是刻意的选择：
+//   DOM 元素的 .href 属性经过浏览器内部处理后，天然就是解析好的绝对 URL
+//   （浏览器自己已经用当前页面地址做了一次相对路径换算），比如页面里写的
+//   `<a href="foo.html">`，读取 .href 会直接得到 "http://a.com/dir/foo.html"，
+//   不需要再在 Go 侧手动调用 url.ResolveReference 之类的函数二次处理。
+//   而 getAttribute('href') 拿到的是标签里写的原始字符串（可能是相对路径），
+//   还得自己再解析一遍，多此一举。
+//
+//   JS 执行完的返回值是 rod 的 gson.JSON 类型，这里统一走"先 json.Marshal
+//   成 []byte，再 json.Unmarshal 回 Go 的 []string"这个转换套路——这和
+//   ExtractRichContext 里提取 meta/scripts/js 全局变量用的是同一套模式，
+//   本文件保持风格一致，不额外发明新的类型转换方式。
+func ExtractLinks(page *rod.Page) []string {
+	res, err := page.Eval(`(() => {
+		const anchors = document.getElementsByTagName('a');
+		const result = [];
+		for (let i = 0; i < anchors.length; i++) {
+			if (anchors[i].href) {
+				result.push(anchors[i].href);
+			}
+		}
+		return result;
+	})()`)
+	if err != nil {
+		// JS 执行失败（比如页面已经关闭、上下文丢失），种子链接拿不到就返回 nil，
+		// 调用方（WebScanner）看到空切片自然就不会触发深度爬取，是安全的降级。
+		return nil
+	}
+	var links []string
+	if valBytes, e := json.Marshal(res.Value); e == nil {
+		_ = json.Unmarshal(valBytes, &links)
+	}
+	return links
+}

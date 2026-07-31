@@ -277,9 +277,20 @@ func dedupeSeeds(links []string) []string {
 	return out
 }
 
-// fetchAndExtract 在 Sprint 1 阶段只需要完成"发 HTTP 请求 + 读 body + 提取 Title"，
-// 不需要调用 Sprint 2 才会写的 ExtractLinksAndForms——Sprint 1 先用一个占位的简单字符串查找提取
-// <a href="..."> 即可让 BFS 跑起来，Sprint 2 落地后再替换成 goquery 版本。
+// fetchAndExtract 是单个页面的完整处理流程："抓取原始数据" + "提取攻击面信息"，
+// 这是 worker 对每个队列元素真正执行的核心动作，process 只是围绕它做限流和记账。
+//
+// 分两大步：
+//  1. 用 net/http 发起真实的 GET 请求，拿到状态码、响应头、响应体（Sprint 1 就已完成，本次不变）。
+//  2. 把响应体交给 extract.go 的 ExtractLinksAndForms 做 DOM 解析，一次性拿到
+//     "继续爬取需要的链接" + "攻击面需要的表单/参数"，再交给 leak.go 的 DetectLeaks
+//     做敏感信息扫描（leak.go 是 Sprint 3 的产出，Sprint 2 阶段这一步还不存在）。
+//
+// 返回值里的 bool 表示"这次抓取是否成功"：
+//   - 网络层面的失败（连不上、超时、读 body 出错）返回 false，调用方 process 会据此
+//     告知限流器 OnFailure()，让自适应限流收紧并发；
+//   - 只要拿到了 HTTP 响应（哪怕是 404/500 这类业务错误状态码），也算"成功"返回 true，
+//     因为这本身就是一次有效的网络探测结果，不是网络故障。
 func (c *Crawler) fetchAndExtract(ctx context.Context, it *item) (*Page, []string, bool) {
 	timeout := c.opts.Timeout
 	if timeout <= 0 {
@@ -300,7 +311,10 @@ func (c *Crawler) fetchAndExtract(ctx context.Context, it *item) (*Page, []strin
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024)) // 复用 fallbackScan 的 2MB 上限模式
+	// 限制最大读取 2MB，防止极端情况下服务端返回一个超大响应体把内存打爆
+	// （比如误爬到一个视频文件的直链）。这个上限和 web_scanner.go 里 fallbackScan
+	// 使用的上限保持一致，全项目统一这一个"安全边界"数值，不额外发明新的常量。
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
 	if err != nil {
 		return nil, nil, false
 	}
@@ -308,25 +322,45 @@ func (c *Crawler) fetchAndExtract(ctx context.Context, it *item) (*Page, []strin
 
 	headers := make(map[string]string, len(resp.Header))
 	for k, v := range resp.Header {
+		// resp.Header 的值类型是 []string（同一个 Header 名可以出现多次，
+		// 比如 Set-Cookie），这里用逗号拼接成单个字符串存进 map，
+		// 和项目里其它地方处理 http.Header 的方式保持一致。
 		headers[k] = strings.Join(v, ", ")
 	}
+
+	// 用 goquery 一次性提取链接、表单、URL 参数。links 是继续 BFS 需要的"下一层种子"，
+	// forms/params 是攻击面信息，直接挂到 Page 上，最终会原样透传进 WebResult。
+	links, forms, params := ExtractLinksAndForms(it.URL, body)
 
 	page := &Page{
 		URL:        it.URL,
 		Depth:      it.Depth,
 		StatusCode: resp.StatusCode,
-		Title:      extractTitlePlaceholder(body),
+		Title:      extractTitle(body),
 		Body:       body,
 		Headers:    headers,
+		Forms:      forms,
+		Params:     params,
 	}
-	// Sprint 1 占位：Sprint 2 会替换成 ExtractLinksAndForms 调用
-	links := extractLinksPlaceholder(it.URL, body)
 	return page, links, true
 }
 
-// extractTitlePlaceholder 是 Sprint 1 阶段的最小 Title 提取实现，Sprint 2/4 会有更完整的版本，
-// 这里先保证 Page.Title 不是空字符串导致测试无法断言。
-func extractTitlePlaceholder(body string) string {
+// extractTitle 从 HTML 文本里取出 <title> 标签内的文字，用作 Page.Title。
+//
+// 为什么不用 goquery（extract.go 已经引入了这个依赖，看起来顺手就能用 doc.Find("title")）？
+//   两个原因：
+//     1. 职责边界——extract.go 的注释里已经明确它只负责"攻击面提取"（链接/表单/参数），
+//        Title 是页面展示信息，不是攻击面，混进 ExtractLinksAndForms 会让那个函数的
+//        职责变得模糊（"提取攻击面"和"顺便查个标题"是两件不同的事）。
+//     2. 性能——extractTitle 只需要找一个标签，字符串查找的开销远小于把整个 HTML
+//        解析成一棵 DOM 树；而 ExtractLinksAndForms 已经要解析一次 DOM 树了，
+//        如果 Title 也放进去，等于是"因为顺手"而把两个函数耦合在一起，之后任何一个
+//        需求变化都可能牵连另一个，不划算。
+//
+// 实现上用 strings.ToLower 统一大小写后再查找 <title>，是因为 HTML 标签大小写
+// 不敏感（<TITLE> 和 <title> 都合法），但真正截取内容时用的是原始 body 而不是
+// 转小写后的字符串，这样才不会把标题文字本身的大小写也弄丢。
+func extractTitle(body string) string {
 	lower := strings.ToLower(body)
 	start := strings.Index(lower, "<title>")
 	if start == -1 {
@@ -338,48 +372,4 @@ func extractTitlePlaceholder(body string) string {
 		return ""
 	}
 	return strings.TrimSpace(body[start : start+end])
-}
-
-// extractLinksPlaceholder 是 Sprint 1 占位实现，仅用简单字符串查找提取 <a href="...">，
-// Sprint 2 会用 ExtractLinksAndForms（基于 goquery）替换掉这个函数。
-func extractLinksPlaceholder(baseURL string, body string) []string {
-	base, err := url.Parse(baseURL)
-	if err != nil {
-		return nil
-	}
-	var links []string
-	lower := strings.ToLower(body)
-	idx := 0
-	for {
-		hrefPos := strings.Index(lower[idx:], "href=")
-		if hrefPos == -1 {
-			break
-		}
-		hrefPos += idx + len("href=")
-		if hrefPos >= len(body) {
-			break
-		}
-		quote := body[hrefPos]
-		if quote != '"' && quote != '\'' {
-			idx = hrefPos
-			continue
-		}
-		end := strings.IndexByte(body[hrefPos+1:], quote)
-		if end == -1 {
-			break
-		}
-		href := body[hrefPos+1 : hrefPos+1+end]
-		idx = hrefPos + 1 + end
-
-		href = strings.TrimSpace(href)
-		if href == "" || strings.HasPrefix(href, "javascript:") || strings.HasPrefix(href, "mailto:") || strings.HasPrefix(href, "tel:") || strings.HasPrefix(href, "#") {
-			continue
-		}
-		ref, err := url.Parse(href)
-		if err != nil {
-			continue
-		}
-		links = append(links, base.ResolveReference(ref).String())
-	}
-	return links
 }

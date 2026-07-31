@@ -1,8 +1,8 @@
 # Web Scanner 模块
 
-> **文档版本**: v2.0
+> **文档版本**: v2.1
 > **最后更新**: 2026-07-31
-> **更新说明**: 同步 Phase 5.1（Web 爬虫与被动分析器）Sprint 0-5 落地能力：新增第 2 节「BFS 深度爬取与被动分析」，修正第 3 节使用示例与第 5 节开发指南中已过时的方法名（`fallbackScan` → `fallbackFetch`）。
+> **更新说明**: 同步 Sprint 6（真实站点测试驱动的原生缺陷修复）落地能力：第 1.4 节补充「多端口并发探测」与「协议自适应双发选优」两条能力说明；第 5 节补充 `runOnePort`/`fallbackFetchBestProtocol` 的位置说明。此前版本（v2.0）同步 Phase 5.1 Sprint 0-5 落地能力：新增第 2 节「BFS 深度爬取与被动分析」，修正第 3 节使用示例与第 5 节开发指南中已过时的方法名（`fallbackScan` → `fallbackFetch`）。
 
 `web` 模块是 NeoAgent 的核心组件之一，负责对 Web 服务进行深度分析、指纹识别、站内爬取与被动敏感信息检测。它采用了 **"Headless Browser + HTTP Fallback"** 的混合架构，既保证了对现代 SPA（单页应用）的解析能力，又具备了传统扫描器的鲁棒性。
 
@@ -28,6 +28,8 @@
 
 ### 1.4 智能调度 (Smart Dispatch)
 - **协议推断**: 自动识别非标准端口的 HTTP/HTTPS 协议（如 8443, 8080）。
+- **多端口并发探测**: `--ports` 支持 `"80,443"`/`"1-100"`/`"top100"` 等范围写法（复用 `port_service/nmap_service.ParsePortList`），每个端口各自独立探测（各自猜协议、各自抓取、各自可能触发 BFS），互不影响、并发执行；单个端口失败不会连累其他端口的结果丢失。
+- **协议自适应双发选优**: 当协议是自动猜测（而非用户显式指定）时，如果拿到的响应是协议不匹配的典型特征（400），会用 `net/http` 并发对 HTTP/HTTPS 两个方向各发一次请求，用响应质量客观选出更可信的结果——参考 `httpx` 的做法，不依赖脆弱的错误类型/错误文案判断。这个校验同时覆盖 go-rod（Headless Chromium）和降级路径两条数据来源，因为真实 Chrome 环境下验证过：协议猜错时浏览器不会导航失败，而是会把对端返回的合法 400 提示当成一次「成功」的抓取。
 - **QoS 控制**: 内置自适应限流器，防止对目标造成过大压力或耗尽本地资源。
 
 ### 1.5 BFS 深度爬取 (`crawler` 子包)
@@ -131,6 +133,8 @@ neoAgent scan run -t 192.168.1.0/24 --crawl=true
 
 - **JS 提取逻辑**: 位于 `context.go`，使用 `iframe` 对比法提取全局变量。
 - **降级逻辑**: 位于 `web_scanner.go` 的 `fallbackFetch` 方法（只负责抓取，不组装结果、不跑指纹匹配）。
+- **多端口编排**: `Run()` 是纯编排层（解析端口列表 → 并发调用 `runOnePort` → 汇总），单端口的完整探测流程（猜协议 → go-rod 抓取 → 降级/协议校验 → 组装结果 → 按需 BFS）在 `runOnePort` 里。
+- **协议自适应双发选优**: 核心逻辑在 `fallbackFetchBestProtocol`（http/https 并发双发）与 `pickBestFetchOutcome`（响应质量排序，同时接纳 go-rod 结果与 fallback 结果参与比较）。
 - **指纹规则**: 默认加载 `rules/fingerprint/web/web_fingerprints.json`。
 - **BFS 爬取核心**: 位于 `crawler/crawler.go`，`Options.AllowCrossHost` 默认 `false`（零值即安全，只在种子 Host 内爬），显式传 `true` 才允许跨域。
 - **被动泄露检测规则**: 位于 `crawler/leak.go` 的 `defaultLeakRules`，新增规则类型直接往这个 slice 追加即可。

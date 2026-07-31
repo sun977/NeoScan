@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"neoagent/internal/core/lib/browser"
 	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
+	"neoagent/internal/core/scanner/port_service/nmap_service"
 	"neoagent/internal/core/scanner/web/crawler"
 	"neoagent/internal/pkg/fingerprint"
 	fpHttp "neoagent/internal/pkg/fingerprint/engines/http"
@@ -64,15 +66,115 @@ func (s *WebScanner) Name() model.TaskType {
 	return model.TaskTypeWebScan
 }
 
-// Run 执行扫描任务。
+// Run 执行扫描任务，是纯编排层：把 task.PortRange（"80,443"/"1-100"/"top100"
+// 这类范围字符串）解析成具体端口列表，每个端口独立探测（各自猜协议、各自抓取、
+// 各自可能触发 BFS），互不影响、并发执行，最后把所有端口的结果汇总返回。
 //
-// 整体结构是"统一收口一次 return"：不管首页数据是 go-rod 拿到的还是降级
-// fallback 拿到的，最终都在函数末尾组装一次结果、判断一次是否需要深度爬取、
-// return 一次——不再像重构前那样在浏览器启动失败/导航失败两处提前 return，
-// 那两处提前 return 各自绕过了后面的 BFS 触发逻辑，是"降级路径爬虫失效"
-// 缺陷的根源（架构方案 8.7 节）。现在不管走到哪条路径，body 一旦拿到手，
-// 后面的收口、决策、BFS 都是同一段代码，不存在"某条路径漏掉某个步骤"的可能。
+// Sprint 0-5 遗留的 Run() 只会探测一个 URL——normalizeURL 拿到 "80,443" 这种
+// 整串范围字符串时，既不等于 "80" 也不等于 "443"，会直接落进 default 分支猜成
+// http，"多端口探测"从未真正发生过。真实站点测试（10.201.28.126、内网多端口
+// 服务）暴露了这个问题，现在改成"编排层 Run() + 单端口执行层 runOnePort()"，
+// runOnePort() 就是原来 Run() 的函数体，行为不变，只是不再自己算 targetURL、
+// 不再自己拿 QoS 令牌（改成每次实际抓取各自获取，见 runOnePort 内部）。
 func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*model.TaskResult, err error) {
+	// 确保指纹规则已加载
+	s.ensureInit()
+
+	startTime := time.Now()
+	var protocolHint string
+	if p, ok := task.Params["protocol"].(string); ok {
+		protocolHint = p
+	}
+
+	ports := parsePortsForScan(task.PortRange)
+	if len(ports) == 0 {
+		// PortRange 为空或解析不出任何端口：保持 Sprint 0-5 现状行为，只探测一次，
+		// 端口交给 normalizeURL 自己按原始字符串处理（原样兼容旧调用方式，
+		// 例如 target 本身已经是 "http://xxx" 完整 URL 的场景）。
+		return s.runOnePort(ctx, task, startTime, task.PortRange, protocolHint)
+	}
+
+	type portResult struct {
+		port    int
+		results []*model.TaskResult
+		err     error
+	}
+
+	resultsCh := make(chan portResult, len(ports))
+	var wg sync.WaitGroup
+	for _, port := range ports {
+		wg.Add(1)
+		go func(port int) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Errorf("[WebScanner] PANIC RECOVERED (port %d): %v", port, r)
+					resultsCh <- portResult{port: port, err: fmt.Errorf("panic during web scan on port %d: %v", port, r)}
+				}
+			}()
+			portStr := fmt.Sprintf("%d", port)
+			res, errPort := s.runOnePort(ctx, task, startTime, portStr, protocolHint)
+			resultsCh <- portResult{port: port, results: res, err: errPort}
+		}(port)
+	}
+	wg.Wait()
+	close(resultsCh)
+
+	var errs []error
+	for pr := range resultsCh {
+		if pr.err != nil {
+			logger.Warnf("[WebScanner] port %d scan failed: %v", pr.port, pr.err)
+			errs = append(errs, pr.err)
+			continue
+		}
+		results = append(results, pr.results...)
+	}
+
+	// 只有全部端口都失败时才把错误往上抛；只要有一个端口拿到结果，就不能让
+	// 全局的失败掩盖掉已经成功的部分——这是"一个目标多个独立 Web 服务"场景下
+	// 的核心正确性要求，80 端口探测失败不该连累 443 端口的正确结果消失。
+	if len(results) == 0 && len(errs) > 0 {
+		return nil, fmt.Errorf("all ports failed: %w", errors.Join(errs...))
+	}
+	return results, nil
+}
+
+// parsePortsForScan 把 task.PortRange 解析成具体端口号列表，并去重。
+//
+// 直接复用 port_service/nmap_service 包已有的 ParsePortList，不重新发明端口
+// 范围解析——它已经支持 "80,443"、"1-100"、"top100"/"top1000" 别名，是经过
+// 测试的现成实现。PortRange 为空字符串时返回空列表，调用方 Run() 会据此走
+// "只探测一次"的兼容路径。
+func parsePortsForScan(portRange string) []int {
+	if portRange == "" {
+		return nil
+	}
+	raw := nmap_service.ParsePortList(portRange)
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := make(map[int]bool, len(raw))
+	ports := make([]int, 0, len(raw))
+	for _, p := range raw {
+		if !seen[p] {
+			seen[p] = true
+			ports = append(ports, p)
+		}
+	}
+	return ports
+}
+
+// runOnePort 对单个端口执行完整的探测流程：猜/确定协议 -> go-rod 抓取 ->
+// 降级 fallback（含 http/https 双发选优）-> 收口组装结果 -> 按需触发 BFS 深度爬取。
+//
+// 这是 Sprint 0-5 里 Run() 函数体的原样内容，整体结构"统一收口一次 return"
+// 保持不变：不管首页数据是 go-rod 拿到的还是降级 fallback 拿到的，最终都在
+// 函数末尾组装一次结果、判断一次是否需要深度爬取、return 一次——不再像
+// 重构前那样在浏览器启动失败/导航失败两处提前 return，那两处提前 return
+// 各自绕过了后面的 BFS 触发逻辑，是"降级路径爬虫失效"缺陷的根源（架构方案
+// 8.7 节）。现在不管走到哪条路径，body 一旦拿到手，后面的收口、决策、BFS
+// 都是同一段代码，不存在"某条路径漏掉某个步骤"的可能。
+func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime time.Time, port string, protocolHint string) (results []*model.TaskResult, err error) {
 	// 0. Panic Recovery (Linus Style: Don't let a single crash take down the whole agent)
 	defer func() {
 		if r := recover(); r != nil {
@@ -82,21 +184,17 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		}
 	}()
 
-	// 确保指纹规则已加载
-	s.ensureInit()
-
-	// 1. 获取 QoS 令牌
+	// 1. 获取 QoS 令牌。每次实际抓取各自获取/释放，与 crawler 内部 BFS 每个
+	// 子页面各自 Acquire 的模式保持一致——s.limiter 保护的是"全局同时有多少个
+	// 昂贵操作（启动浏览器/抓取）在跑"，多端口并发场景下，每个端口的首页抓取
+	// 本质上也是"一次抓取"，理应各自受限流保护，不能只在最外层拿一次。
 	if err1 := s.limiter.Acquire(ctx); err1 != nil {
 		return nil, err1
 	}
 	defer s.limiter.Release()
 
-	startTime := time.Now()
-	var protocolHint string
-	if p, ok := task.Params["protocol"].(string); ok {
-		protocolHint = p
-	}
-	targetURL := normalizeURL(task.Target, task.PortRange, protocolHint)
+	protocolGuessed := isProtocolGuessed(task.Target, protocolHint)
+	targetURL := normalizeURL(task.Target, port, protocolHint)
 
 	var (
 		homeBody       string
@@ -184,19 +282,67 @@ func (s *WebScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		logger.Warnf("[WebScanner] Failed to launch browser: %v. Will fallback.", errLaunch)
 	}
 
-	// --- 统一降级：只要 go-rod 路径没有拿到 body，一律走 fallbackFetch。
-	// 这一处判断取代了重构前分散在 Launch 失败、Navigate 失败两处的降级调用，
-	// 是修复"降级路径爬虫失效"缺陷的核心改动——不管什么原因导致 go-rod 拿不到
-	// body，后面统一走同一条路径继续组装结果、判断是否需要深度爬取。
-	if homeBody == "" {
-		body, headers, statusCode, title, links, errFetch := s.fallbackFetch(ctx, targetURL)
-		if errFetch != nil {
-			s.limiter.OnFailure()
-			return nil, fmt.Errorf("both browser and fallback fetch failed: %w", errFetch)
+	// --- 统一降级 + 协议误判纠正：go-rod 路径拿到的结果，在两种情况下不能
+	// 直接采信，必须用 fallbackFetchBestProtocol 的双发结果来比较、选优：
+	//
+	//  1. go-rod 完全没拿到 body（Launch/Navigate/ExtractRichContext 任一环节
+	//     失败）——这是重构前就有的"降级路径爬虫失效"场景，取代了原来分散在
+	//     Launch 失败、Navigate 失败两处的降级调用。
+	//
+	//  2. go-rod 拿到了 400 响应，且协议是"猜"出来的——真实 Chrome 环境验证
+	//     过，协议猜错时（比如把 HTTPS 服务当成 HTTP 请求）Chromium 不会让
+	//     导航失败：Go 的 TLS 服务端在握手阶段识别出明文请求后，会在同一条
+	//     TCP 连接上直接写回一段合法的 HTTP/1.0 400 文本响应（"Client sent
+	//     an HTTP request to an HTTPS server."），这是服务端真实吐出的、
+	//     状态码明确的响应，不是 Chromium 编造的错误页，go-rod 路径因此
+	//     "成功"拿到一个看似合法、实际是协议不匹配提示的 body。400 本身
+	//     不能无条件当成失败（有些服务器对正常请求就是回 400），但协议是
+	//     猜出来的场景下，400 已经是"猜错了协议"的强烈信号，值得让另一个
+	//     协议也发一次、用响应质量客观比较，而不是不假思索采信。
+	//
+	// 两种情况统一走同一条路径：都发起双发对比，用 pickBestFetchOutcome 在
+	// go-rod 已有结果（包装成 fetchOutcome，body 为空时天然在排序中垫底）
+	// 和 fallback 双发结果之间选出更可信的一个。不给"go-rod 完全失败"和
+	// "go-rod 拿到疑似协议错误的 400"写两套不同的分支逻辑——它们本质上是
+	// 同一个问题："当前拿到的 go-rod 结果值不值得信任，需不需要用 fallback
+	// 双发来验证/替换"，用一个排序函数统一回答，不需要特殊情况。
+	needsVerification := homeBody == "" ||
+		(protocolGuessed && homeStatusCode == http.StatusBadRequest)
+
+	if needsVerification {
+		rodOutcome := fetchOutcome{
+			url: targetURL, body: homeBody, headers: homeHeaders,
+			statusCode: homeStatusCode, title: homeTitle, links: seedLinks,
 		}
-		homeBody, homeHeaders, homeStatusCode, homeTitle, seedLinks = body, headers, statusCode, title, links
-		homeRichCtx = nil // fallback 路径没有富上下文
-		homeContentLen = 0
+		if homeBody == "" {
+			// go-rod 侧没有任何可用数据，用一个带 err 的哨兵值代表它，
+			// pickBestFetchOutcome 的排序规则下必然输给任何成功的 fallback
+			// 结果，不需要为"完全没数据"单独判断。
+			rodOutcome.err = errors.New("go-rod path yielded no body")
+		}
+
+		altBody, altHeaders, altStatusCode, altTitle, altLinks, altURL, errFetch := s.fallbackFetchBestProtocol(ctx, targetURL, protocolGuessed)
+		altOutcome := fetchOutcome{url: altURL, body: altBody, headers: altHeaders, statusCode: altStatusCode, title: altTitle, links: altLinks, err: errFetch}
+
+		best := pickBestFetchOutcome(rodOutcome, altOutcome)
+		if best.err != nil {
+			// 两侧都失败：go-rod 没数据，fallback 双发也失败，彻底没有可用结果。
+			s.limiter.OnFailure()
+			return nil, fmt.Errorf("both browser and fallback fetch failed: %w", best.err)
+		}
+		if best.url == altOutcome.url {
+			// fallback 侧胜出：go-rod 那份结果（如果有的话）是基于错误协议
+			// 渲染的，连同截图/favicon 这些衍生物一并丢弃，避免"错误协议的
+			// 截图 + 正确协议的正文"这种不自洽的组合。
+			targetURL = altURL
+			homeBody, homeHeaders, homeStatusCode, homeTitle, seedLinks = altBody, altHeaders, altStatusCode, altTitle, altLinks
+			homeRichCtx = nil
+			homeContentLen = 0
+			screenshotB64, faviconB64 = "", ""
+		}
+		// best 是 go-rod 侧：说明 go-rod 原有结果已经足够可信（比如两个协议
+		// 下都是 400，或 fallback 双发反而更差），维持不变，保留 RichContext/
+		// 截图这些只有 go-rod 路径才有的更完整数据。
 	}
 
 	finalIP, finalPort := resolveIPPortForResult(task, targetURL, remoteIP, remotePort)
@@ -336,6 +482,34 @@ func normalizeURL(target string, port string, protocol string) string {
 	}
 }
 
+// isProtocolGuessed 判断 normalizeURL 对这次调用是不是"猜"出协议的，而不是
+// 用户显式指定的——只有"猜"出来的协议才值得在 fallback 阶段做双发验证，用户
+// 显式指定的协议就该只发一次，尊重用户明确的意图，不做自作主张的纠正。
+//
+// 判断逻辑必须和 normalizeURL 内部的分支条件完全对应：target 自带协议前缀、
+// 或者 protocol 参数非空，都是"显式"；只有落进 normalizeURL 最后 switch 的
+// 默认猜测分支，才是"猜"。这里不修改 normalizeURL 本身的签名（避免影响
+// 唯一现有调用方之外可能存在的隐性契约），而是新增一个纯判断函数，用同样的
+// 输入复现同样的分支路径。
+func isProtocolGuessed(target string, protocol string) bool {
+	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
+		return false
+	}
+	return protocol != "https" && protocol != "http"
+}
+
+// flipProtocol 把 URL 的 scheme 在 http/https 之间翻转，其余部分（host、port、
+// path）原样保留。
+func flipProtocol(targetURL string) string {
+	if strings.HasPrefix(targetURL, "https://") {
+		return "http://" + strings.TrimPrefix(targetURL, "https://")
+	}
+	if strings.HasPrefix(targetURL, "http://") {
+		return "https://" + strings.TrimPrefix(targetURL, "http://")
+	}
+	return targetURL
+}
+
 // convertMatchesToTechStack 转换指纹格式为 TechStack 列表
 func convertMatchesToTechStack(matches []fingerprint.Match) []string {
 	var res []string
@@ -424,6 +598,98 @@ func (s *WebScanner) ensureInit() {
 // 返回的 links 是顺手用 Sprint 2 产出的 ExtractLinksAndForms 提取的首页种子链接，
 // 为 Sprint 5 挂上 crawler 后的 BFS 爬取做准备；Sprint 4 阶段 Run() 主干还不会用到
 // 这个返回值，但函数签名一次性按最终形态定义，避免 Sprint 5 时再改一次签名。
+// fallbackFetchBestProtocol 是 fallbackFetch 的协议自适应外壳，参考 httpx 的
+// 做法：协议不确定时，不去猜错了再重试，而是 http/https 两个协议直接并发各发
+// 一次，用响应质量选出更靠谱的那个。
+//
+// 这个方案取代了最初设计的"先猜一个协议，抓取失败后再按错误类型判断要不要
+// 换协议重试"——那个方案在真实 Chrome/Chromium 环境下失效了：协议猜错时
+// （比如把 HTTPS 服务当成 HTTP 请求），Go 的 net/http 客户端在明文链路上收到
+// TLS 服务端返回的裸文本响应，会被 http.Client 解析成一个"看似成功"的
+// http.Response（因为 HTTP 响应本身就是纯文本协议，TLS 握手失败时对端吐出的
+// 错误文本凑巧也能被解析成合法的状态行），err 是 nil，走不到任何"基于错误
+// 类型判断"的重试分支。想要可靠识别这种情况，要么去解析 body 内容做启发式
+// 判断（本质上是给"猜错协议"这个明确可以避免的场景打补丁，增加了不必要的
+// 特殊情况），要么就是干脆不猜——两个协议都发，永远能拿到「真正尝试过」的
+// 结果，用响应质量客观排序，不需要判断"是不是猜错了"这种本身就模糊的问题。
+//
+// protocolGuessed 为 false（用户通过 target 前缀或 protocol 参数显式指定协议）
+// 时只发 targetURL 这一个请求，尊重用户的明确意图，不做双发。
+func (s *WebScanner) fallbackFetchBestProtocol(ctx context.Context, targetURL string, protocolGuessed bool) (body string, headers map[string]string, statusCode int, title string, links []string, finalURL string, err error) {
+	if !protocolGuessed {
+		body, headers, statusCode, title, links, err = s.fallbackFetch(ctx, targetURL)
+		return body, headers, statusCode, title, links, targetURL, err
+	}
+
+	altURL := flipProtocol(targetURL)
+	if altURL == targetURL {
+		// 不是标准的 http(s):// URL（理论上不会发生，normalizeURL 保证了 scheme），
+		// 双发无意义，退化成单发。
+		body, headers, statusCode, title, links, err = s.fallbackFetch(ctx, targetURL)
+		return body, headers, statusCode, title, links, targetURL, err
+	}
+
+	var wg sync.WaitGroup
+	outcomes := make([]fetchOutcome, 2)
+	urls := [2]string{targetURL, altURL}
+	for i, u := range urls {
+		wg.Add(1)
+		go func(i int, u string) {
+			defer wg.Done()
+			b, h, sc, t, l, e := s.fallbackFetch(ctx, u)
+			outcomes[i] = fetchOutcome{url: u, body: b, headers: h, statusCode: sc, title: t, links: l, err: e}
+		}(i, u)
+	}
+	wg.Wait()
+
+	best := pickBestFetchOutcome(outcomes[0], outcomes[1])
+	if best.err != nil {
+		return "", nil, 0, "", nil, targetURL, best.err
+	}
+	return best.body, best.headers, best.statusCode, best.title, best.links, best.url, nil
+}
+
+// fetchOutcome 是一次 fallbackFetch 调用的完整结果，用于双发场景下在两个
+// 协议之间做比较、选优。
+type fetchOutcome struct {
+	url        string
+	body       string
+	headers    map[string]string
+	statusCode int
+	title      string
+	links      []string
+	err        error
+}
+
+// pickBestFetchOutcome 从两个协议的抓取结果里选出更可信的一个，排序规则与
+// httpx 的做法一致——优先级从高到低：
+//  1. 请求成功（err == nil）且状态码不是"协议不匹配的典型特征"（4xx 里的 400，
+//     纯文本协议服务器收到 TLS ClientHello 或反过来最常见的表现）。
+//  2. 请求成功但状态码是 400：仍然是"拿到了响应"，比彻底失败强，但排在
+//     "干净成功"后面。
+//  3. 请求失败（err != nil）：排最后，两个都失败时返回先发起的那个的错误
+//     （即 targetURL 对应的 outcome），错误信息里包含的 host:port 对用户
+//     排查更有意义。
+//
+// 这里不做"看 body 内容像不像 HTML"这类启发式判断——状态码已经是服务端
+// 主动给出的明确信号，没有必要绕过明确信号去猜内容，那是本末倒置。
+func pickBestFetchOutcome(a, b fetchOutcome) fetchOutcome {
+	rank := func(o fetchOutcome) int {
+		switch {
+		case o.err == nil && o.statusCode != http.StatusBadRequest:
+			return 0
+		case o.err == nil:
+			return 1
+		default:
+			return 2
+		}
+	}
+	if rank(a) <= rank(b) {
+		return a
+	}
+	return b
+}
+
 func (s *WebScanner) fallbackFetch(ctx context.Context, targetURL string) (body string, headers map[string]string, statusCode int, title string, links []string, err error) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},

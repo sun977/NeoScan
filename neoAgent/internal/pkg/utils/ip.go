@@ -94,12 +94,12 @@ func IsIPInWhitelist(clientIP string, whitelist []string) bool {
 
 		if strings.Contains(allowedIP, "/") {
 			// CIDR格式：192.168.1.0/24
-			if isIPInCIDR(clientIPParsed, allowedIP) {
+			if IsIPInCIDR(clientIPParsed, allowedIP) {
 				return true
 			}
 		} else {
 			// 单IP格式：192.168.1.100
-			if isIPEqual(clientIPParsed, allowedIP) {
+			if IsIPEqual(clientIPParsed, allowedIP) {
 				return true
 			}
 		}
@@ -108,8 +108,10 @@ func IsIPInWhitelist(clientIP string, whitelist []string) bool {
 	return false
 }
 
-// isIPInCIDR 检查IP是否在CIDR范围内
-func isIPInCIDR(clientIP net.IP, cidr string) bool {
+// IsIPInCIDR 检查IP是否在CIDR范围内。导出为公开函数，供包外需要做
+// IP 网段匹配的场景直接复用（如 Web 扫描 CDN 网段识别），避免各处重复实现
+// net.ParseCIDR + Contains 的判断逻辑。
+func IsIPInCIDR(clientIP net.IP, cidr string) bool {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return false // CIDR格式无效
@@ -117,8 +119,8 @@ func isIPInCIDR(clientIP net.IP, cidr string) bool {
 	return ipNet.Contains(clientIP)
 }
 
-// isIPEqual 检查两个IP是否相等
-func isIPEqual(clientIP net.IP, targetIPStr string) bool {
+// IsIPEqual 检查两个IP是否相等
+func IsIPEqual(clientIP net.IP, targetIPStr string) bool {
 	targetIP := net.ParseIP(targetIPStr)
 	if targetIP == nil {
 		return false

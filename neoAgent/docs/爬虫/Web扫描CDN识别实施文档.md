@@ -23,7 +23,7 @@
 | 步骤 | 改动文件 | 类型 | 状态 |
 |---|---|---|---|
 | 1 | `rules/edge/cdn.json` | 新增数据文件 | 🟢 已完成 |
-| 2 | `internal/pkg/edge/model.go` | 新建 | 待实施 |
+| 2 | `internal/pkg/edge/model.go` | 新建 | 🟢 已完成 |
 | 3 | `internal/pkg/edge/detector.go` | 新建 | 待实施 |
 | 4 | `internal/pkg/edge/detector_test.go` | 新建（单元测试） | 待实施 |
 | 5 | `internal/core/model/result_types.go` | 修改（加字段） | 待实施 |

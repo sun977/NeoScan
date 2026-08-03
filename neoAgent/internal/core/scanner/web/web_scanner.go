@@ -20,11 +20,13 @@ import (
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/scanner/port_service/nmap_service"
 	"neoagent/internal/core/scanner/web/crawler"
+	"neoagent/internal/pkg/edge"
 	"neoagent/internal/pkg/fingerprint"
 	fpHttp "neoagent/internal/pkg/fingerprint/engines/http"
 	fpModel "neoagent/internal/pkg/fingerprint/model"
 	"neoagent/internal/pkg/logger"
 	"neoagent/internal/pkg/utils"
+	"net"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
@@ -38,6 +40,9 @@ type WebScanner struct {
 
 	// 指纹引擎 (复用 internal/pkg/fingerprint)
 	fpEngine *fpHttp.HTTPEngine
+
+	// CDN 边缘节点检测 (复用 internal/pkg/edge)
+	edgeDetector *edge.Detector
 
 	// 资源限制 (QoS)
 	limiter *qos.AdaptiveLimiter
@@ -57,6 +62,7 @@ func NewWebScanner() *WebScanner {
 		browserManager:  bm,
 		browserLauncher: browser.NewLauncher(bm),
 		fpEngine:        fpEngine,
+		edgeDetector:    edge.NewDetector(),
 		// Web 扫描非常耗资源，默认并发限制为 5
 		limiter: qos.NewAdaptiveLimiter(5, 1, 10),
 	}
@@ -197,6 +203,12 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 	protocolGuessed := isProtocolGuessed(task.Target, protocolHint)
 	targetURL := normalizeURL(task.Target, port, protocolHint)
 
+	// --- CDN 判断：发起浏览器/HTTP 请求之前，见 Web扫描CDN识别方案.md 第二节 ---
+	// checkCDN 内部只做网段查表，isCDN/cdnProvider 这两个局部变量只在本函数
+	// 内部用于控制流程（是否跳过截图/深度爬取），组装成 model.EdgeComponent
+	// 放进结果的时机在下面 buildWebResult 调用处。
+	isCDN, cdnProvider := s.checkCDN(task.Target)
+
 	var (
 		homeBody       string
 		homeHeaders    map[string]string
@@ -264,7 +276,7 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 					homeTitle = extractTitleFromCtx(richCtx)
 					seedLinks = ExtractLinks(page)
 
-					if capture, ok := task.Params["screenshot"].(bool); ok && capture {
+					if capture, ok := task.Params["screenshot"].(bool); ok && capture && !isCDN {
 						if buf, errShot := page.Screenshot(true, nil); errShot == nil {
 							screenshotB64 = base64.StdEncoding.EncodeToString(buf)
 						} else {
@@ -353,17 +365,25 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 	// 统一提取一次，保证首页结果无论走哪条数据源，Forms/Params 都不缺失。
 	_, homeForms, homeParams := crawler.ExtractLinksAndForms(targetURL, homeBody)
 
+	// isCDN/cdnProvider 在这里才第一次组装成 model.EdgeComponent（checkCDN 本身
+	// 不依赖 model 包，保持 edge/web 包不反向依赖 model 之外的耦合最小化）。
+	var edgeComponents []model.EdgeComponent
+	if isCDN {
+		edgeComponents = append(edgeComponents, model.EdgeComponent{Type: "cdn", Provider: cdnProvider})
+	}
+
 	homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
 		URL: targetURL, Depth: 0, StatusCode: homeStatusCode, Title: homeTitle,
 		Body: homeBody, Headers: homeHeaders, ContentLength: homeContentLen, RichContext: homeRichCtx,
 		Forms: homeForms, Params: homeParams,
 		Screenshot: screenshotB64, Favicon: faviconB64,
+		EdgeComponents: edgeComponents,
 	})
 	results = append(results, homeResult)
 
 	// --- 是否触发深度爬取：三态判断，见 resolveCrawlDepth ---
 	depth := s.resolveCrawlDepth(task, homeStatusCode, homeHeaders, seedLinks)
-	if depth > 0 && len(seedLinks) > 0 {
+	if depth > 0 && len(seedLinks) > 0 && !isCDN {
 		cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter)
 		pages := cr.Crawl(ctx, targetURL, seedLinks)
 
@@ -414,6 +434,22 @@ func resolveIPPortForResult(task *model.Task, targetURL, remoteIP string, remote
 		}
 	}
 	return ip, port
+}
+
+// checkCDN 判断 target（可能是域名，也可能已经是 IP）是否落在已知 CDN
+// 厂商的网段内。target 是域名时会做一次 DNS 解析取第一个 IP；解析失败
+// 时直接返回"不是 CDN"，不阻塞后续流程——CDN 判断是锦上添花的优化，
+// 不能因为 DNS 解析失败就影响正常扫描（见方案文档第二节）。
+func (s *WebScanner) checkCDN(target string) (bool, string) {
+	ip := target
+	if !utils.IsIP(target) {
+		addrs, err := net.LookupHost(target)
+		if err != nil || len(addrs) == 0 {
+			return false, ""
+		}
+		ip = addrs[0]
+	}
+	return s.edgeDetector.Check(ip)
 }
 
 // extractFaviconFromPage 从已经导航完成的页面里取 favicon 并转成 base64。
@@ -577,6 +613,25 @@ func (s *WebScanner) ensureInit() {
 		} else {
 			logger.Warnf("[WebScanner] No fingerprint rules loaded")
 		}
+
+		// 加载 CDN 网段规则，路径试探列表与指纹规则同一套相对路径模式。
+		edgePaths := []string{
+			"rules/edge/cdn.json",
+			"../rules/edge/cdn.json",
+			"../../rules/edge/cdn.json",
+			"../../../rules/edge/cdn.json",
+			"../../../../rules/edge/cdn.json",
+			"../../../../../rules/edge/cdn.json",
+			"neoAgent/rules/edge/cdn.json",
+		}
+		for _, path := range edgePaths {
+			if err := s.edgeDetector.Load(path); err == nil {
+				logger.Infof("[WebScanner] Loaded CDN rules from %s", path)
+				break
+			}
+		}
+		// 全部路径都加载失败：edgeDetector 内部规则集为空，Check 恒定返回
+		// false，退化为"没有 CDN 识别能力"，不影响扫描主流程，不需要额外处理。
 	})
 }
 
@@ -788,6 +843,11 @@ type pageData struct {
 	Leaks      []model.LeakInfo
 	Screenshot string
 	Favicon    string
+
+	// EdgeComponents 只有首页调用 buildWebResult 时才会显式传入非空值，
+	// 爬虫子页面复用同一个端口的判断结果没有意义（同一端口的边缘节点归属
+	// 不会因为爬到第几层页面而改变），子页面调用处保持 nil 即可。
+	EdgeComponents []model.EdgeComponent
 }
 
 // buildWebResult 是首页与爬虫子页面共用的收口函数：接收 pageData 这一份统一的
@@ -860,6 +920,7 @@ func (s *WebScanner) buildWebResult(task *model.Task, startTime time.Time, ip st
 			Forms:           pd.Forms,
 			Params:          pd.Params,
 			Leaks:           pd.Leaks,
+			EdgeComponents:  pd.EdgeComponents,
 		},
 	}
 }

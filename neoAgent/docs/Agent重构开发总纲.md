@@ -124,12 +124,13 @@ neoAgent/
     - [x] **Sprint 4**：`web_scanner.go` 收口重构（`fallbackScan` → `fallbackFetch` + `buildWebResult` 统一收口，零功能回归）。
     - [x] **Sprint 5**：三处接入点改造 (`scan_web.go`/`scan_run.go`/`dispatcher.go`/`task_to_core.go`) + 自动决策 (`decideCrawlDepth`/`resolveCrawlDepth`) + 按需浏览器升级 (`escalateIfNeeded`/`renderWithBrowser`) + 端到端联调。
     - [x] **Sprint 6**：多端口并发探测 + 协议自适应双发选优（真实站点测试驱动发现并修复的原生缺陷：`--ports` 范围字符串未真正多端口探测、协议猜错后无纠错机会、go-rod 路径误将协议不匹配的 400 当成扫描成功）。
-- [ ] **5.1.1 Web 扫描 CDN 边缘节点识别**（Phase 5.1 之后的独立小任务，不与 5.2 混排）：对 CDN 边缘节点做全套 Web 扫描（截图/BFS 深度爬取）纯属浪费资源且产出误报结果，方案见 [`docs/爬虫/Web扫描CDN识别方案.md`](./爬虫/Web扫描CDN识别方案.md)，实施步骤见 [`docs/爬虫/Web扫描CDN识别实施文档.md`](./爬虫/Web扫描CDN识别实施文档.md)。**状态**: 🏃 进行中（5/7 步）。
+- [ ] **5.1.1 Web 扫描 CDN 边缘节点识别**（Phase 5.1 之后的独立小任务，不与 5.2 混排）：对 CDN 边缘节点做全套 Web 扫描（截图/BFS 深度爬取）纯属浪费资源且产出误报结果，方案见 [`docs/爬虫/Web扫描CDN识别方案.md`](./爬虫/Web扫描CDN识别方案.md)，实施步骤见 [`docs/爬虫/Web扫描CDN识别实施文档.md`](./爬虫/Web扫描CDN识别实施文档.md)。**状态**: 🏃 进行中（6/7 步）。
     - [x] 步骤 1：新增 `rules/edge/cdn.json` 规则文件（5 厂商 27 条 CIDR，JSON 语法与 CIDR 合法性均已验证）。
     - [x] 步骤 2：`internal/pkg/edge/model.go`（`ProviderRanges` 数据结构，`go vet` 通过）。
     - [x] 步骤 3：`internal/pkg/edge/detector.go`（`Detector` 检测器，`Load`/`Check`，`go build`+`go vet` 通过）。
     - [x] 步骤 4：`internal/pkg/edge/detector_test.go`（7 个用例全部 PASS，覆盖命中/不命中/非法 IP/文件缺失/JSON 非法/重复 Load/未 Load 前调用 7 个场景）。
     - [x] 步骤 5：`WebResult` 新增字段。**设计中途调整**：原方案 `IsCDN`/`CDNProvider` 标量字段改为统一的 `EdgeComponents []EdgeComponent` 列表 + `IsEdgeNode()` 便利方法，原因：CDN 与后续 WAF 识别本质同类，标量字段会导致每加一种类型加一对字段且无法表达同时命中多种类型。`go build`/`go vet` 通过，序列化验证符合预期。
+    - [x] 步骤 6：`web_scanner.go` 接入判断点——`WebScanner` 新增 `edgeDetector` 字段、`ensureInit` 加载 CDN 规则、新增 `checkCDN` 方法、`runOnePort` 命中 CDN 时跳过截图与深度爬取、`buildWebResult` 写入 `EdgeComponents`。`go build`/`go vet`/`go test`（`web` 包 + `crawler` 子包全部现有用例）均无告警无失败。
     - [ ] 步骤 4：`internal/pkg/edge` 单元测试。
     - [ ] 步骤 5：`WebResult` 新增 `IsCDN`/`CDNProvider` 字段。
     - [ ] 步骤 6：`web_scanner.go` 接入判断点（命中 CDN 跳过截图与深度爬取）。

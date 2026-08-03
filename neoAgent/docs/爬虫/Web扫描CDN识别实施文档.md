@@ -27,7 +27,7 @@
 | 3 | `internal/pkg/edge/detector.go` | 新建 | 🟢 已完成 |
 | 4 | `internal/pkg/edge/detector_test.go` | 新建（单元测试） | 🟢 已完成 |
 | 5 | `internal/core/model/result_types.go` | 修改（加 `EdgeComponent` 类型 + `EdgeComponents` 字段） | 🟢 已完成 |
-| 6 | `internal/core/scanner/web/web_scanner.go` | 修改（接入判断点） | 待实施 |
+| 6 | `internal/core/scanner/web/web_scanner.go` | 修改（接入判断点） | 🟢 已完成 |
 | 7 | 端到端验收 | 无代码改动，跑真实场景验证 | 待实施 |
 
 不需要新增 `Scanner`、不需要新增 `TaskType`，改动范围完全在 `web` 扫描器内部闭环。

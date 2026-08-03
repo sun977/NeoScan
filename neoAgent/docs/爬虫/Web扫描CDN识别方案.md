@@ -202,8 +202,9 @@ CDNProvider string `json:"cdn_provider,omitempty"` // 命中的 CDN 厂商名，
 改动量与此前 Sprint 6（协议自适应双发选优）是同一量级：
 
 1. ~~`internal/pkg/utils/ip.go`：新增一个导出的 CIDR 匹配函数~~ 🟢 **已完成**（`IsIPInCIDR`，见第三节）。
-2. 新增 `rules/edge/cdn.json` 规则文件 + 对应的加载/查询逻辑（可放在 `internal/pkg/utils` 或新建一个轻量的 `internal/pkg/edge` 包，视规则文件加载逻辑复杂度决定，倾向于新建 `internal/pkg/edge` 包，与 `internal/pkg/fingerprint` 的组织方式保持一致，为后续 `waf.json` 接入预留同一个包）；加载入口需设计成可重复调用的 `Load()`/`Reload()`，不要只能进程启动时 `sync.Once` 执行一次（原因见第六节 6.2，为后续 Master 同步预留接口，不增加本次工作量）。**待实施**。
-3. `internal/core/model/result_types.go`：`WebResult` 新增 `IsCDN`/`CDNProvider` 两个字段。**待实施**。
-4. `internal/core/scanner/web/web_scanner.go`：`runOnePort` 内插入判断点。**待实施**；~~顺带把现有 `isIP` 替换为调用 `utils.IsIP`~~ 🟢 **已完成**（见第三节）。
+2. ~~新增 `rules/edge/cdn.json` 规则文件 + 对应的加载/查询逻辑~~ 🟢 **已完成**：新建了 `internal/pkg/edge` 包（与 `internal/pkg/fingerprint` 组织方式一致），`Detector.Load()` 可重复调用，为后续 Master 同步预留接口，7 个单元测试全部通过。
+3. ~~`internal/core/model/result_types.go`：`WebResult` 新增 `IsCDN`/`CDNProvider` 两个字段~~ 🟢 **已完成**，但实际设计与本节最初写下的方案不一致：开发过程中发现标量字段无法优雅支持未来的 WAF 识别（一个目标可能同时命中 CDN 和 WAF），改为统一的 `EdgeComponents []EdgeComponent` 列表 + `IsEdgeNode()` 便利方法，详见 `docs/开发进度.md` 2026-08-03 对应 Changelog。
+4. ~~`internal/core/scanner/web/web_scanner.go`：`runOnePort` 内插入判断点~~ 🟢 **已完成**：`WebScanner` 新增 `edgeDetector` 字段，`checkCDN` 方法在 `normalizeURL` 之后、浏览器请求之前判断，命中时跳过截图与深度爬取，结果写入 `EdgeComponents`；~~顺带把现有 `isIP` 替换为调用 `utils.IsIP`~~ 🟢 **已完成**（见第三节）。
+5. 🟢 **端到端验收已完成**：新增 4 个集成测试（`web_scanner_cdn_e2e_test.go`）覆盖命中 CDN 跳过截图与深度爬取/不命中行为与上线前一致/规则文件缺失时优雅退化/域名解析失败不阻塞四个场景，全部通过，`web` 包全部现有用例也同步回归通过。
 
-不需要新增 Scanner、不需要新增 `TaskType`，可以作为 Phase 5.1 之后一个独立的小任务排期，不需要和 Phase 5.2（Vuln Scanner）混在一起做。剩余待实施部分是第 2/3/4 项（网段规则文件与加载逻辑、`WebResult` 字段、`runOnePort` 判断点接入）。
+不需要新增 Scanner、不需要新增 `TaskType`，作为 Phase 5.1 之后一个独立的小任务排期。**至此本方案描述的全部 7 个实施步骤已全部完成**，实施详情见 `docs/爬虫/Web扫描CDN识别实施文档.md`。

@@ -28,7 +28,7 @@
 | 4 | `internal/pkg/edge/detector_test.go` | 新建（单元测试） | 🟢 已完成 |
 | 5 | `internal/core/model/result_types.go` | 修改（加 `EdgeComponent` 类型 + `EdgeComponents` 字段） | 🟢 已完成 |
 | 6 | `internal/core/scanner/web/web_scanner.go` | 修改（接入判断点） | 🟢 已完成 |
-| 7 | 端到端验收 | 无代码改动，跑真实场景验证 | 待实施 |
+| 7 | 端到端验收 | 新增 `web_scanner_cdn_e2e_test.go` 4 个集成测试 | 🟢 已完成 |
 
 不需要新增 `Scanner`、不需要新增 `TaskType`，改动范围完全在 `web` 扫描器内部闭环。
 
@@ -561,6 +561,23 @@ homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
 
 - 用例 A/B/C/D 全部符合预期结果列。
 - 用例 B 的执行耗时和功能上线前的历史记录（或重新跑一次未接入 CDN 判断的旧代码作为对照）相比，没有明显变慢——CDN 判断只多一次网段查表（内存操作）+ 可能的一次 DNS 解析，不应该造成可感知的性能回退。
+
+### 8.3 实际验收结果
+
+四个用例最终沉淀成 `internal/core/scanner/web/web_scanner_cdn_e2e_test.go` 里的正式集成测试（而不是跑一次就丢弃的临时脚本），理由：这四个场景是明确、可重复的验收标准，理应成为长期防回归的自动化用例，与 `web_scanner_multiport_test.go` 现有的集成测试组织方式保持一致。
+
+用例 A 的"公开 Cloudflare 域名"在离线/CI 环境不可靠，采用实施文档本身允许的替代方案——用测试专属的 `cdn.json` 规则片段把 `127.0.0.0/8`（回环网段）注册成一个虚构厂商 `TestCDN`，配合 `httptest.NewServer`（默认监听 `127.0.0.1`）：`checkCDN` 判断命中的同时，网络连接依然打向本地 mock server，不依赖任何真实公网请求。测试规则通过 `scanner.edgeDetector.Load(tempPath)` 加载，完全不触碰生产的 `rules/edge/cdn.json`。
+
+四个测试：
+
+| 测试函数 | 对应用例 | 关键断言 |
+|---|---|---|
+| `TestWebScanner_CDN_HitSkipsScreenshotAndCrawl` | A | `IsEdgeNode()==true`、`EdgeComponents==[{cdn TestCDN}]`、`Screenshot==""`、结果只有 1 条（没有深度爬取子页面），即使首页有链接、显式要求截图 |
+| `TestWebScanner_CDN_MissBehavesLikeBeforeCDNFeature` | B | `checkCDN` 对不在网段内的 IP 返回 `false`；一次完整 `Run()` 验证不命中时 `IsEdgeNode()==false` |
+| `TestWebScanner_CDN_MissingRulesFileDegradesGracefully` | C | `edgeDetector` 替换成全新未 `Load` 过的 `edge.NewDetector()`（精确模拟"全部候选路径加载失败"），`Run()` 仍正常完成、不报错、不 panic，`IsEdgeNode()==false` |
+| `TestWebScanner_CDN_DNSResolutionFailureDoesNotBlock` | D | `checkCDN("this-domain-does-not-exist.invalid")`（RFC 2606 保留域名）直接返回 `(false, "")`，不 panic |
+
+**验收结果**：`go test ./internal/core/scanner/web/... -run TestWebScanner_CDN -v` 四个用例全部 `PASS`；`go test ./internal/core/scanner/web/... -v` 全量回归（含新增用例）总耗时 11.686s，与步骤 6 之前的历史记录量级一致，未见明显性能回退；`go vet ./internal/core/scanner/web/...` 无新增告警。
 
 ---
 

@@ -115,6 +115,16 @@ type WebResult struct {
 	Forms  []FormInfo `json:"forms,omitempty"`  // 表单/输入点
 	Params []string   `json:"params,omitempty"` // URL Query 参数名集合
 	Leaks  []LeakInfo `json:"leaks,omitempty"`  // 被动泄露检测结果
+
+	// --- 以下为边缘网络组件识别功能新增字段，均为 omitempty，不影响现有序列化 ---
+	EdgeComponents []EdgeComponent `json:"edge_components,omitempty"` // 命中的边缘网络组件列表（CDN/WAF/...），一个目标可能同时命中多个
+}
+
+// IsEdgeNode 判断是否命中任意边缘网络组件。调用方（如 Web 扫描器判断要不要
+// 跳过截图/深度爬取）通常不关心具体命中的是 CDN 还是 WAF，只关心"这是不是
+// 一个边缘节点"，用这个方法即可，不需要遍历 EdgeComponents。
+func (r WebResult) IsEdgeNode() bool {
+	return len(r.EdgeComponents) > 0
 }
 
 // FormInfo 表单信息（攻击面输入点）
@@ -129,6 +139,14 @@ type LeakInfo struct {
 	Type    string `json:"type"`              // aws_ak / aliyun_ak / jwt / internal_ip / ...
 	Match   string `json:"match"`             // 脱敏后的命中内容，禁止存储明文密钥
 	Context string `json:"context,omitempty"` // 命中上下文片段（可选）
+}
+
+// EdgeComponent 描述命中的一个边缘网络组件（CDN/WAF/反 DDoS 等）。
+// 一个 WebResult 可以同时命中多个（如 Cloudflare 常见 CDN+WAF 二合一），
+// 因此 WebResult 里用切片承载，不用一个组件类型对应一对标量字段。
+type EdgeComponent struct {
+	Type     string `json:"type"`     // "cdn" / "waf"，字符串而非枚举类型，避免跨包引入类型依赖
+	Provider string `json:"provider"` // 厂商名，如 "Cloudflare"
 }
 
 // Headers 实现 TabularData 接口

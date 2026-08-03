@@ -24,9 +24,9 @@
 |---|---|---|---|
 | 1 | `rules/edge/cdn.json` | 新增数据文件 | 🟢 已完成 |
 | 2 | `internal/pkg/edge/model.go` | 新建 | 🟢 已完成 |
-| 3 | `internal/pkg/edge/detector.go` | 新建 | 待实施 |
-| 4 | `internal/pkg/edge/detector_test.go` | 新建（单元测试） | 待实施 |
-| 5 | `internal/core/model/result_types.go` | 修改（加字段） | 待实施 |
+| 3 | `internal/pkg/edge/detector.go` | 新建 | 🟢 已完成 |
+| 4 | `internal/pkg/edge/detector_test.go` | 新建（单元测试） | 🟢 已完成 |
+| 5 | `internal/core/model/result_types.go` | 修改（加 `EdgeComponent` 类型 + `EdgeComponents` 字段） | 🟢 已完成 |
 | 6 | `internal/core/scanner/web/web_scanner.go` | 修改（接入判断点） | 待实施 |
 | 7 | 端到端验收 | 无代码改动，跑真实场景验证 | 待实施 |
 
@@ -270,6 +270,8 @@ func (d *Detector) Check(ip string) (bool, string) {
 
 ### 6.2 具体改动
 
+> **设计调整说明**（v1.1）：原方案用 `IsCDN bool` + `CDNProvider string` 两个标量字段。开发过程中发现这个设计有结构性缺陷——CDN 和后续必然要做的 WAF 识别本质是同一类问题（"这个目标背后站着哪个边缘网络组件"），用标量字段对应类型，等 WAF 落地就要再加 `IsWAF`/`WAFProvider`，往后每加一种边缘组件类型就加一对字段，且无法表达"同一目标同时命中 CDN 和 WAF"（现实中 Cloudflare 这类厂商很常见）的情况。改为统一的 `EdgeComponent` 列表，`WebResult` 结构一次定型，未来加 WAF/反 DDoS 检测时这个文件不需要再改。
+
 ```go
 // --- 以下为爬虫功能新增字段，均为 omitempty，不影响现有序列化 ---
 Depth  int        `json:"depth,omitempty"`  // 爬取深度，0 = 首页
@@ -277,17 +279,40 @@ Forms  []FormInfo `json:"forms,omitempty"`  // 表单/输入点
 Params []string   `json:"params,omitempty"` // URL Query 参数名集合
 Leaks  []LeakInfo `json:"leaks,omitempty"`  // 被动泄露检测结果
 
-// --- 以下为 CDN 识别功能新增字段，均为 omitempty，不影响现有序列化 ---
-IsCDN       bool   `json:"is_cdn,omitempty"`
-CDNProvider string `json:"cdn_provider,omitempty"` // 命中的 CDN 厂商名，如 "Cloudflare"
+// --- 以下为边缘网络组件识别功能新增字段，均为 omitempty，不影响现有序列化 ---
+EdgeComponents []EdgeComponent `json:"edge_components,omitempty"` // 命中的边缘网络组件列表（CDN/WAF/...），一个目标可能同时命中多个
 ```
 
-只追加字段，不改动、不删除任何已有字段。
+新增一个独立类型（与 `FormInfo`/`LeakInfo` 平级，紧跟在 `LeakInfo` 定义之后）：
+
+```go
+// EdgeComponent 描述命中的一个边缘网络组件（CDN/WAF/反 DDoS 等）。
+// 一个 WebResult 可以同时命中多个（如 Cloudflare 常见 CDN+WAF 二合一），
+// 因此 WebResult 里用切片承载，不用一个组件类型对应一对标量字段。
+type EdgeComponent struct {
+	Type     string `json:"type"`     // "cdn" / "waf"，字符串而非枚举类型，避免跨包引入类型依赖
+	Provider string `json:"provider"` // 厂商名，如 "Cloudflare"
+}
+```
+
+再加一个便利方法，供调用方（`runOnePort`）只关心"要不要跳过深度扫描"这一个问题，不需要每次都手写遍历：
+
+```go
+// IsEdgeNode 判断是否命中任意边缘网络组件。调用方（如 Web 扫描器判断
+// 要不要跳过截图/深度爬取）通常不关心具体命中的是 CDN 还是 WAF，只关心
+// "这是不是一个边缘节点"，用这个方法即可，不需要遍历 EdgeComponents。
+func (r WebResult) IsEdgeNode() bool {
+	return len(r.EdgeComponents) > 0
+}
+```
+
+只追加字段/类型/方法，不改动、不删除任何已有字段。
 
 ### 6.3 验收标准
 
 - `go build ./internal/core/model/...` 通过。
-- 序列化一个未设置 `IsCDN`/`CDNProvider` 的 `WebResult` 实例，确认输出 JSON 里不出现这两个字段（`omitempty` 生效，向后兼容旧的下游消费方）。
+- 序列化一个未设置 `EdgeComponents` 的 `WebResult` 实例，确认输出 JSON 里不出现这个字段（`omitempty` 生效，向后兼容旧的下游消费方）。
+- 序列化一个 `EdgeComponents: []EdgeComponent{{Type: "cdn", Provider: "Cloudflare"}}` 的实例，确认输出 `"edge_components":[{"type":"cdn","provider":"Cloudflare"}]`。
 
 ---
 
@@ -383,6 +408,9 @@ targetURL := normalizeURL(task.Target, port, protocolHint)
 
 // --- CDN 判断：发起浏览器/HTTP 请求之前，见 Web扫描CDN识别方案.md 第二节 ---
 isCDN, cdnProvider := s.checkCDN(task.Target)
+// checkCDN 内部只做网段查表，不需要关心 model.EdgeComponent 的组装细节，
+// isCDN/cdnProvider 这两个局部变量只在本函数内部用于控制流程（是否跳过
+// 截图/深度爬取），组装成 model.EdgeComponent 放进结果的时机在 7.5 节。
 ```
 
 新增一个独立的小函数 `checkCDN`（不直接写进 `runOnePort` 主干，保持主干可读性，参照现有 `resolveIPPortForResult` 这类抽取风格）：
@@ -455,7 +483,7 @@ if depth > 0 && len(seedLinks) > 0 && !isCDN {
 
 `buildWebResult` 组装 `model.WebResult` 的位置（第 848~863 行），首页结果需要带上 `isCDN`/`cdnProvider`，但爬虫子页面结果（第 372~377 行的循环）不需要重复标注（同一个端口下所有子页面的 CDN 归属和首页一致，没必要每条子页面结果都重复计算/存储一遍）。
 
-这要求 `buildWebResult` 能接收到 `isCDN`/`cdnProvider`，最小改动方式是加进 `pageData` 结构体（第 764~791 行）：
+这要求 `buildWebResult` 能接收到命中的边缘组件信息，最小改动方式是加进 `pageData` 结构体（第 764~791 行）：
 
 ```go
 type pageData struct {
@@ -473,37 +501,40 @@ type pageData struct {
 	Screenshot string
 	Favicon    string
 
-	// IsCDN/CDNProvider 只有首页调用 buildWebResult 时才会显式传入非零值，
-	// 爬虫子页面复用同一个端口的判断结果没有意义（同一端口的 CDN 归属不会
-	// 因为爬到第几层页面而改变），子页面调用处保持零值即可。
-	IsCDN       bool
-	CDNProvider string
+	// EdgeComponents 只有首页调用 buildWebResult 时才会显式传入非空值，
+	// 爬虫子页面复用同一个端口的判断结果没有意义（同一端口的边缘节点归属
+	// 不会因为爬到第几层页面而改变），子页面调用处保持 nil 即可。
+	EdgeComponents []model.EdgeComponent
 }
 ```
 
-`buildWebResult` 内部组装 `model.WebResult` 时（第 848~863 行附近）追加两行：
+`buildWebResult` 内部组装 `model.WebResult` 时（第 848~863 行附近）追加一行：
 
 ```go
 Result: &model.WebResult{
 	// ...现有字段不变...
-	IsCDN:       pd.IsCDN,
-	CDNProvider: pd.CDNProvider,
+	EdgeComponents: pd.EdgeComponents,
 },
 ```
 
-首页调用处（第 356~361 行）追加传参：
+首页调用处（第 356~361 行）追加传参，`isCDN`/`cdnProvider` 在这里才第一次组装成 `model.EdgeComponent`（`checkCDN` 本身不依赖 `model` 包，保持 `edge`/`web` 包不反向依赖 `model` 之外的耦合最小化）：
 
 ```go
+var edgeComponents []model.EdgeComponent
+if isCDN {
+	edgeComponents = append(edgeComponents, model.EdgeComponent{Type: "cdn", Provider: cdnProvider})
+}
+
 homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
 	URL: targetURL, Depth: 0, StatusCode: homeStatusCode, Title: homeTitle,
 	Body: homeBody, Headers: homeHeaders, ContentLength: homeContentLen, RichContext: homeRichCtx,
 	Forms: homeForms, Params: homeParams,
 	Screenshot: screenshotB64, Favicon: faviconB64,
-	IsCDN: isCDN, CDNProvider: cdnProvider,
+	EdgeComponents: edgeComponents,
 })
 ```
 
-子页面调用处（第 372~377 行）不改动，`pageData` 里 `IsCDN`/`CDNProvider` 保持零值（`false`/`""`），符合 Go 结构体零值语义，不需要每处都显式写 `IsCDN: false`。
+子页面调用处（第 372~377 行）不改动，`pageData` 里 `EdgeComponents` 保持零值 `nil`，符合 Go 切片零值语义，序列化时 `omitempty` 生效不会输出该字段。
 
 ### 7.6 验收标准
 
@@ -521,8 +552,8 @@ homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
 
 | 用例 | 目标 | 目标 IP/域名类型 | 预期结果 |
 |---|---|---|---|
-| A | 命中 CDN | 找一个已知使用 Cloudflare 的公开域名，或直接构造一个 `rules/edge/cdn.json` 网段内的测试 IP | 扫描结果 `is_cdn: true`、`cdn_provider` 有值；`screenshot` 字段为空；结果集里只有一条首页记录，没有深度爬取产生的子页面记录 |
-| B | 不命中 CDN | 之前测试过的 `10.201.28.126`（内网 IP，不在任何公开 CDN 段） | 扫描结果 `is_cdn: false`（或字段因 `omitempty` 不出现）；截图/深度爬取行为与 CDN 功能上线前完全一致 |
+| A | 命中 CDN | 找一个已知使用 Cloudflare 的公开域名，或直接构造一个 `rules/edge/cdn.json` 网段内的测试 IP | 扫描结果 `edge_components: [{"type":"cdn","provider":"Cloudflare"}]`；`screenshot` 字段为空；结果集里只有一条首页记录，没有深度爬取产生的子页面记录 |
+| B | 不命中 CDN | 之前测试过的 `10.201.28.126`（内网 IP，不在任何公开 CDN 段） | 扫描结果不出现 `edge_components` 字段（`omitempty` 生效，切片为空）；截图/深度爬取行为与 CDN 功能上线前完全一致 |
 | C | 规则文件缺失 | 临时改名/移走 `rules/edge/cdn.json` 后跑一次扫描 | 扫描任务正常完成，不因规则文件缺失而报错或崩溃，行为等同于用例 B（退化为"不是 CDN"） |
 | D | 域名解析失败 | 构造一个不存在的域名作为 target | CDN 判断跳过（`checkCDN` 内部 `LookupHost` 失败直接返回 `false, ""`），扫描任务按现状行为继续（大概率后续步骤本身也会因为域名不可达而失败，但不应该是被 CDN 判断这一步卡住） |
 

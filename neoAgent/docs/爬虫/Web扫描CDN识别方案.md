@@ -1,10 +1,10 @@
 # Web 扫描 CDN 识别方案
 
-> 文档版本：v1.3
-> 修改时间：2026-08-03（新增第六节 6.2：明确 CDN/WAF 规则自动同步机制现阶段不做的真实原因——Agent-Master 通信尚未开发，并记录 Master 侧已存在的通用规则同步基础设施作为后续接入依据；同步补充 `rules/cdn/cdn_ranges.json` 改为 `rules/edge/cdn.json` 的命名调整，理由见第四节）
+> 文档版本：v1.4
+> 修改时间：2026-08-03（新增行号漂移提示：第二节的行号是撰写时的快照，实际编码请以实施文档为准；补充与实施文档的互链）
 > 分析对象：`internal/core/scanner/web/web_scanner.go`、`internal/core/model/result_types.go`、`internal/pkg/utils/ip.go`、`rules/fingerprint/web/`（现有规则文件加载模式参照）
-> 文档性质：方案设计文档；第三节指出的两处 IP 判断技术债已提前落地，其余部分（CDN 网段表、判断时机接入、`WebResult` 字段）仍为待实施方案
-> 关联文档：[`httpx与xray参考价值评估.md`](./httpx与xray参考价值评估.md)（问题最早在此文档中被指出）
+> 文档性质：方案设计文档，负责论证"要不要做、怎么做的取舍"；具体到每一步怎么改代码，见配套的 [`Web扫描CDN识别实施文档.md`](./Web扫描CDN识别实施文档.md)
+> 关联文档：[`httpx与xray参考价值评估.md`](./httpx与xray参考价值评估.md)（问题最早在此文档中被指出）、[`Web扫描CDN识别实施文档.md`](./Web扫描CDN识别实施文档.md)（本方案的实施步骤拆解，代码开发以该文档为准）
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## 二、问题从哪来：现状代码里 IP 信息拿到手的时机太晚
 
-`runOnePort` 是当前 Web 扫描单端口探测的核心函数（`web_scanner.go` 第177行起）。梳理它的执行顺序：
+`runOnePort` 是当前 Web 扫描单端口探测的核心函数（`web_scanner.go` 第177行起）。梳理它的执行顺序（**下方行号是撰写本节时的快照，此后 `isIP` 清理等改动已让实际行号漂移几行；真正动手写代码时请以 [`Web扫描CDN识别实施文档.md`](./Web扫描CDN识别实施文档.md) 第七节引用的当前行号为准，本节保留原行号只是为了如实记录分析过程**）：
 
 ```
 196: protocolGuessed := isProtocolGuessed(task.Target, protocolHint)

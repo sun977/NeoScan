@@ -24,6 +24,7 @@ import (
 	fpHttp "neoagent/internal/pkg/fingerprint/engines/http"
 	fpModel "neoagent/internal/pkg/fingerprint/model"
 	"neoagent/internal/pkg/logger"
+	"neoagent/internal/pkg/utils"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
@@ -392,7 +393,7 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 // 爬虫子页面结果之间共用，内联写法没法复用。
 func resolveIPPortForResult(task *model.Task, targetURL, remoteIP string, remotePort int) (ip string, port int) {
 	ip = remoteIP
-	if ip == "" && isIP(task.Target) {
+	if ip == "" && utils.IsIP(task.Target) {
 		ip = task.Target
 	}
 
@@ -535,10 +536,6 @@ func extractTitleFromCtx(ctx map[string]interface{}) string {
 	return ""
 }
 
-func isIP(target string) bool {
-	// 简单判断，实际可以使用 net.ParseIP
-	return strings.Count(target, ".") == 3 && !strings.ContainsAny(target, "abcdefghijklmnopqrstuvwxyz")
-}
 
 // ensureInit 确保指纹规则已加载
 func (s *WebScanner) ensureInit() {

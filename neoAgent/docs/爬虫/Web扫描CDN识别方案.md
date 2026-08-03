@@ -1,7 +1,7 @@
 # Web 扫描 CDN 识别方案
 
-> 文档版本：v1.2
-> 修改时间：2026-08-03（规则目录命名由 `rules/cdn/cdn_ranges.json` 改为 `rules/edge/cdn.json`，并为后续 WAF 识别预留 `rules/edge/waf.json`，理由见第四节）
+> 文档版本：v1.3
+> 修改时间：2026-08-03（新增第六节 6.2：明确 CDN/WAF 规则自动同步机制现阶段不做的真实原因——Agent-Master 通信尚未开发，并记录 Master 侧已存在的通用规则同步基础设施作为后续接入依据；同步补充 `rules/cdn/cdn_ranges.json` 改为 `rules/edge/cdn.json` 的命名调整，理由见第四节）
 > 分析对象：`internal/core/scanner/web/web_scanner.go`、`internal/core/model/result_types.go`、`internal/pkg/utils/ip.go`、`rules/fingerprint/web/`（现有规则文件加载模式参照）
 > 文档性质：方案设计文档；第三节指出的两处 IP 判断技术债已提前落地，其余部分（CDN 网段表、判断时机接入、`WebResult` 字段）仍为待实施方案
 > 关联文档：[`httpx与xray参考价值评估.md`](./httpx与xray参考价值评估.md)（问题最早在此文档中被指出）
@@ -179,10 +179,21 @@ CDNProvider string `json:"cdn_provider,omitempty"` // 命中的 CDN 厂商名，
 
 ---
 
-## 六、暂不建议做的部分
+## 六、现阶段不做，但已规划后续路径的部分
 
-- **不做 CDN IP 段的自动更新机制**（比如定时从厂商官网拉取最新网段）。这是"锦上添花"型能力，网段数据变化频率低，先用一份手动维护的静态快照即可，等真的出现"规则过期导致漏判"的反馈再考虑自动更新，不需要提前设计。
-- **不做"云服务商"（AWS/阿里云等）与"CDN/WAF"的细分识别**。当前诉求只是"要不要跳过深度扫描"这一个二元判断，云服务商 IP 段的识别是另一个更复杂的话题（云服务器本身也可能是真实源站，不能一刀切跳过），不在本方案范围内。
+### 6.1 云服务商与 CDN/WAF 的细分识别（真不建议做，不纳入后续规划）
+
+当前诉求只是"要不要跳过深度扫描"这一个二元判断，云服务商 IP 段的识别是另一个更复杂的话题（云服务器本身也可能是真实源站，不能一刀切跳过），不在本方案范围内。
+
+### 6.2 CDN/WAF 规则的自动更新机制（现阶段不做，但不是"永远不做"）
+
+这一项与 6.1 性质不同：6.1 是需求不存在，这一项是需求存在、但排期依据明确——**Agent-Master 通信本身还没开发**，当前阶段是先把 Agent 侧独立功能做完，再统一联通 Master。规则自动更新依赖的正是这条通信链路，链路不存在，同步机制无从谈起，这不是"锦上添花可以往后拖"，而是"物理上做不了"。
+
+现状核实（非推测）：Master 侧在 `neoMaster/internal/service/agent/update.go` 已经实现了一套**类型无关的通用规则同步基础设施**——`RuleType` 枚举 + `rulePathMap` 路径映射 + 通用快照打包/加密/签名逻辑，当前已接入 `fingerprint`/`poc`/`virus`/`webshell` 四种类型，路由也已注册（`GET /api/v1/agent/rules/{type}/version`、`.../download`，见 `neoMaster/internal/app/master/router/agent_routers.go`）。但这套协议目前是 Master 单方面的"纸面协议"，Agent 侧尚未开发对应的通信客户端——这与"Agent-Master 通信还没开发"的现状一致，不冲突。
+
+**结论：等 Agent-Master 通信打通时，规则同步应该做成一次性的通用能力（版本比对 → 下载 → 解密验签 → 落盘 → 触发对应规则包 Reload），类型无关，指纹/POC/CDN/WAF 共用同一套客户端逻辑，新增一种规则类型只是多注册一行 `RuleType`，不需要每种类型单独写一遍同步代码。CDN/WAF 到时候是顺带接入的第五个类型，不需要现在为它单独排期，也不需要现在动手写任何同步相关的代码。**
+
+现阶段唯一需要注意的一点（不是新增工作量，是对第四节实现方式的一个约束）：`rules/edge/cdn.json` 的加载逻辑要设计成可以重复调用的 `Load()`/`Reload()`，而不是只能在进程启动时 `sync.Once` 执行一次（参照 `web_scanner.go` 现有 `ensureInit` 的模式即可，两者半斤八两，不需要额外设计）。这样将来通信打通后，同步客户端只需要"下载文件覆盖本地路径 + 调用一次 `Reload()`"，不需要回头改这次新写的加载逻辑本身。
 
 ---
 
@@ -191,7 +202,7 @@ CDNProvider string `json:"cdn_provider,omitempty"` // 命中的 CDN 厂商名，
 改动量与此前 Sprint 6（协议自适应双发选优）是同一量级：
 
 1. ~~`internal/pkg/utils/ip.go`：新增一个导出的 CIDR 匹配函数~~ 🟢 **已完成**（`IsIPInCIDR`，见第三节）。
-2. 新增 `rules/edge/cdn.json` 规则文件 + 对应的加载/查询逻辑（可放在 `internal/pkg/utils` 或新建一个轻量的 `internal/pkg/edge` 包，视规则文件加载逻辑复杂度决定，倾向于新建 `internal/pkg/edge` 包，与 `internal/pkg/fingerprint` 的组织方式保持一致，为后续 `waf.json` 接入预留同一个包）。**待实施**。
+2. 新增 `rules/edge/cdn.json` 规则文件 + 对应的加载/查询逻辑（可放在 `internal/pkg/utils` 或新建一个轻量的 `internal/pkg/edge` 包，视规则文件加载逻辑复杂度决定，倾向于新建 `internal/pkg/edge` 包，与 `internal/pkg/fingerprint` 的组织方式保持一致，为后续 `waf.json` 接入预留同一个包）；加载入口需设计成可重复调用的 `Load()`/`Reload()`，不要只能进程启动时 `sync.Once` 执行一次（原因见第六节 6.2，为后续 Master 同步预留接口，不增加本次工作量）。**待实施**。
 3. `internal/core/model/result_types.go`：`WebResult` 新增 `IsCDN`/`CDNProvider` 两个字段。**待实施**。
 4. `internal/core/scanner/web/web_scanner.go`：`runOnePort` 内插入判断点。**待实施**；~~顺带把现有 `isIP` 替换为调用 `utils.IsIP`~~ 🟢 **已完成**（见第三节）。
 

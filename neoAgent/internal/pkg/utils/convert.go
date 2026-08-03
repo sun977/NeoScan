@@ -709,7 +709,7 @@ func PostgreSQLArrayToStringSlice(pgArray string) ([]string, error) {
 // 返回: PostgreSQL数组字符串
 // 用于处理Go切片到PostgreSQL数组格式的转换
 func StringSliceToPostgreSQLArray(slice []string) string {
-	if slice == nil || len(slice) == 0 {
+	if len(slice) == 0 {
 		return "{}"
 	}
 

@@ -1,5 +1,11 @@
 # NeoScan Web 扫描集成方案 (借鉴 SweetBabyScan)
 
+> ⚠️ **历史方案文档，仅供决策留存参考**
+>
+> 本文档是 Web 扫描模块**立项阶段**的架构方案（"为什么选 go-rod"、"为什么做插件化隔离"等决策依据至今依然成立），但**实施细节已不同步**：文中的目录结构规划（如 `screenshot.go`/`types.go`/`rod_adapter.go`/`process.go` 等文件）、能力清单均停留在早期设计草图，并未反映实际落地情况（例如缺少 BFS 深度爬取 `crawler/` 子包、被动敏感信息检测、多端口并发探测、协议自适应双发选优等已实现能力）。
+>
+> **当前 Web 扫描模块的准确说明请以 [`internal/core/scanner/web/README.md`](../internal/core/scanner/web/README.md) 为准**，本文档仅保留作为历史决策记录，不再同步更新。
+
 ## 1. 核心决策分析
 
 ### 1.1 为什么选择 Headless Browser (go-rod)?

@@ -1,0 +1,36 @@
+[
+  {
+    "task_id": "xxxx-xxxx",
+    "type": "web_scan",
+    "target": "http://example.com",
+    "status": "success",
+    "result": {
+      "url": "http://example.com",
+      "ip": "93.184.216.34",
+      "port": 80,
+      "title": "Example Domain",
+      "status_code": 200,
+      "content_length": 1256,
+      "tech_stack": ["nginx"],
+      "leaks": [],
+      "apis": [
+        {
+          "url": "/api/v1/user/info",
+          "method": "GET",
+          "source": "inline",
+          "confidence": "high"
+        },
+        {
+          "url": "https://example.com/api/order/list",
+          "source": "https://example.com/static/js/app.a1b2c3.js",
+          "confidence": "medium"
+        },
+        {
+          "url": "/v1/config",
+          "source": "https://example.com/static/js/app.a1b2c3.js",
+          "confidence": "low"
+        }
+      ]
+    }
+  }
+]

@@ -105,7 +105,7 @@ type APIEndpoint struct {
 	APIs []APIEndpoint `json:"apis,omitempty"` // 从 JS 代码中静态提取到的接口调用地址清单
 ```
 
-`crawler.Page` 同步追加 `APIs []model.APIEndpoint` 字段，和 `Forms`/`Params`/`Leaks` 并列。
+`crawler.Page` **不追加任何字段**（这一点已随第六节挂载点修正为 v1.3 而更新，与 v1.1/首版方案的设想不同）：`Page` 只是 BFS 爬取子页面的原始数据载体，JS 接口提取的判断和调用点收拢在 `WebScanner.buildWebResult`（见第六节），`Page` 把已有的 `Body`/`URL` 字段原样交给 `buildWebResult` 即可，不需要在 `Page` 这一层再中转一次提取结果，`Forms`/`Params`/`Leaks` 那一套"爬到即挂在 Page 上"的模式不适用于 `APIs`。
 
 ---
 
@@ -204,9 +204,15 @@ type APIEndpoint struct {
 
 ## 六、集成点：挂载在 `WebScanner.buildWebResult`，是任务级别的全局能力，与是否触发深度爬取无关
 
+### 6.1 v1.1 版本的错误挂载点：`fetchAndExtract`
+
 **这是方案文档 v1.1 需要修正的一处描述**（实施阶段发现并回填，具体见实施文档 v1.3 变更说明）：提取能力不应该、也不能挂在 `fetchAndExtract`（`crawler.go` 内部，只在真正触发 BFS 深度爬取时才会执行）这个位置——`crawler.Crawl` 只有在 `web_scanner.go` 判定需要深度爬取（用户传了 `--crawl=true`，或首页自动判断需要爬）时才会被调用；首页本身的处理完全不经过 `crawler` 包，是 `WebScanner.Run` 主干直接组装。如果把提取逻辑挂在 `fetchAndExtract` 里，会导致两个问题：① 首页永远拿不到提取结果；② 未触发深度爬取的任务（目标首页没有可爬链接、或用户没传 `--crawl`）整体拿不到任何提取结果，即使用户显式要求了这个功能。
 
+### 6.2 正确挂载点：`WebScanner.buildWebResult`
+
 正确的挂载点是 `WebScanner.buildWebResult`——这是首页结果与所有 BFS 爬取到的子页面结果唯一共同流经的收口函数（`web_scanner.go` 里首页和每个子页面都会调用它来组装最终的 `model.WebResult`）。提取能力做成一个不依赖 `*Crawler` 实例的独立函数（`crawler.ExtractPageAPIs(ctx, pageURL, body, client, limiter, maxFiles)`），只依赖"页面 URL + 已经到手的 HTML body"这两个信息，`buildWebResult` 在组装每一个页面结果之前调用一次。这样无论页面是首页还是爬虫爬到的第 N 层子页面，都天然获得同一份提取能力，不需要为"首页"和"深度爬取子页面"两条路径分别接入。
+
+### 6.3 对现有编排逻辑的影响：零改动
 
 不改 `Run()`/`runOnePort` 的核心编排逻辑（BFS 顺序、深度控制、并发调度都不变），只是 `buildWebResult` 内部多一步判断和调用，属于增量改动。
 

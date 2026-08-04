@@ -1,12 +1,14 @@
 # Web 扫描 JS 接口提取方案
 
-> 文档版本：v1.1
+> 文档版本：v1.2
 > 修改时间：2026-08-04
 > 分析对象：`internal/core/scanner/web/crawler/`（`crawler.go`/`extract.go`/`leak.go`）、`internal/core/scanner/web/context.go`、`internal/core/scanner/web/web_scanner.go`、`internal/core/model/result_types.go`
 > 文档性质：方案设计文档，负责论证"要不要做、做成什么形态、边界在哪里"；不含逐行代码改动步骤，动工前应参照本文档补一份实施文档（可参考 [`Web扫描CDN识别实施文档.md`](./Web扫描CDN识别实施文档.md) 的编写格式）。
-> 关联文档：[`Web爬虫与被动分析器实施文档-v1.0.md`](./Web爬虫与被动分析器实施文档-v1.0.md)（`crawler` 包现有的 BFS/攻击面提取/被动泄露检测三件套，本方案是它的第四件套）、[`爬虫种类.md`](./爬虫种类.md)（本方案立项的原始动机记录）、[`JSFinder-URLFinder-dirsearch项目分析.md`](./JSFinder-URLFinder-dirsearch项目分析.md)（同类开源工具调研，v1.1 第四节的规则设计据此调整）
+> 关联文档：[`Web爬虫与被动分析器实施文档-v1.0.md`](./Web爬虫与被动分析器实施文档-v1.0.md)（`crawler` 包现有的 BFS/攻击面提取/被动泄露检测三件套，本方案是它的第四件套）、[`爬虫种类.md`](./爬虫种类.md)（本方案立项的原始动机记录）、[`JSFinder-URLFinder-dirsearch项目分析.md`](./JSFinder-URLFinder-dirsearch项目分析.md)（同类开源工具调研，v1.1 第四节的规则设计据此调整）、[`Web-JS接口提取实施文档.md`](./Web-JS接口提取实施文档.md)（v1.3，逐行落地步骤，与本文档第六节的挂载点结论保持同步）
 >
 > **v1.1 变更说明**：调研 JSFinder/URLFinder/dirsearch 三个同类工具后，对第四节"提取规则设计"做了两处调整（新增 scope 锚定规则档位、提取与过滤解耦为两个独立函数），并在第七节补充一条面向未来的心智模型记录（若做"接口存活验证"独立能力，需前置引入 Wildcard 检测）。核心结论（不新建模块、不主动验证、不引入 AST）未变。
+>
+> **v1.2 变更说明（重要修正）**：第六节"集成点"原描述把提取逻辑挂在 `fetchAndExtract`（只在触发深度爬取时才执行），实施阶段发现这是架构错误——会导致首页永远拿不到提取结果、且未触发深度爬取的任务整体失效。已改为挂载在 `WebScanner.buildWebResult`（首页与所有子页面结果唯一共同的收口函数），详见第六节新内容与实施文档 [`Web-JS接口提取实施文档.md`](./Web-JS接口提取实施文档.md)（v1.3）。方案的其余结论（要不要做、三层提取规则、不落盘、不反哺 BFS 等）不受影响。
 
 ---
 
@@ -68,7 +70,7 @@ type FormInfo struct {
 | 用途 | 喂给 BFS 继续爬取 | 攻击面清单，供用户/后续能力查看 |
 | 附带信息 | 无，就是个 URL | 可能有 HTTP Method、来源文件、置信度 |
 | 是否应被爬取（GET 打开看内容） | 是，这是它存在的意义 | 否，GET 打开通常拿不到有价值内容，甚至可能有副作用 |
-| 归属数据结构 | `Page.Links`（BFS 内部队列用，不直接进最终结果） | `Page.APIs` → `WebResult.APIs`（最终结果的一部分） |
+| 归属数据结构 | `Page.Links`（BFS 内部队列用，不直接进最终结果） | 直接产出为 `WebResult.APIs`（最终结果的一部分），不经过 `crawler.Page` 中转（挂载点见第六节） |
 
 **结论：`APIEndpoint` 不会、也不应该被塞进 `crawler.EnqueueExtra`，两者在类型层面就应该是互不相通的两条管道。**
 
@@ -200,17 +202,13 @@ type APIEndpoint struct {
 
 ---
 
-## 六、集成点：复用 `leak.go` 现有的调用模式，不改 `Run()` 编排逻辑
+## 六、集成点：挂载在 `WebScanner.buildWebResult`，是任务级别的全局能力，与是否触发深度爬取无关
 
-`fetchAndExtract`（`crawler.go`）里紧挨着现有 `DetectLeaks(body)` 调用的位置，追加一行 `ExtractAPIsFromJS(...)`，产出挂到 `Page.APIs`；`buildWebResult`（`web_scanner.go`）在透传 `Depth/Forms/Params/Leaks` 的同一处逻辑里，追加透传 `APIs`。
+**这是方案文档 v1.1 需要修正的一处描述**（实施阶段发现并回填，具体见实施文档 v1.3 变更说明）：提取能力不应该、也不能挂在 `fetchAndExtract`（`crawler.go` 内部，只在真正触发 BFS 深度爬取时才会执行）这个位置——`crawler.Crawl` 只有在 `web_scanner.go` 判定需要深度爬取（用户传了 `--crawl=true`，或首页自动判断需要爬）时才会被调用；首页本身的处理完全不经过 `crawler` 包，是 `WebScanner.Run` 主干直接组装。如果把提取逻辑挂在 `fetchAndExtract` 里，会导致两个问题：① 首页永远拿不到提取结果；② 未触发深度爬取的任务（目标首页没有可爬链接、或用户没传 `--crawl`）整体拿不到任何提取结果，即使用户显式要求了这个功能。
 
-```336:345:c:/mytools/code/go/NeoScan/neoAgent/internal/core/scanner/web/crawler/crawler.go
-	links, forms, params := ExtractLinksAndForms(it.URL, body)
-	...
-	leaks := DetectLeaks(body)
-```
+正确的挂载点是 `WebScanner.buildWebResult`——这是首页结果与所有 BFS 爬取到的子页面结果唯一共同流经的收口函数（`web_scanner.go` 里首页和每个子页面都会调用它来组装最终的 `model.WebResult`）。提取能力做成一个不依赖 `*Crawler` 实例的独立函数（`crawler.ExtractPageAPIs(ctx, pageURL, body, client, limiter, maxFiles)`），只依赖"页面 URL + 已经到手的 HTML body"这两个信息，`buildWebResult` 在组装每一个页面结果之前调用一次。这样无论页面是首页还是爬虫爬到的第 N 层子页面，都天然获得同一份提取能力，不需要为"首页"和"深度爬取子页面"两条路径分别接入。
 
-不改 `Run()`/`runOnePort` 的编排逻辑和函数签名，属于纯增量改动。
+不改 `Run()`/`runOnePort` 的核心编排逻辑（BFS 顺序、深度控制、并发调度都不变），只是 `buildWebResult` 内部多一步判断和调用，属于增量改动。
 
 ### 6.4 规则暂不外置为配置文件（区别于 URLFinder 的设计）
 
@@ -271,7 +269,7 @@ URLFinder 把提取正则、过滤黑名单都做成了 YAML 外置配置（详�
 |---|---|
 | 外链 JS 文件下载数量失控，拖慢单页扫描耗时 | 复用 `qos.AdaptiveLimiter`；新增"每页最多下载 N 个 JS 文件"上限；沿用 2MB 单文件大小上限 |
 | 正则误报率高，结果被噪音污染 | 分层给置信度（high/medium/low），低置信度层排除静态资源后缀；不追求"抓全部像路径的字符串" |
-| `APIEndpoint.URL` 命名/语义与 `links` 混淆，被误用于 BFS | 类型设计阶段已明确 `Page.APIs` 与 `Page.Links` 互不相通（见第二节），代码评审时对照检查 |
+| `APIEndpoint.URL` 命名/语义与 `links` 混淆，被误用于 BFS | 类型设计阶段已明确 `APIEndpoint` 产出（`WebResult.APIs`）与 `Page.Links`（BFS 队列）互不相通（见第二节），代码评审时对照检查 |
 | 大型 SPA 打包出大量 chunk 文件导致 JS 内容重复扫描开销大 | 沿用 `crawler.go` 现有的 URL 归一化 + 去重模式，同一 JS 文件 URL 只下载/扫描一次 |
 
 ---

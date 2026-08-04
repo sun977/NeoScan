@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"neoagent/internal/core/model"
+	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
 
@@ -55,13 +55,10 @@ func loadList(input string) ([]string, error) {
 
 // NewBruteScanCmd 创建 brute 子命令
 func NewBruteScanCmd() *cobra.Command {
+	opts := options.NewBruteScanOptions()
 	var (
-		target    string
-		portRange string
-		service   string
 		users     string
 		passwords string
-		scanAll   bool
 	)
 
 	cmd := &cobra.Command{
@@ -113,79 +110,40 @@ func NewBruteScanCmd() *cobra.Command {
   # 爆破 SNMP
   neoagent scan brute -t 192.168.1.1 -p 161 -s snmp --pass public`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 1. 参数校验
-			if target == "" {
-				return fmt.Errorf("target is required (-t)")
-			}
-			if service == "" {
-				return fmt.Errorf("service is required (ssh, mysql, redis, postgres, ftp, mongo, clickhouse, smb, mssql, oracle, oracle-sid, telnet, elasticsearch, snmp)")
-			}
-			if portRange == "" {
-				// 尝试根据服务设置默认端口
-				switch service {
-				case "ssh":
-					portRange = "22"
-				case "mysql":
-					portRange = "3306"
-				case "redis":
-					portRange = "6379"
-				case "postgres", "postgresql":
-					portRange = "5432"
-				case "ftp":
-					portRange = "21"
-				case "mongo", "mongodb":
-					portRange = "27017"
-				case "clickhouse":
-					portRange = "9000"
-				case "smb":
-					portRange = "445"
-				case "mssql":
-					portRange = "1433"
-				case "oracle", "oracle-sid":
-					portRange = "1521"
-				case "telnet":
-					portRange = "23"
-				case "elasticsearch":
-					portRange = "9200"
-				case "snmp":
-					portRange = "161"
-				default:
-					return fmt.Errorf("port is required (-p)")
-				}
-				fmt.Printf("[*] Using default port %s for service %s\n", portRange, service)
-			}
-
-			// 2. 构造 Task
-			task := model.NewTask(model.TaskTypeBrute, target)
-			task.PortRange = portRange
-			task.Params["service"] = service
-			// 用户指定 --all 时，stop_on_success 为 false
-			task.Params["stop_on_success"] = !scanAll
-
+			// 1. 解析 users/passwords（支持文件路径或逗号分隔字符串）
 			if users != "" {
 				userList, err := loadList(users)
 				if err != nil {
 					return fmt.Errorf("failed to load users: %w", err)
 				}
-				task.Params["users"] = userList
+				opts.Users = userList
 			}
 			if passwords != "" {
 				passList, err := loadList(passwords)
 				if err != nil {
 					return fmt.Errorf("failed to load passwords: %w", err)
 				}
-				task.Params["passwords"] = passList
+				opts.Passwords = passList
 			}
 
-			// 3. 执行任务
-			ctx := context.Background()
+			// 2. 参数校验（含端口默认值推断）
+			if err := opts.Validate(); err != nil {
+				return err
+			}
+			if opts.Port != "" {
+				fmt.Printf("[*] Using port %s for service %s\n", opts.Port, opts.Service)
+			}
 
-			// 初始化 RunnerManager
+			// 3. 构造 Task 并执行
+			task := opts.ToTask()
+
+			// 初始化 RunnerManager（工厂内已完成全部原子扫描器的统一注册，
+			// CLI 与 Master 调度共用同一份注册表，避免能力不一致）
 			manager := runner.NewRunnerManager()
 
-			pterm.Info.Printf("Starting brute force task: %s:%s (%s)...\n", target, portRange, service)
+			pterm.Info.Printf("Starting brute force task: %s:%s (%s)...\n", opts.Target, opts.Port, opts.Service)
 
-			results, err := manager.Execute(ctx, task)
+			results, err := manager.Execute(context.Background(), task)
 			if err != nil {
 				return fmt.Errorf("execution failed: %w", err)
 			}
@@ -200,12 +158,12 @@ func NewBruteScanCmd() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&target, "target", "t", "", "目标 IP (e.g. 192.168.1.1)")
-	flags.StringVarP(&portRange, "port", "p", "", "目标端口 (e.g. 22)")
-	flags.StringVarP(&service, "service", "s", "", "服务名称 (ssh/mysql/redis)")
+	flags.StringVarP(&opts.Target, "target", "t", "", "目标 IP (e.g. 192.168.1.1)")
+	flags.StringVarP(&opts.Port, "port", "p", "", "目标端口 (e.g. 22)")
+	flags.StringVarP(&opts.Service, "service", "s", "", "服务名称 (ssh/mysql/redis)")
 	flags.StringVarP(&users, "users", "u", "", "自定义用户名列表 (逗号分隔)")
 	flags.StringVar(&passwords, "pass", "", "自定义密码列表 (逗号分隔)")
-	flags.BoolVarP(&scanAll, "all", "a", false, "尝试所有凭据 (默认: 找到一个成功后即停止)")
+	flags.BoolVarP(&opts.ScanAll, "all", "a", false, "尝试所有凭据 (默认: 找到一个成功后即停止)")
 
 	return cmd
 }

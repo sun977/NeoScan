@@ -6,7 +6,6 @@ import (
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
-	"neoagent/internal/core/scanner/port_service"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -29,12 +28,10 @@ func NewPortScanCmd() *cobra.Command {
 
 			task := opts.ToTask()
 
-			// 1. 初始化 RunnerManager
+			// 初始化 RunnerManager（工厂内已完成全部原子扫描器的统一注册，
+			// CLI 与 Master 调度共用同一份注册表，避免能力不一致）
 			manager := runner.NewRunnerManager()
-			// 2. 注册 PortServiceScanner
-			manager.Register(port_service.NewPortServiceScanner())
 
-			// 3. 执行任务
 			pterm.Info.Printf("Starting detailed port scan: %s (Ports: %s)...\n", task.Target, task.PortRange)
 			results, err := manager.Execute(context.Background(), task)
 			if err != nil {

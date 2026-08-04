@@ -1,12 +1,13 @@
 package scan
 
 import (
+	"context"
 	"fmt"
 
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
-	"neoagent/internal/core/scanner/os"
+	"neoagent/internal/core/runner"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -27,27 +28,32 @@ func NewOsScanCmd() *cobra.Command {
 
 			pterm.Info.Printf("Starting OS detection: %s (Mode: %s)...\n", opts.Target, opts.Mode)
 
-			// 实例化扫描器
-			scanner := os.NewScanner()
+			// 注入全局输出参数
+			opts.Output = globalOutputOptions
 
-			// 执行扫描
-			result, err := scanner.Scan(cmd.Context(), opts.Target, opts.Mode)
+			task := opts.ToTask()
+
+			// 初始化 RunnerManager（工厂内已完成全部原子扫描器的统一注册，
+			// CLI 与 Master 调度共用同一份注册表，避免能力不一致）
+			manager := runner.NewRunnerManager()
+
+			results, err := manager.Execute(context.Background(), task)
 			if err != nil {
 				return fmt.Errorf("scan failed: %v", err)
 			}
 
-			// 注入全局输出参数
-			opts.Output = globalOutputOptions
-
-			// 构造 TaskResult (为了复用 Reporter)
-			taskResult := &model.TaskResult{
-				TaskID: "", // 临时 ID
-				Status: model.TaskStatusSuccess,
-				Result: result, // result 是 *model.OsInfo
+			// 提取结果供 JSON/CSV 输出复用（保持原有输出行为不变）
+			// 注意：OsRunner 将扫描期间的错误封装进了 TaskResult.Error 而非直接返回 error，
+			// 这里显式检查一次，避免静默吞掉失败状态。
+			var result interface{}
+			if len(results) > 0 {
+				result = results[0].Result
+				if results[0].Status == model.TaskStatusFailed {
+					return fmt.Errorf("scan failed: %s", results[0].Error)
+				}
 			}
-			results := []*model.TaskResult{taskResult}
 
-			// 4. 输出结果 (使用 ConsoleReporter)
+			// 输出结果 (使用 ConsoleReporter)
 			console := reporter.NewConsoleReporter()
 			console.PrintResults(results)
 

@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"neoagent/internal/core/options"
@@ -21,13 +20,9 @@ func NewDirScanCmd() *cobra.Command {
 				return err
 			}
 
-			// 注入全局输出参数
-			opts.Output = globalOutputOptions
-
-			task := opts.ToTask()
-			taskJSON, _ := json.MarshalIndent(task, "", "  ")
-			fmt.Printf("Dir Scan Task Created:\n%s\n", string(taskJSON))
-			return nil
+			// TODO: DirScanner 尚未实现。在真正的扫描器接入 RunnerManager 之前，
+			// 明确报错而不是假装成功地只打印 Task JSON，避免误导用户以为已完成扫描。
+			return fmt.Errorf("dir scan not implemented yet")
 		},
 	}
 

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"neoagent/internal/core/factory"
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
+	"neoagent/internal/core/runner"
 
 	"github.com/spf13/cobra"
 )
@@ -25,26 +25,26 @@ func NewWebScanCmd() *cobra.Command {
 				return err
 			}
 
-			// 1. 创建 Scanner
-			scanner := factory.NewWebScanner()
-
-			// 2. 构造 Task
+			// 构造 Task
 			task := opts.ToTask()
 			// 注入截图参数 (CLI 参数 -> Task Params)
 			task.Params["screenshot"] = screenshot
 
+			// 初始化 RunnerManager（工厂内已完成全部原子扫描器的统一注册，
+			// CLI 与 Master 调度共用同一份注册表，避免能力不一致）
+			manager := runner.NewRunnerManager()
+
 			fmt.Printf("[*] Starting Web Scan against %s (Ports: %s)...\n", opts.Target, opts.Ports)
 
-			// 3. 执行扫描
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 
-			results, err := scanner.Run(ctx, task)
+			results, err := manager.Execute(ctx, task)
 			if err != nil {
 				return fmt.Errorf("scan failed: %w", err)
 			}
 
-			// 4. 输出结果
+			// 输出结果
 			console := reporter.NewConsoleReporter()
 			console.PrintResults(results)
 

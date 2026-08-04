@@ -43,6 +43,13 @@ func NewRunnerManager() *RunnerManager {
 	osRunner := NewOsRunner(osScanner)
 	m.Register(osRunner)
 
+	// 注册 WebScanner
+	// 补齐 Master 集群下发 web_scan 任务的执行能力：
+	// task_to_core.go 中 "web_scan"/"api_scan" 均会被翻译为 TaskTypeWebScan，
+	// 若不在此注册，RunnerManager.Get 会报 "no runner found"，Master 侧任务必然失败。
+	ws := factory.NewWebScanner()
+	m.Register(ws)
+
 	return m
 }
 

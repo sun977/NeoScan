@@ -1,108 +1,89 @@
 # Web 扫描 JS 接口提取实施文档
 
-> 文档版本：v1.3
-> 修改时间：2026-08-04
-> 依据方案：[`Web-JS接口提取方案.md`](./Web-JS接口提取方案.md)（v1.2，本文档只负责把方案拆成可以直接照做的步骤，不重复方案的背景论证，结论有分歧以方案文档为准；方案文档第六节"集成点"已与本文档 v1.3 同步修正为挂载在 `buildWebResult`）、[`JSFinder-URLFinder-dirsearch项目分析.md`](./JSFinder-URLFinder-dirsearch项目分析.md)（规则设计的调研依据）
+> 文档版本：v2.0（架构调整：挂载点从 `WebScanner.buildWebResult` 改为独立 `ApiScanner.Run`）
+> 修改时间：2026-08-07
+> 依据方案：[`Web-JS接口提取方案.md`](./Web-JS接口提取方案.md)（v2.0，本文档只负责把方案拆成可以直接照做的步骤，不重复方案的背景论证，结论有分歧以方案文档为准）、[`JSFinder-URLFinder-dirsearch项目分析.md`](./JSFinder-URLFinder-dirsearch项目分析.md)（规则设计的调研依据）、[`../爬虫/web扫描模块重构文档.md`](../爬虫/web扫描模块重构文档.md)（**前置依赖**：`crawler` 包迁移到 `internal/core/lib/crawler`、`crawler.FetchAndCrawl` 统一抓取入口、`ApiScanner` 骨架必须先落地，本文档才能按步骤执行）
 > 文档性质：实施清单，后续 JS 接口提取功能的代码开发按本文档的步骤顺序进行；每步给出改动文件、改动内容、验收标准
-> v1.2 变更：新增第八节，CLI 表格输出补充 `APIs` 列，并对单页 JS 文件数超过上限导致的结果截断做显式提示（`WebResult` 新增 `APIsTruncated` 字段，全链路透传 + CLI 汇总提示），对应第三、五、六节同步补充截断标记的传递设计
-> v1.3 变更（重要架构修正）：**`--js-api` 是独立于 `--crawl` 的全局开关，语义是"本次扫描产出的每一个页面结果都做提取"，与是否触发深度爬取无关。** v1.2 版本把 `ExtractJSAPI` 挂在 `crawler.Options` 上是架构错误——`crawler.Options` 只在触发深度爬取时才会被构造（`web_scanner.go` 第 386~387 行 `depth > 0 && len(seedLinks) > 0 && !isCDN`），这导致两个后果：① 首页结果走的是 `buildWebResult` 直接组装，根本不经过 `Crawler`，永远拿不到 JS API 提取；② 若本次任务不满足深度爬取条件（未传 `--crawl`、首页无链接、目标是 CDN），`Crawler` 根本不会被创建，即使用户显式传了 `--js-api` 也会整体静默失效、且没有任何提示。v1.3 把挂载点从 `crawler.Options`/`fetchAndExtract` 改为 `WebScanner.buildWebResult`——这是首页结果与所有深度爬取子页面结果唯一共同流经的收口函数，判断和调用只需要写一次，不需要在每个产出页面结果的调用点分别决定要不要做，从根本上消除"漏掉某条路径"的可能性。对应第二、三、四、五、六节均有改动，`crawler` 包不再感知 `js_api` 开关的存在，职责回归"只管爬页面拿 Body"。
+> v1.2 变更：新增第八节，CLI 表格输出补充 `APIs` 列，并对单页 JS 文件数超过上限导致的结果截断做显式提示
+> v1.3 变更：`--js-api` 改为独立于 `--crawl` 的全局开关，挂载点从 `crawler.Options`/`fetchAndExtract` 改为 `WebScanner.buildWebResult`。以上两版的挂载点结论已被 v2.0 取代，仅作历史记录。
+>
+> **v2.0 变更（架构重大调整，取代 v1.3 的挂载点结论）**：`ApiScan` 不再是 `web_scan` 的一部分，而是独立的 `model.TaskTypeApiScan`/`ApiScanner`，完整架构论证见 [`web扫描模块重构文档.md`](../爬虫/web扫描模块重构文档.md)。对本文档的核心影响：
+> 1. **挂载点从 `WebScanner.buildWebResult` 改为 `ApiScanner.Run`**（新增的独立原子扫描器）——v1.3 解决的是"在 `web_scan` 内部挂在哪个函数"，v2.0 进一步发现连"要不要借住 `web_scan`"这个前提本身都不成立了；
+> 2. `crawler` 包整体从 `internal/core/scanner/web/crawler` 迁移到 `internal/core/lib/crawler`，新增 `crawler.FetchAndCrawl` 作为 `WebScanner`/`ApiScanner` 共享的统一抓取入口（详见重构文档第三节），本文档第五节“集成点”全面重写；
+> 3. `WebScanner` 不再需要任何为 JS API 提取而做的改动（不需要 `resolveJSAPIExtract`/`buildWebResult` 新增 `ctx` 参数/`pageData` 新增字段），这些改动全部转移到新增的 `ApiScanner`；
+> 4. `WebResult.APIs`/`APIsTruncated` 字段设计作废，改为独立的 `model.ApiResult` 类型（第三节重写）；
+> 5. CLI 层面新增独立的 `cmd/agent/scan/api.go` 子命令（而不是在 `web.go` 上加 `--js-api` flag），第二、七节全面重写。
+> 三层提取规则（第四节）、不落盘（第四节 4.7）、提取与过滤解耦（第四节 4.3）等**提取能力本身的实现**不受影响，v2.0 只改变"谁来调用这些实现、这些实现位于哪个包路径下"。
 
 ---
 
 ## 零、实施前必读的三条硬约束
 
-1. **这不是默认动作，必须用户显式开启才会执行**。方案文档里"不新建模块、不主动验证"的边界成立的前提，是这个功能本身也不会在用户没有明确表达意愿的情况下悄悄多做事情——下载外链 JS 文件、逐个发起额外的 `net/http` 请求，这本身就是比"分析已经到手的首页 HTML"更进一步的行为（会显著增加对目标发起的请求数量），必须比照现有 `crawl` 三态开关的先例，做成同一套"显式参数控制"的模式，不能默认跟随 `web_scan` 自动执行。详细设计见第二节。
-2. **复用已导出的基础设施，不写第二套实现**：并发限流复用 `qos.AdaptiveLimiter`（`internal/core/lib/network/qos/limiter.go`），Crawler 已经持有一个实例（`web_scanner.go` 里 `crawler.New(crawler.Options{...}, s.limiter)` 传进去的那个），新增的 JS 下载逻辑必须复用这个已注入的 `limiter` 字段，不允许新建第二个限流器实例。
+1. **下载外链 JS 文件是主动网络行为，必须有风险提示，但不再需要"要不要做"的开关**。v1.3 及之前版本要求"必须用户显式开启才会执行"，是因为当时 JS 提取挂在 `web_scan` 下，需要一个开关区分用户的意图；v2.0 里 `api_scan` 本身就是独立的 `TaskType`，用户下发这个任务本身就是显式意图，不再需要二态开关（详见第二节）。但风险提示不能省略——下载外链 JS 文件、逐个发起额外的 `net/http` 请求，这本身就是比"分析已经到手的首页 HTML"更进一步的行为（会显著增加对目标发起的请求数量），必须在 CLI 帮助文本和运行时日志里都有清晰提示。
+2. **复用已导出的基础设施，不写第二套实现**：并发限流复用 `qos.AdaptiveLimiter`（`internal/core/lib/network/qos/limiter.go`），`ApiScanner` 持有自己独立的限流器实例（详见重构文档 7.2 节，不与 `WebScanner` 共享），新增的 JS 下载逻辑必须复用这个已注入的 `limiter` 字段，不允许再新建第二个限流器实例。
 3. **JS 文件内容全程只在内存里流转，不落盘**，理由和具体做法见第四节 4.7 小节，这是本次实施在"设计方案没有明确到字节级细节"的地方需要遵循的具体决定，不是可以自由发挥的空间。
 
 ---
 
 ## 一、实施步骤总览
 
+> **前置前提**：下表假设 [`web扫描模块重构文档.md`](../爬虫/web扫描模块重构文档.md) 描述的 `crawler` 包迁移与 `ApiScanner` 骨架（空实现，仅 Factory/Runner 注册/CLI/options 六件套打通）已经落地。本文档只负责在这个骨架之上填充 JS API 提取的具体逻辑，不重复重构文档已经覆盖的部分。
+
 严格按顺序执行，后一步依赖前一步的产出：
 
 | 步骤 | 改动文件 | 类型 | 状态 |
 |---|---|---|---|
-| 1 | `internal/core/model/result_types.go` | 修改（新增 `APIEndpoint` 类型 + `WebResult.APIs`/`APIsTruncated` 字段） | ⬜ 待开始 |
-| 2 | `internal/core/scanner/web/crawler/jsapi.go` | 新建（提取规则 + 提取/过滤两段式实现 + 对外唯一入口 `ExtractPageAPIs`，独立函数，不挂在 `*Crawler` 上） | ⬜ 待开始 |
-| 3 | `internal/core/scanner/web/crawler/jsapi_test.go` | 新建（表驱动单元测试） | ⬜ 待开始 |
-| 4 | `internal/core/scanner/web/web_scanner.go` | 修改（新增二态开关解析函数 `resolveJSAPIExtract`；`pageData` 新增 `Body` 透传字段；`buildWebResult` 签名加 `ctx`，内部统一调用 `crawler.ExtractPageAPIs`） | ⬜ 待开始 |
-| 5 | `internal/core/options/scan_web.go` | 修改（`WebScanOptions` 新增 `JSAPI bool` 字段，`ToTask()` 写入 `task.Params["js_api"]`） | ⬜ 待开始 |
-| 6 | `cmd/agent/scan/web.go` | 修改（新增 `--js-api` CLI Flag，帮助文本内内置风险提示） | ⬜ 待开始 |
-| 7 | `docs/Agent指令集规范.md` | 修改（补充 `js_api` 参数行，带风险提示） | ⬜ 待开始 |
-| 8 | `internal/core/scanner/web/web_scanner_jsapi_test.go` | 新建（端到端集成测试，参照 `web_scanner_cdn_e2e_test.go` 风格，**必须覆盖首页单独命中的场景**） | ⬜ 待开始 |
-| 9 | `internal/core/model/result_types.go` | 修改（`WebResult.Headers()`/`Rows()` 新增 `APIs` 列，截断时追加星号） | ⬜ 待开始 |
-| 10 | `cmd/agent/scan/web.go` | 修改（`PrintResults` 之后追加截断汇总提示行） | ⬜ 待开始 |
+| 1 | `internal/core/model/result_types.go` | 修改（新增 `APIEndpoint` 类型 + 独立的 `ApiResult` 类型，**不再改 `WebResult`**） | ⬜ 待开始 |
+| 2 | `internal/core/lib/crawler/jsapi.go` | 新建（提取规则 + 提取/过滤两段式实现 + 对外唯一入口 `ExtractPageAPIs`，独立包级函数，不挂在 `*Crawler` 上；注意路径已随重构文档迁移至 `internal/core/lib/crawler`） | ⬜ 待开始 |
+| 3 | `internal/core/lib/crawler/jsapi_test.go` | 新建（表驱动单元测试） | ⬜ 待开始 |
+| 4 | `internal/core/scanner/api/api_scanner.go` | 修改（在重构文档已搭好的空壳上，实现 `Run` 内部：调用 `crawler.FetchAndCrawl` 拿页面，对每个页面调用 `crawler.ExtractPageAPIs`，组装 `model.ApiResult` 返回） | ⬜ 待开始 |
+| 5 | `internal/core/options/scan_api.go` | 修改（重构文档已新建空壳，本步补充具体字段：`ApiScanOptions` 不需要 `JSAPI bool` 开关——`ApiScanner` 本身就是这个能力，不需要再用一个开关控制要不要执行） | ⬜ 待开始 |
+| 6 | `cmd/agent/scan/api.go` | 修改（重构文档已新建空壳，本步补充帮助文本风险提示） | ⬜ 待开始 |
+| 7 | `docs/Agent指令集规范.md` | 修改（补充 `api_scan` 任务类型说明，带风险提示） | ⬜ 待开始 |
+| 8 | `internal/core/scanner/api/api_scanner_test.go` | 新建（端到端集成测试，**必须覆盖首页单独命中的场景**） | ⬜ 待开始 |
+| 9 | `internal/core/model/result_types.go` | 修改（`ApiResult.Headers()`/`Rows()` 实现 `TabularData` 接口，截断时追加星号） | ⬜ 待开始 |
+| 10 | `cmd/agent/scan/api.go` | 修改（`PrintResults` 之后追加截断汇总提示行） | ⬜ 待开始 |
 
-不需要新增 `Scanner`、不需要新增 `TaskType`，改动范围完全在 `web` 扫描器内部闭环，和方案文档第七节的边界一致。**`crawler` 包不再感知 `js_api` 开关**（这是 v1.3 相对 v1.2 的关键差异，详见第二节）——`crawler.Options`/`crawler.Page`/`fetchAndExtract` 都不需要为这个功能新增任何字段或调用，`ExtractPageAPIs` 是一个只依赖 `(ctx, pageURL, body, limiter, maxFiles)` 的独立函数，`WebScanner` 在唯一的结果收口点 `buildWebResult` 里直接调用它，首页和子页面天然共用同一次判断、同一次调用。步骤 5~7 是完整参数链路——`resolveJSAPIExtract` 读的 `task.Params["js_api"]` 必须有上游写入才能生效，参照 `crawl`/`crawl_depth` 现有的完整链路（CLI Flag → `WebScanOptions` → `ToTask()` → `Task.Params`）一样打通，不能只写 `web_scanner.go` 一头而略过 CLI 入口。步骤 9~10 是 CLI 展示环节新增的内容——`APIs` 字段已经进了 `WebResult`（步骤 1），但 `WebResult.Rows()` 是固定列表，不会自动把新字段带出来，必须显式加列，否则用户在表格模式下完全看不到这个功能生效与否，只有翻 JSON 才知道；同理 `APIsTruncated` 也不会自动出现在任何地方，必须显式处理。
+**不再需要开关参数链路**（这是 v2.0 相对 v1.3 最大的简化）：v1.3 需要 `resolveJSAPIExtract` 二态开关判断"要不要做"，是因为当时 JS API 提取挂在 `web_scan` 下，必须用一个开关区分"用户要做 Web 扫描还是要做 JS 提取"。现在 `api_scan` 自己就是一个独立的 `TaskType`，用户下发 `api_scan` 任务本身就是"要做 JS 提取"的显式意图表达，不需要再多一层开关判断。但风险提示仍然保留（下载外链 JS 文件依旧是会增加请求量的主动行为，只是提示位置从"参数帮助文本"改为"命令本身的帮助文本"）。步骤 5~7 不再是打通开关链路，而是打通 `ApiScanner` 自己的 CLI/options/指令集链路。步骤 9~10 是 CLI 展示环节——`ApiResult` 是全新类型，需要从零实现 `TabularData` 接口，不是在 `WebResult` 现有列上追加。
 
 ---
 
-## 二、显式开关设计：比照 `crawl` 三态开关，新增独立的 `js_api` 开关
+## 二、参数设计：`ApiScanner` 自己的 `crawl`/`crawl_depth`/风险提示，不再需要"要不要做"的开关
 
-### 2.1 为什么不能默认执行，也不能和 `crawl` 共用一个开关
+> **v2.0 整节重写**：本节原内容（v1.2/v1.3）讨论的是"`js_api` 该不该做成独立开关、该不该和 `crawl` 合并"，这个问题的前提是 JS 提取挂在 `web_scan` 下，需要在同一个任务里用参数区分意图。`api_scan` 独立成 `TaskType` 后，"要不要做 JS 提取"这个问题已经由用户下发 `api_scan` 任务本身回答了，不存在的开关自然不需要再设计。本节改为讨论 `ApiScanner` 自己真正需要哪些参数。
 
-方案文档 v1.0 讨论阶段的隐含假设是"只要 `web_scan` 跑起来，顺手多做一步 JS 分析"，但重新审视后发现这个假设站不住脚，原因分两层：
+### 2.1 `ApiScanner` 仍然需要 `crawl`/`crawl_depth`，语义与 `WebScanner` 一致
 
-**第一层：行为已经不是纯粹"被动"**。方案文档反复强调"被动分析、不发起额外验证请求"，这个表述本身是准确的——本功能确实不会去验证提取出的 API 是否存活。但**下载外链 JS 文件这个动作本身就是额外的网络请求**：一个页面可能引用几个到几十个 JS 文件（大型 SPA 打包出的 chunk 文件尤其多），这些文件现状是完全不下载的（`context.go` 的 `ExtractRichContext` 只拿 URL 列表，见方案文档 5.1 节引用的代码）。一旦默认开启，相当于给每次 `web_scan` 任务无条件叠加"N 次到目标域名/第三方 CDN 域名的额外 HTTP 请求"，这个量级的变化必须让用户知情并选择，不能藏在"顺手做的事"这个说法后面被默认执行掉。
-
-**第二层：和 `crawl` 语义不同，合并会本身把复杂度做混**。`crawl` 控制的是"要不要对 BFS 队列做深度爬取"，`js_api` 控制的是"要不要下载并分析 JS 文件"——首页本身的内联 `<script>` 分析（方案文档 5.3 节）其实不需要额外请求，但外链 JS 下载需要。如果把这两件事强行塞进 `crawl` 这一个开关，会导致"用户关闭 `crawl`（不想爬子页面）却意外多出了一堆 JS 请求"或者反过来的语义混乱。两个开关必须独立，各自管好自己的一件事——这也是"好品味"的具体体现：消除"一个开关做两件不相关的事"这种特殊情况，而不是在代码里加 `if crawl && js_api` 这种耦合判断。
-
-### 2.2 参数设计（照抄 `resolveCrawlDepth` 的三态模式，不发明新模式）
-
-```944:962:c:/mytools/code/go/NeoScan/neoAgent/internal/core/scanner/web/web_scanner.go
-// resolveCrawlDepth 综合三态参数（task.Params["crawl"] 显式开启/显式关闭/未指定）
-// 与首页自动判断，得出最终爬取深度。三态优先级：显式参数 > 自动判断，这是
-// "用户明确表达的意图永远盖过系统的猜测"这条原则在爬虫开关上的落地。
-func (s *WebScanner) resolveCrawlDepth(task *model.Task, statusCode int, headers map[string]string, seedLinks []string) int {
-	enableCrawl, explicit := task.Params["crawl"].(bool)
-	switch {
-	case explicit && !enableCrawl:
-		return 0
-	case explicit && enableCrawl:
-		depth := 2
-		if d, ok := task.Params["crawl_depth"].(int); ok && d > 0 {
-			depth = d
-		}
-		return depth
-	default:
-		contentType := headers["Content-Type"]
-		return decideCrawlDepth(statusCode, contentType, len(seedLinks))
-	}
-}
-```
-
-`js_api` 开关**不做三态，只做二态**，这一点和 `crawl` 刻意不同：`crawl` 有"自动判断"这个默认档位是因为"要不要深度爬"可以靠免费信号（状态码/Content-Type/链接数）低成本猜出合理默认值；而"要不要下载 JS 文件发起额外请求"没有类似的免费判断依据——无论首页看起来像什么，下载 JS 文件都是一个需要用户知情同意的主动决定，不存在"系统帮用户猜一个默认值"的中间地带，猜错了默认打开会让用户在不知情的情况下多发请求（违反第 2.1 节的结论），默认关闭又不能叫"三态"（因为压根不会有"自动判断为需要"这一支）。所以只需要 `task.Params["js_api"].(bool)`，且**只有显式传 `true` 才会执行**，未传或传其他类型一律视为关闭：
+`ApiScanner` 复用 `crawler.FetchAndCrawl`（详见重构文档第三节），同样面临"只提取首页，还是连带深度爬取的子页面一起提取"的问题，这与 `WebScanner` 的 `crawl`/`crawl_depth` 是完全相同的语义，直接照搬同一套参数设计（三态：显式开启/显式关闭/未指定自动判断），不重新发明：
 
 ```go
-// resolveJSAPIExtract 判断本次任务是否需要下载外链 JS 文件并提取接口地址。
-// 这不是三态判断（不像 resolveCrawlDepth 那样有"未指定时自动判断"的默认档），
-// 是纯粹的二态开关：只有用户显式传 task.Params["js_api"] = true 才会执行，
-// 任何其他情况（未传、传了非 bool 类型、显式传 false）都视为不执行。
-//
-// 为什么没有"自动判断"档位：下载 JS 文件是一个会实际增加对目标网络请求数量的
-// 主动行为，不存在能够零成本判断"这次该不该下载"的免费信号，让系统去猜measure
-// 只会导致用户在不知情的情况下被动承担这个决定的后果，所以干脆不提供自动挡，
-// 用户必须自己明确决定要不要开。
-func (s *WebScanner) resolveJSAPIExtract(task *model.Task) bool {
-	enable, _ := task.Params["js_api"].(bool)
-	return enable
+// resolveCrawlDepth 是 WebScanner 已有实现（web_scanner.go）的同名逻辑，
+// ApiScanner 直接复用同一套三态参数语义，不重新设计一套新的判断规则。
+// 唯一区别：ApiScanner 的“自动判断”默认值可以更保守（如默认不开深度爬取），
+// 具体默认值在实施阶段结合 ApiScanner 的资源消耗特征确定。
+```
+
+### 2.2 不再需要 `js_api` 这样的"要不要提取"二态开关
+
+v1.3 版本 `resolveJSAPIExtract` 存在的意义，是在 `web_scan` 这一个任务里区分"用户是只想做 Web 扫描，还是也想顺带做 JS 提取"。现在 `api_scan` 本身就是一个独立的 `TaskType`，`RunnerManager` 只有在收到 `TaskTypeApiScan` 时才会调度到 `ApiScanner.Run`，用户下发这个任务这件事本身就是"要做 JS 提取"的完整意图表达，`ApiScanner.Run` 内部不需要、也不应该再判断一次"要不要做"——它的存在本身就是答案。这是"消除特殊情况"的具体体现：v1.3 需要一个 `if resolveJSAPIExtract(task) { ... }` 分支是因为提取能力寄居在别的 Scanner 里，必须用 if 判断隔离出"这次要不要做"这个特殊情况；现在 `ApiScanner.Run` 整个函数体本身就是"要做"这条分支，不需要再包一层判断。
+
+### 2.3 风险提示：从"参数帮助文本"改为"命令帮助文本"，日志提示不变
+
+下载外链 JS 文件依然是会增加请求量的主动网络行为，这一点不因为挂载点改变而改变，风险提示仍然是硬性要求，只是提示的位置变了：
+
+**执行前（CLI 帮助文本）**：v1.3 是在 `--js-api` 这个 flag 的帮助文本里写风险提示，因为 `--js-api` 只是 `web_scan` 命令的一个可选参数。v2.0 里 `api_scan` 是一个独立命令（`cmd/agent/scan/api.go`），风险提示应该写在**命令本身**的 `Short`/`Long` 描述里，因为用户运行这个命令的默认行为（不是某个可选 flag 打开后）就会下载 JS 文件：
+
+```go
+var apiScanCmd = &cobra.Command{
+	Use:   "api",
+	Short: "API 接口扫描（从 JS 代码中提取接口调用地址）",
+	Long: "对目标页面（及可选的深度爬取子页面）提取内联/外链 JS 中硬编码的接口调用地址。\n" +
+		"警告：本命令会下载页面引用的外链 JS 文件，属于主动网络行为，会增加对目标的请求数量，请确认已获得授权后再执行。",
+	...
 }
 ```
 
-**`crawler.Options` 不新增任何字段，`crawler` 包对 `js_api` 这个开关一无所知。** 这是 v1.3 相对 v1.2 最核心的修正：v1.2 把 `ExtractJSAPI` 塞进 `crawler.Options`，隐含的假设是"JS API 提取是爬虫遍历行为的一部分"，但这个假设是错的——`crawler.Options` 只有在 `web_scanner.go` 第 386~387 行 `depth > 0 && len(seedLinks) > 0 && !isCDN` 成立、真正需要深度爬取时才会被构造出来传给 `crawler.New`。首页处理完全不经过这条路径（`Run()` 主干第 375 行直接调 `s.buildWebResult`，不创建 `Crawler` 实例），把开关挂在 `crawler.Options` 上等于说"只有触发深度爬取时才能用这个功能"，这既不是用户的意图（用户要的是"整个任务级别的开关"），也会在爬虫不触发时（未传 `--crawl`、首页没有可爬链接、目标是 CDN）导致 `--js-api` 整体静默失效。
-
-正确的做法是**把"要不要提取"这个判断，从"要不要构造 `crawler.Options`"这件事上彻底解耦**。`resolveJSAPIExtract(task) bool` 只在一个地方被调用：`WebScanner.buildWebResult` 内部（详见第五节）。`buildWebResult` 是首页结果和每一个深度爬取子页面结果唯一共同流经的收口函数（`Run()` 里第 375 行首页、第 393 行每个子页面都调用它），在这里做判断和调用，天然覆盖所有页面，不需要 `crawler` 包知道 `js_api` 是什么。
-
-`MaxJSFilesPerPage` 同理不进 `crawler.Options`，直接作为 `crawler.ExtractPageAPIs` 函数的入参（见第四节），或包级常量 `crawler.JSAPIDefaultMaxFiles` 兜底——不需要额外的任务参数控制，这是刻意的取舍——一次性暴露太多可调参数会增加用户理解成本，`crawl_depth` 已经证明"确实需要用户自定义的参数"值得暴露，但"单页最多下载几个 JS"目前没有类似的真实需求信号，先用一个经验值把功能跑起来，需要时再照 `crawl_depth` 的先例加一个 `js_api_max_files` 参数，不预先设计一个可能永远用不上的旋钮。
-
-### 2.3 风险提示：在哪里提示、提示什么
-
-方案要求"必须明确提示用户这会带来的风险"，落地方式分两处，覆盖"执行前"和"执行中"两个时间点：
-
-**执行前（文档层面的提示，面向下达任务的人）**：`resolveJSAPIExtract` 函数的注释（已在 2.2 节写出）以及第四节 `ExtractPageAPIs` 函数的注释本身就是提示的一部分——任何阅读代码或者后续给 `js_api` 参数写外部接口文档的人，都会先看到"这会增加对目标的请求数量"这句话。这不是走过场：`docs/Agent指令集规范.md` 里 Master 下发任务的参数说明，如果未来给 `web_scan` 补充 `js_api` 参数的说明文档，必须原样带上这句风险提示，不能只写"提取 JS 接口"这种不含风险信息的一句话描述。
-
-**执行中（日志层面的提示，面向运行时观测扫描行为的人）**：`crawler.ExtractPageAPIs`（第四节）在真正触发 JS 下载前打一条 `logger.Warnf` 级别日志（不是 `Infof`——用 Warn 级别是为了让这类"会增加请求量"的行为在日志里比普通信息更显眼，符合日志分级"Warn 用于需要引起注意但不是错误"的惯例），内容包含即将下载的 JS 文件数量和目标域名，让运维/审计人员能在日志流水里直接看到"这次扫描对 xxx 目标额外发起了 N 次 JS 下载请求"，不需要翻源码才能知道发生了什么：
+**执行中（日志层面的提示，面向运行时观测扫描行为的人）**：`crawler.ExtractPageAPIs`（第四节）在真正触发 JS 下载前打一条 `logger.Warnf` 级别日志，这部分逻辑与挂载点无关，原样保留：
 
 ```go
 if len(jsURLs) > 0 {
@@ -110,49 +91,43 @@ if len(jsURLs) > 0 {
 }
 ```
 
-注意：这里不再需要 `opts.ExtractJSAPI` 这个前置判断了——`ExtractPageAPIs` 函数本身就只会在 `WebScanner.buildWebResult` 确认 `resolveJSAPIExtract(task)` 为 `true` 时才被调用（见第五节），函数内部不需要再重复判断一次总开关。
+`ExtractPageAPIs` 函数本身不需要任何"总开关"判断——`ApiScanner.Run` 对每个页面调用它就是无条件调用，函数被调用到这件事本身就等价于"用户要做这件事"。
 
-### 2.4 打通完整参数链路：CLI Flag → `WebScanOptions` → `Task.Params`
+### 2.4 参数链路：`api_scan` 命令自己的 CLI Flag → `ApiScanOptions` → `Task.Params`
 
-`web_scanner.go` 里 `resolveJSAPIExtract` 读取的是 `task.Params["js_api"]`，这个值不会凭空出现，必须有上游写入。参照 `crawl`/`crawl_depth` 现有的完整链路（`internal/core/options/scan_web.go` 的 `WebScanOptions.ToTask()` → `cmd/agent/scan/web.go` 的 CLI Flag 绑定），新增同样的一套，**不能只改 `web_scanner.go` 就当作功能完成**——这是实施过程中最容易漏掉的一环，因为 `web_scanner.go` 单独看确实能编译通过、单元测试也能通过（测试里可以直接构造 `task.Params["js_api"] = true`），但通过真实 CLI 命令完全没有办法触发，等于功能没有真正对用户可用。
+`internal/core/options/scan_api.go`（重构文档已建空壳）补充具体字段——注意**不包含** `JSAPI bool`：
 
-`internal/core/options/scan_web.go` 新增字段与写入逻辑：
-
-```10:18:c:/mytools/code/go/NeoScan/neoAgent/internal/core/options/scan_web.go
-type WebScanOptions struct {
+```go
+type ApiScanOptions struct {
 	Target     string
 	Ports      string
-	Path       string
-	Method     string
-	Crawl      string // "auto"(默认) / "true" / "false"
+	Crawl      string // "auto"(默认) / "true" / "false"，语义与 WebScanOptions.Crawl 一致
 	CrawlDepth int
-	JSAPI      bool // 新增：是否下载外链 JS 文件并提取接口地址，默认 false，
-	               // 二态而非三态（没有 "auto"，理由见方案文档/实施文档第二节）
+	MaxFiles   int // 单页最多下载的外链 JS 文件数，<=0 使用 crawler.JSAPIDefaultMaxFiles 兜底
 	Output     OutputOptions
 }
 ```
 
-`ToTask()` 追加：
+`cmd/agent/scan/api.go` 新增 Flag（不需要 `--js-api`，因为这个命令本身就是做这件事的）：
 
 ```go
-if o.JSAPI {
-	task.Params["js_api"] = true
-}
-// false 时不写 key，与 resolveJSAPIExtract 的"未传视为关闭"语义一致，
-// 不需要显式写 task.Params["js_api"] = false 这种冗余分支。
+flags.StringVar(&opts.Crawl, "crawl", "auto", "是否深度爬取子页面（auto/true/false）")
+flags.IntVar(&opts.CrawlDepth, "crawl-depth", 2, "深度爬取的层数（仅 crawl=true 时生效）")
+flags.IntVar(&opts.MaxFiles, "max-files", 0, "单页最多下载的外链 JS 文件数（<=0 使用默认值）")
 ```
 
-`cmd/agent/scan/web.go` 新增 Flag，**帮助文本必须包含风险提示**，这是 CLI 层用户能看到的第一道提示，不能只写功能描述：
-
-```go
-flags.BoolVar(&opts.JSAPI, "js-api", opts.JSAPI, "是否下载外链 JS 文件并提取接口调用地址（默认 false）。"+
-	"警告：开启后会对目标额外发起 JS 文件下载请求，请确认已获得授权后再开启")
-```
-
-`docs/Agent指令集规范.md` 第 3.3 节表格追加一行（紧邻 `crawl_depth` 之后），风险提示原文照抄，不允许精简掉：
+`docs/Agent指令集规范.md` 补充 `api_scan` 任务类型的独立章节（而不是在 `web_scan` 参数表里追加一行），风险提示放在任务类型描述的开头，不允许精简掉：
 
 ```
-| `js_api` | `--js-api` | bool | No | `false` | 是否下载外链 JS 文件并提取接口调用地址。**警告：开启后会对目标额外发起 JS 文件下载请求，属于主动网络行为，请确认已获得授权后再开启** |
+### api_scan（API 扫描）
+
+**警告：本任务会下载目标页面引用的外链 JS 文件，属于主动网络行为，会增加对目标的请求数量，请确认已获得授权后再下发。**
+
+| 参数 | CLI Flag | 类型 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|---|
+| `crawl` | `--crawl` | string | No | `auto` | 是否深度爬取子页面 |
+| `crawl_depth` | `--crawl-depth` | int | No | `2` | 深度爬取层数 |
+| `max_files` | `--max-files` | int | No | `20` | 单页最多下载的外链 JS 文件数 |
 ```
 
 ---
@@ -180,31 +155,33 @@ type APIEndpoint struct {
 }
 ```
 
-`WebResult` 追加字段（紧邻 `EdgeComponents` 之后）：
+不再向 `WebResult` 追加任何字段。**新增一个独立的 `ApiResult` 类型**，作为 `ApiScanner` 的 `model.TaskResult.Result`（与方案文档 v2.0 第三节保持一致）：
 
 ```go
-	// --- 以下为 JS 接口提取功能新增字段，omitempty，不影响现有序列化 ---
-	APIs          []APIEndpoint `json:"apis,omitempty"`           // 从 JS 代码中静态提取到的接口调用地址清单。
-	                                                                // 只有 task.Params["js_api"]=true 时才会非空，
-	                                                                // 未开启该功能时这个字段和现在一样保持缺省（omitempty）。
+// ApiResult 是 ApiScanner 的任务产出。与 WebResult 完全独立，不复用它的任何字段。
+type ApiResult struct {
+	URL           string        `json:"url"`                      // 本页面 URL
+	Depth         int           `json:"depth"`                    // BFS 深度，0 表示首页
+	APIs          []APIEndpoint `json:"apis,omitempty"`           // 从 JS 代码中静态提取到的接口调用地址清单，
+	                                                                // ApiScanner 对每个页面都无条件调用提取，
+	                                                                // 不存在"未开启时保持空"这种开关语义（参见第二节）。
 	APIsTruncated bool          `json:"apis_truncated,omitempty"` // true 表示本页引用的外链 JS 文件数超过了
 	                                                                // MaxJSFilesPerPage 上限，被截断丢弃了一部分文件
 	                                                                // 未下载/未分析——也就是说 APIs 不是本页可能存在的
-	                                                                // 完整清单，只是"上限范围内"的产出。刻意不放进
-	                                                                // APIEndpoint 结构体里（否则每一条记录都要重复同一个
-	                                                                // bool 值，是没有必要的冗余），这是页面级别的事实，
-	                                                                // 只需要在 WebResult 顶层出现一次。
+	                                                                // 完整清单，只是"上限范围内"的产出。
+}
 ```
 
 ### 3.2 `crawler.Page` **不新增任何字段**
 
-v1.2 版本曾计划给 `crawler.Page` 加 `APIs`/`APIsTruncated` 字段，这一步在 v1.3 里被去掉了——原因是 `crawler.Page` 只是 BFS 爬取子页面的原始数据载体（`URL`/`Body`/`Headers` 等），JS API 提取的判断和调用点已经全部收拢到 `WebScanner.buildWebResult`（见第五节），`Page` 只需要把已经有的 `Body` 字段原样交给 `buildWebResult`，提取结果直接进 `model.WebResult`，不需要在 `Page` 这一层再中转一次。这样 `crawler` 包的数据结构完全不为这个功能新增负担，`Page` 的字段列表和实施前一模一样。
+`crawler.Page` 只是 BFS 爬取子页面的原始数据载体（`URL`/`Body`/`Headers` 等），JS API 提取的判断和调用点已经全部收拢到 `ApiScanner.Run`（见第五节），`Page` 只需要把已经有的 `Body` 字段原样交给 `ApiScanner`，提取结果直接组装进 `model.ApiResult`，不需要在 `Page` 这一层再中转一次。这样 `crawler` 包的数据结构完全不为这个功能新增负担，`WebScanner`/`ApiScanner` 共用同一个 `Page` 定义。
 
 ### 3.3 验收标准
 
 - `go build ./...` 通过；
 - `go vet ./...` 无警告；
-- 新增字段全部带 `omitempty`（除了 `Source`/`Confidence`/`URL` 这几个"只要有这条记录就必然有值"的必填字段），不影响任何现有 JSON 序列化输出的既有字段；
+- 新增字段全部带 `omitempty`（除了 `Source`/`Confidence`/`URL` 这几个"只要有这条记录就必然有值"的必填字段）；
+- `WebResult` 结构体本次完全不改动（用 `git diff` 确认 `result_types.go` 里 `type WebResult struct` 这一块没有任何改动，这是 v2.0 相对 v1.x 新增的验收项，直接验证"两个结果类型彻底独立"这个核心设计目标）；
 - `APIsTruncated` 只有在真实发生截断时才为 `true`：单页 JS 文件数 ≤ `MaxJSFilesPerPage` 时必须是 `false`（哪怕 `APIs` 是空的，也不能因为"没提取到东西"就误标为截断，两者是完全独立的判断维度）；
 - `crawler.Page` 结构体字段数量与实施前完全一致（用 `git diff` 确认 `crawler.go` 里 `type Page struct` 这一块没有任何改动）。
 
@@ -212,9 +189,9 @@ v1.2 版本曾计划给 `crawler.Page` 加 `APIs`/`APIsTruncated` 字段，这�
 
 ## 四、`jsapi.go` 新建：提取规则、下载与两段式实现，对外只暴露一个函数
 
-### 4.0 本节相对 v1.2 的结构调整
+### 4.0 本节的结构说明（v2.0 路径已随重构文档迁移）
 
-v1.2 把"提取规则"（原第四节）和"下载"（原第五节）分别放在 `jsapi.go` 新建、`crawler.go` 修改两处，因为下载函数（`downloadJS`/`downloadJSFiles`）当时设计成 `*Crawler` 的方法，需要用到 `c.client`/`c.limiter`/`c.opts`。v1.3 里下载函数不再属于 `*Crawler`——`ExtractPageAPIs` 是一个完全独立的包级函数，不需要、也不应该依赖一个 `*Crawler` 实例（首页调用它时压根没有 `Crawler`）。因此**下载相关的函数全部并入本节、同一个 `jsapi.go` 文件**，`crawler.go` 不再有任何改动，第五节原有的"外链 JS 文件下载"内容合并到本节 4.5~4.6 小节。
+提取规则、过滤、下载都在同一个 `jsapi.go` 文件里——这个结构自 v1.3 确定后未变：`downloadJS`/`downloadJSFiles` 是包级函数，不是 `*Crawler` 的方法，不需要、也不应该依赖一个 `*Crawler` 实例（`ApiScanner` 调用它时根本没有 `*Crawler`）。**唯一变化是文件路径**：随着 [`web扫描模块重构文档.md`](../爬虫/web扫描模块重构文档.md) 描述的整体迁移，`jsapi.go` 从 `internal/core/scanner/web/crawler/` 移到 `internal/core/lib/crawler/`，包名 `crawler` 不变，代码内容不受影响。
 
 ### 4.1 文件头部说明注释（风格对齐 `leak.go`）
 
@@ -230,19 +207,23 @@ package crawler
 //   列表。不做 AST 解析、不做反混淆、不发起任何验证请求（详见方案文档
 //   Web-JS接口提取方案.md 第四节的选型结论）。
 //
-// 为什么这是一个需要用户显式开启的功能，而不是像 leak.go 一样默认跟随扫描执行：
+// 为什么这里没有"要不要做"的开关，本文件的下载动作为什么依然需要风险提示：
 //   leak.go 检测的是"已经到手的页面正文"里有没有敏感信息，不需要额外的网络
 //   请求。本文件的输入除了内联 script（零成本，见 4.7 节），还包括外链 js 文件
-//   的下载内容——下载动作本身就是新增的网络请求，必须由调用方在用户显式传入
-//   task.Params["js_api"]=true 时才触发下载并调用本文件对外暴露的唯一入口
-//   函数 ExtractPageAPIs，见 Web-JS接口提取实施文档.md 第二节、第六节。
+//   的下载内容——下载动作本身就是新增的网络请求。v2.0 里 ApiScanner.Run
+//   对抓到的每一个页面都无条件调用本文件对外暴露的唯一入口函数
+//   ExtractPageAPIs，不需要再判断"要不要做"：用户下发 api_scan 任务这件事
+//   本身就是显式意图（详见 Web-JS接口提取实施文档.md 第二节）。风险提示的
+//   位置从"参数帮助文本"改为 api_scan 命令自身的帮助文本和运行时日志，见
+//   实施文档第二节、第五节。
 //
 // 本文件不依赖 *Crawler：ExtractPageAPIs 是纯粹的包级函数，只依赖调用方显式
 // 传入的 (ctx, pageURL, body, limiter, maxFiles) 这几个参数，不读取任何
-// *Crawler 内部状态。这是刻意的设计——首页结果（WebScanner.Run 主干）和
-// 深度爬取子页面结果都要调用同一份提取逻辑，而首页处理时根本不存在一个
-// *Crawler 实例，如果提取函数绑在 *Crawler 方法上，首页就永远调不到它
-// （这正是 v1.2 版本的架构错误，见实施文档 v1.3 变更说明）。
+// *Crawler 内部状态。这是刻意的设计——ApiScanner.Run 处理首页和深度爬取
+// 子页面时都调用同一份提取逻辑，两条路径共用同一个函数，不存在"首页走一条
+// 路径、子页面走另一条路径"导致遗漏的问题（历史上 v1.2 版本把提取逻辑绑在
+// *Crawler 方法上导致首页调不到，是这个坑的来源，v2.0 里 ApiScanner 从设计
+// 上就不存在这个问题，因为它本来就没有寄居在别的 Scanner 里）。
 //
 // 提取与过滤两段式解耦（借鉴 URLFinder 架构，见项目分析文档第二节）：
 //   extractAPICandidates 只管正则命中，不做任何排除判断；
@@ -577,10 +558,9 @@ const jsAPIDefaultTimeout = 10 * time.Second
 // 的 HTML body，提取内联 <script> 中的接口地址，并发下载 body 中引用的外链
 // js 文件后一并提取，返回合并去重后的 APIEndpoint 列表，以及是否发生截断。
 //
-// 这是一个纯粹的包级函数，不依赖任何 *Crawler 实例——调用方无论是
-// WebScanner.Run 主干（处理首页）还是深度爬取子页面，都通过
-// WebScanner.buildWebResult 这一个统一入口调用它（见 Web-JS接口提取
-// 实施文档.md 第五节），不存在"首页调不到"的问题。
+// 这是一个纯粹的包级函数，不依赖任何 *Crawler 实例——调用方是 ApiScanner.Run
+// （见 Web-JS接口提取实施文档.md 第五节），对 crawler.FetchAndCrawl 拿到的
+// 首页和每一个深度爬取子页面都调用同一个函数，不存在"首页调不到"的问题。
 //
 // 参数：
 //   ctx：用于下载请求的超时/取消控制，由调用方传入（通常是 Run() 的顶层 ctx）；
@@ -645,191 +625,169 @@ func ExtractPageAPIs(ctx context.Context, pageURL, body string, client *http.Cli
   - 去重：同一 URL 在多段文本里重复出现，只保留第一条；
   - 空输入、纯噪音文本（不含任何 URL 特征）返回空切片而非 nil 导致 panic；
   - `ExtractPageAPIs` 端到端：用 `httptest.Server` 搭建内联 + 外链混合的测试页面，验证不传 `*Crawler` 也能正常工作（因为这个函数本来就不需要 `*Crawler`）。
-- `go test ./internal/core/scanner/web/crawler/... -run TestExtractPageAPIs -v` 全部通过；
-- `go vet` 确认 `crawler.go` 文件本身没有任何改动（`git diff internal/core/scanner/web/crawler/crawler.go` 应为空）。
+- `go test ./internal/core/lib/crawler/... -run TestExtractPageAPIs -v` 全部通过；
+- `go vet` 确认 `crawler.go` 文件本身没有任何改动（`git diff internal/core/lib/crawler/crawler.go` 应为空）。
 
 ---
 
-## 五、集成点：`WebScanner.buildWebResult` 接入提取，首页与子页面共用同一次调用
+## 五、集成点：`ApiScanner.Run` 接入提取，首页与子页面共用同一次调用
 
-### 5.1 为什么挂在 `buildWebResult`，不是 `fetchAndExtract`
+> **v2.0 整节重写**：本节原内容（v1.3）讨论的是"`WebScanner.buildWebResult` 内部怎么接入提取"，随着挂载点整体迁移到独立的 `ApiScanner`，这个函数、这个改法都不复存在。`WebScanner` 本次**完全不需要任何改动**——不需要新增 `resolveJSAPIExtract`、不需要 `buildWebResult` 新增 `ctx` 参数、不需要 `pageData` 新增字段，这些内容全部作废。下面重新论述 `ApiScanner.Run` 如何接入 `ExtractPageAPIs`。
 
-`buildWebResult`（`web_scanner.go` 第 862 行）是首页结果与所有深度爬取子页面结果唯一共同流经的收口函数：
+### 5.1 前提：`ApiScanner` 骨架已经打通六件套
 
-```375:381:c:/mytools/code/go/NeoScan/neoAgent/internal/core/scanner/web/web_scanner.go
-	homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
-		URL: targetURL, Depth: 0, StatusCode: homeStatusCode, Title: homeTitle,
-		Body: homeBody, Headers: homeHeaders, ContentLength: homeContentLen, RichContext: homeRichCtx,
-		Forms: homeForms, Params: homeParams,
-		Screenshot: screenshotB64, Favicon: faviconB64,
-		EdgeComponents: edgeComponents,
-	})
-	results = append(results, homeResult)
-```
-
-```392:397:c:/mytools/code/go/NeoScan/neoAgent/internal/core/scanner/web/web_scanner.go
-		for _, p := range pages {
-			results = append(results, s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
-				URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode, Title: p.Title,
-				Body: p.Body, Headers: p.Headers, Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
-			}))
-		}
-```
-
-两处调用传入的 `pageData` 字段不同，但都汇入同一个 `buildWebResult`。把 `resolveJSAPIExtract(task)` 的判断和 `crawler.ExtractPageAPIs` 的调用放在这一个函数内部，首页和每一个子页面自动、无差别地获得提取能力，不需要在两个调用点分别写判断——这正好对应用户提出的要求：**`--js-api` 是任务级别的全局开关，与是否触发深度爬取无关，深度为 N 的爬虫子页面同样要覆盖，不存在需要特殊处理的路径。**
-
-### 5.2 `pageData` 新增 `Body` 透传字段说明
-
-`pageData`（`web_scanner.go` 第 8xx 行附近）已经有 `Body string` 字段（首页和子页面调用处都已经在传，见上面 5.1 节引用的代码），`buildWebResult` 内部本来就能拿到 `pd.Body` 和 `pd.URL`，**不需要为了这个功能新增任何 `pageData` 字段**，只需要在函数体内部多几行调用逻辑。这是 v1.3 相对 v1.2 的另一处简化：v1.2 需要在 `crawler.Page`/`pageData` 之间新增 `APIs`/`APIsTruncated` 两个透传字段（原 3.2/6.3/6.4 节），v1.3 里 `ExtractPageAPIs` 直接在 `buildWebResult` 内部对 `pd.Body` 调用，产出直接组装进返回的 `model.WebResult`，不需要任何中间结构体透传。
-
-### 5.3 `buildWebResult` 签名改动：新增 `ctx context.Context` 参数
-
-JS 下载是网络请求，必须能被上层的超时/取消控制约束，`buildWebResult` 原签名 `(task *model.Task, startTime time.Time, ip string, port int, pd pageData)` 里没有 `ctx`，需要新增：
+本节假设 [`web扫描模块重构文档.md`](../爬虫/web扫描模块重构文档.md) 描述的 `ApiScanner` 骨架（`internal/core/scanner/api/api_scanner.go`、`core/factory/api_factory.go`、`RunnerManager` 注册、`cmd/agent/scan/api.go`、`internal/core/options/scan_api.go`）已经落地，`ApiScanner.Run` 方法签名已经存在（重构文档 3.4 节）：
 
 ```go
-func (s *WebScanner) buildWebResult(ctx context.Context, task *model.Task, startTime time.Time, ip string, port int, pd pageData) *model.TaskResult {
+type ApiScanner struct {
+	limiter *qos.AdaptiveLimiter // ApiScanner 独立持有的限流器实例，不与 WebScanner 共享（重构文档 7.2 节）
+}
+
+func (s *ApiScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error)
+```
+
+本节要做的，是把这个空壳的 `Run` 方法体填充完整：调用 `crawler.FetchAndCrawl` 拿页面，对每个页面调用 `crawler.ExtractPageAPIs`，组装 `model.ApiResult` 返回。
+
+### 5.2 `Run` 内部流程：一次抓取，逐页提取，无条件调用
+
+```go
+func (s *ApiScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error) {
+	opts := parseApiScanParams(task) // 解析 crawl/crawl_depth/max_files，见 5.3 节
+
+	home, subPages, err := crawler.FetchAndCrawl(ctx, task.Target, opts.port, opts.protocolHint, s.limiter,
+		crawler.FetchOptions{
+			CrawlDepth: opts.crawlDepth, // <=0 表示只抓首页，不做 BFS
+			OnPageReady: nil,            // ApiScanner 不需要截图/favicon，回调传 nil（重构文档 3.2 节约束）
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	var results []*model.TaskResult
+	results = append(results, s.buildApiResult(ctx, task, home.URL, 0, home.Body, opts.maxFiles))
+	for _, p := range subPages {
+		results = append(results, s.buildApiResult(ctx, task, p.URL, p.Depth, p.Body, opts.maxFiles))
+	}
+	return results, nil
+}
+
+// buildApiResult 是 ApiScanner 组装单个页面结果的唯一入口，首页（depth=0）和
+// 每一个深度爬取子页面都调用这一个函数——不存在"首页走一条路径、子页面走
+// 另一条路径"的分叉，这是 ApiScanner 相对 v1.3 时代"挂在别的 Scanner 里"最大
+// 的简化：现在它自己就是任务入口，对自己抓到的每个页面一视同仁。
+//
+// 无条件调用 ExtractPageAPIs，不做任何"要不要提取"的判断——ApiScanner.Run
+// 被调用到这件事本身就是用户的显式意图（详见第二节 2.2）。
+func (s *ApiScanner) buildApiResult(ctx context.Context, task *model.Task, pageURL string, depth int, body string, maxFiles int) *model.TaskResult {
+	apis, truncated := crawler.ExtractPageAPIs(ctx, pageURL, body, nil, s.limiter, maxFiles)
+	return &model.TaskResult{
+		TaskID: task.ID,
+		Type:   model.TaskTypeApiScan,
+		Result: &model.ApiResult{
+			URL:           pageURL,
+			Depth:         depth,
+			APIs:          apis,
+			APIsTruncated: truncated,
+		},
+	}
+}
+```
+
+`limiter` 直接传 `s.limiter`——`ApiScanner` 结构体本来就持有这个独立字段（重构文档 7.2 节），无论首页还是子页面调用，用的都是同一个限流实例，与第四节 4.7 小节"复用调用方传入的 limiter，不新建限流器"的原则一致。`http.Client` 传 `nil`，`ExtractPageAPIs` 内部会用默认 client 兜底（见 4.8 节），不需要 `ApiScanner` 专门再持有一个下载用的 client。
+
+### 5.3 参数解析：`crawl`/`crawl_depth`/`max_files` 从 `task.Params` 读取
+
+```go
+type apiScanParsedOpts struct {
+	port         int
+	protocolHint string
+	crawlDepth   int
+	maxFiles     int
+}
+
+// parseApiScanParams 从 task.Params 解析 ApiScanner 需要的参数。crawl/crawl_depth
+// 的三态语义直接复用 WebScanner.resolveCrawlDepth 同一套判断规则（第二节 2.1），
+// 不重新发明；max_files 对应 ApiScanOptions.MaxFiles，<=0 时在 ExtractPageAPIs
+// 内部退化为 crawler.JSAPIDefaultMaxFiles（第四节 4.7.3 节已有兜底，这里不用重复判断）。
+func parseApiScanParams(task *model.Task) apiScanParsedOpts {
 	...
 }
 ```
 
-两个调用点（5.1 节引用的第 375 行、第 393 行）相应改为 `s.buildWebResult(ctx, task, ...)`——`Run()` 方法本身已经持有 `ctx` 参数（方法签名 `func (s *WebScanner) Run(ctx context.Context, task *model.Task)`），直接传下去即可，不需要新开 context。
+具体实现直接复用 `WebScanner` 现有 `resolveCrawlDepth` 的判断逻辑（这段逻辑本身不涉及"抓不抓页面"以外的业务耦合，属于可以安全复制到 `ApiScanner` 的通用参数解析代码），不在此重复贴代码。
 
-### 5.4 `buildWebResult` 内部接入：组装 `model.WebResult` 之前调用一次
+### 5.4 若干易漏点核对
 
-在现有 `contentLength` 计算之后、`return &model.TaskResult{...}` 之前插入：
+- **`ApiScanner.Run` 不需要判断"要不要提取"**：`RunnerManager` 只有收到 `TaskTypeApiScan` 才会调度到这个方法，调度到这件事本身就是判断结果，`buildApiResult` 内部对 `ExtractPageAPIs` 的调用是无条件的（详见第二节 2.2）；
+- **`crawler.Page` 不需要任何改动**（详见第 3.2 节），子页面的 `p.Body`/`p.URL`/`p.Depth` 都是 `crawler.Page` 已有字段，`buildApiResult` 直接读取即可，不存在需要新增透传字段的情况；
+- `ExtractPageAPIs` 本身不重复判断"总开关"（详见第四节 4.8 节的函数注释），避免同一件事在 `ApiScanner.Run` 和 `ExtractPageAPIs` 两处各判断一次；
+- `WebScanner` 一行代码都不需要改——这是本节相对 v1.3 最重要的验收前提，用 `git diff` 确认 `web_scanner.go` 没有任何改动。
 
-```go
-apis, apisTruncated := s.resolveJSAPIResult(ctx, task, pd.URL, pd.Body)
-```
-
-```go
-// resolveJSAPIResult 是 buildWebResult 接入 JS 接口提取的唯一调用点。
-// 只有 resolveJSAPIExtract(task) 为 true（用户显式传 --js-api）才会真正
-// 触发下载，否则直接返回 (nil, false)，不产生任何额外请求——这个判断
-// 只写在这一个地方，首页和爬虫子页面共用同一次判断，不会出现只覆盖
-// 其中一条路径的情况。
-func (s *WebScanner) resolveJSAPIResult(ctx context.Context, task *model.Task, pageURL, body string) ([]model.APIEndpoint, bool) {
-	if !s.resolveJSAPIExtract(task) {
-		return nil, false
-	}
-	return crawler.ExtractPageAPIs(ctx, pageURL, body, nil, s.limiter, crawler.JSAPIDefaultMaxFiles)
-}
-```
-
-`model.WebResult` 组装处追加两个字段：
-
-```go
-	Result: &model.WebResult{
-		...
-		EdgeComponents:  pd.EdgeComponents,
-		APIs:            apis,
-		APIsTruncated:   apisTruncated,
-	},
-```
-
-`limiter` 直接传 `s.limiter`——`WebScanner` 结构体本来就持有这个字段（`web_scanner.go` 第 48 行 `limiter *qos.AdaptiveLimiter`），无论首页还是爬虫子页面调用，用的都是同一个全局限流实例，与第四节 4.7 小节"复用调用方传入的 limiter，不新建限流器"的原则一致。`http.Client` 传 `nil`，`ExtractPageAPIs` 内部会用默认 client 兜底（见 4.8 节），不需要 `WebScanner` 专门再持有一个下载用的 client。
-
-### 5.5 若干易漏点核对
-
-- **子页面 `pageData` 目前没有传 `EdgeComponents`**（见 5.1 节第二段引用代码），这是既有行为（子页面不重复做 CDN 判断），与本次改动无关，不需要顺带补上；
-- **`crawler.Page` 不需要任何改动**（详见第 3.2 节），`p.Body` 已经在 `Page` 结构体里，`pageData{Body: p.Body, ...}` 这行赋值本来就存在，不是新增的；
-- `resolveJSAPIResult` 内部只做一次 `resolveJSAPIExtract` 判断，`crawler.ExtractPageAPIs` 本身不再重复判断（详见第四节 4.8 节的函数注释），避免同一个开关判断出现两处。
-
-### 5.6 验收标准
+### 5.5 验收标准
 
 - `go build ./...`、`go vet ./...` 通过；
-- `go test ./internal/core/scanner/web/... -race` 通过，重点关注 `downloadJSFiles` 的并发写 map 场景（已用 `sync.Mutex` 保护，`-race` 应该跑不出竞争）；
-- 手工验证：`task.Params["js_api"]` 不传或传 `false` 时，`buildWebResult` 完全不会调用 `crawler.ExtractPageAPIs`，日志里不应出现任何 JS 下载相关的 Warn 日志；
-- **首页单独命中场景**（新增，v1.3 核心验收项）：构造一个不触发深度爬取的目标（比如首页没有可爬链接，或显式传 `--crawl=false`），只传 `--js-api`，验证首页对应的 `WebResult.APIs` 依然非空——这条断言专门验证 v1.2 版本"首页拿不到提取"的 bug 已经被修复；
-- **深度爬取子页面命中场景**：同时传 `--crawl=true --crawl-depth=2 --js-api`，验证深度为 1、2 的子页面 `WebResult.APIs` 同样非空，不是只有首页（Depth=0）才有数据；
-- 构造一个引用 JS 文件数超过 `MaxJSFilesPerPage` 的测试页面，验证：`WebResult.APIsTruncated == true`，且日志里能看到明确的"已丢弃 N 个未下载"提示（不是只在返回值里体现，日志必须同步出现）。
+- `go test ./internal/core/scanner/api/... -race` 通过，重点关注 `downloadJSFiles` 的并发写 map 场景（已用 `sync.Mutex` 保护，`-race` 应该跑不出竞争）；
+- **首页单独命中场景**（核心验收项）：构造一个不触发深度爬取的目标（比如首页没有可爬链接，或显式传 `--crawl=false`），运行 `api_scan`，验证首页对应的 `ApiResult.APIs` 依然非空——这条断言专门验证"首页拿不到提取"这类历史 bug（v1.2 时代的教训）在新架构下不会重现，因为 `ApiScanner.Run` 对首页和子页面天然走同一个 `buildApiResult`；
+- **深度爬取子页面命中场景**：传 `--crawl=true --crawl-depth=2` 运行 `api_scan`，验证深度为 1、2 的子页面 `ApiResult.APIs` 同样非空，不是只有首页（Depth=0）才有数据；
+- 构造一个引用 JS 文件数超过 `MaxJSFilesPerPage` 的测试页面，验证：`ApiResult.APIsTruncated == true`，且日志里能看到明确的"已丢弃 N 个未下载"提示（不是只在返回值里体现，日志必须同步出现）；
+- `git diff internal/core/scanner/web/web_scanner.go` 应为空——`WebScanner` 本次不应该有任何改动，如果这个文件有改动，说明实现偏离了 v2.0 的架构设计，需要重新检查。
 
 ---
 
 ## 六、端到端集成测试
 
-参照 `web_scanner_cdn_e2e_test.go` 的风格，新建 `web_scanner_jsapi_test.go`，用 `httptest.Server` 搭建一个包含内联 `<script>` 和外链 `<script src>` 的测试页面，覆盖：
+> **v2.0 整节重写**：本节原内容以"`task.Params["js_api"]` 二态开关"为核心组织测试用例（未设置/false/true 三种取值分别断言），这套用例设计的前提在 v2.0 里不再成立——`ApiScanner` 没有这个开关，被调度到就是"要做"。本节改为围绕 `ApiScanner.Run` 本身的行为设计测试用例，不再需要为"关闭态"单独写断言。
 
-1. `task.Params["js_api"]` 未设置：`WebResult.APIs` 应为空，`WebResult.APIsTruncated` 应为 `false`，且测试服务器记录的 JS 文件请求数应为 0（验证"不传参数就完全不触发下载"）；
-2. `task.Params["js_api"] = false`：同上，行为等价于未设置；
-3. `task.Params["js_api"] = true`：`WebResult.APIs` 非空，且能验证到高/中/低三种置信度各自至少命中一条；测试页面引用的 JS 文件数不超过上限，`WebResult.APIsTruncated` 必须是 `false`；
-4. `task.Params["js_api"] = true` 且测试页面引用超过 `JSAPIDefaultMaxFiles` 个 JS 文件：验证实际下载请求数被截断在上限以内，且 `WebResult.APIsTruncated == true`——这一条是本次新增的核心断言，专门验证"结果不完整"这个事实能从调用方一路透传到最终 `WebResult`，中间任何一环（`downloadJSFiles` → `ExtractPageAPIs` → `buildWebResult`）漏传都会导致这条测试失败；
-5. **首页单独命中场景**（不依赖深度爬取）：测试目标首页本身不含任何可爬链接（或显式传 `task.Params["crawl"] = false`），只传 `task.Params["js_api"] = true`，验证 `results` 中唯一的 `WebResult`（首页，`Depth == 0`）的 `APIs` 字段非空——这一条直接对应第五节 5.1 节描述的架构修正，是 v1.3 相对 v1.2 新增的核心断言，v1.2 的实现在这条测试下会失败（首页拿不到提取结果）；
-6. **深度爬取多页命中场景**：`task.Params["crawl"] = true`、`task.Params["crawl_depth"] = 2`、`task.Params["js_api"] = true`，测试站点构造深度 1、2 的子页面各自包含不同的内联/外链脚本，验证 `results` 里每一层深度对应的 `WebResult.APIs` 都各自非空且内容不同（不是所有页面共享同一份结果），证明提取是逐页面独立执行的，不是只对首页做了一次然后复制给所有子页面。
+新建 `internal/core/scanner/api/api_scanner_test.go`，参照 `web_scanner_cdn_e2e_test.go` 的风格，用 `httptest.Server` 搭建一个包含内联 `<script>` 和外链 `<script src>` 的测试页面，覆盖：
 
-以上 5、6 两条测试合并覆盖了第五节 5.6 节列出的"首页单独命中"和"深度爬取子页面命中"验收项，实施时两处引用同一份测试用例即可，不需要重复编写。
+1. **基本提取场景**：运行 `ApiScanner.Run`，验证 `ApiResult.APIs` 非空，且能验证到高/中/低三种置信度各自至少命中一条；测试页面引用的 JS 文件数不超过上限，`ApiResult.APIsTruncated` 必须是 `false`；
+2. **截断场景**：测试页面引用超过 `JSAPIDefaultMaxFiles` 个 JS 文件，验证实际下载请求数被截断在上限以内，且 `ApiResult.APIsTruncated == true`——这一条专门验证"结果不完整"这个事实能从调用方一路透传到最终 `ApiResult`，中间任何一环（`downloadJSFiles` → `ExtractPageAPIs` → `buildApiResult`）漏传都会导致这条测试失败；
+3. **首页单独命中场景**（不依赖深度爬取，核心断言）：测试目标首页本身不含任何可爬链接（或显式传 `task.Params["crawl"] = false`），验证 `results` 中唯一的 `ApiResult`（首页，`Depth == 0`）的 `APIs` 字段非空——这一条直接对应第五节描述的架构设计，验证"首页和子页面共用同一个 `buildApiResult`"这个设计确实生效，不会重现 v1.2 时代"首页拿不到提取结果"的历史问题；
+4. **深度爬取多页命中场景**：`task.Params["crawl"] = true`、`task.Params["crawl_depth"] = 2`，测试站点构造深度 1、2 的子页面各自包含不同的内联/外链脚本，验证 `results` 里每一层深度对应的 `ApiResult.APIs` 都各自非空且内容不同（不是所有页面共享同一份结果），证明提取是逐页面独立执行的，不是只对首页做了一次然后复制给所有子页面；
+5. **与 `WebScanner` 零耦合场景**：同一个测试目标分别跑 `web_scan` 和 `api_scan` 两个任务，验证互不影响——`web_scan` 的 `WebResult` 不应该出现任何 `APIs`/`APIsTruncated` 字段（因为这些字段已经从 `WebResult` 里移除，编译期即可保证），`api_scan` 的 `ApiResult` 也不应该有截图/指纹等 `WebResult` 专属字段，这条测试用编译期类型约束替代了运行时断言，主要用来在代码评审时提醒"这两个结果类型必须保持独立"。
+
+以上 3、4 两条测试合并覆盖了第五节 5.5 节列出的"首页单独命中"和"深度爬取子页面命中"验收项，实施时两处引用同一份测试用例即可，不需要重复编写。
 
 ---
 
-## 七、CLI 表格输出：新增 `APIs` 列，截断时必须让用户知道结果不全
+## 七、CLI 表格输出：`ApiResult` 从零实现 `TabularData`，截断时必须让用户知道结果不全
+
+> **v2.0 整节重写**：本节原内容讨论的是"在 `WebResult` 现有列上追加 `APIs` 列"，前提是 `APIs`/`APIsTruncated` 字段挂在 `WebResult` 上。v2.0 里这两个字段挂在全新的 `ApiResult` 类型上，`ApiResult` 本身还没有任何 `Headers()`/`Rows()` 实现，需要从零编写，不存在"追加列"这回事——`api_scan` 命令的表格输出本来就应该是它自己的独立列集合，不需要和 `web_scan` 的表格长得一样。
 
 ### 7.1 为什么要做这一步
 
-`APIs`/`APIsTruncated` 字段进了 `WebResult`（第三节），但 `WebResult.Rows()` 是手写的固定列清单（`internal/core/model/result_types.go` 第 153~189 行现有的 `Headers()`/`Rows()`），新加的字段不会自动出现在表格里——不加这一步，用户用默认的表格模式跑 `--js-api`，看到的表格和没开这个功能时一模一样，唯一能确认功能生效的办法是去翻 `-json` 输出，这违背了"CLI 是用户第一手感知入口"的基本预期。
+`ApiResult`（第三节新增）目前还没有实现 `TabularData` 接口，如果不做这一步，`api_scan` 命令的表格模式输出会退化成什么都显示不出来（或者报错/panic，取决于 `ConsoleReporter` 对未实现接口类型的兜底行为），用户唯一能看到结果的办法是 `-json` 输出，这违背了"CLI 是用户第一手感知入口"的基本预期。
 
 `APIsTruncated` 更进一步：这是一个"当前结果不完整"的事实，如果只在 JSON 里加一个字段，不在 CLI 表格里做任何提示，用户拿着一份看起来正常的表格去做后续判断（比如统计接口数量、评估攻击面），实际上是在一份被静默阉割的数据上做决策而不自知。这是不可接受的——**宁可啰嗦地告诉用户"这份数据不全"，也不能让不完整的数据看起来和完整数据一模一样**。
 
-### 7.2 表格列设计：`APIs` 列显示数量，截断时追加显眼标记
+### 7.2 `ApiResult` 的 `Headers()`/`Rows()`：`APIs` 列显示数量，截断时追加显眼标记
 
-不新增 `Truncated` 独立列。理由：截断是"APIs 这个数字的可信程度"的从属信息，不是一个独立维度，为它单开一列会让表格在绝大多数未开启 `--js-api` 或未发生截断的场景下始终多一列空白（`Headers()` 是固定表头，列在不在数据无关都会显示），对现有 95% 场景的用户是纯粹的视觉噪音。把截断标记直接编码进 `APIs` 列的字符串内容里，只有真正发生截断时才会让这个单元格看起来"有点不一样"，符合"没有特殊情况时表现和以前完全一致"的原则。
-
-```153:189:c:/mytools/code/go/NeoScan/neoAgent/internal/core/model/result_types.go
-// Headers 实现 TabularData 接口
-func (r WebResult) Headers() []string {
-	return []string{"URL", "IP", "Port", "Status", "Len", "Title", "Server", "TechStack"}
-}
-
-// Rows 实现 TabularData 接口
-func (r WebResult) Rows() [][]string {
-	...
-	return [][]string{{
-		r.URL,
-		r.IP,
-		fmt.Sprintf("%d", r.Port),
-		fmt.Sprintf("%d", r.StatusCode),
-		fmt.Sprintf("%d", r.ContentLength),
-		r.Title,
-		server,
-		stack,
-	}}
-}
-```
-
-改为：
+`ApiResult` 是全新类型，不存在"现有列表"，直接按它自己的字段设计表格：
 
 ```go
 // Headers 实现 TabularData 接口
-func (r WebResult) Headers() []string {
-	return []string{"URL", "IP", "Port", "Status", "Len", "Title", "Server", "TechStack", "APIs"}
+func (r ApiResult) Headers() []string {
+	return []string{"URL", "Depth", "APIs"}
 }
 
 // Rows 实现 TabularData 接口
-func (r WebResult) Rows() [][]string {
-	...
+func (r ApiResult) Rows() [][]string {
 	return [][]string{{
 		r.URL,
-		r.IP,
-		fmt.Sprintf("%d", r.Port),
-		fmt.Sprintf("%d", r.StatusCode),
-		fmt.Sprintf("%d", r.ContentLength),
-		r.Title,
-		server,
-		stack,
+		fmt.Sprintf("%d", r.Depth),
 		r.apisCell(),
 	}}
 }
 
 // apisCell 渲染 APIs 列的单元格内容：
-//   - 未开启 --js-api（APIs 为 nil 且未截断）：空字符串，和现有其他 omitempty
-//     字段的表格展示习惯一致（如当前 TechStack 为空时也是空字符串，不是显式的 "0"）；
-//   - 开启且完整：纯数字，如 "12"；
-//   - 开启且发生截断：数字后追加 "*"，如 "12*"——星号是终端表格里最省空间、
+//   - 完整：纯数字，如 "12"；
+//   - 发生截断：数字后追加 "*"，如 "12*"——星号是终端表格里最省空间、
 //     最不会破坏列宽对齐的标记方式，不使用需要变色的方案（pterm 的表格渲染
 //     不为单个单元格单独上色，颜色方案的收益和实现复杂度不成正比）。
-func (r WebResult) apisCell() string {
-	if len(r.APIs) == 0 && !r.APIsTruncated {
-		return ""
-	}
+//   - APIs 为空且未截断：纯数字 "0"——与 WebResult 表格里"未开启功能时留空"
+//     的语义不同，ApiResult 存在这件事本身就代表"已经做了提取"，"0" 是一个
+//     真实的提取结果（没提取到），不是"这个功能没跑"，不应该用空字符串掩盖。
+func (r ApiResult) apisCell() string {
 	cell := fmt.Sprintf("%d", len(r.APIs))
 	if r.APIsTruncated {
 		cell += "*"
@@ -838,75 +796,73 @@ func (r WebResult) apisCell() string {
 }
 ```
 
-### 7.3 截断汇总提示：`cmd/agent/scan/web.go` 里 `PrintResults` 之后追加
+不新增 `Truncated` 独立列，理由与 v1.3 一致：截断是"APIs 这个数字的可信程度"的从属信息，不是一个独立维度，把截断标记编码进 `APIs` 列的字符串内容里更省空间，也更符合"信息应该贴在它所修饰的对象旁边"的直觉。
 
-星号本身足够让细心的用户注意到异常，但不能只靠一个容易被忽略的符号——必须有一行清晰的文字提示告诉用户"星号是什么意思、为什么会出现"。这段提示逻辑**不应该放进 `console.go`**：`ConsoleReporter.PrintResults` 是给 `Port`/`OS`/`Brute`/`Web` 等所有扫描器共用的通用表格打印器，只认 `TabularData` 接口，完全不知道"APIs 截断"这种 Web 扫描器专属的业务语义；如果把这种业务判断塞进通用组件，以后每种扫描器想加自己的专属提示，`console.go` 就会堆满和具体业务耦合的 `if` 分支，这是需要避免的架构混乱。正确的位置是 `web.go` 这个 Web 扫描命令自己的 `RunE` 里，在拿到 `results` 之后自行判断。
+### 7.3 截断汇总提示：`cmd/agent/scan/api.go` 里 `PrintResults` 之后追加
 
-```336:345:c:/mytools/code/go/NeoScan/neoAgent/cmd/agent/scan/web.go
-			// 输出结果
-			console := reporter.NewConsoleReporter()
-			console.PrintResults(results)
-```
-
-改为：
+星号本身足够让细心的用户注意到异常，但不能只靠一个容易被忽略的符号——必须有一行清晰的文字提示告诉用户"星号是什么意思、为什么会出现"。这段提示逻辑**不应该放进 `console.go`**：`ConsoleReporter.PrintResults` 是给 `Port`/`OS`/`Brute`/`Web`/`Api` 等所有扫描器共用的通用表格打印器，只认 `TabularData` 接口，完全不知道"APIs 截断"这种 `api_scan` 专属的业务语义；如果把这种业务判断塞进通用组件，以后每种扫描器想加自己的专属提示，`console.go` 就会堆满和具体业务耦合的 `if` 分支，这是需要避免的架构混乱。正确的位置是 `cmd/agent/scan/api.go` 这个 `api_scan` 命令自己的 `RunE` 里，在拿到 `results` 之后自行判断：
 
 ```go
 			// 输出结果
 			console := reporter.NewConsoleReporter()
 			console.PrintResults(results)
 
-			// --js-api 场景下，如果任意一条结果发生了 JS 文件截断，必须显式提示，
-			// 不能让用户以为表格里的 APIs 数字就是完整清单。只在真正发生截断时
-			// 才打印，未开启 --js-api 或未截断时这里是没有任何输出的空操作，
-			// 不会给不相关的用户增加噪音。
-			if opts.JSAPI {
-				printAPIsTruncatedHint(results)
-			}
+			// api_scan 只要发生了 JS 文件截断，必须显式提示，不能让用户以为
+			// 表格里的 APIs 数字就是完整清单。未截断时这里是没有任何输出的
+			// 空操作，不会给不相关的用户增加噪音；不需要像 v1.3 那样先判断
+			// "opts.JSAPI 是否开启"——api_scan 命令本身跑起来就意味着这个
+			// 功能在执行，不存在"命令跑了但功能没开"的中间状态。
+			printAPIsTruncatedHint(results)
 ```
 
 ```go
-// printAPIsTruncatedHint 遍历本次扫描结果，如果存在任意一条 WebResult.APIsTruncated == true，
+// printAPIsTruncatedHint 遍历本次扫描结果，如果存在任意一条 ApiResult.APIsTruncated == true，
 // 汇总打印一条提示。只在这里做一次性汇总提示，不在每一行都重复啰嗦——表格里
 // 每一行截断的记录已经用 "*" 标记出来了，这里只需要告诉用户 "*" 代表什么。
 func printAPIsTruncatedHint(results []*model.TaskResult) {
 	truncatedCount := 0
 	for _, res := range results {
-		if wr, ok := res.Result.(model.WebResult); ok && wr.APIsTruncated {
+		if ar, ok := res.Result.(*model.ApiResult); ok && ar.APIsTruncated {
 			truncatedCount++
 		}
 	}
 	if truncatedCount == 0 {
 		return
 	}
-	fmt.Printf("[!] 注意：%d 个目标的 JS 文件数超过单页上限（%d 个），APIs 列标记 \"*\" 的结果不完整，"+
+	fmt.Printf("[!] 注意：%d 个页面的 JS 文件数超过单页上限（%d 个），APIs 列标记 \"*\" 的结果不完整，"+
 		"仅反映上限内已下载文件的提取结果，完整数据需要提高上限或针对该目标单独分析\n",
 		truncatedCount, crawler.JSAPIDefaultMaxFiles)
 }
 ```
 
-需要 `cmd/agent/scan/web.go` 新增 `"neoagent/internal/core/model"` 和 `"neoagent/internal/core/scanner/web/crawler"` 两个 import（`crawler.JSAPIDefaultMaxFiles` 只用于提示文案里报数字，如果嫌跨包引用不划算，也可以直接把默认值 `20` 以外部已知常量的形式硬编码在提示文案里，两种做法都可以接受，实施时二选一即可，不必纠结）。
+需要 `cmd/agent/scan/api.go` 引入 `"neoagent/internal/core/model"` 和 `"neoagent/internal/core/lib/crawler"` 两个 import（`crawler.JSAPIDefaultMaxFiles` 只用于提示文案里报数字，如果嫌跨包引用不划算，也可以直接把默认值 `20` 以外部已知常量的形式硬编码在提示文案里，两种做法都可以接受，实施时二选一即可，不必纠结）。
 
 ### 7.4 验收标准
 
-- 未传 `--js-api`：表格里 `APIs` 列全部为空字符串，末尾不出现任何截断提示，和实施前的表格输出完全一致（除了多一列空表头，这是唯一可见的变化）；
-- 传 `--js-api` 且没有发生截断：`APIs` 列显示纯数字，不带星号，不出现截断提示；
-- 传 `--js-api` 且至少一个目标发生截断：对应行 `APIs` 列显示形如 `12*` 的内容，且表格下方打印出汇总提示，提示文字包含具体的截断目标数量和上限数值；
-- `go vet ./...` 通过（重点检查新增 import 没有循环依赖——`cmd/agent/scan` 引用 `internal/core/scanner/web/crawler` 是单向依赖，`crawler` 包不会反向依赖 `cmd`，不存在循环问题）。
+- 运行 `api_scan` 且没有发生截断：`APIs` 列显示纯数字，不带星号，不出现截断提示；
+- 运行 `api_scan` 且至少一个页面发生截断：对应行 `APIs` 列显示形如 `12*` 的内容，且表格下方打印出汇总提示，提示文字包含具体的截断页面数量和上限数值；
+- `web_scan` 的表格输出完全不受影响（`WebResult.Headers()`/`Rows()` 本次没有任何改动，用 `git diff` 确认）；
+- `go vet ./...` 通过（重点检查新增 import 没有循环依赖——`cmd/agent/scan` 引用 `internal/core/lib/crawler` 是单向依赖，`crawler` 包不会反向依赖 `cmd`，不存在循环问题）。
 
 ---
 
 ## 八、实施完成后的收尾检查
 
+> **v2.0 整节重写**：本节原内容以"`--js-api` 开关关闭状态回归"为核心检查项，随着 `api_scan` 独立成命令，不再存在"关闭状态"，相应检查项作废；新增"`WebScanner` 零改动""`ApiScanner` 独立限流器"等 v2.0 架构特有的检查项。
+
 - [ ] `go build ./...`
 - [ ] `go vet ./...`
-- [ ] `go test ./... -race`（至少覆盖 `internal/core/scanner/web/...`）
+- [ ] `go test ./... -race`（至少覆盖 `internal/core/lib/crawler/...`、`internal/core/scanner/api/...`）
 - [ ] 确认改动中没有任何文件写入调用（`grep -rn "os.Create\|WriteFile\|TempFile"` 改动的文件应无命中）
-- [ ] 确认 `js_api` 关闭状态（不传参数）下行为与实施前完全一致（回归验证，防止意外影响到没开启这个功能的现有用户）
-- [ ] 验证完整链路真实走通：用 `neoagent scan web --target ... --js-api` 实际执行一次，确认 `--js-api` 能真正触发下载（不能只在单元测试里直接构造 `task.Params["js_api"]=true` 就算完成，这个验证针对的是第 2.4 节提到的"CLI 入口没打通"风险）
-- [ ] **（v1.3 新增，核心检查项）** 用户举例的两种命令行都要手工跑一遍，确认行为符合预期：
-  - `neoScan-Agent-web.exe scan web -t <target> --crawl=true --crawl-depth=2 --js-api --oj result.json`：确认 JSON 结果里深度为 0（首页）、1、2 的每一条 `WebResult` 都各自带有非空的 `APIs` 字段（前提是对应页面确实引用了可提取的接口地址），不是只有首页有数据；
-  - `neoScan-Agent-web.exe scan web -t <target> --js-api`（不传 `--crawl`）：确认首页的 `WebResult.APIs` 有数据，即使本次没有触发深度爬取（比如目标首页链接很少、自动判断不需要爬取）——这条专门验证 v1.2 版本"未触发爬虫时 `--js-api` 整体失效"的 bug 已修复；
-- [ ] `--js-api` 的 `-h` 帮助输出中能看到完整的风险提示文字（不是被截断或省略）；
-- [ ] `docs/Agent指令集规范.md` 第 3.3 节表格已补充 `js_api` 行，风险提示与代码里的提示文字一致（不允许文档和代码里的提示语句不一致导致用户看到两个版本）；
-- [ ] CLI 表格模式下人工验证一次真实的截断场景（构造一个引用 JS 文件数超过 20 的测试页面），确认 `APIs` 列星号和汇总提示行都能正确出现，且未开启/未截断场景下表格观感与实施前一致；
-- [ ] `git diff internal/core/scanner/web/crawler/crawler.go` 应为空——`crawler.go` 本身不应该有任何改动（详见第四节 4.0 节的说明），如果这个文件有改动，说明实现偏离了 v1.3 的架构设计，需要重新检查。
+- [ ] **`WebScanner` 零改动核心检查**：`git diff internal/core/scanner/web/web_scanner.go` 应为空——本次是新增独立的 `ApiScanner`，不是在 `WebScanner` 里加开关，如果 `web_scanner.go` 有任何改动，说明实现偏离了 v2.0 的架构设计，需要重新检查（这是 v2.0 相对 v1.3 最重要的回归验证，替代了 v1.3 里"确认 `js_api` 关闭状态下行为与实施前一致"这条检查，因为 v2.0 里已经不存在挂在 `WebScanner` 上的开关需要验证"关闭时无影响"）；
+- [ ] 验证完整链路真实走通：用 `neoagent scan api --target ...` 实际执行一次，确认命令能正常跑通并真实触发 JS 下载（不能只在单元测试里直接调用 `ApiScanner.Run` 就算完成，这个验证针对的是第 2.4 节提到的"CLI 入口没打通"风险）；
+- [ ] **核心检查项**：以下命令行都要手工跑一遍，确认行为符合预期：
+  - `neoScan-Agent-web.exe scan api -t <target> --crawl=true --crawl-depth=2 --oj result.json`：确认 JSON 结果里深度为 0（首页）、1、2 的每一条 `ApiResult` 都各自带有非空的 `APIs` 字段（前提是对应页面确实引用了可提取的接口地址），不是只有首页有数据；
+  - `neoScan-Agent-web.exe scan api -t <target>`（不传 `--crawl`）：确认首页的 `ApiResult.APIs` 有数据，即使本次没有触发深度爬取（比如目标首页链接很少、自动判断不需要爬取）——这条专门验证"未触发爬虫时提取整体失效"这类历史问题（v1.2 时代的教训）在新架构下不会重现；
+- [ ] `api_scan` 的 `-h` 帮助输出中能看到完整的风险提示文字（不是被截断或省略）；
+- [ ] `docs/Agent指令集规范.md` 已补充 `api_scan` 任务类型的独立章节，风险提示与代码里的提示文字一致（不允许文档和代码里的提示语句不一致导致用户看到两个版本）；
+- [ ] CLI 表格模式下人工验证一次真实的截断场景（构造一个引用 JS 文件数超过 20 的测试页面），确认 `APIs` 列星号和汇总提示行都能正确出现；
+- [ ] `git diff internal/core/lib/crawler/crawler.go` 应为空——`crawler.go` 本身不应该有任何改动（详见第四节 4.0 节的说明）；
+- [ ] `git diff internal/core/model/result_types.go` 里 `type WebResult struct` 部分应为空——`WebResult` 结构体本次完全不改动（详见第三节 3.3 节验收标准）；
+- [ ] `task_to_core.go` 的 `api_scan`/`apiScan` case 已改为映射到 `model.TaskTypeApiScan`（不再是 `model.TaskTypeWebScan` + `Params["mode"]="api"`），且 `RunnerManager` 同时能正确调度 `TaskTypeWebScan` 和 `TaskTypeApiScan` 两个独立 Runner（重构文档 5.1 节范围，本文档实施前提）；
+- [ ] `ApiScanner` 持有自己独立的 `*qos.AdaptiveLimiter` 实例，不与 `WebScanner` 共享（重构文档 7.2 节），可以通过并发跑 `web_scan` 和 `api_scan` 各一个任务、观察两者的并发/限流互不干扰来验证。

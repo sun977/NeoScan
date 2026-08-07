@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"neoagent/internal/core/lib/browser"
+	"neoagent/internal/core/lib/crawler"
 	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
 	"neoagent/internal/core/scanner/port_service/nmap_service"
-	"neoagent/internal/core/scanner/web/crawler"
 	"neoagent/internal/pkg/edge"
 	"neoagent/internal/pkg/fingerprint"
 	fpHttp "neoagent/internal/pkg/fingerprint/engines/http"
@@ -571,7 +571,6 @@ func extractTitleFromCtx(ctx map[string]interface{}) string {
 	}
 	return ""
 }
-
 
 // ensureInit 确保指纹规则已加载
 func (s *WebScanner) ensureInit() {

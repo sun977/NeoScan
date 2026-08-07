@@ -1,4 +1,4 @@
-# NeoAgent 重构与开发总纲 v1.1
+# NeoAgent 重构与开发总纲 v1.2
 
 ## 1. 重构愿景
 
@@ -114,7 +114,7 @@ neoAgent/
 
 ### 阶段五：深度探测与漏洞扫描 (Deep Recon & Vulnerability Scanning) —— **Exploitation**
 **目标**: 补齐 Web 深度信息收集、真正的漏洞扫描引擎以及主动暴露面试探能力。
-**状态**: 🏃 **进行中**（5.1 已完成，5.2/5.3 待启动）
+**状态**: 🏃 **进行中**（5.1/5.1.1/5.1.2 已完成，5.2/5.3 待启动）
 
 - [x] **5.1 Web 扫描深度增强 (Web Crawler & Passive Analyzer)** — 🟢 **已完成，Sprint 0-6 全部收尾**，详细拆分见 [`docs/爬虫/Web爬虫与被动分析器实施文档-v1.0.md`](./爬虫/Web爬虫与被动分析器实施文档-v1.0.md)：
     - [x] **Sprint 0**：依赖引入 (`goquery`) + `crawler` 包骨架 + `WebResult` 新增字段 (`Depth/Forms/Params/Leaks`)。
@@ -132,6 +132,10 @@ neoAgent/
 - [x] 步骤 5：`WebResult` 新增字段。**设计中途调整**：原方案 `IsCDN`/`CDNProvider` 标量字段改为统一的 `EdgeComponents []EdgeComponent` 列表 + `IsEdgeNode()` 便利方法，原因：CDN 与后续 WAF 识别本质同类，标量字段会导致每加一种类型加一对字段且无法表达同时命中多种类型。`go build`/`go vet` 通过，序列化验证符合预期。
 - [x] 步骤 6：`web_scanner.go` 接入判断点——`WebScanner` 新增 `edgeDetector` 字段、`ensureInit` 加载 CDN 规则、新增 `checkCDN` 方法、`runOnePort` 命中 CDN 时跳过截图与深度爬取、`buildWebResult` 写入 `EdgeComponents`。`go build`/`go vet`/`go test`（`web` 包 + `crawler` 子包全部现有用例）均无告警无失败。
 - [x] 步骤 7：端到端验收——新增 `web_scanner_cdn_e2e_test.go` 4 个集成测试（命中 CDN 跳过截图与深度爬取/不命中行为与上线前一致/规则文件缺失优雅退化/域名解析失败不阻塞），全部 `PASS`；`web` 包全部现有用例同步回归通过，总耗时 11.686s 无明显性能回退。
+- [x] **5.1.2 API 扫描独立化 (`ApiScanner` 骨架) 与原子扫描器隔离原则确立**（Phase 5.1 之后的架构决策与骨架落地）：
+    - [x] `model.TaskTypeApiScan`（`"api_scan"`）新增，与 `TaskTypeWebScan` 平级、不再借道 `web_scan` 的 `mode:"api"` 参数；`internal/core/scanner/api/api_scanner.go` 骨架落地（`Name`/`Run`），Factory/RunnerManager/CLI (`scan api`)/`options`/`task_to_core.go` 六件套接入完成，`Run()` 现阶段直接返回空结果，真正的 JS 接口提取逻辑留给后续独立实施。
+    - [x] **架构试探与回退**：曾尝试把 `WebScanner` 的 `crawler` 模块下沉为 `internal/core/lib/crawler` 通用模块，供 `WebScanner`/`ApiScanner` 共享调用；验证后判定此路不通（无法在"统一收口"与"满足各扫描器差异化需求"之间兼得），已完整回退——`crawler` 迁回 `internal/core/scanner/web/crawler` 作为 `WebScanner` 私有实现，`ApiScanner` 保留骨架但不再依赖 `crawler`/`browser`/`qos`，后续能力在自己目录下独立实现。
+    - [x] **正式确立"原子扫描器隔离原则"**：各原子扫描器功能自成一体、不共享内部实现模块，写入 [`docs/00.原子扫描器开发指南[定稿].md`](./00.原子扫描器开发指南[定稿].md) 第 0.1 节，作为长期铁律。曾经的方案/实施文档（`web扫描模块重构文档.md`/`web扫描模块重构实施文档.md`/`Web-JS接口提取方案.md`/`Web-JS接口提取实施文档.md`）已归档至 `neoAgent/drop/`。
 - [ ] **5.2 漏洞扫描原子能力落地 (Vuln Scanner)**:
     - [ ] 封装 Nuclei 执行引擎 (`internal/core/scanner/vuln`)。
     - [ ] 根据 WebScanner 识别出的技术栈动态过滤 Nuclei 模板。

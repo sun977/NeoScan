@@ -24,8 +24,8 @@
 
 | 步骤 | 改动文件 | 类型 | 状态 |
 |---|---|---|---|
-| 1 | `internal/core/lib/crawler/`（`crawler.go`/`extract.go`/`leak.go`/对应 `_test.go`） | 迁移（从 `internal/core/scanner/web/crawler` 原样搬迁，含包内所有 import 路径更新） | ⬜ 待开始 |
-| 2 | `internal/core/lib/crawler/fetch.go` | 新建（`FetchAndCrawl`/`FetchOptions`/`HomePage`，从 `web_scanner.go` 抽取协议探测 + go-rod 渲染 + fallback 逻辑） | ⬜ 待开始 |
+| 1 | `internal/core/lib/crawler/`（`crawler.go`/`extract.go`/`leak.go`/对应 `_test.go`） | 迁移（从 `internal/core/scanner/web/crawler` 原样搬迁，含包内所有 import 路径更新） | ✅ 已完成 |
+| 2 | `internal/core/lib/crawler/fetch.go` | 新建（`FetchAndCrawl`/`FetchOptions`/`HomePage`，从 `web_scanner.go` 抽取协议探测 + go-rod 渲染 + fallback 逻辑） | ✅ 已完成 |
 | 3 | `internal/core/lib/crawler/fetch_test.go` | 新建（`FetchAndCrawl` 的单元/集成测试，覆盖搬迁后行为与搬迁前一致） | ⬜ 待开始 |
 | 4 | `internal/core/scanner/web/web_scanner.go` | 修改（`runOnePort` 改为调用 `crawler.FetchAndCrawl`，移除已下沉的抓取代码；import 路径从 `scanner/web/crawler` 改为 `lib/crawler`） | ⬜ 待开始 |
 | 5 | `internal/core/model/task.go` | 修改（新增 `TaskTypeApiScan` 常量） | ⬜ 待开始 |
@@ -181,6 +181,15 @@ func FetchAndCrawl(ctx context.Context, target, port, protocolHint string,
 ### 3.5 `Page` 类型不需要任何改动
 
 `Page`（`crawler.go` 第 35~47 行）已经是 BFS 子页面的完整数据结构（`URL`/`Depth`/`StatusCode`/`Body`/`Headers`/`Forms`/`Params`/`Leaks`/`NeedsEscalation`），`FetchAndCrawl` 的 `subPages []*Page` 直接复用这个已有类型，不新增字段。
+
+### 3.6.1 实施落地记录（与 3.3 节接口设计的实际出入）
+
+以下两点是编码时确认的技术细节，记录在此以便步骤 3/4 对齐，不影响 3.1/3.2 节的结论：
+
+1. **`FetchAndCrawl` 最终签名比 3.3 节草稿多一个 `launcher *browser.BrowserLauncher` 参数**：这是 3.4 节"待实施阶段确认"的技术细节，实施时按方案 A 落地——`launcher` 由调用方显式传入，`crawler` 包不反向 import 并持有单例。3.4 节的讨论到此可视为已确认，不需要在实施阶段之外单独决策。
+2. **`context.go`（`ExtractRichContext`/`ExtractLinks`）随 `fetch.go` 一并从 `web` 包迁移到 `lib/crawler` 包**：3.2 节迁移清单里已经预见到这个问题（"若在 `web` 包内则需要一并迁移……避免 `crawler` 反向依赖 `web`"），实施时确认了这两个函数确实在 `web` 包内，因此用 `git mv` 把 `context.go` 整体迁移过去，包名从 `web` 改为 `crawler`，函数签名不变。`web_scanner.go` 里仍保留在原地、尚未下沉的 `renderWithBrowser`（升级渲染逻辑，5.4 节明确保留在 `WebScanner` 侧）相应地改为调用 `crawler.ExtractRichContext`/`crawler.ExtractLinks`。
+3. **`HomePage` 未包含 Forms/Params 字段**：与 3.3 节接口设计一致——Forms/Params 提取（`ExtractLinksAndForms`）保留由调用方在拿到 `HomePage.Body` 后自行统一调用，`FetchAndCrawl` 不重复做这件事。
+4. **`extractTitleFromHTML` 与 `crawler.go` 已有的 `extractTitle` 重复**：3.2 节已经预判到这个重复，`fetch.go` 内的新 `fallbackFetch` 直接复用 `extractTitle`。`web_scanner.go` 里旧的 `extractTitleFromHTML` 函数本身连同它所属的旧 `fallbackFetch`/`fallbackFetchBestProtocol` 等整段代码，会在步骤 4（`runOnePort` 改为调用 `FetchAndCrawl`）一并删除，本步骤不提前动它——这部分代码目前仍是 `web_scanner.go` 现有测试路径依赖的活代码，提前删除会破坏零、第 1 条硬约束"搬迁与优化是两件事"。
 
 ### 3.6 验收标准
 

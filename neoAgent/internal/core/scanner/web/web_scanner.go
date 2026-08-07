@@ -269,12 +269,12 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 				}
 				cancel()
 
-				richCtx, errCtx := ExtractRichContext(page)
+				richCtx, errCtx := crawler.ExtractRichContext(page)
 				if errCtx == nil {
 					homeRichCtx = richCtx
 					homeBody, _ = richCtx["body"].(string)
 					homeTitle = extractTitleFromCtx(richCtx)
-					seedLinks = ExtractLinks(page)
+					seedLinks = crawler.ExtractLinks(page)
 
 					if capture, ok := task.Params["screenshot"].(bool); ok && capture && !isCDN {
 						if buf, errShot := page.Screenshot(true, nil); errShot == nil {
@@ -1020,7 +1020,7 @@ func (s *WebScanner) renderWithBrowser(ctx context.Context, br *rod.Browser, tar
 	defer cancel()
 	_ = page.Context(waitCtx).WaitLoad() // 超时也继续尝试提取
 
-	richCtx, err := ExtractRichContext(page)
+	richCtx, err := crawler.ExtractRichContext(page)
 	if err != nil {
 		return "", nil, false
 	}
@@ -1028,6 +1028,6 @@ func (s *WebScanner) renderWithBrowser(ctx context.Context, br *rod.Browser, tar
 	if body == "" {
 		return "", nil, false
 	}
-	links = ExtractLinks(page)
+	links = crawler.ExtractLinks(page)
 	return body, links, true
 }

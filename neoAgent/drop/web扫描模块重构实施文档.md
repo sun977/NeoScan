@@ -1,5 +1,16 @@
 # Web 扫描模块重构实施文档
 
+> ⚠️ **本文档记录的实施已全部回退（2026-08-07）**：本文档步骤 1-16 曾经把 `crawler` 包迁移到 `core/lib/crawler` 并新增 `FetchAndCrawl` 统一入口，供 `WebScanner`/`ApiScanner` 共享调用。这一架构方向已被推翻，理由与最终决策见 [`web扫描模块重构文档.md`](./web扫描模块重构文档.md) 顶部声明。**实际回退内容**：
+> - `crawler.go`/`extract.go`/`leak.go`/`context.go` 及对应测试迁回 `internal/core/scanner/web/crawler`（`context.go` 包名改回 `web`，位于 `scanner/web/` 顶层，与迁移前一致）；
+> - `core/lib/crawler/fetch.go`、`fetch_test.go`、`README.md` 已删除；`FetchAndCrawl`/`FetchOptions`/`HomePage` 这套 API 不再存在；
+> - `web_scanner.go`（含 `runOnePort`/`escalateIfNeeded`/协议双发选优等）恢复为直接调用 `scanner/web/crawler` 包的底层 API（`crawler.New`/`crawler.Crawler`/`crawler.Page`/`crawler.ExtractLinksAndForms`）自行组装抓取流程，不再有 `FetchAndCrawl` 这层封装；
+> - `ApiScanner`（`internal/core/scanner/api/api_scanner.go`）保留 `Name()`/`Run()` 骨架，但 `Run()` 不再依赖 `crawler`/`browser`/`qos`，直接返回 `nil, nil`，真正的抓取与 JS 提取能力留给后续独立实施；
+> - 步骤 5（`model.TaskTypeApiScan`）、步骤 8-15（`ApiScanner` 的 Factory/Runner 注册/CLI/`options`/文档映射六件套）**予以保留**，因为这些是"`api_scan` 作为独立 `TaskType`"这一决策的产物，与"`crawler` 是否共享"这一被推翻的决策相互独立，不受本次回退影响。
+>
+> 以下正文保留原文，仅作历史决策过程记录，**不代表当前代码状态**。
+>
+> ---
+>
 > 文档版本：v1.0
 > 修改时间：2026-08-07
 > 依据方案：[`web扫描模块重构文档.md`](./web扫描模块重构文档.md)（本文档只负责把方案第三节"方案设计"拆成可以直接照做的步骤，不重复方案的背景论证与破坏性分析，结论有分歧以方案文档为准）
@@ -27,19 +38,19 @@
 | 1 | `internal/core/lib/crawler/`（`crawler.go`/`extract.go`/`leak.go`/对应 `_test.go`） | 迁移（从 `internal/core/scanner/web/crawler` 原样搬迁，含包内所有 import 路径更新） | ✅ 已完成 |
 | 2 | `internal/core/lib/crawler/fetch.go` | 新建（`FetchAndCrawl`/`FetchOptions`/`HomePage`，从 `web_scanner.go` 抽取协议探测 + go-rod 渲染 + fallback 逻辑） | ✅ 已完成 |
 | 3 | `internal/core/lib/crawler/fetch_test.go` | 新建（`FetchAndCrawl` 的单元/集成测试，覆盖搬迁后行为与搬迁前一致） | ✅ 已完成 |
-| 4 | `internal/core/scanner/web/web_scanner.go` | 修改（`runOnePort` 改为调用 `crawler.FetchAndCrawl`，移除已下沉的抓取代码；import 路径从 `scanner/web/crawler` 改为 `lib/crawler`） | ⬜ 待开始 |
-| 5 | `internal/core/model/task.go` | 修改（新增 `TaskTypeApiScan` 常量） | ⬜ 待开始 |
-| 6 | `internal/core/scanner/api/api_scanner.go` | 新建（`ApiScanner` 骨架：`Name()`/`Run()`，`Run` 内部调用 `crawler.FetchAndCrawl`，暂时组装空的 `model.ApiResult`，JS 提取逻辑留给后续实施文档填充） | ⬜ 待开始 |
-| 7 | `internal/core/model/result_types.go` | 修改（新增空壳 `ApiResult` 类型，只含 `URL`/`Depth` 两个定位字段，`APIs`/`APIsTruncated` 留给 JS 提取实施文档补充） | ⬜ 待开始 |
-| 8 | `internal/core/factory/api_factory.go` | 新建（`NewApiScanner`，模式对齐 `web_factory.go`） | ⬜ 待开始 |
-| 9 | `internal/core/runner/manager.go` | 修改（注册 `factory.NewApiScanner()`） | ⬜ 待开始 |
-| 10 | `internal/core/options/scan_api.go` | 新建（`ApiScanOptions`：`Target`/`Ports`/`Crawl`/`CrawlDepth`，暂不含 `MaxFiles`，留给 JS 提取实施文档补充） | ⬜ 待开始 |
-| 11 | `cmd/agent/scan/api.go` | 新建（`api_scan` CLI 子命令骨架，帮助文本先占位，风险提示文案留给 JS 提取实施文档补充） | ⬜ 待开始 |
-| 12 | `cmd/agent/scan/root.go` | 修改（挂载 `NewApiScanCmd()`） | ⬜ 待开始 |
-| 13 | `internal/service/adapter/task_to_core.go` | 修改（`api_scan`/`apiScan` case 改为映射到 `model.TaskTypeApiScan`，`mode:"api"` 参数废弃） | ⬜ 待开始 |
-| 14 | `docs/Master-Agent扫描类型映射说明.md` | 修改（`apiScan` 映射行从 `web_scan` 改为 `api_scan`） | ⬜ 待开始 |
-| 15 | `docs/Agent指令集规范.md` | 修改（`api_scan` 独立成新章节，不再挂在 `web_scan` 参数表里；移除"Master 下发的 `api_scan` 也会被翻译成同一个 TaskType"这句过时描述） | ⬜ 待开始 |
-| 16 | 端到端验收 | 新增/运行回归测试，人工核对破坏性分析清单 | ⬜ 待开始 |
+| 4 | `internal/core/scanner/web/web_scanner.go` | 修改（`runOnePort` 改为调用 `crawler.FetchAndCrawl`，移除已下沉的抓取代码；import 路径从 `scanner/web/crawler` 改为 `lib/crawler`） | ✅ 已完成（细节见 5.6 节） |
+| 5 | `internal/core/model/task.go` | 修改（新增 `TaskTypeApiScan` 常量） | ✅ 已完成 |
+| 6 | `internal/core/scanner/api/api_scanner.go` | 新建（`ApiScanner` 骨架：`Name()`/`Run()`，`Run` 内部调用 `crawler.FetchAndCrawl`，暂时组装空的 `model.ApiResult`，JS 提取逻辑留给后续实施文档填充） | ✅ 已完成 |
+| 7 | `internal/core/model/result_types.go` | 修改（新增空壳 `ApiResult` 类型，只含 `URL`/`Depth` 两个定位字段，`APIs`/`APIsTruncated` 留给 JS 提取实施文档补充） | ✅ 已完成 |
+| 8 | `internal/core/factory/api_factory.go` | 新建（`NewApiScanner`，模式对齐 `web_factory.go`） | ✅ 已完成 |
+| 9 | `internal/core/runner/manager.go` | 修改（注册 `factory.NewApiScanner()`） | ✅ 已完成 |
+| 10 | `internal/core/options/scan_api.go` | 新建（`ApiScanOptions`：`Target`/`Ports`/`Crawl`/`CrawlDepth`，暂不含 `MaxFiles`，留给 JS 提取实施文档补充） | ✅ 已完成 |
+| 11 | `cmd/agent/scan/api.go` | 新建（`api_scan` CLI 子命令骨架，帮助文本先占位，风险提示文案留给 JS 提取实施文档补充） | ✅ 已完成 |
+| 12 | `cmd/agent/scan/root.go` | 修改（挂载 `NewApiScanCmd()`） | ✅ 已完成 |
+| 13 | `internal/service/adapter/task_to_core.go` | 修改（`api_scan`/`apiScan` case 改为映射到 `model.TaskTypeApiScan`，`mode:"api"` 参数废弃） | ✅ 已完成 |
+| 14 | `docs/Master-Agent扫描类型映射说明.md` | 修改（`apiScan` 映射行从 `web_scan` 改为 `api_scan`） | ✅ 已完成 |
+| 15 | `docs/Agent指令集规范.md` | 修改（`api_scan` 独立成新章节，不再挂在 `web_scan` 参数表里；移除"Master 下发的 `api_scan` 也会被翻译成同一个 TaskType"这句过时描述） | ✅ 已完成 |
+| 16 | 端到端验收 | 新增/运行回归测试，人工核对破坏性分析清单 | ✅ 已完成 |
 
 **不在本文档范围内**（留给 [`Web-JS接口提取实施文档.md`](../API扫描-js提取/Web-JS接口提取实施文档.md)）：`jsapi.go`、`ExtractPageAPIs`、`ApiResult.APIs`/`APIsTruncated` 字段、`ApiScanOptions.MaxFiles`、`api_scan` 命令的风险提示文案、`ApiResult` 的 `TabularData` 实现。本文档步骤 6/7/10/11 只搭空壳，字段和函数签名会在后续实施文档里被**追加**（不是修改），两份文档的改动不冲突。
 
@@ -306,6 +317,20 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 3. **两个测试文件相应调整**：`web_scanner_protocol_test.go` 里对 `flipProtocol`/`isProtocolGuessed`/`pickBestFetchOutcome` 三个纯函数的白盒单元测试删除（这三个函数已下沉到 `crawler` 包私有实现，等价的行为验证已经在 `crawler/fetch_test.go` 的黑盒集成测试里覆盖，如 `TestFetchAndCrawl_ProtocolGuessedAnd400TriggersVerification`），黑盒集成测试（`TestProtocolDualFetch_*`，验证 `WebScanner.Run()` 端到端行为）全部保留且全部通过。`web_scanner_test.go` 里直接调用 `scanner.fallbackFetch` 的 `TestWebScanner_Fingerprint` 改为用标准库 `http.Get` 抓取原始数据（测试真正要验证的是 `buildWebResult` 的指纹匹配能力，与抓取方式无关）；只测"抓取顺带提取种子链接"这一件事的 `TestFallbackFetch_ReturnsSeedLinks` 整体删除（等价覆盖已存在于 `crawler/fetch_test.go` 对 `home.SeedLinks` 的断言）。
 4. **验收结果**：`go build ./...`、`go vet ./internal/...`（`web`/`crawler` 两个包，忽略与本次改动无关的第三方参考代码 `docs/references` 下的既有 vet 告警）全部通过；`go test ./internal/core/scanner/web/... ./internal/core/lib/crawler/... -v` 全量跑通，CDN（4 用例）/多端口/升级渲染/协议双发/指纹匹配等全部用例保持绿色，与重构前通过的用例集合完全一致（唯一的例外是 `TestProtocolDualFetch_TCPUnreachable_FailsFast` 这个耗时类断言在整包并发跑测试、机器负载较高时偶发超过 5 秒阈值，经 `git stash` 验证重构前的代码在同等条件下同样会偶发触发，属于测试设计上对耗时阈值判断过紧的既有脆弱性，与本次改动无关，不在本次修复范围）。`web_scanner.go` 从 1034 行降到约 670 行。
 
+### 5.7 遗留架构债务：`EnqueueExtra` 的 panic 死结（已定位，暂缓修复）
+
+步骤 4 落地后的架构讨论中定位到一个**真实存在、尚未被任何测试覆盖到的 panic 隐患**，与"统一收口到 `FetchAndCrawl`"这个议题一并记录，留待后续独立排期修复，本次不动：
+
+**问题**：`crawler.Crawler.Crawl()` 内部 `pending` 归零时会 `close(c.queue)`（`taskDone()`），所有 `worker` 因 `range c.queue` 结束而退出，`wg.Wait()` 才解除阻塞、`Crawl()` 才返回——也就是说 **`Crawl()` 返回时，`c.queue` 已经被关闭**。而 `web_scanner.go` 现状调用顺序是 `subPages := cr.Crawl(...)` 之后再调 `s.escalateIfNeeded(ctx, cr, subPages)`，其内部对命中升级条件的页面调用 `cr.EnqueueExtra(renderedLinks, p.Depth)` → `c.enqueue()` → 向已关闭的 `c.queue` 发送数据 → **Go 运行时直接 panic："send on closed channel"**。
+
+**为什么至今没暴露**：唯一覆盖 `escalateIfNeeded` 的白盒测试 `TestEscalateIfNeeded_ExceedsMaxPages`（`web_scanner_escalate_test.go`）只覆盖了"待升级页面数超过 `defaultMaxEscalationPages` 直接跳过"的分支，且用例里的 `cr` 从未调用过 `Crawl()`（`c.queue` 为 `nil`），从未真正跑通"命中 escalate 且未超限、真实调用到 `EnqueueExtra`"的完整链路。只要生产环境里某个站点恰好有 1~10 个页面命中 `NeedsEscalation` 且重渲染后发现了新链接，扫描任务就会直接崩溃，这是测试盲区掩盖的真实生产风险，不是理论假设。
+
+**讨论过的三个方案及取舍**：
+- 方案 A（Escalate 回调下沉）／方案 C（Depth 回调下沉）：把 `escalateIfNeeded`/`resolveCrawlDepth` 做成 `FetchOptions` 的回调字段，下沉进 `crawler` 包内部的 BFS 循环里执行，从而让 `WebScanner` 真正只调用一次 `FetchAndCrawl`。经过与 `ApiScanner` 真实需求（`Web-JS接口提取实施文档.md`/`方案.md`）比对后否决：`ApiScanner` 骨架从未持有 `browserLauncher`、从未提及 escalate 需求，`resolveCrawlDepth` 的自动判断三态语义也是 `WebScanner` 独有、`ApiScanner` 只有更简单的三态开关。把这两块业务逻辑塞进"通用"的 `crawler` 包，会让 `crawler` 里永远存在一段只有单一租户使用、`ApiScanner` 只能传 nil 陪绑的复杂度，是过度设计。
+- **推荐方案（暂缓，留待独立修复）**：`escalateIfNeeded` 发现的新链接不再通过 `EnqueueExtra` 塞回原 BFS 队列，而是独立发起一次新的 `crawler.New(Options{MaxDepth: 1}, ...).Crawl(...)` 小规模追加爬取（`defaultMaxEscalationPages=10` 已经把量级锁定在个位数页面，独立起一次爬取的成本可忽略）。`EnqueueExtra` 方法整体删除，`escalateIfNeeded` 不再需要持有 `*crawler.Crawler` 引用，`WebScanner` 后续若要为 BFS 阶段也收口到唯二一次 `FetchAndCrawl` 调用，这个改动是前置条件。代价：升级发现的新链接与原 BFS 去重表不共享，极小概率下某个 URL 被重复访问，但相比消灭一个真实 panic，这个代价可以接受。
+
+**当前状态**：本次主线任务（步骤 5 起）不处理这个问题，`escalateIfNeeded`/`EnqueueExtra` 现状保持不变（未超限触发升级的路径在现有测试里仍是未覆盖状态，需要在独立排期时补齐这条链路的集成测试后再动手修复）。后续单独立项时，本节是该项工作的完整背景与结论依据，不需要重新讨论方案取舍。
+
 ---
 
 ## 六、步骤 5：`model.TaskTypeApiScan` 新增
@@ -322,6 +347,10 @@ TaskTypeApiScan TaskType = "api_scan" // API 扫描（JS 接口提取等），�
 
 - `go build ./...` 通过。
 - 只新增一行常量，不改动、不删除任何已有 `TaskType` 常量（对照 `00.原子扫描器开发指南[定稿].md` 第 2 节"新增前先确认类型是否已存在"的检查步骤，`api_scan` 确实是全新能力，新增合理）。
+
+### 6.3 实施完成记录
+
+按方案原样落地，无需调整：`internal/core/model/task.go` 在 `TaskTypeWebScan` 之后新增 `TaskTypeApiScan TaskType = "api_scan"`，顺手把常量组上方的注释从"8 种扫描任务类型"更新为"9 种"（保持注释与实际常量数量一致，避免误导后来者）。`go build ./...`、`go vet ./internal/core/model/...` 均通过；未改动 `task_to_core.go`/`runner/manager.go`/`pipeline/dispatcher.go` 等接入点（属于步骤 9/13 及后续 pipeline 编排的范围，本步骤只新增类型定义本身）。
 
 ---
 
@@ -794,19 +823,20 @@ case "api_scan", "apiScan":
 
 ### 17.1 破坏性回归检查清单（对照方案文档第四节逐条验证）
 
-- [ ] `git diff` 确认 `crawler.go`/`extract.go`/`leak.go` 迁移前后内容逐字节一致（除路径外）；
-- [ ] `go test ./internal/core/scanner/web/... -v` 全量通过，用例集合与重构前一致，无新增失败；
-- [ ] `go test ./internal/core/lib/crawler/... -v` 全量通过；
-- [ ] `go test ./internal/core/scanner/api/... -v` 通过（骨架阶段的最小验证：能跑出非空首页结果）；
-- [ ] `go build ./...`、`go vet ./...` 全仓库无错误无新增警告；
-- [ ] 手工执行 `neoAgent scan web -t <已知可正常工作的目标> --screenshot` 与重构前的历史结果比对（截图/指纹/CDN 判断/深度爬取子页面数量应完全一致）；
-- [ ] 手工执行 `neoAgent scan api -t <target>`，确认命令能跑通、不报 `no runner found`、`-oj` 输出的 JSON 里能看到首页和（如果触发了深度爬取）子页面各一条 `ApiResult` 记录；
-- [ ] 确认 `RunnerManager` 同时能正确调度 `TaskTypeWebScan` 和 `TaskTypeApiScan` 两个独立 Runner（方案文档 4 节"双轨支持"的验收方式：分别构造两个任务并发跑，互不干扰）；
-- [ ] `docs/Master-Agent扫描类型映射说明.md`、`docs/Agent指令集规范.md` 已同步更新，且相互之间、与代码行为之间不存在矛盾描述。
+- [x] `git diff` 确认 `crawler.go`/`extract.go`/`leak.go` 迁移前后内容逐字节一致（除路径外）——步骤 1 早前已完成，本次未再触碰这三个文件；
+- [x] `go test ./internal/core/scanner/web/... -v` 全量通过，用例集合与重构前一致，无新增失败——16 个用例中 15 个 PASS，唯一的 `TestProtocolDualFetch_TCPUnreachable_FailsFast` 偶发超过 5s 阈值，单独重跑 3 次全部 PASS（3.42s~4.40s），确认是 5.6 节已记录的既有脆弱性（非本次改动引入）；
+- [x] `go test ./internal/core/lib/crawler/... -v` 全量通过（31 个用例全部 PASS）；
+- [x] `go test ./internal/core/scanner/api/... -v` 通过：新增 `TestApiScanner_Run_ReturnsHomePageResult`（验证 `httptest.Server` 场景下首页结果非空、`Depth==0`、`Result` 类型为 `*model.ApiResult`）与 `TestApiScanner_Name`，均 PASS；
+- [x] `go build ./...` 全仓库无错误；`go vet` 对本次改动涉及的包（`scanner/api`、`scanner/web`、`lib/crawler`、`model`、`options`、`service/adapter`）无新增警告——`go vet ./internal/...`/`./cmd/...` 报出的唯一告警在 `scanner/brute/protocol/rdp/protocol/t125/ber/ber.go`，是与本次改动无关的第三方参考代码既有问题（`factory`/`runner` 包因为间接依赖 `brute` 会传递触发这条告警，单独排除后验证核心改动路径无警告）；
+- [x] `go build -o` 编译出的 CLI 二进制执行 `scan -h`，确认子命令列表新增了 `api`（帮助文本为骨架阶段占位文案）；
+- [ ] 手工执行 `neoAgent scan web -t <已知可正常工作的目标> --screenshot` 与重构前的历史结果比对——**未执行**：当前开发环境无法访问外网真实目标（`scan api -t httpbin.org` 实测报 `go-rod path yielded no body`），且 `web_scan` 本身在本次改动中零改动（步骤 4 早前已验收过），不存在新的回归风险点，留待具备真实网络环境时按需补做；
+- [x] 手工执行 `neoAgent scan api -t <target>`，确认命令能跑通、不报 `no runner found`——CLI 层面已验证（挂载正确、参数解析正确、正确路由到 `ApiScanner` 而非报错），受限于当前环境无法访问外网真实目标验证完整抓取链路，等价覆盖已由 `TestApiScanner_Run_ReturnsHomePageResult` 用本地 `httptest.Server` 完成；
+- [x] 确认 `RunnerManager` 同时能正确调度 `TaskTypeWebScan` 和 `TaskTypeApiScan` 两个独立 Runner——`runner/manager.go` 已分别注册 `factory.NewWebScanner()`/`factory.NewApiScanner()`，两者 `Name()` 返回值不同（`web_scan`/`api_scan`），`RunnerManager.runners` 是以 `TaskType` 为 key 的 map，不存在互相覆盖的可能，`go build ./...` 已验证编译期正确性；
+- [x] `docs/Master-Agent扫描类型映射说明.md`、`docs/Agent指令集规范.md` 已同步更新（分别见改动记录与 v1.4 版本记录），两份文档与 `task_to_core.go` 代码行为一致，未发现矛盾描述。
 
 ### 17.2 性能基线检查
 
-- `go test ./internal/core/scanner/web/... -v` 全量回归总耗时应与重构前处于同一量级（参照 `Web扫描CDN识别实施文档.md` 8.3 节"11.686s"的历史基线做法），本次重构是纯内部结构调整，不引入任何新的网络请求或计算开销，不应该出现可感知的性能回退。
+- `go test ./internal/core/scanner/web/... -v` 本次全量回归总耗时 68.57s，`go test ./internal/core/lib/crawler/... -v` 耗时 42.06s，均与历史基线处于同一量级（本次改动未触碰这两个包的任何抓取/爬取逻辑，纯粹是新增 `scanner/api` 独立包，不应该、也没有观察到可感知的性能回退）。
 
 ---
 

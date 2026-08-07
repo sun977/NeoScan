@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"neoagent/internal/core/lib/crawler"
 	"neoagent/internal/core/lib/network/qos"
+	"neoagent/internal/core/scanner/web/crawler"
 )
 
 // TestEscalateIfNeeded_ExceedsMaxPages 覆盖实施文档 7.4 节用例 5：待升级页面数

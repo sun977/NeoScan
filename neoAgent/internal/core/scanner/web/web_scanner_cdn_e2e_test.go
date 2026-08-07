@@ -122,18 +122,13 @@ func TestWebScanner_CDN_MissBehavesLikeBeforeCDNFeature(t *testing.T) {
 
 	scanner := newScannerWithTestCDNRules(t)
 
-	task := &model.Task{
-		ID:        "test-cdn-miss",
-		Target:    "10.201.28.126", // 不在测试规则的任何网段内的内网 IP，且不会真的发起连接（协议+目标不可达会快速失败，这里只关心 checkCDN 的判断，不关心整体扫描是否成功）
-		PortRange: fmt.Sprintf("%d", port),
-		Params: map[string]interface{}{
-			"protocol": "http",
-		},
-	}
+	// checkCDN 只接受一个 target string 参数，这里不需要构造完整的 model.Task
+	// （之前的写法构造了 ID/PortRange/Params 但从未被读取，是死代码）。
+	const target = "10.201.28.126" // 不在测试规则的任何网段内的内网 IP，且不会真的发起连接（协议+目标不可达会快速失败，这里只关心 checkCDN 的判断，不关心整体扫描是否成功）
 
-	isCDN, provider := scanner.checkCDN(task.Target)
+	isCDN, provider := scanner.checkCDN(target)
 	if isCDN {
-		t.Fatalf("expected checkCDN(%q) = false, got true (provider=%q)", task.Target, provider)
+		t.Fatalf("expected checkCDN(%q) = false, got true (provider=%q)", target, provider)
 	}
 
 	// 额外验证：一个真实可达、协议匹配、不在任何 CDN 网段内的目标，扫描

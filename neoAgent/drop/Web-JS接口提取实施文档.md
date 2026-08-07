@@ -1,5 +1,9 @@
 # Web 扫描 JS 接口提取实施文档
 
+> ⚠️ **前置依赖已失效（2026-08-07）**：本文档 v2.0 依赖的 `crawler.FetchAndCrawl`（`internal/core/lib/crawler` 统一抓取入口，供 `WebScanner`/`ApiScanner` 共享）已被回退，详见 [`../爬虫/web扫描模块重构文档.md`](../爬虫/web扫描模块重构文档.md) 顶部声明。最终架构决策改为**原子扫描器隔离**：`ApiScanner` 不能再依赖 `crawler` 包（那是 `WebScanner` 的私有内部实现），真正实现 JS API 提取时，`ApiScanner` 需要在 `internal/core/scanner/api` 包内自己实现所需的抓取能力（可以按需从 `scanner/web/crawler` 的公开函数如 `ExtractLinksAndForms` 参考/复制思路，但不能直接 import 依赖该包）。本文档第五节"集成点"及所有引用 `crawler.FetchAndCrawl`/`FetchOptions`/`HomePage` 的段落在真正实施前需要重新设计，其余部分（三层提取规则、不落盘、提取与过滤解耦等提取能力本身的实现）不受影响，仍可参考。
+>
+> ---
+>
 > 文档版本：v2.0（架构调整：挂载点从 `WebScanner.buildWebResult` 改为独立 `ApiScanner.Run`）
 > 修改时间：2026-08-07
 > 依据方案：[`Web-JS接口提取方案.md`](./Web-JS接口提取方案.md)（v2.0，本文档只负责把方案拆成可以直接照做的步骤，不重复方案的背景论证，结论有分歧以方案文档为准）、[`JSFinder-URLFinder-dirsearch项目分析.md`](./JSFinder-URLFinder-dirsearch项目分析.md)（规则设计的调研依据）、[`../爬虫/web扫描模块重构文档.md`](../爬虫/web扫描模块重构文档.md)（**前置依赖**：`crawler` 包迁移到 `internal/core/lib/crawler`、`crawler.FetchAndCrawl` 统一抓取入口、`ApiScanner` 骨架必须先落地，本文档才能按步骤执行）

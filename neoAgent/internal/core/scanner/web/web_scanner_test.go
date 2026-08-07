@@ -1,8 +1,8 @@
 package web
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,14 +11,13 @@ import (
 	"neoagent/internal/core/model"
 )
 
-// TestWebScanner_Fingerprint 验证 buildWebResult 这条收口链路，指纹识别能力
-// 符合预期。
+// TestWebScanner_Fingerprint 验证 fallbackFetch + buildWebResult 这条重构后的
+// 收口链路，指纹识别能力和重构前完全一致（零回归）。
 //
-// 重构前这个测试通过私有方法 fallbackFetch 抓取原始数据；fallbackFetch 已经
-// 随 web扫描模块重构实施文档.md 步骤 2 下沉为 crawler.FetchAndCrawl 内部的
-// 私有实现，web 包不再能直接调用它。这个测试真正要验证的是 buildWebResult
-// 的指纹匹配能力，与"用什么方式抓取原始数据"无关，改用标准库 http.Get 直接
-// 拿 body/headers/status，语义不变、验证目标不变。
+// 重构前这个测试直接调用私有方法 fallbackScan，一次调用拿到组装好的
+// []*model.TaskResult；重构后 fallbackScan 已经拆分成"只负责抓取"的
+// fallbackFetch 和"只负责组装"的 buildWebResult 两个函数，所以测试也要
+// 对应拆成两步调用，中间的 pageData 就是两者之间传递数据的桥梁。
 func TestWebScanner_Fingerprint(t *testing.T) {
 	// 1. Mock Server (Nginx + PHP)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,26 +35,17 @@ func TestWebScanner_Fingerprint(t *testing.T) {
 	// ensureInit is private, but we are in package web
 	scanner.ensureInit()
 
-	// 4. 第一步：直接用标准库抓取原始数据（等价于原 fallbackFetch 的"抓取"职责）
-	resp, err := http.Get(ts.URL)
+	// 4. 第一步：fallbackFetch 只负责抓取原始数据
+	ctx := context.Background()
+	body, headers, statusCode, title, _, err := scanner.fallbackFetch(ctx, ts.URL)
 	if err != nil {
-		t.Fatalf("http.Get failed: %v", err)
-	}
-	defer resp.Body.Close()
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read body failed: %v", err)
-	}
-	body := string(bodyBytes)
-	headers := map[string]string{}
-	for k, v := range resp.Header {
-		headers[k] = v[0]
+		t.Fatalf("fallbackFetch failed: %v", err)
 	}
 
 	// 5. 第二步：buildWebResult 负责指纹匹配 + 组装最终结果
 	task := &model.Task{ID: "test-task", Target: "127.0.0.1"}
 	result := scanner.buildWebResult(task, time.Now(), "127.0.0.1", 0, pageData{
-		URL: ts.URL, StatusCode: resp.StatusCode, Title: "Test Page", Body: body, Headers: headers,
+		URL: ts.URL, StatusCode: statusCode, Title: title, Body: body, Headers: headers,
 	})
 
 	res, ok := result.Result.(*model.WebResult)
@@ -86,6 +76,30 @@ func TestWebScanner_Fingerprint(t *testing.T) {
 	}
 	if res.Title != "Test Page" {
 		t.Errorf("Expected title 'Test Page', got '%s'", res.Title)
+	}
+}
+
+// TestFallbackFetch_ReturnsSeedLinks 验证 fallbackFetch 除了抓取原始数据之外，
+// 还能顺手提取出页面里的链接，作为 Sprint 5 挂上 crawler 后的 BFS 种子。
+func TestFallbackFetch_ReturnsSeedLinks(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `<html><body>
+			<a href="/a">a</a>
+			<a href="/b">b</a>
+			<a href="/c">c</a>
+		</body></html>`)
+	}))
+	defer ts.Close()
+
+	scanner := NewWebScanner()
+	ctx := context.Background()
+	_, _, _, _, links, err := scanner.fallbackFetch(ctx, ts.URL)
+	if err != nil {
+		t.Fatalf("fallbackFetch failed: %v", err)
+	}
+
+	if len(links) != 3 {
+		t.Fatalf("expected 3 seed links, got %d: %v", len(links), links)
 	}
 }
 

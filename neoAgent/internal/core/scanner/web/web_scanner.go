@@ -2,13 +2,10 @@ package web
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -29,7 +26,6 @@ import (
 	"net"
 
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
 )
 
 // WebScanner 实现 Web 指纹扫描与截图
@@ -171,16 +167,19 @@ func parsePortsForScan(portRange string) []int {
 	return ports
 }
 
-// runOnePort 对单个端口执行完整的探测流程：猜/确定协议 -> go-rod 抓取 ->
-// 降级 fallback（含 http/https 双发选优）-> 收口组装结果 -> 按需触发 BFS 深度爬取。
+// runOnePort 对单个端口执行完整的探测流程：调用 crawler.FetchAndCrawl 拿首页
+// -> 收口组装结果 -> 按需再次调用 FetchAndCrawl 触发 BFS 深度爬取。
 //
-// 这是 Sprint 0-5 里 Run() 函数体的原样内容，整体结构"统一收口一次 return"
-// 保持不变：不管首页数据是 go-rod 拿到的还是降级 fallback 拿到的，最终都在
-// 函数末尾组装一次结果、判断一次是否需要深度爬取、return 一次——不再像
-// 重构前那样在浏览器启动失败/导航失败两处提前 return，那两处提前 return
-// 各自绕过了后面的 BFS 触发逻辑，是"降级路径爬虫失效"缺陷的根源（架构方案
-// 8.7 节）。现在不管走到哪条路径，body 一旦拿到手，后面的收口、决策、BFS
-// 都是同一段代码，不存在"某条路径漏掉某个步骤"的可能。
+// 协议探测/go-rod 渲染/fallback 双发选优这三大段逻辑已经下沉到
+// crawler.FetchAndCrawl（见 web扫描模块重构实施文档.md 步骤 2），本函数只
+// 保留 WebScanner 自己的业务判断：CDN 是否跳过截图/爬取、截图与 favicon
+// 采集（通过 OnPageReady 回调）、指纹匹配结果组装、深度爬取的自动判断。
+//
+// CrawlDepth 依赖首页响应结果（状态码/Headers/种子链接）才能算出来，而
+// FetchAndCrawl 的 CrawlDepth 参数必须在调用前给出，这里按重构实施文档
+// 5.2 节的方案 A 分两次调用解决：第一次 CrawlDepth=0 只拿首页，用首页结果
+// 算出真实 depth，depth>0 时再调一次触发 BFS（此时不需要重新执行截图/
+// favicon 采集，OnPageReady 只在第一次调用时传入）。
 func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime time.Time, port string, protocolHint string) (results []*model.TaskResult, err error) {
 	// 0. Panic Recovery (Linus Style: Don't let a single crash take down the whole agent)
 	defer func() {
@@ -200,170 +199,37 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 	}
 	defer s.limiter.Release()
 
-	protocolGuessed := isProtocolGuessed(task.Target, protocolHint)
-	targetURL := normalizeURL(task.Target, port, protocolHint)
-
 	// --- CDN 判断：发起浏览器/HTTP 请求之前，见 Web扫描CDN识别方案.md 第二节 ---
 	// checkCDN 内部只做网段查表，isCDN/cdnProvider 这两个局部变量只在本函数
 	// 内部用于控制流程（是否跳过截图/深度爬取），组装成 model.EdgeComponent
 	// 放进结果的时机在下面 buildWebResult 调用处。
 	isCDN, cdnProvider := s.checkCDN(task.Target)
 
-	var (
-		homeBody       string
-		homeHeaders    map[string]string
-		homeStatusCode int
-		homeContentLen int64
-		homeTitle      string
-		homeRichCtx    map[string]interface{}
-		seedLinks      []string
-		screenshotB64  string
-		faviconB64     string
-		remoteIP       string
-		remotePort     int
-	)
-
-	// --- go-rod 路径：Launch -> OpenPage -> 监听网络 -> Navigate -> WaitLoad -> ExtractRichContext ---
-	if br, errLaunch := s.browserLauncher.Launch(ctx); errLaunch == nil {
-		if page, errOpen := s.browserLauncher.OpenPage(ctx, br, ""); errOpen == nil {
-			defer page.Close()
-
-			var respMutex sync.Mutex
-			waitEvents := page.EachEvent(func(e *proto.NetworkResponseReceived) bool {
-				if e.Type == proto.NetworkResourceTypeDocument {
-					respMutex.Lock()
-					defer respMutex.Unlock()
-					homeStatusCode = e.Response.Status
-					remoteIP = e.Response.RemoteIPAddress
-					if e.Response.RemotePort != nil {
-						remotePort = *e.Response.RemotePort
-					}
-					if homeHeaders == nil {
-						homeHeaders = make(map[string]string)
-					}
-					for k, v := range e.Response.Headers {
-						var val string
-						if err1 := json.Unmarshal([]byte(v.String()), &val); err1 == nil {
-							homeHeaders[k] = val
-						} else {
-							homeHeaders[k] = v.String()
-						}
-					}
-					if cl, ok := e.Response.Headers["Content-Length"]; ok {
-						var clVal string
-						if err2 := json.Unmarshal([]byte(cl.String()), &clVal); err2 == nil {
-							fmt.Sscanf(clVal, "%d", &homeContentLen)
-						}
-					} else if e.Response.EncodedDataLength > 0 {
-						homeContentLen = int64(e.Response.EncodedDataLength)
+	var screenshotB64, faviconB64 string
+	home, _, errFetch := crawler.FetchAndCrawl(ctx, task.Target, port, protocolHint,
+		s.limiter, s.browserLauncher, crawler.FetchOptions{
+			CrawlDepth: 0, // 首次调用只拿首页，真正的 depth 要等首页响应出来才能算，见下方第二次调用
+			OnPageReady: func(page *rod.Page) {
+				if capture, ok := task.Params["screenshot"].(bool); ok && capture && !isCDN {
+					if buf, errShot := page.Screenshot(true, nil); errShot == nil {
+						screenshotB64 = base64.StdEncoding.EncodeToString(buf)
+					} else {
+						logger.Warnf("[WebScanner] Screenshot failed: %v", errShot)
 					}
 				}
-				return false
-			})
-			go waitEvents()
-
-			if errNav := page.Navigate(targetURL); errNav == nil {
-				waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-				if errWait := page.Context(waitCtx).WaitLoad(); errWait != nil {
-					logger.Warnf("[WebScanner] WaitLoad timeout for %s: %v", targetURL, errWait)
-				}
-				cancel()
-
-				richCtx, errCtx := crawler.ExtractRichContext(page)
-				if errCtx == nil {
-					homeRichCtx = richCtx
-					homeBody, _ = richCtx["body"].(string)
-					homeTitle = extractTitleFromCtx(richCtx)
-					seedLinks = crawler.ExtractLinks(page)
-
-					if capture, ok := task.Params["screenshot"].(bool); ok && capture && !isCDN {
-						if buf, errShot := page.Screenshot(true, nil); errShot == nil {
-							screenshotB64 = base64.StdEncoding.EncodeToString(buf)
-						} else {
-							logger.Warnf("[WebScanner] Screenshot failed: %v", errShot)
-						}
-					}
-					faviconB64 = extractFaviconFromPage(page, richCtx)
-				} else {
-					logger.Warnf("[WebScanner] Failed to extract rich context: %v", errCtx)
-				}
-			} else {
-				logger.Warnf("[WebScanner] Navigation failed for %s: %v. Will fallback.", targetURL, errNav)
-			}
-		}
-	} else {
-		logger.Warnf("[WebScanner] Failed to launch browser: %v. Will fallback.", errLaunch)
+				faviconB64 = extractFaviconFromPage(page)
+			},
+		})
+	if errFetch != nil {
+		s.limiter.OnFailure()
+		return nil, errFetch
 	}
 
-	// --- 统一降级 + 协议误判纠正：go-rod 路径拿到的结果，在两种情况下不能
-	// 直接采信，必须用 fallbackFetchBestProtocol 的双发结果来比较、选优：
-	//
-	//  1. go-rod 完全没拿到 body（Launch/Navigate/ExtractRichContext 任一环节
-	//     失败）——这是重构前就有的"降级路径爬虫失效"场景，取代了原来分散在
-	//     Launch 失败、Navigate 失败两处的降级调用。
-	//
-	//  2. go-rod 拿到了 400 响应，且协议是"猜"出来的——真实 Chrome 环境验证
-	//     过，协议猜错时（比如把 HTTPS 服务当成 HTTP 请求）Chromium 不会让
-	//     导航失败：Go 的 TLS 服务端在握手阶段识别出明文请求后，会在同一条
-	//     TCP 连接上直接写回一段合法的 HTTP/1.0 400 文本响应（"Client sent
-	//     an HTTP request to an HTTPS server."），这是服务端真实吐出的、
-	//     状态码明确的响应，不是 Chromium 编造的错误页，go-rod 路径因此
-	//     "成功"拿到一个看似合法、实际是协议不匹配提示的 body。400 本身
-	//     不能无条件当成失败（有些服务器对正常请求就是回 400），但协议是
-	//     猜出来的场景下，400 已经是"猜错了协议"的强烈信号，值得让另一个
-	//     协议也发一次、用响应质量客观比较，而不是不假思索采信。
-	//
-	// 两种情况统一走同一条路径：都发起双发对比，用 pickBestFetchOutcome 在
-	// go-rod 已有结果（包装成 fetchOutcome，body 为空时天然在排序中垫底）
-	// 和 fallback 双发结果之间选出更可信的一个。不给"go-rod 完全失败"和
-	// "go-rod 拿到疑似协议错误的 400"写两套不同的分支逻辑——它们本质上是
-	// 同一个问题："当前拿到的 go-rod 结果值不值得信任，需不需要用 fallback
-	// 双发来验证/替换"，用一个排序函数统一回答，不需要特殊情况。
-	needsVerification := homeBody == "" ||
-		(protocolGuessed && homeStatusCode == http.StatusBadRequest)
+	finalIP, finalPort := resolveIPPortForResult(task, home.URL, home.RemoteIP, home.RemotePort)
 
-	if needsVerification {
-		rodOutcome := fetchOutcome{
-			url: targetURL, body: homeBody, headers: homeHeaders,
-			statusCode: homeStatusCode, title: homeTitle, links: seedLinks,
-		}
-		if homeBody == "" {
-			// go-rod 侧没有任何可用数据，用一个带 err 的哨兵值代表它，
-			// pickBestFetchOutcome 的排序规则下必然输给任何成功的 fallback
-			// 结果，不需要为"完全没数据"单独判断。
-			rodOutcome.err = errors.New("go-rod path yielded no body")
-		}
-
-		altBody, altHeaders, altStatusCode, altTitle, altLinks, altURL, errFetch := s.fallbackFetchBestProtocol(ctx, targetURL, protocolGuessed)
-		altOutcome := fetchOutcome{url: altURL, body: altBody, headers: altHeaders, statusCode: altStatusCode, title: altTitle, links: altLinks, err: errFetch}
-
-		best := pickBestFetchOutcome(rodOutcome, altOutcome)
-		if best.err != nil {
-			// 两侧都失败：go-rod 没数据，fallback 双发也失败，彻底没有可用结果。
-			s.limiter.OnFailure()
-			return nil, fmt.Errorf("both browser and fallback fetch failed: %w", best.err)
-		}
-		if best.url == altOutcome.url {
-			// fallback 侧胜出：go-rod 那份结果（如果有的话）是基于错误协议
-			// 渲染的，连同截图/favicon 这些衍生物一并丢弃，避免"错误协议的
-			// 截图 + 正确协议的正文"这种不自洽的组合。
-			targetURL = altURL
-			homeBody, homeHeaders, homeStatusCode, homeTitle, seedLinks = altBody, altHeaders, altStatusCode, altTitle, altLinks
-			homeRichCtx = nil
-			homeContentLen = 0
-			screenshotB64, faviconB64 = "", ""
-		}
-		// best 是 go-rod 侧：说明 go-rod 原有结果已经足够可信（比如两个协议
-		// 下都是 400，或 fallback 双发反而更差），维持不变，保留 RichContext/
-		// 截图这些只有 go-rod 路径才有的更完整数据。
-	}
-
-	finalIP, finalPort := resolveIPPortForResult(task, targetURL, remoteIP, remotePort)
-
-	// Forms/Params 是首页攻击面信息。go-rod 路径没有顺手提取过（ExtractLinks 只管链接），
-	// fallback 路径也一样（fallbackFetch 同理只返回 links）。这里用已经拿到的 homeBody
-	// 统一提取一次，保证首页结果无论走哪条数据源，Forms/Params 都不缺失。
-	_, homeForms, homeParams := crawler.ExtractLinksAndForms(targetURL, homeBody)
+	// Forms/Params 是首页攻击面信息，用已经拿到的 home.Body 统一提取一次，
+	// 保证首页结果无论走哪条数据源（go-rod/fallback），Forms/Params 都不缺失。
+	_, homeForms, homeParams := crawler.ExtractLinksAndForms(home.URL, home.Body)
 
 	// isCDN/cdnProvider 在这里才第一次组装成 model.EdgeComponent（checkCDN 本身
 	// 不依赖 model 包，保持 edge/web 包不反向依赖 model 之外的耦合最小化）。
@@ -373,8 +239,8 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 	}
 
 	homeResult := s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
-		URL: targetURL, Depth: 0, StatusCode: homeStatusCode, Title: homeTitle,
-		Body: homeBody, Headers: homeHeaders, ContentLength: homeContentLen, RichContext: homeRichCtx,
+		URL: home.URL, Depth: 0, StatusCode: home.StatusCode, Title: home.Title,
+		Body: home.Body, Headers: home.Headers, ContentLength: home.ContentLength, RichContext: home.RichContext,
 		Forms: homeForms, Params: homeParams,
 		Screenshot: screenshotB64, Favicon: faviconB64,
 		EdgeComponents: edgeComponents,
@@ -382,14 +248,21 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 	results = append(results, homeResult)
 
 	// --- 是否触发深度爬取：三态判断，见 resolveCrawlDepth ---
-	depth := s.resolveCrawlDepth(task, homeStatusCode, homeHeaders, seedLinks)
-	if depth > 0 && len(seedLinks) > 0 && !isCDN {
+	//
+	// 这里不通过 FetchAndCrawl 的 CrawlDepth 参数触发 BFS（那会导致
+	// WebScanner 拿不到 FetchAndCrawl 内部创建的 *crawler.Crawler 实例，
+	// 而 escalateIfNeeded 需要用它调用 EnqueueExtra 把升级渲染后新发现的
+	// 链接塞回同一个 Crawler 继续追踪，见该函数注释），而是像重构前一样
+	// 自己持有 Crawler 实例——直接调用本包已经导出的 New/Crawl，两者是
+	// 平级的公开能力，不是只能通过 FetchAndCrawl 才能访问。
+	depth := s.resolveCrawlDepth(task, home.StatusCode, home.Headers, home.SeedLinks)
+	if depth > 0 && len(home.SeedLinks) > 0 && !isCDN {
 		cr := crawler.New(crawler.Options{MaxDepth: depth}, s.limiter)
-		pages := cr.Crawl(ctx, targetURL, seedLinks)
+		subPages := cr.Crawl(ctx, home.URL, home.SeedLinks)
 
-		s.escalateIfNeeded(ctx, cr, pages)
+		s.escalateIfNeeded(ctx, cr, subPages)
 
-		for _, p := range pages {
+		for _, p := range subPages {
 			results = append(results, s.buildWebResult(task, startTime, finalIP, finalPort, pageData{
 				URL: p.URL, Depth: p.Depth, StatusCode: p.StatusCode, Title: p.Title,
 				Body: p.Body, Headers: p.Headers, Forms: p.Forms, Params: p.Params, Leaks: p.Leaks,
@@ -455,17 +328,22 @@ func (s *WebScanner) checkCDN(target string) (bool, string) {
 // extractFaviconFromPage 从已经导航完成的页面里取 favicon 并转成 base64。
 //
 // 这段逻辑在重构前是内联在 Run() 里的（现状第 234-260 行），抽成独立函数纯粹是
-// 为了让 Run() 主干的可读性不被这段和主流程无关的细节拖累，行为完全不变：
-// 用页面里探测到的 favicon_url，通过 page.Eval 执行一段 JS fetch，把结果
-// data URL 转成不带前缀的纯 base64 字符串。任何一步失败都返回空字符串，
-// 不影响调用方（favicon 是锦上添花的信息，不是关键路径）。
-func extractFaviconFromPage(page *rod.Page, richCtx map[string]interface{}) string {
-	favURL, ok := richCtx["favicon_url"].(string)
-	if !ok || favURL == "" {
-		return ""
-	}
-
-	res, err := page.Eval(`(url) => {
+// 为了让 Run() 主干的可读性不被这段和主流程无关的细节拖累。行为上有一处必要
+// 调整：重构前依赖调用方已经跑过一次 ExtractRichContext、把 favicon_url 放进
+// richCtx 再传进来；重构后（web扫描模块重构实施文档.md 步骤 4）favicon 采集
+// 是在 crawler.FetchAndCrawl 的 OnPageReady 回调里触发的，此时 richCtx 是
+// crawler 包内部的私有局部变量，WebScanner 拿不到，因此这里改为在 page.Eval
+// 里现查一次 favicon_url（和 ExtractRichContext 内部查询用的是同一段 JS），
+// 查询结果不落盘、不进入任何返回结构体，只是这一个函数内部的一步中间计算，
+// 找到 URL 后立刻在同一个 Eval 环境里 fetch 并转 base64。任何一步失败都返回
+// 空字符串，不影响调用方（favicon 是锦上添花的信息，不是关键路径）。
+func extractFaviconFromPage(page *rod.Page) string {
+	res, err := page.Eval(`() => {
+		let link = document.querySelector("link[rel*='icon']");
+		const url = link ? link.href : "";
+		if (!url) {
+			return "";
+		}
 		return fetch(url)
 			.then(response => response.blob())
 			.then(blob => new Promise((resolve, reject) => {
@@ -473,8 +351,9 @@ func extractFaviconFromPage(page *rod.Page, richCtx map[string]interface{}) stri
 				reader.onloadend = () => resolve(reader.result); // data:image/png;base64,...
 				reader.onerror = reject;
 				reader.readAsDataURL(blob);
-			}));
-	}`, favURL)
+			}))
+			.catch(() => "");
+	}`)
 	if err != nil {
 		return ""
 	}
@@ -484,67 +363,6 @@ func extractFaviconFromPage(page *rod.Page, richCtx map[string]interface{}) stri
 		return dataURL[idx+1:]
 	}
 	return ""
-}
-
-// normalizeURL 简单的 URL 规范化
-func normalizeURL(target string, port string, protocol string) string {
-	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
-		return target
-	}
-
-	host := target
-	// 如果端口存在且不是标准端口，且 target 中没有端口，则追加
-	if port != "" && port != "80" && port != "443" && !strings.Contains(target, ":") {
-		host = target + ":" + port
-	}
-
-	// 如果有明确的协议提示，直接使用
-	if protocol == "https" {
-		return "https://" + host
-	}
-	if protocol == "http" {
-		return "http://" + host
-	}
-
-	// 默认猜测
-	switch port {
-	case "443", "8443", "9443", "10443":
-		return "https://" + host
-	case "80", "8080", "8000", "8008", "8888":
-		return "http://" + host
-	default:
-		// 其他端口默认为 http，如果失败，Scanner 内部其实很难再自动切 https
-		// 所以前面的 Service Detection 准确性很重要
-		return "http://" + host
-	}
-}
-
-// isProtocolGuessed 判断 normalizeURL 对这次调用是不是"猜"出协议的，而不是
-// 用户显式指定的——只有"猜"出来的协议才值得在 fallback 阶段做双发验证，用户
-// 显式指定的协议就该只发一次，尊重用户明确的意图，不做自作主张的纠正。
-//
-// 判断逻辑必须和 normalizeURL 内部的分支条件完全对应：target 自带协议前缀、
-// 或者 protocol 参数非空，都是"显式"；只有落进 normalizeURL 最后 switch 的
-// 默认猜测分支，才是"猜"。这里不修改 normalizeURL 本身的签名（避免影响
-// 唯一现有调用方之外可能存在的隐性契约），而是新增一个纯判断函数，用同样的
-// 输入复现同样的分支路径。
-func isProtocolGuessed(target string, protocol string) bool {
-	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
-		return false
-	}
-	return protocol != "https" && protocol != "http"
-}
-
-// flipProtocol 把 URL 的 scheme 在 http/https 之间翻转，其余部分（host、port、
-// path）原样保留。
-func flipProtocol(targetURL string) string {
-	if strings.HasPrefix(targetURL, "https://") {
-		return "http://" + strings.TrimPrefix(targetURL, "https://")
-	}
-	if strings.HasPrefix(targetURL, "http://") {
-		return "https://" + strings.TrimPrefix(targetURL, "http://")
-	}
-	return targetURL
 }
 
 // convertMatchesToTechStack 转换指纹格式为 TechStack 列表
@@ -563,13 +381,6 @@ func convertMatchesToTechStack(matches []fingerprint.Match) []string {
 		}
 	}
 	return res
-}
-
-func extractTitleFromCtx(ctx map[string]interface{}) string {
-	if t, ok := ctx["title"].(string); ok {
-		return t
-	}
-	return ""
 }
 
 // ensureInit 确保指纹规则已加载
@@ -632,183 +443,6 @@ func (s *WebScanner) ensureInit() {
 		// 全部路径都加载失败：edgeDetector 内部规则集为空，Check 恒定返回
 		// false，退化为"没有 CDN 识别能力"，不影响扫描主流程，不需要额外处理。
 	})
-}
-
-// fallbackFetch 当 Headless Browser 失败时，降级使用标准库 net/http 抓取首页原始数据。
-// 主要用于处理一些特殊情况，如 HTTPS 证书错误、网络问题等(chromium 意外情况兜底)。
-//
-// 与重构前的 fallbackScan 的关键区别：这个函数只负责"抓取"，不负责"组装 WebResult"、
-// 不负责"跑指纹匹配"。原来 fallbackScan 和 go-rod 路径（Run 方法主干）各自独立组装了
-// 一遍 WebResult + 指纹匹配的代码，两份逻辑分别维护，任何一处指纹匹配的细节改动
-// （比如后续要给 RichContext 多塞一个字段）都得同时改两个地方，改漏一处就是一次
-// 静默的行为不一致——这是"重复造成的隐性耦合"，比显式的函数调用耦合更危险，因为
-// 编译器不会提醒你漏改了。fallbackFetch 把"抓取"这个动作单独拎出来，"组装 WebResult"
-// 统一交给下面的 buildWebResult，两条数据来源（go-rod/fallback）从此共用同一份
-// 组装逻辑，不可能再出现"改了一处忘了改另一处"的问题。
-//
-// 返回的 links 是顺手用 Sprint 2 产出的 ExtractLinksAndForms 提取的首页种子链接，
-// 为 Sprint 5 挂上 crawler 后的 BFS 爬取做准备；Sprint 4 阶段 Run() 主干还不会用到
-// 这个返回值，但函数签名一次性按最终形态定义，避免 Sprint 5 时再改一次签名。
-// fallbackFetchBestProtocol 是 fallbackFetch 的协议自适应外壳，参考 httpx 的
-// 做法：协议不确定时，不去猜错了再重试，而是 http/https 两个协议直接并发各发
-// 一次，用响应质量选出更靠谱的那个。
-//
-// 这个方案取代了最初设计的"先猜一个协议，抓取失败后再按错误类型判断要不要
-// 换协议重试"——那个方案在真实 Chrome/Chromium 环境下失效了：协议猜错时
-// （比如把 HTTPS 服务当成 HTTP 请求），Go 的 net/http 客户端在明文链路上收到
-// TLS 服务端返回的裸文本响应，会被 http.Client 解析成一个"看似成功"的
-// http.Response（因为 HTTP 响应本身就是纯文本协议，TLS 握手失败时对端吐出的
-// 错误文本凑巧也能被解析成合法的状态行），err 是 nil，走不到任何"基于错误
-// 类型判断"的重试分支。想要可靠识别这种情况，要么去解析 body 内容做启发式
-// 判断（本质上是给"猜错协议"这个明确可以避免的场景打补丁，增加了不必要的
-// 特殊情况），要么就是干脆不猜——两个协议都发，永远能拿到「真正尝试过」的
-// 结果，用响应质量客观排序，不需要判断"是不是猜错了"这种本身就模糊的问题。
-//
-// protocolGuessed 为 false（用户通过 target 前缀或 protocol 参数显式指定协议）
-// 时只发 targetURL 这一个请求，尊重用户的明确意图，不做双发。
-func (s *WebScanner) fallbackFetchBestProtocol(ctx context.Context, targetURL string, protocolGuessed bool) (body string, headers map[string]string, statusCode int, title string, links []string, finalURL string, err error) {
-	if !protocolGuessed {
-		body, headers, statusCode, title, links, err = s.fallbackFetch(ctx, targetURL)
-		return body, headers, statusCode, title, links, targetURL, err
-	}
-
-	altURL := flipProtocol(targetURL)
-	if altURL == targetURL {
-		// 不是标准的 http(s):// URL（理论上不会发生，normalizeURL 保证了 scheme），
-		// 双发无意义，退化成单发。
-		body, headers, statusCode, title, links, err = s.fallbackFetch(ctx, targetURL)
-		return body, headers, statusCode, title, links, targetURL, err
-	}
-
-	var wg sync.WaitGroup
-	outcomes := make([]fetchOutcome, 2)
-	urls := [2]string{targetURL, altURL}
-	for i, u := range urls {
-		wg.Add(1)
-		go func(i int, u string) {
-			defer wg.Done()
-			b, h, sc, t, l, e := s.fallbackFetch(ctx, u)
-			outcomes[i] = fetchOutcome{url: u, body: b, headers: h, statusCode: sc, title: t, links: l, err: e}
-		}(i, u)
-	}
-	wg.Wait()
-
-	best := pickBestFetchOutcome(outcomes[0], outcomes[1])
-	if best.err != nil {
-		return "", nil, 0, "", nil, targetURL, best.err
-	}
-	return best.body, best.headers, best.statusCode, best.title, best.links, best.url, nil
-}
-
-// fetchOutcome 是一次 fallbackFetch 调用的完整结果，用于双发场景下在两个
-// 协议之间做比较、选优。
-type fetchOutcome struct {
-	url        string
-	body       string
-	headers    map[string]string
-	statusCode int
-	title      string
-	links      []string
-	err        error
-}
-
-// pickBestFetchOutcome 从两个协议的抓取结果里选出更可信的一个，排序规则与
-// httpx 的做法一致——优先级从高到低：
-//  1. 请求成功（err == nil）且状态码不是"协议不匹配的典型特征"（4xx 里的 400，
-//     纯文本协议服务器收到 TLS ClientHello 或反过来最常见的表现）。
-//  2. 请求成功但状态码是 400：仍然是"拿到了响应"，比彻底失败强，但排在
-//     "干净成功"后面。
-//  3. 请求失败（err != nil）：排最后，两个都失败时返回先发起的那个的错误
-//     （即 targetURL 对应的 outcome），错误信息里包含的 host:port 对用户
-//     排查更有意义。
-//
-// 这里不做"看 body 内容像不像 HTML"这类启发式判断——状态码已经是服务端
-// 主动给出的明确信号，没有必要绕过明确信号去猜内容，那是本末倒置。
-func pickBestFetchOutcome(a, b fetchOutcome) fetchOutcome {
-	rank := func(o fetchOutcome) int {
-		switch {
-		case o.err == nil && o.statusCode != http.StatusBadRequest:
-			return 0
-		case o.err == nil:
-			return 1
-		default:
-			return 2
-		}
-	}
-	if rank(a) <= rank(b) {
-		return a
-	}
-	return b
-}
-
-func (s *WebScanner) fallbackFetch(ctx context.Context, targetURL string) (body string, headers map[string]string, statusCode int, title string, links []string, err error) {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		Proxy:           http.ProxyFromEnvironment, // 支持系统代理
-	}
-	client := &http.Client{
-		Transport: tr,
-		Timeout:   15 * time.Second,
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
-	if err != nil {
-		return "", nil, 0, "", nil, err
-	}
-	// 模拟浏览器 UA，防止被拦截
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", nil, 0, "", nil, err
-	}
-	defer resp.Body.Close()
-
-	// 限制读取 2MB，防止大文件把内存打爆
-	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
-	if err != nil {
-		return "", nil, 0, "", nil, err
-	}
-	bodyStr := string(bodyBytes)
-
-	headers = make(map[string]string)
-	for k, v := range resp.Header {
-		headers[k] = strings.Join(v, ", ")
-	}
-
-	title = extractTitleFromHTML(bodyStr)
-
-	// 复用 crawler 包 Sprint 2 的产出提取首页种子链接，forms/params 这里不需要
-	// （首页的 Forms/Params 由 buildWebResult 的调用方按需通过 pageData 传入，
-	// fallbackFetch 只关心"抓取"这一件事）。
-	links, _, _ = crawler.ExtractLinksAndForms(targetURL, bodyStr)
-
-	logger.Infof("[WebScanner] Fallback fetch success for %s", targetURL)
-	return bodyStr, headers, resp.StatusCode, title, links, nil
-}
-
-// extractTitleFromHTML 从 HTML 文本里提取 <title> 标签内的文字。
-//
-// 这是从原 fallbackScan 里整理出来的干净版本：原实现里同一段"找 <title> 位置、
-// 截取内容"的逻辑被写了两遍——第一遍算错了偏移量（+5 而不是 +7），中间插了一堆
-// 注释自我纠正"为什么应该是 +7"，然后紧接着重新写了一遍正确的版本。这是历史遗留
-// 的调试痕迹（明显是原作者当场调试时留下的，忘了删掉第一次的错误尝试），本次重构
-// 顺手清理成一次到位的正确实现，不属于范围蔓延——重构一个函数时，路过一段自相
-// 矛盾的重复代码却假装没看见，才是不负责任的做法。
-func extractTitleFromHTML(bodyStr string) string {
-	lowerBody := strings.ToLower(bodyStr)
-	start := strings.Index(lowerBody, "<title>")
-	if start == -1 {
-		return ""
-	}
-	end := strings.Index(lowerBody[start:], "</title>")
-	if end == -1 {
-		return ""
-	}
-	// start 指向 '<title>' 的 '<'，这个标签本身占 7 个字符，所以内容从 start+7 开始；
-	// end 是在 lowerBody[start:] 这个子串里找到的相对偏移量，换算成绝对位置就是
-	// start+end，也就是 "</title>" 里 '<' 的位置，即内容的结束边界。
-	return bodyStr[start+7 : start+end]
 }
 
 // pageData 是 buildWebResult 的统一输入形状。三条数据来源——go-rod 首页探测、

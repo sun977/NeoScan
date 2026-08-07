@@ -12,63 +12,16 @@ import (
 	"neoagent/internal/core/model"
 )
 
-// --- 单元测试：flipProtocol / isProtocolGuessed / pickBestFetchOutcome 纯函数行为 ---
-
-func TestFlipProtocol(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		{"http://1.2.3.4:9000", "https://1.2.3.4:9000"},
-		{"https://1.2.3.4:9000", "http://1.2.3.4:9000"},
-		{"1.2.3.4:9000", "1.2.3.4:9000"}, // 没有 scheme 前缀，原样返回
-	}
-	for _, c := range cases {
-		got := flipProtocol(c.in)
-		if got != c.want {
-			t.Errorf("flipProtocol(%q) = %q, want %q", c.in, got, c.want)
-		}
-	}
-}
-
-func TestIsProtocolGuessed(t *testing.T) {
-	cases := []struct {
-		target, protocol string
-		want             bool
-	}{
-		{"1.2.3.4", "", true},              // 没有前缀、没有显式 protocol：猜
-		{"1.2.3.4", "http", false},         // 显式指定 http：不猜
-		{"1.2.3.4", "https", false},        // 显式指定 https：不猜
-		{"http://1.2.3.4", "", false},      // target 自带前缀：不猜
-		{"https://1.2.3.4", "http", false}, // target 自带前缀优先：不猜
-	}
-	for _, c := range cases {
-		got := isProtocolGuessed(c.target, c.protocol)
-		if got != c.want {
-			t.Errorf("isProtocolGuessed(%q, %q) = %v, want %v", c.target, c.protocol, got, c.want)
-		}
-	}
-}
-
-func TestPickBestFetchOutcome(t *testing.T) {
-	ok200 := fetchOutcome{url: "http://a", statusCode: 200}
-	ok400 := fetchOutcome{url: "http://b", statusCode: 400}
-	failed := fetchOutcome{url: "http://c", err: fmt.Errorf("boom")}
-
-	if got := pickBestFetchOutcome(ok200, ok400); got.url != ok200.url {
-		t.Errorf("expected clean 200 to beat 400, got %q", got.url)
-	}
-	if got := pickBestFetchOutcome(ok400, ok200); got.url != ok200.url {
-		t.Errorf("expected clean 200 to beat 400 regardless of arg order, got %q", got.url)
-	}
-	if got := pickBestFetchOutcome(ok400, failed); got.url != ok400.url {
-		t.Errorf("expected a 400 response to beat a hard failure, got %q", got.url)
-	}
-	if got := pickBestFetchOutcome(failed, ok200); got.url != ok200.url {
-		t.Errorf("expected success to beat failure, got %q", got.url)
-	}
-}
-
 // --- 集成测试：Run() 端到端验证协议双发选优的完整行为 ---
+//
+// flipProtocol / isProtocolGuessed / pickBestFetchOutcome 这三个纯函数已经
+// 随 web扫描模块重构实施文档.md 步骤 2 下沉到 crawler.FetchAndCrawl 内部
+// （neoagent/internal/core/lib/crawler/fetch.go），对应的白盒单元测试
+// 迁移到了 crawler 包的 fetch_test.go（TestFetchAndCrawl_ProtocolGuessedAnd400TriggersVerification /
+// TestFetchAndCrawl_ExplicitProtocolNeverVerifies 等），不再需要在这里保留
+// 对已删除私有函数的直接调用。本文件保留的是 WebScanner.Run() 端到端黑盒
+// 集成测试，验证 runOnePort 改为调用 FetchAndCrawl 之后协议双发这一行为
+// 在 WebScanner 这一层的可见结果没有回归。
 
 // TestProtocolDualFetch_HTTPGuessedButHTTPSOnly_PicksHTTPS 起一个只监听 TLS 的
 // httptest.NewTLSServer，不显式指定协议（模拟 normalizeURL 对非常规端口默认

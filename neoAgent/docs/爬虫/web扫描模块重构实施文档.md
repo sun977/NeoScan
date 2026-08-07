@@ -297,6 +297,15 @@ func (s *WebScanner) runOnePort(ctx context.Context, task *model.Task, startTime
 - `web_scanner.go` 文件总行数应显著减少（预期减少 150~200 行，对应第 3.2 节迁移清单里搬走的代码量），这是"瘦身"这个重构目标是否真正达成的直观指标。
 - 用真实目标（如内网测试站点 `10.201.28.126`）手工跑一次 `neoAgent scan web -t <target> --screenshot`，确认截图/favicon/指纹/CDN 判断行为与重构前完全一致。
 
+### 5.6 实施完成记录
+
+本步骤已完成，实际落地与 5.1~5.4 节草稿相比，有三处编码阶段才暴露、必须调整的真实技术约束，如实记录：
+
+1. **`CrawlDepth` 分两次调用的方案 A 确实可行，但 BFS 深度爬取那次不通过 `FetchAndCrawl` 触发**：`escalateIfNeeded` 需要持有 `FetchAndCrawl` 内部创建的 `*crawler.Crawler` 实例（用来在升级渲染后调用 `cr.EnqueueExtra` 把新链接塞回同一个 BFS 队列），而 `FetchAndCrawl` 出于职责单一、不对外暴露内部创建的 `Crawler` 实例。因此最终方案是：第一次调用 `FetchAndCrawl(CrawlDepth: 0)` 只拿首页（`OnPageReady` 在这次调用里传入，负责截图/favicon）；`depth>0` 时，`WebScanner` 不再调用第二次 `FetchAndCrawl`，而是像重构前一样直接调用本包已导出的 `crawler.New`+`cr.Crawl(...)`（这两者和 `FetchAndCrawl` 是平级的公开能力，不是只能通过 `FetchAndCrawl` 才能访问），从而保留对 `*Crawler` 实例的持有权，`escalateIfNeeded`/`EnqueueExtra` 调用方式完全不变。
+2. **favicon 提取放弃"从 `home.RichContext` 取 `favicon_url`"方案，改为在 `page.Eval` 里现查**：5.3 节讨论的"前者更干净"方案在实现上其实不成立——`OnPageReady(page)` 回调触发时，`HomePage` 结构体（包含 `RichContext` 字段）还没有组装出来（`FetchAndCrawl` 要等回调、`page.Close()` 都执行完之后才组装并返回 `HomePage`），调用方在回调闭包里根本拿不到 `home.RichContext`。而"把 `richCtx` 作为回调第二个参数传出"（5.3 节的"或者"方案）会让 `OnPageReady` 签名多绑定一个 `crawler` 包内部的私有中间产物，增加不必要的耦合。最终方案：`extractFaviconFromPage(page)` 不再接收 `richCtx` 参数，改为在同一段 `page.Eval` 里先用 `document.querySelector("link[rel*='icon']")` 现查 `favicon_url`，再 `fetch` 转 base64——查询逻辑与 `ExtractRichContext` 内部提取 `favicon_url` 用的是同一个 DOM 查询，只是不复用其产出，作为一次独立的、函数内部的中间计算，不进入任何返回结构体。
+3. **两个测试文件相应调整**：`web_scanner_protocol_test.go` 里对 `flipProtocol`/`isProtocolGuessed`/`pickBestFetchOutcome` 三个纯函数的白盒单元测试删除（这三个函数已下沉到 `crawler` 包私有实现，等价的行为验证已经在 `crawler/fetch_test.go` 的黑盒集成测试里覆盖，如 `TestFetchAndCrawl_ProtocolGuessedAnd400TriggersVerification`），黑盒集成测试（`TestProtocolDualFetch_*`，验证 `WebScanner.Run()` 端到端行为）全部保留且全部通过。`web_scanner_test.go` 里直接调用 `scanner.fallbackFetch` 的 `TestWebScanner_Fingerprint` 改为用标准库 `http.Get` 抓取原始数据（测试真正要验证的是 `buildWebResult` 的指纹匹配能力，与抓取方式无关）；只测"抓取顺带提取种子链接"这一件事的 `TestFallbackFetch_ReturnsSeedLinks` 整体删除（等价覆盖已存在于 `crawler/fetch_test.go` 对 `home.SeedLinks` 的断言）。
+4. **验收结果**：`go build ./...`、`go vet ./internal/...`（`web`/`crawler` 两个包，忽略与本次改动无关的第三方参考代码 `docs/references` 下的既有 vet 告警）全部通过；`go test ./internal/core/scanner/web/... ./internal/core/lib/crawler/... -v` 全量跑通，CDN（4 用例）/多端口/升级渲染/协议双发/指纹匹配等全部用例保持绿色，与重构前通过的用例集合完全一致（唯一的例外是 `TestProtocolDualFetch_TCPUnreachable_FailsFast` 这个耗时类断言在整包并发跑测试、机器负载较高时偶发超过 5 秒阈值，经 `git stash` 验证重构前的代码在同等条件下同样会偶发触发，属于测试设计上对耗时阈值判断过紧的既有脆弱性，与本次改动无关，不在本次修复范围）。`web_scanner.go` 从 1034 行降到约 670 行。
+
 ---
 
 ## 六、步骤 5：`model.TaskTypeApiScan` 新增

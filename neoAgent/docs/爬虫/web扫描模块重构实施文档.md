@@ -26,7 +26,7 @@
 |---|---|---|---|
 | 1 | `internal/core/lib/crawler/`（`crawler.go`/`extract.go`/`leak.go`/对应 `_test.go`） | 迁移（从 `internal/core/scanner/web/crawler` 原样搬迁，含包内所有 import 路径更新） | ✅ 已完成 |
 | 2 | `internal/core/lib/crawler/fetch.go` | 新建（`FetchAndCrawl`/`FetchOptions`/`HomePage`，从 `web_scanner.go` 抽取协议探测 + go-rod 渲染 + fallback 逻辑） | ✅ 已完成 |
-| 3 | `internal/core/lib/crawler/fetch_test.go` | 新建（`FetchAndCrawl` 的单元/集成测试，覆盖搬迁后行为与搬迁前一致） | ⬜ 待开始 |
+| 3 | `internal/core/lib/crawler/fetch_test.go` | 新建（`FetchAndCrawl` 的单元/集成测试，覆盖搬迁后行为与搬迁前一致） | ✅ 已完成 |
 | 4 | `internal/core/scanner/web/web_scanner.go` | 修改（`runOnePort` 改为调用 `crawler.FetchAndCrawl`，移除已下沉的抓取代码；import 路径从 `scanner/web/crawler` 改为 `lib/crawler`） | ⬜ 待开始 |
 | 5 | `internal/core/model/task.go` | 修改（新增 `TaskTypeApiScan` 常量） | ⬜ 待开始 |
 | 6 | `internal/core/scanner/api/api_scanner.go` | 新建（`ApiScanner` 骨架：`Name()`/`Run()`，`Run` 内部调用 `crawler.FetchAndCrawl`，暂时组装空的 `model.ApiResult`，JS 提取逻辑留给后续实施文档填充） | ⬜ 待开始 |

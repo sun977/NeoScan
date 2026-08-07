@@ -141,6 +141,18 @@ type LeakInfo struct {
 	Context string `json:"context,omitempty"` // 命中上下文片段（可选）
 }
 
+// ApiResult 是 ApiScanner 的任务产出。与 WebResult 完全独立，不复用它的
+// 任何字段——ApiScanner 不做指纹识别、不截图、不判断 CDN，这些 WebResult
+// 字段对 ApiResult 没有意义，见 docs/爬虫/web扫描模块重构文档.md 7.3 节。
+//
+// 当前阶段（骨架）：只有 URL/Depth 两个定位字段。APIs/APIsTruncated 字段
+// 由 docs/API扫描-js提取/Web-JS接口提取实施文档.md 第三节追加，届时这里
+// 会新增两个字段，不会修改/删除现有字段。
+type ApiResult struct {
+	URL   string `json:"url"`   // 本页面 URL（与 WebResult.URL 同义）
+	Depth int    `json:"depth"` // BFS 深度，0 表示首页
+}
+
 // EdgeComponent 描述命中的一个边缘网络组件（CDN/WAF/反 DDoS 等）。
 // 一个 WebResult 可以同时命中多个（如 Cloudflare 常见 CDN+WAF 二合一），
 // 因此 WebResult 里用切片承载，不用一个组件类型对应一对标量字段。

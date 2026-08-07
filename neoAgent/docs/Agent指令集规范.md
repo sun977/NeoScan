@@ -1,7 +1,7 @@
 # NeoAgent 指令集规范 (Instruction Set Architecture)
 
-- **版本**: v1.3
-- **日期**: 2026-08-04
+- **版本**: v1.4
+- **日期**: 2026-08-07
 - **作者**: sun977
 - **状态**: 正式生效
 
@@ -13,6 +13,7 @@
 | v1.1 | 2026-08-04 | 按真实代码修正 3.3 节 Web 扫描指令：移除代码中不存在的 `spider`/`headless` 字段，补充真实字段 `ports`/`path`/`method`/`crawl`/`crawl_depth`/`screenshot`，并标注 TaskType 取值与 Master `api_scan` 的映射关系 |
 | v1.2 | 2026-08-04 | 全面核对代码，根据实际开发状态重写 3.1-3.9节：删除代码中不存在的 `asset_scan`；修正 3.1/3.2 为真实存在的 `port_scan`（合并了原文档中重复的端口扫描与服务识别），并标注 Master 通道 `ip_alive_scan` 参数透传缺陷；新增 `ip_alive_scan`、`os_scan`、`brute_force` 三节（已实现但旧版文档从未收录）；3.6-3.9（`dir_scan`/`vuln_scan`/`subdomain`/`proxy`）恢复参数表格但按代码中 `options.*Options`/CLI Flag 逐字核实修正字段名与默认值，并在标题与正文中明确标注为**未实现**，避免误导用户认为可用 |
 | v1.3 | 2026-08-04 | 修复 3.5 节记录的技术债：新增 `internal/core/options/scan_brute.go`（`BruteScanOptions`），将 `cmd/agent/scan/brute.go` 中散落的端口默认值推断逻辑收敛进 `Validate()`，`brute` 命令改为标准的 `NewXxxOptions → Validate → ToTask` 三段式，与其余已实现扫描指令的组织方式统一；`BruteScanner.Run()` 接口保持不变 |
+| v1.4 | 2026-08-07 | `api_scan` 从 `web_scan` 的 `mode:"api"` 参数独立成自己的 TaskType（`model.TaskTypeApiScan`）与 `ApiScanner`，新增独立的 3.4 节（骨架版本，JS 接口提取逻辑待 `Web-JS接口提取实施文档.md` 补充），原 3.4-3.9 节顺延为 3.5-3.10；同步移除 3.3 节中“Master 下发的 `api_scan` 也会被翻译成同一个 TaskType”的过时描述 |
 
 ---
 
@@ -78,7 +79,7 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 ### 3.3 Web 扫描 (web_scan)
 **描述**: 针对 HTTP/HTTPS 服务的综合扫描（指纹识别、深度爬行、截图）。
 
-**TaskType**: `web_scan`（`model.TaskTypeWebScan`）。Master 下发的 `api_scan` 也会被翻译成同一个 TaskType，仅多写入 `mode="api"` 作为区分。
+**TaskType**: `web_scan`（`model.TaskTypeWebScan`）。
 
 | 参数 (Task.Params) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -93,7 +94,25 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 
 **说明**: 这里列出的是 `internal/core/options/scan_web.go` 中 `WebScanOptions.ToTask()` 真实写入 `Task.Params` 的字段，与 `cmd/agent/scan/web.go` 的 CLI Flag 一一对应。旧版本文档中的 `spider`/`headless` 字段为早期设计草稿，实际代码中从未实现，已在 v1.1 修正。
 
-### 3.4 操作系统识别 (os_scan)
+### 3.4 API 扫描 (api_scan)
+
+> 本章节参数表为骨架阶段的最小版本，`max_files` 参数与风险提示文案见
+> `docs/API扫描-js提取/Web-JS接口提取实施文档.md` 第二节，实施完成后需要合并补充到本节。
+
+**描述**: 从抓取到的页面（含可选深度爬取子页面）中提取接口调用地址（JS 接口提取等）。
+
+**TaskType**: `api_scan`（`model.TaskTypeApiScan`），与 `web_scan` 是完全独立的 TaskType，不再共享同一段处理逻辑，不再借道 `web_scan` 的 `mode:"api"` 参数。
+
+| 参数 (Task.Params) | CLI Flag | 类型 | 必选 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `target`（写入 `Task.Target`） | `--target, -t` | string | **Yes** | - | 目标 URL/IP |
+| `port_range`（写入 `Task.PortRange`） | `--ports, -p` | string | No | `"80,443"` | 目标端口范围 |
+| `crawl` | `--crawl` | string | No | `"auto"` | `auto`(默认，骨架阶段等价于不爬) / `true` / `false`，是否深度爬取子页面 |
+| `crawl_depth` | `--crawl-depth` | int | No | `2` | 深度爬取层数，仅 `crawl=true` 时生效 |
+
+**现状**: 参数已按 `internal/core/options/scan_api.go` 中 `ApiScanOptions.ToTask()` 完整定义并通过 `RunnerManager` 正确调度到 `ApiScanner`，但当前为骨架版本——`ApiScanner.Run()` 只组装 `URL`/`Depth` 两个定位字段，真正的 JS 接口提取逻辑（`APIs`/`APIsTruncated` 字段、`max_files` 参数）由 `docs/API扫描-js提取/Web-JS接口提取实施文档.md` 补充实现。
+
+### 3.5 操作系统识别 (os_scan)
 **描述**: 通过 TCP/IP 协议栈指纹识别目标操作系统类型。
 
 **TaskType**: `os_scan`（`model.TaskTypeOsScan`）。CLI 命令：`neoAgent scan os`。
@@ -103,7 +122,7 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 | `target`（写入 `Task.Target`） | `--target, -t` | string | **Yes** | - | 目标 IP |
 | `mode` | `--mode, -m` | string | No | `"auto"` | `fast`（仅 TTL 估算）/ `deep`（Nmap OS 指纹库 + 服务 Banner）/ `auto`（混合模式） |
 
-### 3.5 弱口令爆破 (brute_force)
+### 3.6 弱口令爆破 (brute_force)
 **描述**: 针对指定服务进行弱口令爆破，内置 Top100 弱口令字典，支持自定义用户名/密码列表。当前已注册的协议：SSH、MySQL、Redis、PostgreSQL、FTP、MongoDB、ClickHouse、SMB、MSSQL、Oracle、Oracle SID、Telnet、Elasticsearch、SNMP、RDP。
 
 **TaskType**: `brute_force`（`model.TaskTypeBrute`）。CLI 命令：`neoAgent scan brute`。
@@ -119,7 +138,7 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 
 **说明**: CLI 已改造为 `internal/core/options/scan_brute.go` 中的 `BruteScanOptions`（`NewBruteScanOptions` → `Validate` → `ToTask` 三段式），与其余已实现扫描指令的组织方式统一。按 `service` 推断默认端口的逻辑已收敛进 `Validate()`，不再散落在 CLI 命令里。`BruteScanner.Run()` 本身不受影响，仍从 `task.Params` 读取参数，接口无变化。
 
-### 3.6 目录扫描 (dir_scan) —— **未实现**
+### 3.7 目录扫描 (dir_scan) —— **未实现**
 **描述**: Web 目录爆破（设计目标，尚未落地）。
 
 **TaskType**: `dir_scan`（`model.TaskTypeDirScan`）。CLI 命令：`neoAgent scan dir`。
@@ -133,7 +152,7 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 
 **现状**: 参数已按 `options.DirScanOptions` 完整定义并通过 `Validate()` 校验，但 `internal/core/scanner` 下没有 `DirScanner` 实现，`RunnerManager` 也未注册对应 Runner。`cmd/agent/scan/dir.go` 在校验参数通过后会直接 `return fmt.Errorf("dir scan not implemented yet")`，即上表参数目前**不会触发任何真实扫描**。
 
-### 3.7 漏洞扫描 (vuln_scan) —— **未实现**
+### 3.8 漏洞扫描 (vuln_scan) —— **未实现**
 **描述**: 调用 POC/模板进行漏洞验证（设计目标，尚未落地）。
 
 **TaskType**: `vuln_scan`（`model.TaskTypeVulnScan`）。CLI 命令：`neoAgent scan vuln`。
@@ -146,7 +165,7 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 
 **现状**: 参数已按 `options.VulnScanOptions` 定义，但底层无 `VulnScanner` 实现。`cmd/agent/scan/vuln.go` 校验参数后直接 `return fmt.Errorf("vuln scan not implemented yet")`，上表参数目前**不会触发任何真实扫描**。Master 侧 `task_to_core.go` 中的 `poc_scan`/`weak_pass_scan` 也会被一并映射到这个未实现的 `vuln_scan`。
 
-### 3.8 子域名扫描 (subdomain) —— **未实现**
+### 3.9 子域名扫描 (subdomain) —— **未实现**
 **描述**: 子域名枚举（设计目标，尚未落地）。
 
 **TaskType**: `subdomain`（`model.TaskTypeSubdomain`）。CLI 命令：`neoAgent scan subdomain`。
@@ -159,7 +178,7 @@ NeoAgent 作为一个多模态执行单元，需要统一处理来自不同源�
 
 **现状**: 参数已按 `options.SubdomainScanOptions` 定义，但底层无 `SubdomainScanner` 实现。`cmd/agent/scan/subdomain.go` 校验参数后直接 `return fmt.Errorf("subdomain scan not implemented yet")`，上表参数目前**不会触发任何真实扫描**。
 
-### 3.9 穿透代理 (proxy) —— **未实现**
+### 3.10 穿透代理 (proxy) —— **未实现**
 **描述**: 开启 SOCKS5/HTTP 代理服务或端口转发（设计目标，尚未落地）。
 
 **TaskType**: `proxy`（`model.TaskTypeProxy`）。CLI 命令：`neoAgent proxy`（注意：不在 `scan` 子命令组下，是独立顶级命令）。

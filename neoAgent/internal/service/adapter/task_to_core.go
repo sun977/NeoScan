@@ -94,8 +94,13 @@ func (t *TaskTranslator) ToCoreTask(ct *clientModel.Task) (*model.Task, error) {
 		// 与 CLI 任务的决策路径保持统一。
 
 	case "api_scan", "apiScan":
-		coreTask.Type = model.TaskTypeWebScan
-		coreTask.Params["mode"] = "api"
+		coreTask.Type = model.TaskTypeApiScan // 不再借道 web_scan（web扫描模块重构文档.md 第三节）
+		// mode:"api" 参数随之废弃：ApiScanner 是独立 TaskType，被调度到即代表
+		// 用户已显式表达意图，不需要 mode 参数区分。Params 只需要传
+		// crawl/crawl_depth 等真正影响执行方式的参数（与上面 "web_scan" 分支
+		// 的处理方式对称，不重复写一遍相同的三态解析逻辑——如果两个 case 未来
+		// 的参数解析代码开始出现大量重复，再考虑抽取公共函数，当前只有两行
+		// 不构成重复到需要抽取的程度）。
 
 	case "dir_scan", "dirScan":
 		coreTask.Type = model.TaskTypeDirScan

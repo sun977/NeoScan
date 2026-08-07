@@ -45,10 +45,16 @@ func NewRunnerManager() *RunnerManager {
 
 	// 注册 WebScanner
 	// 补齐 Master 集群下发 web_scan 任务的执行能力：
-	// task_to_core.go 中 "web_scan"/"api_scan" 均会被翻译为 TaskTypeWebScan，
+	// task_to_core.go 中 "web_scan" 会被翻译为 TaskTypeWebScan，
 	// 若不在此注册，RunnerManager.Get 会报 "no runner found"，Master 侧任务必然失败。
-	ws := factory.NewWebScanner()
-	m.Register(ws)
+	WebScanner := factory.NewWebScanner()
+	m.Register(WebScanner)
+
+	// 注册 ApiScanner
+	// api_scan 独立成 TaskTypeApiScan（不再借道 web_scan 的 mode:"api" 参数），
+	// 见 docs/爬虫/web扫描模块重构文档.md。
+	ApiScanner := factory.NewApiScanner()
+	m.Register(ApiScanner)
 
 	return m
 }

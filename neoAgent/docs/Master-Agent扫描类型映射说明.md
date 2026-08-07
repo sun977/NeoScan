@@ -20,7 +20,7 @@ Agent 遵循 KISS 原则，只提供最基础的原子能力，通过参数组�
 | **`pocScan`**<br>(POC扫描) | `vuln_scan` | `templates: "custom_pocs"` | 使用指定的 POC 模板进行精确扫描 |
 | **`passScan`**<br>(弱口令扫描) | `vuln_scan` | `templates: "weak_passwords"` | 使用弱口令爆破模板 |
 | **`webScan`**<br>(Web扫描) | `web_scan` | `crawl: true`<br>`method: "GET"` | 包含爬虫、指纹识别的综合 Web 扫描 |
-| **`apiScan`**<br>(API扫描) | `web_scan` | `mode: "api"`<br>`path: "/api/v1"` | 针对 API 接口的特定扫描 |
+| **`apiScan`**<br>(API扫描) | `api_scan` | `crawl`<br>`crawl_depth` | 独立的 API 接口扫描（JS 接口提取等），不再借道 web_scan，见 docs/爬虫/web扫描模块重构文档.md |
 | **`dirScan`**<br>(目录扫描) | `dir_scan` | `dict: "common.txt"` | 目录爆破 |
 | **`subDomainScan`**<br>(子域名扫描) | `subdomain` | `mode: "brute"` | 子域名枚举 |
 | **`proxyScan`**<br>(代理探测) | `port_scan` | `port: "1080,8080"`<br>`service_detect: true` | 探测目标是否开放代理服务 (深度协议识别) |

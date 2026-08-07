@@ -35,6 +35,7 @@ func NewScanCmd() *cobra.Command {
 	// cmd.AddCommand(NewServiceScanCmd()) // 服务识别 (已合并至 port -s)
 	cmd.AddCommand(NewOsScanCmd())        // 操作系统识别
 	cmd.AddCommand(NewWebScanCmd())       // Web综合扫描
+	cmd.AddCommand(NewApiScanCmd())       // API 扫描（JS 接口提取等）
 	cmd.AddCommand(NewVulnScanCmd())      // 漏洞扫描
 	cmd.AddCommand(NewDirScanCmd())       // 目录/文件挖掘
 	cmd.AddCommand(NewSubdomainScanCmd()) // 子域名挖掘

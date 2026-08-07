@@ -3,7 +3,6 @@ package scan
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
@@ -36,7 +35,10 @@ func NewWebScanCmd() *cobra.Command {
 
 			fmt.Printf("[*] Starting Web Scan against %s (Ports: %s)...\n", opts.Target, opts.Ports)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			// 超时必须用 task.Timeout（ToTask() 里已经根据任务类型设好），不能在这里
+			// 另外写死一个数字：深度爬取的耗时随 --crawl-depth 指数增长，固定 2 分钟会导致
+			// 深度调高后爬虫在中途被 ctx 取消、结果不完整，且没有任何报错提示用户。
+			ctx, cancel := context.WithTimeout(context.Background(), task.Timeout)
 			defer cancel()
 
 			results, err := manager.Execute(ctx, task)

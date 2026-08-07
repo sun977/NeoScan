@@ -3,7 +3,6 @@ package scan
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
@@ -34,7 +33,9 @@ func NewApiScanCmd() *cobra.Command {
 
 			fmt.Printf("[*] Starting API Scan against %s (Ports: %s)...\n", opts.Target, opts.Ports)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			// 超时用 task.Timeout（ToTask() 里已设好），原因同 web.go：写死的短超时
+			// 会在开启深度爬取时把任务中途砍断，与 --crawl-depth 语义相悖。
+			ctx, cancel := context.WithTimeout(context.Background(), task.Timeout)
 			defer cancel()
 
 			results, err := manager.Execute(ctx, task)

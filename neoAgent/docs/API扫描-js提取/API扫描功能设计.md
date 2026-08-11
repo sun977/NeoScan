@@ -117,7 +117,7 @@ internal/core/scanner/api/
 | `internal/core/scanner/api/bfs.go` | 新增 | 独立 BFS 队列 |
 | `internal/core/scanner/api/extract.go` | 新增 | 三层置信度正则提取 |
 | `internal/core/scanner/api/filter.go` | 新增 | 清洗 + 黑名单 + 去重 |
-| `internal/core/factory/api_factory.go` | 新增/修改 | `NewApiScanner()` 统一构造入口（实施阶段需先确认当前是否已接入） |
+| `internal/core/factory/api_factory.go` | 修改 | 已存在且已正确接入 `NewApiScanner()`，本方案不改变其构造签名，实施阶段仅在内部实现变化时同步跟进 |
 
 **为什么要建独立的 `bfs.go` 而不是把 BFS 判断直接塞进 `fetch.go`**：`WebScanner` 的经验已经证明"抓取"和"BFS 队列调度"是两个不同粒度的职责（`crawler.go` 负责队列/去重/深度，`extract.go` 负责单页解析），`ApiScanner` 沿用这个职责划分不是重复造轮子，是复用一个已经被验证过的正确架构模式——**模式可以参照，代码不能复制**，这是本方案与"直接把 `web/crawler` 复制一份"这种做法的本质区别。
 
@@ -129,12 +129,37 @@ internal/core/scanner/api/
 
 | 字段 | 现状（骨架照搬） | 方案调整 | 理由 |
 |---|---|---|---|
-| `Target` / `Ports` | 有 | 保留 | 通用定位参数，语义正确，与 `ApiScan` 自身需求无冲突 |
+| `Target` / `Ports` | 有 | 保留，明确输入形态与优先级（见 5.1 节） | 通用定位参数，语义正确，与 `ApiScan` 自身需求无冲突 |
 | `Crawl string`（"auto"/"true"/"false" 三态） | 有，默认 "auto" | **删除** | 这个三态开关是为 `WebScanner` 设计的——`WebScanner` 的核心目的是"看首页"，深度爬取是锦上添花的可选项，需要"自动判断要不要爬"。但 `ApiScan` 的深度爬取不是可选项，是这个扫描器存在的核心意义，继续保留一个事实上恒为 "true" 的开关是死代码 |
 | `CrawlDepth int` | 有，默认 2 | 保留，语义从"三态开关的附属参数"收窄为"爬多深"这一个独立参数 | 深度控制本身是有效需求；**默认值留到实施文档阶段结合真实站点测试确定**，不在方案阶段拍脑袋定死 |
 | `MaxJSFiles int` | 无 | **新增**，默认值 20，CLI 可配置（`--max-js-files`） | 防止大型 SPA 打包出几十个 chunk 文件拖慢单页扫描耗时；默认值参考归档方案的设计思路，平衡覆盖率与耗时 |
 
 对应地，`ToTask()` 不再解析 `"crawl"` 三态参数，只解析 `"crawl_depth"` 和 `"max_js_files"` 两个数值参数——`RunnerManager` 调度到 `TaskTypeApiScan` 这件事本身就是"要爬"的完整意图表达，不需要再包一层判断（这与 `drop/Web-JS接口提取实施文档.md` 中"`ApiScanner.Run` 不需要判断'要不要提取'"的既有结论一致，本方案把同样的思路延伸到"要不要爬"这一层）。
+
+### 5.1 `Target` 的输入形态与 `Ports` 的关系（澄清"网址可以没有端口"）
+
+`model.Task.Target` 的字段注释是"扫描目标 (IP/Domain/CIDR)"——即架构设计上 `Target` 默认是**裸 IP/域名，不含 scheme**。但实际入口（CLI 直接传参、`GenerateTargets` 批量分发）都不会强行剥离用户输入的 `http(s)://` 前缀，所以 `ApiScanner` 拿到的 `Target` 实际存在两类输入：
+
+| 输入形态 | 示例 | `Ports` 是否生效 | 处理方式 |
+|---|---|---|---|
+| 完整 URL（含 scheme，可带可不带端口） | `https://example.com`、`http://example.com:8080` | 否，忽略 | 直接使用，不做任何拼接——URL 本身没端口不代表"缺参数"，缺省端口是 HTTP 协议的正常语义（`https`→443，`http`→80），不需要 `Ports` 补全 |
+| 裸 IP/域名（无 scheme） | `example.com`、`192.168.1.1` | 是 | 遍历 `Ports` 逐个拼出候选 URL 探测（标准端口 80/443 不显式拼进 URL，非标准端口才拼，如 `example.com:8080`），协议按端口猜测（443 类→https，其余默认 http） |
+
+判断逻辑与 `WebScanner` 的 `normalizeURL`（`scanner/web/web_scanner.go`）保持一致（"URL 优先、`Ports` 兜底"），但**不 import 该函数**，遵循第二节的原子隔离原则，在 `scanner/api/fetch.go` 内独立实现一份等价逻辑：
+
+```go
+if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
+    // Target 已是完整网址，Ports 参数不生效，直接使用（无端口也合法）
+} else {
+    // Target 是裸 IP/域名，按 Ports 逐个拼出候选 URL 尝试连接
+}
+```
+
+`Ports` 因此不是"强制给网址加端口"的参数，而是服务于两个场景：一是用户只给裸 host、需要 Scanner 自己猜端口和协议；二是 Pipeline 批量模式下 `GenerateTargets`（`pipeline/target.go`）产出的永远是裸 IP（域名会被提前解析成 IP），此时完全依赖 `Ports` 才知道要拼哪个端口。这一实现细节在实施文档阶段落到具体函数签名。
+
+**与第九节"不主动验证接口存活"的边界区分（避免用词混淆）**：这里的"拼 URL 尝试连接"针对的是 `Target` 本身——目的是确定"从哪个 scheme+port 开始抓取"，本质是抓取流程的前置步骤，与 `WebScanner` 判断 `http`/`https` 的性质相同；第九节 9.2 节的"不做存活验证"针对的是**提取结果** `APIInfo.URL`——即挖出来的接口地址不会被二次请求去验证是否可访问。两者是完全不同层级的动作，不要混为一谈。
+
+此外，`cmd/agent/scan/api.go` 现有 `--target` flag 的帮助文案已经是"目标 URL/IP"（与 `WebScanOptions` 一致），佐证了 CLI 层面从一开始就是按"两种输入形态都要支持"设计的，本节结论与既有 CLI 文案不冲突，只是首次把内部处理逻辑显式化。
 
 ---
 
@@ -292,7 +317,8 @@ type ApiResult struct {
 
 - `CrawlDepth` 的默认值（`WebScanner` 默认 2，但 `ApiScan` 的目标是尽可能挖到接口，可能需要更深，需实测验证耗时与收益的平衡点）；
 - `bfs.go` 的具体队列参数（并发数、单页超时、MaxPages 硬上限）是否需要与 `web/crawler` 的默认值保持一致，还是需要针对 `ApiScan` 的场景单独调优；
-- 三层置信度规则的具体正则细节是否需要针对实测站点做补充调整。
+- 三层置信度规则的具体正则细节是否需要针对实测站点做补充调整；
+- **骨架代码遗留的文档引用清理**：当前 `result_types.go`、`scan_api.go`、`cmd/agent/scan/api.go` 三处骨架注释都写着"由 `docs/API扫描-js提取/Web-JS接口提取实施文档.md` 补充"——这份文件当时是预告的文件名，实际方案已产出为本文档（《API扫描功能设计.md》），配套的实施文档尚未产出、最终文件名以实际产出为准。实施文档落地时需要顺带把这三处骨架注释里的引用路径更新为真实的实施文档路径，避免注释长期指向一个不存在的文件。
 
 ---
 

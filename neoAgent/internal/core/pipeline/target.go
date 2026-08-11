@@ -30,6 +30,9 @@ func GenerateTargets(input string) <-chan string {
 						parseAndSend(line, out)
 					}
 				}
+				if err := scanner.Err(); err != nil {
+					logger.Warn(fmt.Sprintf("Error reading target file %s: %v", input, err))
+				}
 				return
 			}
 		}

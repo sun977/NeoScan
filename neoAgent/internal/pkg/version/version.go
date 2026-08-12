@@ -8,7 +8,7 @@
 package version
 
 var (
-	Version    = "2.11.0" // 版本号 -- 发布时候更新版本号
+	Version    = "3.0.0" // 版本号 -- 发布时候更新版本号
 	APIVersion = "2.0"
 	BuildTime  string
 	GitCommit  string

@@ -1,23 +1,33 @@
-// Package api 提供 API 扫描能力的骨架。当前阶段仅搭建 ApiScanner 结构体与
-// RunnerManager 所需的接口实现，真正的抓取与 JS 接口提取逻辑由后续实施文档
-// 在本包内独立补充实现，不依赖 web 包或任何跨扫描器共享的爬虫模块（各原子
-// 扫描器功能自成一体、互不依赖，见 web扫描模块重构文档.md）。
+// Package api 提供 API 扫描能力：独立发起抓取（go-rod 渲染 + 默认开启的
+// BFS 深度爬取），从 HTML/内联JS/外链JS 中静态提取接口调用地址。不依赖
+// web 包或任何跨扫描器共享的爬虫模块，见 API扫描功能设计.md 第二节。
 package api
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"neoagent/internal/core/lib/browser"
+	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
+	"neoagent/internal/pkg/logger"
 )
 
-// ApiScanner 是独立于 WebScanner 的原子扫描器，与 WebScanner 平级。骨架阶段
-// 不持有任何抓取相关的依赖（browser/limiter 等），待真正实现抓取能力时再由
-// 本包自行决定需要哪些内部依赖。
-type ApiScanner struct{}
+// ApiScanner 是独立于 WebScanner 的原子扫描器，与 WebScanner 平级，各自
+// 持有独立的 browser/limiter 实例，互不共享运行时状态。
+type ApiScanner struct {
+	browserLauncher *browser.BrowserLauncher
+	limiter         *qos.AdaptiveLimiter
+}
 
-// NewApiScanner 创建一个 ApiScanner 实例。
+// NewApiScanner 创建一个 ApiScanner 实例，独立初始化自己的基础设施实例。
 func NewApiScanner() *ApiScanner {
-	return &ApiScanner{}
+	bm := browser.NewBrowserManager()
+	return &ApiScanner{
+		browserLauncher: browser.NewLauncher(bm),
+		limiter:         qos.NewAdaptiveLimiter(5, 1, 10),
+	}
 }
 
 // Name 扫描器名称。
@@ -25,8 +35,54 @@ func (s *ApiScanner) Name() model.TaskType {
 	return model.TaskTypeApiScan
 }
 
-// Run 执行 API 扫描任务。骨架阶段未实现任何抓取/分析逻辑，直接返回空结果，
-// 待后续实施文档补充完整实现。
-func (s *ApiScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error) {
-	return nil, nil
+// Run 执行 API 扫描任务：Target/Ports 换算起始 URL -> BFS 深度爬取
+// （默认总是开启）-> 每页产出 model.ApiResult。
+func (s *ApiScanner) Run(ctx context.Context, task *model.Task) (results []*model.TaskResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("ApiScanner panic recovered: %v", r)
+			logger.Errorf("[ApiScanner] panic recovered: %v", r)
+		}
+	}()
+
+	startURL := normalizeTarget(task.Target, task.PortRange)
+
+	crawlDepth := 2
+	if v, ok := task.Params["crawl_depth"].(int); ok && v > 0 {
+		crawlDepth = v
+	}
+	maxJSFiles := 20
+	if v, ok := task.Params["max_js_files"].(int); ok && v > 0 {
+		maxJSFiles = v
+	}
+
+	crawler := newAPICrawler(s.browserLauncher, s.limiter, crawlDepth, maxJSFiles)
+	outcomes := crawler.crawl(ctx, startURL)
+
+	startTime := time.Now()
+	results = make([]*model.TaskResult, 0, len(outcomes))
+	for _, oc := range outcomes {
+		apis := make([]model.APIInfo, 0, len(oc.APIs))
+		for _, c := range oc.APIs {
+			apis = append(apis, model.APIInfo{
+				URL:        c.URL,
+				Method:     c.Method,
+				Source:     c.Source,
+				Confidence: c.Confidence,
+			})
+		}
+		results = append(results, &model.TaskResult{
+			TaskID: task.ID,
+			Status: model.TaskStatusSuccess,
+			Result: &model.ApiResult{
+				URL:           oc.URL,
+				Depth:         oc.Depth,
+				APIs:          apis,
+				APIsTruncated: oc.APIsTruncated,
+			},
+			ExecutedAt:  startTime,
+			CompletedAt: time.Now(),
+		})
+	}
+	return results, nil
 }

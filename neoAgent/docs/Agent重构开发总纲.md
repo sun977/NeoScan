@@ -132,10 +132,11 @@ neoAgent/
 - [x] 步骤 5：`WebResult` 新增字段。**设计中途调整**：原方案 `IsCDN`/`CDNProvider` 标量字段改为统一的 `EdgeComponents []EdgeComponent` 列表 + `IsEdgeNode()` 便利方法，原因：CDN 与后续 WAF 识别本质同类，标量字段会导致每加一种类型加一对字段且无法表达同时命中多种类型。`go build`/`go vet` 通过，序列化验证符合预期。
 - [x] 步骤 6：`web_scanner.go` 接入判断点——`WebScanner` 新增 `edgeDetector` 字段、`ensureInit` 加载 CDN 规则、新增 `checkCDN` 方法、`runOnePort` 命中 CDN 时跳过截图与深度爬取、`buildWebResult` 写入 `EdgeComponents`。`go build`/`go vet`/`go test`（`web` 包 + `crawler` 子包全部现有用例）均无告警无失败。
 - [x] 步骤 7：端到端验收——新增 `web_scanner_cdn_e2e_test.go` 4 个集成测试（命中 CDN 跳过截图与深度爬取/不命中行为与上线前一致/规则文件缺失优雅退化/域名解析失败不阻塞），全部 `PASS`；`web` 包全部现有用例同步回归通过，总耗时 11.686s 无明显性能回退。
-- [x] **5.1.2 API 扫描独立化 (`ApiScanner` 骨架) 与原子扫描器隔离原则确立**（Phase 5.1 之后的架构决策与骨架落地）：
-    - [x] `model.TaskTypeApiScan`（`"api_scan"`）新增，与 `TaskTypeWebScan` 平级、不再借道 `web_scan` 的 `mode:"api"` 参数；`internal/core/scanner/api/api_scanner.go` 骨架落地（`Name`/`Run`），Factory/RunnerManager/CLI (`scan api`)/`options`/`task_to_core.go` 六件套接入完成，`Run()` 现阶段直接返回空结果，真正的 JS 接口提取逻辑留给后续独立实施。
-    - [x] **架构试探与回退**：曾尝试把 `WebScanner` 的 `crawler` 模块下沉为 `internal/core/lib/crawler` 通用模块，供 `WebScanner`/`ApiScanner` 共享调用；验证后判定此路不通（无法在"统一收口"与"满足各扫描器差异化需求"之间兼得），已完整回退——`crawler` 迁回 `internal/core/scanner/web/crawler` 作为 `WebScanner` 私有实现，`ApiScanner` 保留骨架但不再依赖 `crawler`/`browser`/`qos`，后续能力在自己目录下独立实现。
-    - [x] **正式确立"原子扫描器隔离原则"**：各原子扫描器功能自成一体、不共享内部实现模块，写入 [`docs/00.原子扫描器开发指南[定稿].md`](./00.原子扫描器开发指南[定稿].md) 第 0.1 节，作为长期铁律。曾经的方案/实施文档（`web扫描模块重构文档.md`/`web扫描模块重构实施文档.md`/`Web-JS接口提取方案.md`/`Web-JS接口提取实施文档.md`）已归档至 `neoAgent/drop/`。
+- [x] **5.1.2 API 扫描（`ApiScanner` 完整实现）与原子扫描器隔离原则确立**（Phase 5.1 之后的独立任务，2026-08-07 起步骤1-14全部完成，端到端验收通过）：**状态**: 🟢 **已完成（14/14 步）**
+    - [x] `model.TaskTypeApiScan`（`"api_scan"`）新增，与 `TaskTypeWebScan` 平级，Factory/RunnerManager/CLI (`scan api`)/`options`/`task_to_core.go` 六件套接入完成。
+    - [x] **架构试探与回退**：曾尝试把 `WebScanner` 的 `crawler` 模块下沉为 `internal/core/lib/crawler` 通用模块；验证后判定此路不通，已完整回退，`crawler` 迁回 `internal/core/scanner/web/crawler` 作为 `WebScanner` 私有实现，正式确立"原子扫描器隔离原则"。
+    - [x] **功能实现（14 步全部完成）**：`extract.go`（三层置信度正则提取）+ `filter.go`（清洗/黑名单/去重）+ `fetch.go`（`normalizeTarget` + go-rod 单页抓取，含 Windows 系统 Chrome CDP target 兼容性修复）+ `bfs.go`（独立 BFS 队列 `apiCrawler`）+ `api_scanner.go`（`Run()` 完整编排逻辑）。
+    - [x] **端到端验收**（步骤 14）：`api_scanner_e2e_test.go` 覆盖 A/B/C/D/E 五个用例（单页高置信度提取/BFS 深度爬取/JS 超限截断/跨域隔离/不可达目标），全量 25 个测试 PASS，`go vet` 无告警，详见 [`docs/API扫描-js提取/API扫描实施文档.md`](./API扫描-js提取/API扫描实施文档.md)。
 - [ ] **5.2 漏洞扫描原子能力落地 (Vuln Scanner)**:
     - [ ] 封装 Nuclei 执行引擎 (`internal/core/scanner/vuln`)。
     - [ ] 根据 WebScanner 识别出的技术栈动态过滤 Nuclei 模板。

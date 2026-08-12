@@ -77,15 +77,14 @@ func fetchPage(ctx context.Context, launcher *browser.BrowserLauncher, pageURL s
 		return nil, err
 	}
 
-	page, err := launcher.OpenPage(ctx, br, "")
+	// 直接把 pageURL 传给 OpenPage，避免"先创建 about:blank 再 Navigate"在
+	// Windows 系统 Chrome 上导致的 CDP target 丢失问题。
+	page, err := launcher.OpenPage(ctx, br, pageURL)
 	if err != nil {
 		return nil, err
 	}
 	defer page.Close()
 
-	if err := page.Navigate(pageURL); err != nil {
-		return nil, err
-	}
 	waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	if err := page.Context(waitCtx).WaitLoad(); err != nil {

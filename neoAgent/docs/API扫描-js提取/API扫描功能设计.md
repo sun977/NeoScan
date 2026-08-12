@@ -65,7 +65,7 @@
 ```
 ApiScanner.Run(ctx, task)
     │
-    ├─ 1. ensureInit()：懒加载自己独立的 browser/limiter 实例
+    ├─ 1. NewApiScanner() 时已初始化自己独立的 browser/limiter 实例
     │       （复用 lib/browser、lib/network/qos 公共基础设施，
     │        实例与 WebScanner 完全独立，互不共享运行时状态）
     │
@@ -143,15 +143,15 @@ internal/core/scanner/api/
 | 输入形态 | 示例 | `Ports` 是否生效 | 处理方式 |
 |---|---|---|---|
 | 完整 URL（含 scheme，可带可不带端口） | `https://example.com`、`http://example.com:8080` | 否，忽略 | 直接使用，不做任何拼接——URL 本身没端口不代表"缺参数"，缺省端口是 HTTP 协议的正常语义（`https`→443，`http`→80），不需要 `Ports` 补全 |
-| 裸 IP/域名（无 scheme） | `example.com`、`192.168.1.1` | 是 | 遍历 `Ports` 逐个拼出候选 URL 探测（标准端口 80/443 不显式拼进 URL，非标准端口才拼，如 `example.com:8080`），协议按端口猜测（443 类→https，其余默认 http） |
+| 裸 IP/域名（无 scheme） | `example.com`、`192.168.1.1` | 是 | 取 `Ports` 第一个端口拼出起始 URL（标准端口 80/443 不显式拼进 URL，非标准端口才拼，如 `example.com:8080`），协议按端口猜测（443 类→https，其余默认 http）。ApiScan 只需要一个入口 URL 开始 BFS，不像 WebScanner 需要对每个端口独立探测 |
 
-判断逻辑与 `WebScanner` 的 `normalizeURL`（`scanner/web/web_scanner.go`）保持一致（"URL 优先、`Ports` 兜底"），但**不 import 该函数**，遵循第二节的原子隔离原则，在 `scanner/api/fetch.go` 内独立实现一份等价逻辑：
+判断逻辑与 `WebScanner` 的 `normalizeURL`（`scanner/web/web_scanner.go`）行为等价但实现简化（"URL 优先、`Ports` 取第一个端口而非遍历"），且**不 import 该函数**，遵循第二节的原子隔离原则，在 `scanner/api/fetch.go` 内独立实现一份：
 
 ```go
 if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
     // Target 已是完整网址，Ports 参数不生效，直接使用（无端口也合法）
 } else {
-    // Target 是裸 IP/域名，按 Ports 逐个拼出候选 URL 尝试连接
+    // Target 是裸 IP/域名，取 Ports 第一个端口拼出起始 URL
 }
 ```
 

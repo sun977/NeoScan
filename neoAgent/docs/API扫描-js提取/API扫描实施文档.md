@@ -33,7 +33,7 @@
 | 6 | `internal/core/scanner/api/filter_test.go` | 新增 | 步骤 5 单元测试 |
 | 7 | `internal/core/scanner/api/fetch.go` | 新增 | `normalizeTarget`（URL/Ports 判断）+ go-rod 单页抓取 `fetchPage` |
 | 8 | `internal/core/scanner/api/fetch_test.go` | 新增 | 步骤 7 单元测试（`normalizeTarget` 部分，`fetchPage` 留到端到端验收） |
-| 9 | `internal/core/scanner/api/bfs.go` | 新增 | 独立 BFS 队列 `Crawler`/`Crawl` |
+| 9 | `internal/core/scanner/api/bfs.go` | 新增 | 独立 BFS 队列 `apiCrawler`/`crawl` |
 | 10 | `internal/core/scanner/api/bfs_test.go` | 新增 | 步骤 9 单元测试 |
 | 11 | `internal/core/scanner/api/api_scanner.go` | 修改 | 补充真实字段与 `Run()` 编排逻辑 |
 | 12 | `internal/core/scanner/api/api_scanner_test.go` | 修改 | 更新骨架测试断言，新增编排逻辑测试 |
@@ -154,6 +154,8 @@ func (o *ApiScanOptions) ToTask() *model.Task {
 
 `CrawlDepth`/`MaxJSFiles` 默认值分别为 2、20——按方案文档第十一节，`CrawlDepth` 默认值本应留到实施阶段结合真实站点测试确定；本步骤先沿用 `WebScanner` 现有默认值 2 让代码可编译可跑通，步骤 14 端到端验收环节用真实站点测试后如需调整，直接改这一处默认值，不影响其它步骤。
 
+> **清理骨架注释**：当前 `scan_api.go` 骨架版本里有指向旧文档（`Web-JS接口提取实施文档.md` 等已归档/不存在的引用）的注释，整体重写时一并清理——新文件的注释只指向 `API扫描功能设计.md` 第五节，不再保留任何失效引用。
+
 ### 3.3 验收标准
 
 - `go build ./internal/core/options/...` 通过。
@@ -174,6 +176,7 @@ package api
 
 import (
 	"regexp"
+	"strings"
 )
 
 // candidate 是提取阶段的中间产物，尚未经过 filterAPICandidates 清洗。
@@ -183,6 +186,7 @@ import (
 type candidate struct {
 	URL        string
 	Method     string
+	Source     string // 来源：inline 或外链 JS 的绝对 URL，由编排层逐条赋值
 	Confidence string
 }
 
@@ -261,8 +265,6 @@ func extractLowConfidence(text string) []candidate {
 	return out
 }
 ```
-
-> 注意：`extractHighConfidence` 用到 `strings.ToUpper`，需要在 import 里加 `"strings"`。
 
 ### 4.2 验收标准
 
@@ -396,7 +398,7 @@ var blacklistPattern = regexp.MustCompile(
 // filterAPICandidates 对 extractAPICandidates 的产出做统一清洗，返回值
 // 已经是去重后的最终结果，调用方（fetch.go/bfs.go 的编排逻辑）拿到之后
 // 直接转换成 []model.APIInfo，不需要再做任何二次处理。
-func filterAPICandidates(candidates []candidate, source string) []candidate {
+func filterAPICandidates(candidates []candidate) []candidate {
 	seen := make(map[string]bool, len(candidates))
 	var out []candidate
 
@@ -418,7 +420,6 @@ func filterAPICandidates(candidates []candidate, source string) []candidate {
 		}
 		seen[key] = true
 
-		c.URL = source // 占位，见下方说明
 		out = append(out, c)
 	}
 	return out
@@ -434,8 +435,6 @@ func cleanURL(raw string) string {
 	return s
 }
 ```
-
-> **实现时需要修正的一处占位**：上面 `c.URL = source` 是错误示意，正式实现时 `candidate` 需要新增 `Source` 字段（第 4 节 `extract.go` 补一个 `Source string` 字段，由调用方在 `extractAPICandidates` 或更外层统一赋值），`filterAPICandidates` 这里应该是 `c.Source = source`。编码阶段务必对照本节意图修正，不要照抄出现字段名错误的代码。写清楚这一点是因为"提取阶段不关心 Source，编排阶段统一打标"和"提取阶段直接打标"两种设计都合理，具体选择在步骤 11 编排代码里体现，此处不强行锁死。
 
 ### 6.2 验收标准
 
@@ -460,7 +459,7 @@ func TestFilterAPICandidates(t *testing.T) {
 		{URL: "  /api/order/list  ", Confidence: "low"}, // 前后空白，应被清洗
 	}
 
-	got := filterAPICandidates(input, "inline")
+	got := filterAPICandidates(input)
 
 	if len(got) != 2 {
 		t.Fatalf("expected 2 candidates after filter, got %d: %+v", len(got), got)
@@ -481,7 +480,7 @@ func TestFilterAPICandidates_StaticResourceSuffix(t *testing.T) {
 		{URL: "/assets/logo.png"},
 		{URL: "/api/real/endpoint"},
 	}
-	got := filterAPICandidates(input, "inline")
+	got := filterAPICandidates(input)
 	if len(got) != 1 || got[0].URL != "/api/real/endpoint" {
 		t.Fatalf("expected only /api/real/endpoint to survive, got %+v", got)
 	}
@@ -521,9 +520,9 @@ import (
 )
 
 // normalizeTarget 把 Target/Ports 换算成一个可以直接发起抓取的起始 URL。
-// 逻辑与 WebScanner 的 normalizeURL（scanner/web/web_scanner.go）保持一致
-// （"URL 优先、Ports 兜底"），但物理独立实现，不 import 该函数——
-// 见 API扫描功能设计.md 5.1 节。
+// 逻辑与 WebScanner 的 normalizeURL（scanner/web/web_scanner.go）行为等价
+// 但实现简化（"URL 优先、Ports 取第一个端口而非遍历"），物理独立实现，
+// 不 import 该函数——见 API扫描功能设计.md 5.1 节。
 func normalizeTarget(target string, ports string) string {
 	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
 		return target
@@ -572,8 +571,8 @@ type fetchedPage struct {
 }
 
 // fetchPage 用 go-rod 渲染单页，拿到 HTML/内联JS/外链JS 三种文本来源。
-// browserLauncher 由调用方（ApiScanner.ensureInit）持有的独立实例传入，
-// 不与 WebScanner 共享运行时状态。
+// browserLauncher 由调用方（ApiScanner，在 NewApiScanner 时已初始化）
+// 传入独立实例，不与 WebScanner 共享运行时状态。
 func fetchPage(ctx context.Context, launcher *browser.BrowserLauncher, pageURL string, maxJSFiles int) (*fetchedPage, error) {
 	br, err := launcher.Launch(ctx)
 	if err != nil {
@@ -850,7 +849,8 @@ type apiCrawler struct {
 }
 
 // newAPICrawler 创建一个 apiCrawler 实例。launcher/limiter 必须由调用方
-// （ApiScanner.ensureInit）传入已存在的实例，不允许传 nil。
+// （ApiScanner，在 NewApiScanner 时已初始化）传入已存在的实例。单元测试
+// 里只测 enqueue/normalizeKey 等纯逻辑、不调用 fetchPage，允许传 nil。
 func newAPICrawler(launcher *browser.BrowserLauncher, limiter *qos.AdaptiveLimiter, maxDepth, maxJSFiles int) *apiCrawler {
 	if maxDepth <= 0 {
 		maxDepth = 2
@@ -926,7 +926,7 @@ func (c *apiCrawler) process(ctx context.Context, it *crawlItem) {
 		}
 		allCandidates = append(allCandidates, found...)
 	}
-	filtered := filterAPICandidates(allCandidates, "")
+	filtered := filterAPICandidates(allCandidates)
 
 	c.outcomesMu.Lock()
 	c.outcomes = append(c.outcomes, pageOutcome{
@@ -969,6 +969,9 @@ func (c *apiCrawler) enqueue(raw string, depth int) {
 	select {
 	case c.queue <- &crawlItem{URL: key, Depth: depth}:
 	default:
+		// channel 满载（256），说明消费速度跟不上入队速度——
+		// 丢弃这个 item 并回退 pending 计数，比阻塞入队更安全，
+		// 丢的页面不是大问题，BFS 本身是"尽力覆盖"语义。
 		c.taskDone()
 	}
 }
@@ -1009,8 +1012,6 @@ func normalizeKey(raw string) string {
 	return u.String()
 }
 ```
-
-> **`filterAPICandidates(allCandidates, "")` 的第二参数说明**：结合步骤 6 末尾的说明，`Source` 字段已经在 `process` 里逐条打标（`found[i].Source = src.From`），`filterAPICandidates` 不需要再接收一个全局 `source` 参数统一赋值。编码时请同步把步骤 5/6 的 `filterAPICandidates` 签名改为 `filterAPICandidates(candidates []candidate) []candidate`（去掉 `source` 参数，`candidate` 结构体保留每条各自的 `Source` 字段），本节和第六节的示例代码存在这一处需要对齐的接口设计选择，实现时以"`Source` 逐条携带、`filterAPICandidates` 不做全局覆盖"为准——这样一个页面里既有 inline 命中也有外链 JS 命中时，两者的 `Source` 才能各自正确保留，不会被互相覆盖。
 
 ### 10.2 验收标准
 
@@ -1076,11 +1077,13 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"neoagent/internal/core/lib/browser"
 	"neoagent/internal/core/lib/network/qos"
 	"neoagent/internal/core/model"
+	"neoagent/internal/pkg/logger"
 )
 
 // ApiScanner 是独立于 WebScanner 的原子扫描器，与 WebScanner 平级，各自
@@ -1106,7 +1109,14 @@ func (s *ApiScanner) Name() model.TaskType {
 
 // Run 执行 API 扫描任务：Target/Ports 换算起始 URL -> BFS 深度爬取
 // （默认总是开启）-> 每页产出 model.ApiResult。
-func (s *ApiScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error) {
+func (s *ApiScanner) Run(ctx context.Context, task *model.Task) (results []*model.TaskResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("ApiScanner panic recovered: %v", r)
+			logger.Errorf("[ApiScanner] panic recovered: %v", r)
+		}
+	}()
+
 	startURL := normalizeTarget(task.Target, task.PortRange)
 
 	crawlDepth := 2
@@ -1142,7 +1152,7 @@ func (s *ApiScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 			CompletedAt: time.Now(),
 		})
 	}
-	return results, nil
+	return nil
 }
 ```
 
@@ -1151,6 +1161,7 @@ func (s *ApiScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 ### 12.2 验收标准
 
 - `go build ./internal/core/scanner/api/...` 通过。
+- `go build ./internal/core/factory/...` 通过——确认 `api_factory.go` 现有代码里 `NewApiScanner()` 构造调用与本步骤的 `NewApiScanner()` 签名一致（无参数构造），如果 `api_factory.go` 里有指向旧骨架版本或失效文档引用的注释，一并更新为指向本文档第十二节。
 - 见步骤 12 单元测试。
 
 ---
@@ -1163,6 +1174,7 @@ func (s *ApiScanner) Run(ctx context.Context, task *model.Task) ([]*model.TaskRe
 package api
 
 import (
+	"context"
 	"testing"
 
 	"neoagent/internal/core/model"
@@ -1196,8 +1208,6 @@ func TestApiScanner_Run_DoesNotPanicOnUnreachableTarget(t *testing.T) {
 	}
 }
 ```
-
-> 需要在 import 里加 `"context"`。
 
 ### 13.1 验收标准
 

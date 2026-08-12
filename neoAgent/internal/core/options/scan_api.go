@@ -7,23 +7,22 @@ import (
 	"neoagent/internal/core/model"
 )
 
-// ApiScanOptions 骨架版本：只包含抓取相关的参数（Target/Ports/Crawl/CrawlDepth），
-// 与 WebScanOptions 的对应字段语义完全一致，直接照搬，不重新设计。
-// MaxFiles（单页最多下载的外链 JS 文件数）由 Web-JS接口提取实施文档.md
-// 第二节追加，本步骤不包含。
+// ApiScanOptions 是 ApiScan 任务的 CLI 参数集合。不含 Crawl 三态开关——
+// ApiScan 的深度爬取不是可选项，是这个扫描器存在的核心意义，见
+// docs/API扫描-js提取/API扫描功能设计.md 第五节。
 type ApiScanOptions struct {
 	Target     string
 	Ports      string
-	Crawl      string // "auto"(默认) / "true" / "false"，语义与 WebScanOptions.Crawl 一致
 	CrawlDepth int
+	MaxJSFiles int
 	Output     OutputOptions
 }
 
 func NewApiScanOptions() *ApiScanOptions {
 	return &ApiScanOptions{
 		Ports:      "80,443",
-		Crawl:      "auto",
 		CrawlDepth: 2,
+		MaxJSFiles: 20,
 	}
 }
 
@@ -39,14 +38,11 @@ func (o *ApiScanOptions) ToTask() *model.Task {
 	task.PortRange = o.Ports
 	task.Timeout = 30 * time.Minute
 
-	switch o.Crawl {
-	case "true":
-		task.Params["crawl"] = true
-	case "false":
-		task.Params["crawl"] = false
-	}
 	if o.CrawlDepth > 0 {
 		task.Params["crawl_depth"] = o.CrawlDepth
+	}
+	if o.MaxJSFiles > 0 {
+		task.Params["max_js_files"] = o.MaxJSFiles
 	}
 
 	o.Output.ApplyToParams(task.Params)

@@ -162,6 +162,54 @@ type ApiResult struct {
 	APIsTruncated bool      `json:"apis_truncated,omitempty"` // 本页引用的外链 JS 文件数超过 MaxJSFiles 被截断
 }
 
+// Headers 实现 TabularData 接口。
+// 每行展示一个 APIInfo，列：页面 URL（截断）、深度、接口 URL、Method、置信度、来源（截断）。
+func (r ApiResult) Headers() []string {
+	return []string{"Page", "Depth", "API URL", "Method", "Confidence", "Source"}
+}
+
+// Rows 实现 TabularData 接口。
+// 每个 APIInfo 对应一行；页面没有接口时输出一行占位（便于定位爬取覆盖范围）。
+func (r ApiResult) Rows() [][]string {
+	// 页面 URL 截断显示（避免过长撑破表格）
+	pageURL := r.URL
+	if len(pageURL) > 50 {
+		pageURL = pageURL[:47] + "..."
+	}
+
+	depth := fmt.Sprintf("%d", r.Depth)
+
+	if len(r.APIs) == 0 {
+		// 无接口：占位一行，方便看出该页面被爬到但没有提取到接口
+		return [][]string{{pageURL, depth, "(none)", "", "", ""}}
+	}
+
+	truncNote := ""
+	if r.APIsTruncated {
+		truncNote = " [truncated]"
+	}
+
+	var rows [][]string
+	for _, api := range r.APIs {
+		source := api.Source
+		if len(source) > 40 {
+			source = source[:37] + "..."
+		}
+		apiURL := api.URL
+		if len(apiURL) > 60 {
+			apiURL = apiURL[:57] + "..."
+		}
+		// 只在最后一行的 source 列追加截断标注，让用户知道提取可能不完整
+		src := source + truncNote
+		truncNote = "" // 只标注一次
+		rows = append(rows, []string{pageURL, depth, apiURL, api.Method, api.Confidence, src})
+		// 后续行的 Page/Depth 留空（同一页面连续行，避免重复）
+		pageURL = ""
+		depth = ""
+	}
+	return rows
+}
+
 // EdgeComponent 描述命中的一个边缘网络组件（CDN/WAF/反 DDoS 等）。
 // 一个 WebResult 可以同时命中多个（如 Cloudflare 常见 CDN+WAF 二合一），
 // 因此 WebResult 里用切片承载，不用一个组件类型对应一对标量字段。

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"neoagent/internal/core/model"
 	"neoagent/internal/core/options"
 	"neoagent/internal/core/reporter"
 	"neoagent/internal/core/runner"
@@ -42,6 +43,10 @@ func NewApiScanCmd() *cobra.Command {
 				return fmt.Errorf("scan failed: %w", err)
 			}
 
+			// 打印汇总统计行
+			printApiScanSummary(results)
+
+			// 表格输出（通过 TabularData 接口）
 			console := reporter.NewConsoleReporter()
 			console.PrintResults(results)
 
@@ -65,4 +70,45 @@ func NewApiScanCmd() *cobra.Command {
 
 	cmd.MarkFlagRequired("target")
 	return cmd
+}
+
+// printApiScanSummary 在表格前打印一行扫描汇总信息：
+// 爬取页面数、提取接口总数（按置信度分层统计）、是否有截断。
+func printApiScanSummary(results []*model.TaskResult) {
+	if len(results) == 0 {
+		return
+	}
+
+	var pages, totalAPIs, highCount, medCount, lowCount int
+	var hasTruncated bool
+
+	for _, r := range results {
+		ar, ok := r.Result.(*model.ApiResult)
+		if !ok {
+			continue
+		}
+		pages++
+		for _, api := range ar.APIs {
+			totalAPIs++
+			switch api.Confidence {
+			case "high":
+				highCount++
+			case "medium":
+				medCount++
+			case "low":
+				lowCount++
+			}
+		}
+		if ar.APIsTruncated {
+			hasTruncated = true
+		}
+	}
+
+	truncStr := ""
+	if hasTruncated {
+		truncStr = " [some pages truncated, increase --max-js-files to scan more]"
+	}
+
+	fmt.Printf("[+] API Scan done: %d pages crawled, %d APIs found (high=%d medium=%d low=%d)%s\n",
+		pages, totalAPIs, highCount, medCount, lowCount, truncStr)
 }

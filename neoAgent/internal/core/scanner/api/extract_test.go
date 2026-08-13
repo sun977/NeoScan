@@ -90,3 +90,96 @@ func TestExtractHighConfidence_MethodCapture(t *testing.T) {
 		t.Fatalf("expected Method=DELETE, got %+v", got)
 	}
 }
+
+func TestExtractHighConfidence_MultiMatch(t *testing.T) {
+	got := extractHighConfidence(`fetch('/api/a'); axios.post('/api/b'); $.ajax({url: '/api/c'})`)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 matches, got %d", len(got))
+	}
+	// Verify all have high confidence and no method (except axios which should have POST)
+	for i, tc := range []struct {
+		url    string
+		method string
+	}{
+		{"/api/a", ""},
+		{"/api/b", "POST"},
+		{"/api/c", ""},
+	} {
+		if got[i].URL != tc.url {
+			t.Errorf("[%d] expected URL %q, got %q", i, tc.url, got[i].URL)
+		}
+		if got[i].Method != tc.method {
+			t.Errorf("[%d] expected Method %q, got %q", i, tc.method, got[i].Method)
+		}
+	}
+}
+
+func TestExtractHighConfidence_Empty(t *testing.T) {
+	got := extractHighConfidence(`no api calls here`)
+	if len(got) != 0 {
+		t.Fatalf("expected 0 matches, got %d: %+v", len(got), got)
+	}
+}
+
+func TestExtractMediumConfidence(t *testing.T) {
+	t.Run("pattern nil returns nil", func(t *testing.T) {
+		got := extractMediumConfidence(`https://example.com/api/test`, nil)
+		if got != nil {
+			t.Fatalf("expected nil, got %+v", got)
+		}
+	})
+
+	t.Run("matches same-domain URL", func(t *testing.T) {
+		pattern := regexp.MustCompile(`https?://` + regexp.QuoteMeta("example.com") + `[a-zA-Z0-9_\-/?&=.%]*`)
+		got := extractMediumConfidence(`var base = "https://example.com/api/v2/data";`, pattern)
+		if len(got) != 1 || got[0].URL != "https://example.com/api/v2/data" || got[0].Confidence != "medium" {
+			t.Fatalf("unexpected result: %+v", got)
+		}
+	})
+
+	t.Run("no match for different domain", func(t *testing.T) {
+		pattern := regexp.MustCompile(`https?://` + regexp.QuoteMeta("example.com") + `[a-zA-Z0-9_\-/?&=.%]*`)
+		got := extractMediumConfidence(`var cdn = "https://cdn.other.com/lib.js";`, pattern)
+		if len(got) != 0 {
+			t.Fatalf("expected 0 matches, got %d: %+v", len(got), got)
+		}
+	})
+}
+
+func TestExtractLowConfidence(t *testing.T) {
+	t.Run("matches valid path", func(t *testing.T) {
+		got := extractLowConfidence(`"path": "/api/users/123"`)
+		if len(got) != 1 || got[0].URL != "/api/users/123" || got[0].Confidence != "low" {
+			t.Fatalf("unexpected result: %+v", got)
+		}
+	})
+
+	t.Run("no match for invalid path format", func(t *testing.T) {
+		// Must have at least two path segments starting with /
+		got := extractLowConfidence(`"x": "/single"`)
+		if len(got) != 0 {
+			t.Fatalf("expected 0 matches, got %d: %+v", len(got), got)
+		}
+	})
+}
+
+func TestExtractAPICandidates_EmptyInput(t *testing.T) {
+	got := extractAPICandidates("", nil)
+	if len(got) != 0 {
+		t.Fatalf("expected empty slice, got %+v", got)
+	}
+}
+
+func TestExtractAPICandidates_MediumPatternNil(t *testing.T) {
+	got := extractAPICandidates(`fetch('/api/test')`, nil)
+	// mediumPattern nil 时跳过中置信度，但 high + low 仍会命中
+	if len(got) != 2 {
+		t.Fatalf("expected 2 matches (high + low), got %d", len(got))
+	}
+	// 确保没有 medium 置信度命中
+	for _, c := range got {
+		if c.Confidence == "medium" {
+			t.Errorf("unexpected medium confidence candidate: %+v", c)
+		}
+	}
+}

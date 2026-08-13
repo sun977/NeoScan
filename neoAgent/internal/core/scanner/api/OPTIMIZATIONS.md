@@ -1,68 +1,11 @@
 # ApiScanner 优化建议
 
 本文档记录当前代码中**尚未解决**的优化点，每条附有具体代码位置和解决方案。
-已修复的历史问题（问题一～六）已从本文档移除。
+已修复的历史问题（问题一～七）已从本文档移除。
 
 ---
 
-## 建议一（🟡 中）：`extractMediumConfidence` 每次调用重新编译正则，有真实性能代价
-
-### 代码位置
-
-`extract.go:76`
-
-```go
-func extractMediumConfidence(text string, pageHost string) []candidate {
-    if pageHost == "" {
-        return nil
-    }
-    // ↓ 每次调用都 MustCompile，pageHost 不同时 Go 内部缓存命中率为 0
-    pattern := regexp.MustCompile(`https?://` + regexp.QuoteMeta(pageHost) + `[a-zA-Z0-9_\-/?&=.%]*`)
-    // ...
-}
-```
-
-### 技术根因
-
-`regexp.MustCompile` 在 Go 标准库里没有全局编译缓存（`regexp` 包的缓存只在 `regexp.Compile` 同一字符串时复用，而这里每次拼接的字符串理论上相同但来自不同调用栈，无法保证命中）。一次完整爬取（200 页 × 每页若干 JS 文件），`extractMediumConfidence` 会被调用数百次，每次都重新编译同一个正则。
-
-### 实际影响
-
-正则编译本身并不是零成本操作（需要构建 NFA/DFA），对页数多的任务有可量化的 CPU 消耗浪费。实测在 200 页任务上这部分约占总 CPU 时间的 3-8%。
-
-### 解决方案
-
-在 `apiCrawler` 结构体里增加 `mediumPattern *regexp.Regexp` 字段，在 `newAPICrawler` 之后、`crawl()` 开始前根据 `seedHost` 编译一次，传入 `extractMediumConfidence`：
-
-```go
-// bfs.go：apiCrawler 增加字段
-type apiCrawler struct {
-    // ...
-    mediumPattern *regexp.Regexp // 中置信度正则，按 seedHost 编译一次
-}
-
-// crawl() 里编译
-func (c *apiCrawler) crawl(ctx context.Context, seedURL string) []pageOutcome {
-    u, _ := url.Parse(seedURL)
-    c.seedHost = u.Host
-    c.mediumPattern = regexp.MustCompile(
-        `https?://` + regexp.QuoteMeta(c.seedHost) + `[a-zA-Z0-9_\-/?&=.%]*`,
-    )
-    // ...
-}
-
-// extract.go：extractMediumConfidence 改为接收预编译的正则
-func extractMediumConfidence(text string, pattern *regexp.Regexp) []candidate {
-    if pattern == nil {
-        return nil
-    }
-    // ...
-}
-```
-
----
-
-## 建议二（🟢 能力边界）：三类 API 调用形态当前无法提取
+## 建议一（🟢 可选）：三类 API 调用形态当前无法提取
 
 ### 说明
 
@@ -127,8 +70,7 @@ regexp.MustCompile(`new\s+WebSocket\(['"]([^'"]+)['"]`)
 
 | 优先级 | 编号 | 问题 | 代价 |
 |--------|------|------|------|
-| 🟡 建议 | 一 | `extractMediumConfidence` 重复编译正则 | 改动 3 个文件，约 20 行 |
-| 🟢 可选 | 二 | 跨域/GraphQL/WebSocket 提取能力扩展 | 按需单独实现，互相独立 |
+|  可选 | 一 | 跨域/GraphQL/WebSocket 提取能力扩展 | 按需单独实现，互相独立 |
 
 ---
 

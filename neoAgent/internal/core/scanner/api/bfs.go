@@ -33,11 +33,12 @@ type pageOutcome struct {
 // apiCrawler 单次爬取任务的执行器，一次 newAPICrawler 对应一次 crawl 调用，
 // 不可跨任务复用状态，与 web/crawler.Crawler 的生命周期约定一致。
 type apiCrawler struct {
-	launcher   *browser.BrowserLauncher
-	limiter    *qos.AdaptiveLimiter
-	maxDepth   int
-	maxJSFiles int
-	seedHost   string
+	launcher    *browser.BrowserLauncher
+	limiter     *qos.AdaptiveLimiter
+	maxDepth    int
+	maxJSFiles  int
+	concurrency int // BFS worker 数，通过 task.Params["concurrency"] 传入，默认 5
+	seedHost    string
 
 	mu      sync.Mutex
 	visited map[string]struct{}
@@ -59,17 +60,21 @@ type apiCrawler struct {
 // newAPICrawler 创建一个 apiCrawler 实例。launcher/limiter 必须由调用方
 // （ApiScanner，在 NewApiScanner 时已初始化）传入已存在的实例。单元测试
 // 里只测 enqueue/normalizeKey 等纯逻辑、不调用 fetchPage，允许传 nil。
-func newAPICrawler(launcher *browser.BrowserLauncher, limiter *qos.AdaptiveLimiter, maxDepth, maxJSFiles int) *apiCrawler {
+func newAPICrawler(launcher *browser.BrowserLauncher, limiter *qos.AdaptiveLimiter, maxDepth, maxJSFiles, concurrency int) *apiCrawler {
 	if maxDepth <= 0 {
 		maxDepth = 2
 	}
+	if concurrency <= 0 || concurrency > 20 {
+		concurrency = 5
+	}
 	return &apiCrawler{
-		launcher:   launcher,
-		limiter:    limiter,
-		maxDepth:   maxDepth,
-		maxJSFiles: maxJSFiles,
-		visited:    make(map[string]struct{}),
-		jsCache:    make(map[string][]candidate),
+		launcher:    launcher,
+		limiter:     limiter,
+		maxDepth:    maxDepth,
+		maxJSFiles:  maxJSFiles,
+		concurrency: concurrency,
+		visited:     make(map[string]struct{}),
+		jsCache:     make(map[string][]candidate),
 	}
 }
 
@@ -88,8 +93,7 @@ func (c *apiCrawler) crawl(ctx context.Context, seedURL string) []pageOutcome {
 	c.enqueue(seedURL, 0)
 
 	var wg sync.WaitGroup
-	const concurrency = 5
-	for i := 0; i < concurrency; i++ {
+	for i := 0; i < c.concurrency; i++ {
 		wg.Add(1)
 		go c.worker(ctx, &wg)
 	}

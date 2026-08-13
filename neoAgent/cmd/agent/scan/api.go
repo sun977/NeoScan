@@ -65,8 +65,9 @@ func NewApiScanCmd() *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVarP(&opts.Target, "target", "t", opts.Target, "目标 URL/IP")
 	flags.StringVarP(&opts.Ports, "ports", "p", opts.Ports, "端口范围")
-	flags.IntVar(&opts.CrawlDepth, "crawl-depth", opts.CrawlDepth, "深度爬取的层数（ApiScan 总是深度爬取，无需 --crawl 开关）")
-	flags.IntVar(&opts.MaxJSFiles, "max-js-files", opts.MaxJSFiles, "单页最多下载的外链 JS 文件数")
+	flags.IntVarP(&opts.CrawlDepth, "crawl-depth", "d", opts.CrawlDepth, "深度爬取的层数（ApiScan 总是深度爬取，无需 --crawl 开关）")
+	flags.IntVarP(&opts.MaxJSFiles, "max-js-files", "m", opts.MaxJSFiles, "单页最多下载的外链 JS 文件数")
+	flags.IntVarP(&opts.Concurrency, "concurrency", "c", opts.Concurrency, "BFS 并发 worker 数（1-20，默认 5；内网可调高，公网防封锁可调低）")
 
 	cmd.MarkFlagRequired("target")
 	return cmd

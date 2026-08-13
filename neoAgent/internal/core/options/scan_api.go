@@ -11,18 +11,20 @@ import (
 // ApiScan 的深度爬取不是可选项，是这个扫描器存在的核心意义，见
 // docs/API扫描-js提取/API扫描功能设计.md 第五节。
 type ApiScanOptions struct {
-	Target     string
-	Ports      string
-	CrawlDepth int
-	MaxJSFiles int
-	Output     OutputOptions
+	Target      string
+	Ports       string
+	CrawlDepth  int
+	MaxJSFiles  int
+	Concurrency int // BFS 并发 worker 数，0 表示使用默认值 5
+	Output      OutputOptions
 }
 
 func NewApiScanOptions() *ApiScanOptions {
 	return &ApiScanOptions{
-		Ports:      "80,443",
-		CrawlDepth: 2,
-		MaxJSFiles: 20,
+		Ports:       "80,443",
+		CrawlDepth:  2,
+		MaxJSFiles:  20,
+		Concurrency: 5,
 	}
 }
 
@@ -43,6 +45,9 @@ func (o *ApiScanOptions) ToTask() *model.Task {
 	}
 	if o.MaxJSFiles > 0 {
 		task.Params["max_js_files"] = o.MaxJSFiles
+	}
+	if o.Concurrency > 0 {
+		task.Params["concurrency"] = o.Concurrency
 	}
 
 	o.Output.ApplyToParams(task.Params)

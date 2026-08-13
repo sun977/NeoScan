@@ -20,7 +20,7 @@ func TestNormalizeKey_StripsFragment(t *testing.T) {
 func TestApiCrawler_Enqueue_DedupeAndScope(t *testing.T) {
 	// launcher/limiter 传 nil，单元测试只验证 enqueue 的去重和 Scope 逻辑，
 	// 不调用 fetchPage，不需要真实基础设施实例。
-	c := newAPICrawler(nil, nil, 2, 20)
+	c := newAPICrawler(nil, nil, 2, 20, 5)
 	c.seedHost = "example.com"
 	c.queue = make(chan *crawlItem, 10)
 

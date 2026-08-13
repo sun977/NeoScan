@@ -55,9 +55,13 @@ func (s *ApiScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	if v, ok := task.Params["max_js_files"].(int); ok && v > 0 {
 		maxJSFiles = v
 	}
+	concurrency := 5
+	if v, ok := task.Params["concurrency"].(int); ok && v > 0 && v <= 20 {
+		concurrency = v
+	}
 
 	startTime := time.Now()
-	crawler := newAPICrawler(s.browserLauncher, s.limiter, crawlDepth, maxJSFiles)
+	crawler := newAPICrawler(s.browserLauncher, s.limiter, crawlDepth, maxJSFiles, concurrency)
 	outcomes := crawler.crawl(ctx, startURL)
 	results = make([]*model.TaskResult, 0, len(outcomes))
 	for _, oc := range outcomes {

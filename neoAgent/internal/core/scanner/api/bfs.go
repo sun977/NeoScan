@@ -147,9 +147,19 @@ func (c *apiCrawler) process(ctx context.Context, it *crawlItem) {
 // enqueue 尝试将一个 URL 入队，内部完成去重、Scope 判断、MaxPages 硬上限判断。
 // MaxPages 固定 200，与 web/crawler 的默认值保持一致（方案文档第十一节：
 // 是否需要单独调优留到真实站点测试后再定，先复用已验证过的默认值）。
+//
+// 并发安全说明：
+// visited 的写入发生在 channel send 成功之后，而非之前。
+// 这样可以避免"URL 进了 visited 但未入队"的静默丢页 bug：
+// 若 channel 满导致 default 分支触发，visited 不写入，
+// 下次遇到同一 URL 仍可重试入队。
+// 代价是在 channel 满载的极小窗口内，同一 URL 可能被两个 goroutine
+// 同时通过预检并各自入队一次（重复处理一次），但这是幂等的（去重在
+// filterAPICandidates 和最终 seen map 层面保证），远优于静默丢页。
 func (c *apiCrawler) enqueue(raw string, depth int) {
 	key := normalizeKey(raw)
 
+	// 预检：去重 + Scope + MaxPages，不写 visited。
 	c.mu.Lock()
 	if _, exists := c.visited[key]; exists {
 		c.mu.Unlock()
@@ -163,16 +173,18 @@ func (c *apiCrawler) enqueue(raw string, depth int) {
 		c.mu.Unlock()
 		return
 	}
-	c.visited[key] = struct{}{}
 	c.mu.Unlock()
 
 	atomic.AddInt32(&c.pending, 1)
 	select {
 	case c.queue <- &crawlItem{URL: key, Depth: depth}:
+		// 入队成功，现在才写 visited——确保"已占位"与"实际入队"同步。
+		c.mu.Lock()
+		c.visited[key] = struct{}{}
+		c.mu.Unlock()
 	default:
-		// channel 满载（256），说明消费速度跟不上入队速度——
-		// 丢弃这个 item 并回退 pending 计数，比阻塞入队更安全，
-		// 丢的页面不是大问题，BFS 本身是"尽力覆盖"语义。
+		// channel 满载，入队失败，visited 不写，pending 回退。
+		// 下次遇到同一 URL 时预检仍可通过，有机会重试入队。
 		c.taskDone()
 	}
 }

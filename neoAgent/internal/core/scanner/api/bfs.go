@@ -12,6 +12,7 @@ import (
 
 	"neoagent/internal/core/lib/browser"
 	"neoagent/internal/core/lib/network/qos"
+	"neoagent/internal/pkg/logger"
 )
 
 // crawlItem 是 BFS 队列内部元素，不对外暴露。
@@ -41,6 +42,12 @@ type apiCrawler struct {
 	mu      sync.Mutex
 	visited map[string]struct{}
 
+	// jsCache 是跨页面的外链 JS 文件缓存：JS URL → 已提取的 candidate 列表。
+	// 同一个 JS bundle 在多个子页面被引用时，只下载和提取一次，后续直接复用。
+	// 需通过 jsCacheMu 保护并发访问。
+	jsCacheMu sync.Mutex
+	jsCache   map[string][]candidate
+
 	outcomesMu sync.Mutex
 	outcomes   []pageOutcome
 
@@ -62,6 +69,7 @@ func newAPICrawler(launcher *browser.BrowserLauncher, limiter *qos.AdaptiveLimit
 		maxDepth:   maxDepth,
 		maxJSFiles: maxJSFiles,
 		visited:    make(map[string]struct{}),
+		jsCache:    make(map[string][]candidate),
 	}
 }
 
@@ -120,12 +128,17 @@ func (c *apiCrawler) process(ctx context.Context, it *crawlItem) {
 	}
 
 	var allCandidates []candidate
+	// 1. HTML body + 内联脚本：每页独立，直接提取
 	for _, src := range page.Sources {
 		found := extractAPICandidates(src.Text, pageHost)
 		for i := range found {
 			found[i].Source = src.From
 		}
 		allCandidates = append(allCandidates, found...)
+	}
+	// 2. 外链 JS 文件：查全局缓存，命中则复用，未命中则下载后写缓存
+	for _, jsURL := range page.JSFileURLs {
+		allCandidates = append(allCandidates, c.getOrFetchJS(ctx, jsURL, pageHost)...)
 	}
 	filtered := filterAPICandidates(allCandidates)
 
@@ -201,6 +214,52 @@ func (c *apiCrawler) inScope(rawURL string) bool {
 		return false
 	}
 	return u.Host == c.seedHost
+}
+
+// getOrFetchJS 查询 jsCache 是否已缓存 jsURL 对应的提取结果：
+//   - 命中：直接返回缓存的 candidate 列表，不发起任何网络请求
+//   - 未命中：下载 JS 文件、提取 candidates、写入缓存，再返回
+//
+// 并发安全：先加锁读缓存，未命中后释放锁再下载（下载是耗时 IO，不能持锁），
+// 下载完成后再次加锁写入。极端情况下同一 URL 可能被两个 goroutine 同时下载，
+// 但写入时用 alreadySet 检查避免覆盖，幂等无副作用。
+func (c *apiCrawler) getOrFetchJS(ctx context.Context, jsURL string, pageHost string) []candidate {
+	c.jsCacheMu.Lock()
+	cached, hit := c.jsCache[jsURL]
+	c.jsCacheMu.Unlock()
+	if hit {
+		return cached
+	}
+
+	// 缓存未命中，下载文件（锁外执行，不阻塞其他 goroutine）
+	text, err := downloadJSFile(ctx, jsURL)
+	if err != nil {
+		logger.Warnf("[ApiScanner] Failed to download JS file %s: %v", jsURL, err)
+		// 失败时写入空切片占位，避免同一 URL 被反复重试
+		c.jsCacheMu.Lock()
+		if _, alreadySet := c.jsCache[jsURL]; !alreadySet {
+			c.jsCache[jsURL] = nil
+		}
+		c.jsCacheMu.Unlock()
+		return nil
+	}
+
+	found := extractAPICandidates(text, pageHost)
+	for i := range found {
+		found[i].Source = jsURL
+	}
+
+	// 写缓存
+	c.jsCacheMu.Lock()
+	if _, alreadySet := c.jsCache[jsURL]; !alreadySet {
+		c.jsCache[jsURL] = found
+	} else {
+		// 另一个 goroutine 已写入，使用它的结果保持一致性
+		found = c.jsCache[jsURL]
+	}
+	c.jsCacheMu.Unlock()
+
+	return found
 }
 
 // normalizeKey 对齐 web/crawler.normalizeKey 的行为（去 Fragment、Query

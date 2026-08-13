@@ -97,37 +97,7 @@ func (c *apiCrawler) enqueue(raw string, depth int) {
 
 ---
 
-## 问题三（🟡 中）：`extractMediumConfidence` 每次调用都动态编译正则，性能损耗可量化
-
-### 代码位置
-
-`extract.go:76`
-
-```go
-func extractMediumConfidence(text string, pageHost string) []candidate {
-    if pageHost == "" { return nil }
-    pattern := regexp.MustCompile(`https?://` + regexp.QuoteMeta(pageHost) + `[a-zA-Z0-9_\-/?&=.%]*`)
-    // ...
-}
-```
-
-### 技术根因
-
-`extractMediumConfidence` 在 `bfs.go:124` 里通过 `extractAPICandidates` 被调用，每个 `jsSource` 调用一次。一次典型爬取的调用路径：
-
-- 每页抓取：1 个 HTML body + N 个内联脚本 + 最多 20 个外链 JS = 最多 22 次 Sources 循环
-- 每次循环调用 `extractAPICandidates`，内部调用 `extractMediumConfidence`
-- 爬取 200 页 × 22 次 = 4400 次 `regexp.MustCompile`
-
-Go 的 `regexp.Compile` 每次都构建完整的 NFA/DFA 状态机，耗时约 50-200μs。4400 次 = 约 200ms-880ms 纯编译开销。
-
-### 正确做法
-
-在 `bfs.go:process()` 开始时编译一次，将编译好的 `*regexp.Regexp` 传给 `extractAPICandidates`，或者在 `extractAPICandidates` 的签名中增加 `mediumPattern *regexp.Regexp` 参数。
-
----
-
-## 问题四（🟡 中）：跨页面不去重，同一 JS bundle 在多页被加载时产生大量重复 `APIInfo`
+## 问题三（🟡 中）：跨页面不去重，同一 JS bundle 在多页被加载时产生大量重复 `APIInfo`
 
 ### 代码位置
 
@@ -158,7 +128,7 @@ func filterAPICandidates(candidates []candidate) []candidate {
 
 ---
 
-## 问题五（🟡 中）：`api_scanner.go` 中 `startTime` 在 `crawl()` 返回后才赋值，语义错误
+## 问题四（🟡 中）：`api_scanner.go` 中 `startTime` 在 `crawl()` 返回后才赋值，语义错误
 
 ### 代码位置
 
@@ -192,7 +162,7 @@ func (s *ApiScanner) Run(ctx context.Context, task *model.Task) (...) {
 
 ---
 
-## 问题六（🟡 低）：`hasEnoughSegments` 内部有冗余的二层前缀循环
+## 问题五（🟡 低）：`hasEnoughSegments` 内部有冗余的二层前缀循环
 
 ### 代码位置
 
@@ -224,7 +194,7 @@ func hasEnoughSegments(rawURL string, minSegments int) bool {
 
 ---
 
-## 问题七（🟡 低）：`downloadJSFile` 使用 `http.DefaultClient`，无 UA 头，无 Cookie 传递
+## 问题六（🟡 低）：`downloadJSFile` 使用 `http.DefaultClient`，无 UA 头，无 Cookie 传递
 
 ### 代码位置
 
@@ -258,11 +228,10 @@ go-rod 启动浏览器时设置了自定义 User-Agent（`version.GetUserAgent()
 |--------|------|------|----------|
 | 🔴 必修 | 一 | `el.Text()` 对 `<script>` 返回空，内联脚本提取完全失效 | 高置信度结果大量丢失 |
 | 🔴 必修 | 二 | `enqueue` visited 与入队非原子，URL 静默丢失 | BFS 覆盖率不可预测 |
-| 🟡 建议 | 三 | medium 正则每次重编译 | 可量化性能损耗 |
-| 🟡 建议 | 四 | 跨页面不去重 | 输出数据膨胀/噪声 |
-| 🟡 建议 | 五 | `startTime` 语义错误 | 时间记录数据不准 |
-| 🟡 可选 | 六 | `hasEnoughSegments` 冗余循环 | 代码可读性 |
-| 🟡 可选 | 七 | `downloadJSFile` 用 DefaultClient | 对抗性站点兼容性 |
+| 🟡 建议 | 三 | 跨页面不去重，重复 HTTP 请求 + 输出膨胀 | 性能浪费 + 输出噪声 |
+| 🟡 建议 | 四 | `startTime` 语义错误 | 时间记录数据不准 |
+| 🟡 可选 | 五 | `hasEnoughSegments` 冗余循环 | 代码可读性 |
+| 🟡 可选 | 六 | `downloadJSFile` 用 DefaultClient | 对抗性站点兼容性 |
 
 ---
 

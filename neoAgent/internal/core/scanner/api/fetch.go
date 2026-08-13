@@ -59,13 +59,18 @@ type jsSource struct {
 	From string // "inline" 或外链 JS 的绝对 URL
 }
 
-// fetchedPage 是单页抓取的完整产出：渲染后的 HTML body + 所有待提取文本
-// （HTML 本身 + 内联 JS + 外链 JS），以及本页发现的导航链接（供 BFS 使用）。
+// fetchedPage 是单页抓取的完整产出：渲染后的 HTML body + 内联 JS 文本来源、
+// 本页发现的导航链接（供 BFS 使用）以及需要下载的外链 JS URL 列表。
+//
+// 注意：fetchPage 不再直接下载外链 JS 文件，而是将 JSFileURLs 返回给
+// process()，由 process() 负责查缓存/下载，从而避免同一 JS bundle 在多页
+// 被重复下载。fetchPage 只负责"渲染页面、提取文本和链接"。
 type fetchedPage struct {
-	URL       string
-	Sources   []jsSource
-	Links     []string
-	Truncated bool // 外链 JS 数量超过 maxJSFiles 被截断
+	URL        string
+	Sources    []jsSource // HTML body + 内联 <script> 文本（不含外链 JS）
+	JSFileURLs []string   // 外链 <script src> 的绝对 URL 列表（截断后），供 process() 按需下载
+	Links      []string
+	Truncated  bool // 外链 JS 数量超过 maxJSFiles 被截断
 }
 
 // fetchPage 用 go-rod 渲染单页，拿到 HTML/内联JS/外链JS 三种文本来源。
@@ -103,18 +108,13 @@ func fetchPage(ctx context.Context, launcher *browser.BrowserLauncher, pageURL s
 	links, jsFileURLs := extractLinksAndScriptSrcs(page, pageURL)
 	result.Links = links
 
+	// 截断后的 JS URL 列表交给 process() 处理（查缓存或下载），
+	// fetchPage 本身不再负责下载，职责更单一。
 	if len(jsFileURLs) > maxJSFiles {
 		result.Truncated = true
 		jsFileURLs = jsFileURLs[:maxJSFiles]
 	}
-	for _, jsURL := range jsFileURLs {
-		text, err := downloadJSFile(ctx, jsURL)
-		if err != nil {
-			logger.Warnf("[ApiScanner] Failed to download JS file %s: %v", jsURL, err)
-			continue
-		}
-		result.Sources = append(result.Sources, jsSource{Text: text, From: jsURL})
-	}
+	result.JSFileURLs = jsFileURLs
 
 	return result, nil
 }

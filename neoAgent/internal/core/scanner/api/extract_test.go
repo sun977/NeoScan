@@ -91,6 +91,24 @@ func TestExtractHighConfidence_MethodCapture(t *testing.T) {
 	}
 }
 
+func TestExtractHighConfidence_SSE_WebSocket(t *testing.T) {
+	got := extractHighConfidence(`new EventSource('/api/stream'); new WebSocket('wss://realtime.example.com/ws/chat')`)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(got))
+	}
+	for i, tc := range []string{"/api/stream", "wss://realtime.example.com/ws/chat"} {
+		if got[i].URL != tc {
+			t.Errorf("[%d] expected URL %q, got %q", i, tc, got[i].URL)
+		}
+		if got[i].Confidence != "high" {
+			t.Errorf("[%d] expected confidence 'high', got %q", i, got[i].Confidence)
+		}
+		if got[i].Method != "" {
+			t.Errorf("[%d] expected no Method, got %q", i, got[i].Method)
+		}
+	}
+}
+
 func TestExtractHighConfidence_MultiMatch(t *testing.T) {
 	got := extractHighConfidence(`fetch('/api/a'); axios.post('/api/b'); $.ajax({url: '/api/c'})`)
 	if len(got) != 3 {

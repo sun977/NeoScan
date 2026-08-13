@@ -18,11 +18,19 @@ type candidate struct {
 	Confidence string
 }
 
-// 高置信度：匹配明确的 HTTP 调用语句结构，自带 Method 信息。
+// 高置信度：匹配明确的连接/调用语句结构。
+// fetch/axios/ajax/SSE/WebSocket 的正则只有 1 个捕获组（URL 本身），
+// axios 的正则有 2 个捕获组（Method + URL），用
+// "最后一个捕获组永远是 URL"的规则统一取值，Method 只有 axios 分支才有
+// 意义地填充。
 var highConfidencePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`fetch\(['"]([^'"]+)['"]`),
 	regexp.MustCompile(`axios\.(get|post|put|delete|patch)\(['"]([^'"]+)['"]`),
 	regexp.MustCompile(`\.ajax\(\{[^}]*url:\s*['"]([^'"]+)['"]`),
+	// 流式响应：SSE（EventSource）和 WebSocket。
+	// 复用 case 2 分支（单捕获组 = URL），无需 Method 信息。
+	regexp.MustCompile(`new\s+EventSource\(['"]([^'"]+)['"]`),
+	regexp.MustCompile(`new\s+WebSocket\(['"]([^'"]+)['"]`),
 }
 
 // 低置信度兜底：通用路径字面量，不限定固定前缀（方案文档 7.2 节 v1.1 调整）。

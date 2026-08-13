@@ -102,11 +102,13 @@ filterAPICandidates()      → 多级过滤，产出干净的 candidate 列表�
 
 | 级别 | 规则 | 示例命中 | Method |
 |------|------|----------|--------|
-| **high** | `fetch(url)`、`axios.method(url)`、`.ajax({url:...})` 结构化调用 | `fetch('/api/user/info')` | axios 分支有值，其余为空 |
+| **high** | `fetch(url)`、`axios.method(url)`、`.ajax({url:...})`、`new EventSource(url)`、`new WebSocket(url)` 结构化调用 | `fetch('/api/user/info')` | axios 分支有值，其余为空 |
 | **medium** | 含目标域名的完整 URL（`https://host/...`） | `https://api.mysite.com/v1/orders` | 无 |
 | **low** | 通用路径字面量 `/seg1/seg2/...` | `'/internal/config/list'` | 无 |
 
 `low` 置信度误报率最高，依赖过滤层重点清洗。
+
+**能力边界**：GraphQL 客户端通常只发向 `/graphql` 一个端点，query body 里的 operation name（`query GetUser { ... }`）当前无法提取。目标使用 GraphQL 时，只能看到 `/graphql` 这个单一端点。
 
 ---
 

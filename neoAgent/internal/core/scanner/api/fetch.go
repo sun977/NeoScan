@@ -13,9 +13,20 @@ import (
 
 	"neoagent/internal/core/lib/browser"
 	"neoagent/internal/pkg/logger"
+	"neoagent/internal/pkg/version"
 
 	"github.com/go-rod/rod"
 )
+
+// jsHTTPClient 是专用于下载外链 JS 文件的 HTTP 客户端，与 http.DefaultClient
+// 隔离，避免全局连接池污染。UA 与 go-rod 浏览器实例保持一致，减少 WAF 因
+// UA 差异触发拦截的概率（DefaultClient 默认 UA 是 "Go-http-client/1.1"）。
+var jsHTTPClient = &http.Client{
+	Timeout: 15 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConnsPerHost: 10,
+	},
+}
 
 // normalizeTarget 把 Target/Ports 换算成一个可以直接发起抓取的起始 URL。
 // 逻辑与 WebScanner 的 normalizeURL（scanner/web/web_scanner.go）行为等价
@@ -119,17 +130,18 @@ func fetchPage(ctx context.Context, launcher *browser.BrowserLauncher, pageURL s
 	return result, nil
 }
 
-// downloadJSFile 用纯 net/http 下载外链 JS 文件文本内容——静态 JS 文件本身
+// downloadJSFile 用 jsHTTPClient 下载外链 JS 文件文本内容——静态 JS 文件本身
 // 是文本资源，不需要浏览器渲染，见 API扫描功能设计.md 第八节。
+// 使用模块级 jsHTTPClient（非 DefaultClient）并设置与浏览器一致的 UA，
+// 避免 WAF 因 UA 不一致（DefaultClient = "Go-http-client/1.1"）触发拦截。
 func downloadJSFile(ctx context.Context, jsURL string) (string, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, jsURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, jsURL, nil)
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	req.Header.Set("User-Agent", version.GetUserAgent())
+
+	resp, err := jsHTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}

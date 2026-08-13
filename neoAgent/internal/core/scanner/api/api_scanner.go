@@ -56,10 +56,9 @@ func (s *ApiScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		maxJSFiles = v
 	}
 
+	startTime := time.Now()
 	crawler := newAPICrawler(s.browserLauncher, s.limiter, crawlDepth, maxJSFiles)
 	outcomes := crawler.crawl(ctx, startURL)
-
-	startTime := time.Now()
 	results = make([]*model.TaskResult, 0, len(outcomes))
 	for _, oc := range outcomes {
 		apis := make([]model.APIInfo, 0, len(oc.APIs))

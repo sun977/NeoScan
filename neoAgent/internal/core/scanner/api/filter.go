@@ -5,6 +5,7 @@
 package api
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -56,21 +57,14 @@ func isJSFileSource(source string) bool {
 // 几乎不可能是 REST API 端点，但会被 low 置信度正则大量命中。
 // 示例：/api/users（2 段）→ 保留；/en/（1 段）→ 丢弃。
 func hasEnoughSegments(rawURL string, minSegments int) bool {
-	// rawURL 可能是相对路径 /foo/bar 或绝对 URL https://host/foo/bar
+	// rawURL 可能是相对路径 /foo/bar 或绝对 URL https://host/foo/bar。
+	// 用 net/url.Parse 提取 path 部分，自动处理 http/https 两种协议，
+	// 对畸形 URL（Parse 失败）退回原始字符串直接计段数。
 	path := rawURL
-	if strings.HasPrefix(rawURL, "http://") || strings.HasPrefix(rawURL, "https://") {
-		// 取 path 部分
-		for _, prefix := range []string{"http://", "https://"} {
-			if strings.HasPrefix(rawURL, prefix) {
-				rest := rawURL[len(prefix):]
-				slash := strings.Index(rest, "/")
-				if slash < 0 {
-					path = "/"
-				} else {
-					path = rest[slash:]
-				}
-				break
-			}
+	if u, err := url.Parse(rawURL); err == nil && u.Host != "" {
+		path = u.Path
+		if path == "" {
+			path = "/"
 		}
 	}
 	count := 0

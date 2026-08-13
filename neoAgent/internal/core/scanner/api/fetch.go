@@ -143,6 +143,12 @@ func downloadJSFile(ctx context.Context, jsURL string) (string, error) {
 }
 
 // extractInlineScripts 读取页面里所有没有 src 属性的 <script> 标签的文本内容。
+//
+// 注意：不能用 el.Text()——rod v0.106.8 的 Text() 底层执行 this.innerText，
+// 而 <script> 是 non-rendered element，innerText 规范返回空字符串 ""。
+// 必须改用 el.Property("textContent")，textContent 直接读 DOM 节点的原始
+// 文本内容，不依赖渲染树，对 <script> 能正确返回脚本源码。
+// 根因见 OPTIMIZATIONS.md 问题一。
 func extractInlineScripts(page *rod.Page) []jsSource {
 	elements, err := page.Elements("script:not([src])")
 	if err != nil {
@@ -150,8 +156,12 @@ func extractInlineScripts(page *rod.Page) []jsSource {
 	}
 	var out []jsSource
 	for _, el := range elements {
-		text, err := el.Text()
-		if err != nil || strings.TrimSpace(text) == "" {
+		prop, err := el.Property("textContent")
+		if err != nil {
+			continue
+		}
+		text := prop.String()
+		if strings.TrimSpace(text) == "" {
 			continue
 		}
 		out = append(out, jsSource{Text: text, From: "inline"})

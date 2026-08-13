@@ -8,7 +8,7 @@
 - 持有独立的 `qos.AdaptiveLimiter` 实例，不共享限流状态
 - 不 import 任何其他扫描器的内部包（`web/crawler` 等），同类逻辑独立实现
 
-**职责一句话**：通过 BFS 深度爬取目标站点，从 HTML / 内联 JS / 外链 JS 中静态提取 HTTP 接口路径，输出带置信度分级的 `ApiResult`。
+**职责一句话**：通过 BFS 深度爬取目标站点，从 HTML / 内联 JS / 外链 JS 中静态提取 HTTP 接口路径和 WebSocket/SSE 端点，输出带置信度分级的 `ApiResult`。
 
 ---
 
@@ -54,7 +54,7 @@
 
 ```
 api/
-├── api_scanner.go        # 入口：Run()，组装 TaskResult，对外唯一暴露点
+├── api_scanner.go        # 入口：NewApiScanner() + Run()，组装 TaskResult，对外唯一暴露点
 ├── bfs.go                # BFS 爬取调度：队列、去重、Scope 判断、并发 worker、JS 缓存
 ├── fetch.go              # 单页抓取：go-rod 渲染 + 内联脚本提取 + 外链 URL 列表收集
 ├── extract.go            # 三层正则提取：high / medium / low 置信度
@@ -104,7 +104,7 @@ filterAPICandidates()      → 多级过滤，产出干净的 candidate 列表�
 |------|------|----------|--------|
 | **high** | `fetch(url)`、`axios.method(url)`、`.ajax({url:...})`、`new EventSource(url)`、`new WebSocket(url)` 结构化调用 | `fetch('/api/user/info')` | axios 分支有值，其余为空 |
 | **medium** | 含目标域名的完整 URL（`https://host/...`） | `https://api.mysite.com/v1/orders` | 无 |
-| **low** | 通用路径字面量 `/seg1/seg2/...` | `'/internal/config/list'` | 无 |
+| **low** | 通用路径字面量 `/seg1/seg2/...`（支持 `{}` 动态路由） | `'/api/users/{id}'` | 无 |
 
 `low` 置信度误报率最高，依赖过滤层重点清洗。
 
@@ -159,18 +159,120 @@ filterAPICandidates()      → 多级过滤，产出干净的 candidate 列表�
 ```
 
 ### 7. 去重
-以 `URL + Method` 为组合键单页内去重。外链 JS 的全局缓存机制（见"ApiScanner 做了什么"第五步）从根源上消除了跨页面的 JS 重复提取问题。
+以 `URL + "|" + Method` 为组合键单页去重。外链 JS 的全局缓存机制（见"ApiScanner 做了什么"第五步）从根源上消除了跨页面的 JS 重复提取问题。
 
 ---
 
 ## BFS 爬取参数
 
-| 参数 | 默认值 | Task.Params key |
-|------|--------|-----------------|
-| 爬取深度 | 2 | `crawl_depth` |
-| 每页最多处理外链 JS 数 | 20 | `max_js_files` |
-| 最大爬取页数 | 200（硬上限） | — |
-| BFS 并发 worker 数 | 5 | — |
+| 参数 | 默认值 | Task.Params key | 取值范围 |
+|------|--------|-----------------|----------|
+| 爬取深度 | 2 | `crawl_depth` | > 0 |
+| 每页最多处理外链 JS 数 | 20 | `max_js_files` | > 0 |
+| BFS 并发 worker 数 | 5 | `concurrency` | 1–20 |
+| 最大爬取页数 | 200（硬上限） | — | — |
+
+---
+
+## 并发安全设计
+
+### enqueue() 的 visited 写入时机
+`visited` 的写入发生在 **channel send 成功之后**（而非之前）：
+1. 预检：去重 + Scope + MaxPages，**不写 visited**
+2. `atomic.AddInt32(&c.pending, 1)`
+3. `select`：channel 满走 `default` 分支 → `visited 不写`，`pending` 回退
+4. 入队成功 → 才写 `visited`
+
+这样避免"URL 进了 visited 但未入队"的静默丢页 bug。代价是在 channel 满载的极小窗口内，同一 URL 可能被两个 goroutine 同时通过预检并各自入队一次（重复处理一次），但这是幂等的（去重在 `filterAPICandidates` 和最终 `seen` map 层面保证）。
+
+### JS 缓存锁外下载
+`getOrFetchJS()`：先加锁读缓存 → 未命中后**释放锁再下载**（下载是耗时 IO，不能持锁） → 下载完成后再次加锁写入。极端情况下同一 URL 可能被两个 goroutine 同时下载，但写入时用 `alreadySet` 检查避免覆盖。
+
+---
+
+## 使用方式
+
+### CLI
+
+```bash
+# 基本用法（必填 --target）
+neoAgent scan api -t http://example.com
+
+# 指定端口
+neoAgent scan api -t http://example.com -p "8080,8443"
+
+# 自定义爬取参数
+neoAgent scan api -t http://example.com --crawl-depth 3 --concurrency 10 --max-js-files 50
+
+# 输出到文件
+neoAgent scan api -t http://example.com --oc results.csv --oj results.json
+```
+
+| 参数 | 简写 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--target` | `-t` | (必填) | 目标 URL/IP |
+| `--ports` | `-p` | `80,443` | 端口范围 |
+| `--crawl-depth` | `-d` | `2` | 深度爬取层数 |
+| `--max-js-files` | `-m` | `20` | 单页最多下载外链 JS 数 |
+| `--concurrency` | `-c` | `5` | BFS 并发 worker 数（1–20） |
+
+### 编程调用
+
+```go
+import (
+    "context"
+    "time"
+
+    "neoagent/internal/core/model"
+    "neoagent/internal/core/scanner/api"
+)
+
+scanner := api.NewApiScanner()
+
+task := &model.Task{
+    ID:        "unique-task-id",
+    Type:      model.TaskTypeApiScan,
+    Target:    "http://example.com",
+    PortRange: "8080,443",
+    Timeout:   30 * time.Minute,
+    Params: map[string]interface{}{
+        "crawl_depth":    3,
+        "max_js_files":   50,
+        "concurrency":    10,
+    },
+}
+
+ctx, cancel := context.WithTimeout(context.Background(), task.Timeout)
+defer cancel()
+
+results, err := scanner.Run(ctx, task)
+// results 为 []*model.TaskResult，每页一条
+```
+
+### 通过 RunnerManager 注册调用
+
+`ApiScanner` 已注册到 `RunnerManager`，通过 Task 类型自动路由：
+
+```go
+manager := runner.NewRunnerManager()
+results, err := manager.Execute(ctx, task) // task.Type == "api_scan" 时路由到 ApiScanner
+```
+
+### Master 集群下发
+
+Master 下发的 `api_scan` 类型任务会自动映射到 `ApiScanner`，meta 参数合并到 `task.Params`：
+
+```json
+{
+    "type": "api_scan",
+    "target": "http://example.com",
+    "port_range": "80,443",
+    "meta": {
+        "crawl_depth": 3,
+        "concurrency": 10
+    }
+}
+```
 
 ---
 

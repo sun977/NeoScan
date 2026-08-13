@@ -163,49 +163,35 @@ type ApiResult struct {
 }
 
 // Headers 实现 TabularData 接口。
-// 每行展示一个 APIInfo，列：页面 URL（截断）、深度、接口 URL、Method、置信度、来源（截断）。
+// 每行展示一个 APIInfo，列：页面 URL、深度、接口 URL、Method、置信度、来源。
 func (r ApiResult) Headers() []string {
 	return []string{"Page", "Depth", "API URL", "Method", "Confidence", "Source"}
 }
 
 // Rows 实现 TabularData 接口。
-// 每个 APIInfo 对应一行；页面没有接口时输出一行占位（便于定位爬取覆盖范围）。
+// 每个 APIInfo 独立成一行，Page/Depth 每行都完整填写（不省略），
+// 这样每行是完全自描述的，支持流式逐行追加输出，也方便过滤和排序。
+// 页面没有接口时输出一行占位（便于定位爬取覆盖范围）。
 func (r ApiResult) Rows() [][]string {
-	// 页面 URL 截断显示（避免过长撑破表格）
-	pageURL := r.URL
-	if len(pageURL) > 50 {
-		pageURL = pageURL[:47] + "..."
-	}
-
 	depth := fmt.Sprintf("%d", r.Depth)
 
-	if len(r.APIs) == 0 {
-		// 无接口：占位一行，方便看出该页面被爬到但没有提取到接口
-		return [][]string{{pageURL, depth, "(none)", "", "", ""}}
-	}
-
+	// truncNote 标注在 Source 列末尾，提示本页 JS 文件被截断、提取可能不完整。
+	// 每行都附带，方便用户在任意行看到截断提示，而不必找"最后一行"。
 	truncNote := ""
 	if r.APIsTruncated {
 		truncNote = " [truncated]"
 	}
 
+	if len(r.APIs) == 0 {
+		// 无接口：占位一行，方便看出该页面被爬到但没有提取到接口
+		return [][]string{{r.URL, depth, "(none)", "", "", truncNote}}
+	}
+
 	var rows [][]string
 	for _, api := range r.APIs {
-		source := api.Source
-		if len(source) > 40 {
-			source = source[:37] + "..."
-		}
-		apiURL := api.URL
-		if len(apiURL) > 60 {
-			apiURL = apiURL[:57] + "..."
-		}
-		// 只在最后一行的 source 列追加截断标注，让用户知道提取可能不完整
-		src := source + truncNote
-		truncNote = "" // 只标注一次
-		rows = append(rows, []string{pageURL, depth, apiURL, api.Method, api.Confidence, src})
-		// 后续行的 Page/Depth 留空（同一页面连续行，避免重复）
-		pageURL = ""
-		depth = ""
+		// URL 和 Source 均完整输出，不截断，让终端/pterm 自行处理列宽，
+		// 这样每行是完全自描述的，方便流式输出、管道过滤和 CSV/JSON 导出。
+		rows = append(rows, []string{r.URL, depth, api.URL, api.Method, api.Confidence, api.Source + truncNote})
 	}
 	return rows
 }

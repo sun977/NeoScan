@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"net/url"
+	"regexp"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -37,8 +38,9 @@ type apiCrawler struct {
 	limiter     *qos.AdaptiveLimiter
 	maxDepth    int
 	maxJSFiles  int
-	concurrency int // BFS worker 数，通过 task.Params["concurrency"] 传入，默认 5
-	seedHost    string
+	concurrency   int // BFS worker 数，通过 task.Params["concurrency"] 传入，默认 5
+	seedHost      string
+	mediumPattern *regexp.Regexp // 中置信度正则，crawl() 开始时按 seedHost 编译一次，全任务复用
 
 	mu      sync.Mutex
 	visited map[string]struct{}
@@ -88,6 +90,11 @@ func (c *apiCrawler) crawl(ctx context.Context, seedURL string) []pageOutcome {
 		return nil
 	}
 	c.seedHost = u.Host
+	// 中置信度正则按 seedHost 编译一次，整个爬取任务共用，
+	// 避免在 extractMediumConfidence 里每次调用都重新编译。
+	c.mediumPattern = regexp.MustCompile(
+		`https?://` + regexp.QuoteMeta(c.seedHost) + `[a-zA-Z0-9_\-/?&=.%]*`,
+	)
 
 	c.queue = make(chan *crawlItem, 256)
 	c.enqueue(seedURL, 0)
@@ -126,15 +133,10 @@ func (c *apiCrawler) process(ctx context.Context, it *crawlItem) {
 	c.limiter.OnSuccess()
 	c.limiter.Release()
 
-	pageHost := ""
-	if u, err := url.Parse(it.URL); err == nil {
-		pageHost = u.Host
-	}
-
 	var allCandidates []candidate
 	// 1. HTML body + 内联脚本：每页独立，直接提取
 	for _, src := range page.Sources {
-		found := extractAPICandidates(src.Text, pageHost)
+		found := extractAPICandidates(src.Text, c.mediumPattern)
 		for i := range found {
 			found[i].Source = src.From
 		}
@@ -142,7 +144,7 @@ func (c *apiCrawler) process(ctx context.Context, it *crawlItem) {
 	}
 	// 2. 外链 JS 文件：查全局缓存，命中则复用，未命中则下载后写缓存
 	for _, jsURL := range page.JSFileURLs {
-		allCandidates = append(allCandidates, c.getOrFetchJS(ctx, jsURL, pageHost)...)
+		allCandidates = append(allCandidates, c.getOrFetchJS(ctx, jsURL)...)
 	}
 	filtered := filterAPICandidates(allCandidates)
 
@@ -227,7 +229,7 @@ func (c *apiCrawler) inScope(rawURL string) bool {
 // 并发安全：先加锁读缓存，未命中后释放锁再下载（下载是耗时 IO，不能持锁），
 // 下载完成后再次加锁写入。极端情况下同一 URL 可能被两个 goroutine 同时下载，
 // 但写入时用 alreadySet 检查避免覆盖，幂等无副作用。
-func (c *apiCrawler) getOrFetchJS(ctx context.Context, jsURL string, pageHost string) []candidate {
+func (c *apiCrawler) getOrFetchJS(ctx context.Context, jsURL string) []candidate {
 	c.jsCacheMu.Lock()
 	cached, hit := c.jsCache[jsURL]
 	c.jsCacheMu.Unlock()
@@ -248,7 +250,7 @@ func (c *apiCrawler) getOrFetchJS(ctx context.Context, jsURL string, pageHost st
 		return nil
 	}
 
-	found := extractAPICandidates(text, pageHost)
+	found := extractAPICandidates(text, c.mediumPattern)
 	for i := range found {
 		found[i].Source = jsURL
 	}

@@ -1,6 +1,9 @@
 package api
 
-import "testing"
+import (
+	"regexp"
+	"testing"
+)
 
 func TestExtractAPICandidates(t *testing.T) {
 	cases := []struct {
@@ -51,7 +54,13 @@ func TestExtractAPICandidates(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := extractAPICandidates(tc.text, tc.pageHost)
+			var mediumPattern *regexp.Regexp
+			if tc.pageHost != "" {
+				mediumPattern = regexp.MustCompile(
+					`https?://` + regexp.QuoteMeta(tc.pageHost) + `[a-zA-Z0-9_\-/?&=.%]*`,
+				)
+			}
+			got := extractAPICandidates(tc.text, mediumPattern)
 
 			gotURLs := make(map[string]bool)
 			gotConfSet := make(map[string]bool)

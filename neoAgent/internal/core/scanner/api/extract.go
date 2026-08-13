@@ -31,14 +31,13 @@ var lowConfidencePattern = regexp.MustCompile(`['"](/[a-zA-Z0-9_\-]+/[a-zA-Z0-9_
 // extractAPICandidates 对一段文本（HTML/内联JS/外链JS）跑三层正则，返回
 // 全部命中结果，不做任何排除/清洗——那是 filterAPICandidates 的职责。
 //
-// pageHost 是这段文本所属的页面 URL 的 host 部分（用于中置信度的 scope 锚定）；
-// source 标注这段文本的来源（"inline" 或具体 js 文件 URL），直接写入每条
-// candidate 供 filterAPICandidates 之后转换成 model.APIInfo.Source。
-func extractAPICandidates(text string, pageHost string) []candidate {
+// mediumPattern 是调用方（apiCrawler）按 seedHost 预编译好的中置信度正则，
+// 在整个爬取任务中只编译一次，避免每次调用都重新编译。传 nil 时跳过中置信度提取。
+func extractAPICandidates(text string, mediumPattern *regexp.Regexp) []candidate {
 	var out []candidate
 
 	out = append(out, extractHighConfidence(text)...)
-	out = append(out, extractMediumConfidence(text, pageHost)...)
+	out = append(out, extractMediumConfidence(text, mediumPattern)...)
 	out = append(out, extractLowConfidence(text)...)
 
 	return out
@@ -65,15 +64,14 @@ func extractHighConfidence(text string) []candidate {
 	return out
 }
 
-// extractMediumConfidence 用 regexp.QuoteMeta(pageHost) 拼出"host + 合法
-// 路径字符集"的正则，命中的必然是明确指向当前站点自己域名的完整 URL，
-// 见 API扫描功能设计.md 7.2 节中置信度规则说明。pageHost 为空（比如 URL
-// 解析失败）时直接跳过这一档，不产生任何 candidate。
-func extractMediumConfidence(text string, pageHost string) []candidate {
-	if pageHost == "" {
+// extractMediumConfidence 使用调用方预编译好的正则匹配明确指向当前站点域名
+// 的完整 URL，见 API扫描功能设计.md 7.2 节中置信度规则说明。
+// pattern 由 apiCrawler 在 crawl() 开始时按 seedHost 编译一次，整个爬取
+// 任务复用，不在此处编译。pattern 为 nil 时直接返回 nil，跳过中置信度提取。
+func extractMediumConfidence(text string, pattern *regexp.Regexp) []candidate {
+	if pattern == nil {
 		return nil
 	}
-	pattern := regexp.MustCompile(`https?://` + regexp.QuoteMeta(pageHost) + `[a-zA-Z0-9_\-/?&=.%]*`)
 	var out []candidate
 	for _, m := range pattern.FindAllString(text, -1) {
 		out = append(out, candidate{URL: m, Confidence: "medium"})

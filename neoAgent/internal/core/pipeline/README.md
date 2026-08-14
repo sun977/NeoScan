@@ -1,5 +1,20 @@
 # Pipeline 核心编排模块
 
+> **版本**: v1.1  
+> **更新日期**: 2026-08-14  
+> **状态**: 活跃开发中
+
+---
+
+## 修改记录
+
+| 日期 | 版本 | 变更说明 |
+|------|------|---------|
+| 2026-08-14 | v1.1 | 新增第 5 节：Phase 2 扫描器接入计划（DirScanner / API Scanner / Vuln Scanner） |
+| — | v1.0 | 初始版本，记录线性漏斗流程和设计决策 |
+
+---
+
 ## 1. 模块职责
 `pipeline` 模块是 NeoAgent 自动化扫描的大脑，负责将独立的扫描能力（Scanner）串联成有逻辑、高效的执行流。它管理着从目标输入到最终结果输出的全生命周期。
 
@@ -84,3 +99,108 @@ graph TD
 - 每个 Worker 负责一个 IP 的完整生命周期（Alive -> Port -> Service -> OS）。
 - **注意**：这种模式在处理大网段时可能面临 "Head-of-Line Blocking" 问题（即少数存活主机的耗时扫描阻塞了对其他 IP 的快速发现）。
 - **未来演进**：计划向 **分层解耦流水线 (Stage-Decoupled Pipeline)** 演进，为每个阶段分配独立的 Worker Pool，进一步提升吞吐量。
+
+---
+
+## 5. 后续改造计划（Phase 2 扫描器接入）
+
+> **时间**: 2026-08-14 规划  
+> **状态**: 待实施
+
+### 5.1 现状
+
+目前 Pipeline 的 Stage 2 仅有 **Web Scanner**（Phase 2a）和 **Brute Scanner**（Phase 2b），以下原子扫描器尚未接入 Pipeline：
+
+| 扫描器 | 当前状态 | CLI 独立命令 | Pipeline 接入 |
+|--------|---------|:---:|:---:|
+| Web Scanner | ✅ 已有 | ✅ | ✅ Phase 2a |
+| Brute Scanner | ✅ 已有 | ✅ | ✅ Phase 2b |
+| API Scanner | ✅ 已有 | ✅ | ❌ 未接入 |
+| Dir Scanner | 📝 设计中 | ✅ | ❌ 未接入 |
+| Vuln Scanner | 📝 待实现 | ❌ | ❌ 未接入 |
+
+### 5.2 功能依赖分析
+
+```
+Service Scanner（已有）
+    ↓ 产出：哪些端口是 Web 服务
+    │
+    ├──→ Web Scanner（已有）
+    │        ↓ 产出：页面结构、HTML 链接、JS 文件、TechStack
+    │        │
+    │        ├──→ API Scanner（依赖 Web Scan 产出）
+    │        │
+    │        └──→ Vuln Scanner（依赖 Web Scan 产出）
+    │
+    └──→ Dir Scanner（不依赖 Web Scan，只要 Web 端口就扫）
+```
+
+### 5.3 各扫描器接入决策
+
+#### API Scanner — **必须接入**
+
+**理由**：
+- API Scanner 的核心是从**页面中的 JS 文件**提取 API 端点
+- CLI 独立运行只能指定 `--url` 扫单页，覆盖率低
+- Pipeline 中 Web Scanner 先爬取整个站点 → 产出 JS 列表 → API Scanner 对每个 JS 提取 API
+- 覆盖率比独立运行高一个数量级
+
+**Pipeline 位置**：Phase 2b（被动深度分析），**紧跟 Web Scanner 之后**（必须依赖 Web Scan 产出）
+
+#### Dir Scanner — **应该接入**
+
+**理由**：
+- 不依赖 Web Scanner 的页面内容，只需要 Service Scanner 识别出 Web 端口
+- 可以**和 Web Scanner 并行**，不阻塞
+- 覆盖互补：Web Scanner（被动爬取）vs Dir Scanner（主动爆破）
+- 某些 JS 文件藏在非标准路径中，Dir Scanner 能发现 Web Scanner 爬不到的东西
+
+**Pipeline 位置**：Phase 2a（主动探测），**和 Web Scanner 并行**
+
+### 5.4 建议的 Pipeline 重构
+
+```
+AutoRunner.executePipeline()
+    │
+    ├── Stage 1（线性漏斗）
+    │   1. Alive Scan
+    │   2. Port Scan（快速发现）
+    │   3. Service Scan（服务识别）
+    │   4. OS Scan
+    │
+    ├── Stage 2a（并行主动探测）← ServiceDispatcher.Dispatch()
+    │   ┌─────────────────────────────────────────┐
+    │   │  Web Scanner    ─────────→──┐           │
+    │   │  Dir Scanner    ────────────┼──→ 结果收集  │
+    │   │  Vuln Scanner   ────────────┘           │
+    │   └─────────────────────────────────────────┘
+    │         ↑ 全部并行，无依赖关系
+    │
+    ├── Stage 2b（被动深度分析）← 新增
+    │   ┌─────────────────────────────────────────┐
+    │   │  API Scanner  ─→───┐                   │
+    │   │  Vuln Deep  ─────────┼──→ 结果收集     │
+    │   └─────────────────────────────────────────┘
+    │         ↑ 依赖 Web Scanner 的页面/JS 产出
+    │
+    ├── Stage 2c（低优先级爆破）← 已有
+    │   └── Brute Force
+    │
+    └── Report
+```
+
+### 5.5 需改造的代码
+
+| 文件 | 改动内容 |
+|------|---------|
+| `PipelineContext` | 新增 `DirResults []*model.DirResult`、`ApiResults []*model.ApiResult` |
+| `ServiceDispatcher` | 新增 `dirScanner` 字段、新增 `dispatchHighPriority` 中调用 DirScan |
+| `dispatcher.go` | 新增 Stage 2b（API Scanner + Vuln Deep） |
+| `auto_runner.go` | 新增 DirScanner 实例初始化 |
+| `factory` | 注册 DirScanner Factory |
+
+### 5.6 核心设计原则
+
+**能并行的就并行**（提高吞吐量），**有依赖的就串行**（提高覆盖率）。
+
+---

@@ -1,14 +1,30 @@
 # 全流程扫描与编排设计 (Scan Orchestration)
 
+> **版本**: v1.2
+> **更新日期**: 2026-08-14
+> **状态**: 部分过期（已标注）
+
+---
+
+## 修改记录
+
+| 日期 | 版本 | 变更说明 |
+|------|------|---------|
+| 2026-08-14 | v1.2 | 标注过期内容，补充 DirScanner / API Scanner 接入信息 |
+| — | v1.1 | 原始版本，Phase 4.1 融合设计 |
+
+---
+
 ## 1. 设计背景
 目前的 `neoAgent` 拥有一系列强大的原子扫描能力 (`alive`, `port`, `web` 等)，非常适合作为分布式系统中的执行单元接受 Master 调度。然而，作为单机工具使用时，用户往往需要一个“一站式”的入口来执行复杂的扫描任务链，而不是手动串联多个子命令。
 
 ## 2. 核心理念：分层设计
 为了兼顾“Master 调度的原子性”和“单机使用的便捷性”，我们将 CLI 设计分为两层：
 
-1.  **原子层 (Atomic Layer)**: `alive`, `port`, `web` 等子命令。
+1.  **原子层 (Atomic Layer)**: `alive`, `port`, `os`, `web`, `brute`, `api`, `dir` 等子命令。
     - **特点**: 职责单一，输入输出明确，无副作用。
     - **场景**: Master 调度、脚本集成、精细化诊断。
+    - **注意**: 早期文档中写的 "alive, port, web 等" 已不完整，当前共有 **7 个原子扫描器**。
 2.  **编排层 (Orchestration Layer)**: `run` 子命令。
     - **特点**: 聚合多个原子能力，内部维护流水线 (Pipeline)，支持智能决策。
     - **场景**: 日常单机扫描、红队作业、全自动化评估。
@@ -25,19 +41,23 @@ neoAgent scan run -t <target> [flags]
 #### 模式 A: 自动化流水线 (Pipeline Mode)
 用户通过开关参数自由组合扫描阶段。
 
-| 参数 | 对应原子能力 | 描述 |
-| :--- | :--- | :--- |
-| `-p <ports>` | `port` | 端口扫描 (默认 Top 1000) |
-| `-s` | `port -s` | 开启服务识别 |
-| `-o` | `os` | 开启操作系统识别 (基于 TTL + Nmap 指纹) |
-| `--vuln` | `vuln` | 开启漏洞扫描 (基于 Nuclei/POC) |
-| `--brute` | `brute` | 开启弱口令爆破 (SSH/Redis/MySQL 等) |
-| `--web` | `web` | 开启 Web 爬虫与指纹识别 |
+| 参数 | 对应原子能力 | 描述 | 状态 |
+| :--- | :--- | :--- | :---: |
+| `-p <ports>` | `port` | 端口扫描 (默认 Top 1000) | ✅ |
+| `-s` | `port -s` | 开启服务识别（PortServiceScanner 内置） | ✅ |
+| `-o` | `os` | 开启操作系统识别 (基于 TTL + Nmap 指纹) | ✅ |
+| ~~`--vuln`~~ | `vuln` | ~~开启漏洞扫描 (基于 Nuclei/POC)~~ | ❌ **未实现** |
+| `--brute` | `brute` | 开启弱口令爆破 (SSH/Redis/MySQL 等)，默认关闭 | ✅ |
+| `--web` | `web` | 开启 Web 爬虫与指纹识别 | ✅ |
+| `--dir` | `dir` | 开启目录/路径扫描 | 📝 **待接入** |
+| `--api` | `api` | 开启 API 接口提取 | 📝 **待接入** |
 
 **示例**:
 ```bash
 # 全流程：端口 -> 服务 -> OS -> 漏洞 -> 爆破
-neoAgent scan run -t 192.168.1.1 -p 1-65535 -s -o --vuln --burst
+~~neoAgent scan run -t 192.168.1.1 -p 1-65535 -s -o --vuln --burst~~
+# 当前实际有效命令（--vuln 未实现，--burst 拼写错误）
+neoAgent scan run -t 192.168.1.1 -p 1-65535 -s -o --brute
 ```
 
 #### 模式 B: 智能自动模式 (Auto Mode)
@@ -51,8 +71,9 @@ neoAgent scan run -t 192.168.1.1 --auto
 1.  **Alive**: ICMP + TCP Ping 探测存活。
 2.  **Port**: 扫描 Top 1000 端口。
 3.  **Service**: 对开放端口进行服务识别。
-4.  **Web**: 如果发现 HTTP/HTTPS，自动进行基础 Web 指纹识别。
-5.  **Vuln**: 仅进行高危漏洞检测 (High/Critical)。
+4.  **Web**: 如果发现 HTTP/HTTPS，自动进行基础 Web 指纹识别 + 爬虫。
+5.  **~~Vuln~~**: ~~仅进行高危漏洞检测 (High/Critical)。~~
+    - **状态**: `--auto` 模式下 Vuln Scanner **尚未实现**，当前跳过。
 6.  **Brute**: 关闭 (避免锁定账户)。
 
 ### 3.3 内部流水线逻辑 (The Pipeline)
@@ -107,10 +128,12 @@ flowchart TD
 
 3.  **Branch A: Web Analysis (Web 分析)**
     - **Trigger**: `Service` 包含 `http`, `https`, `ssl/http`。
-    - **Action**: 
+    - **Action**:
         - 基础指纹识别 (Wappalyzer)。
-        - 爬虫 (如果开启 `--crawl`)。
-    - **Output**: Web Fingerprints (CMS, Framework, Tech)。
+        - 爬虫（如果开启 `--crawl`）。
+        - ~~CDN 边缘节点检测（已实现但 `--auto` 中未自动触发 CDN 跳过）~~
+    - **Output**: Web Fingerprints (CMS, Framework, Tech)、截图、API 端点。
+    - **状态**: ✅ 已实现
 
 4.  **Branch C: Vulnerability Scanning (漏洞扫描) - High Priority**
     - **Trigger**: 显式开启 `--vuln`。
@@ -120,12 +143,30 @@ flowchart TD
     - **Priority**: **高于 Brute Force**。
         - 理由 1 (价值): 如果直接发现 RCE 漏洞，无需再进行耗时的密码爆破。
         - 理由 2 (隐蔽): 漏洞探测通常流量较小，优先执行可避免因爆破触发防火墙而导致漏扫。
+    - **状态**: ❌ **尚未实现**（Phase 5.2 规划中，代码中标记为 `// TODO`）
 
 5.  **Branch B: Brute Force (暴力破解) - Low Priority**
     - **Trigger**: `Service` 在爆破支持列表中 (ssh, mysql, redis...) **且** 显式开启 `--brute`。
     - **Policy**: **默认关闭**。`--auto` 模式下不开启，必须用户手动指定。
     - **Dependency**: 建议在同端口的 **Branch C (Vuln)** 完成后执行，或作为最后手段 (Last Resort)。
     - **Action**: 调用 `BruteScanner` 进行弱口令检测。
+    - **状态**: ✅ 已实现
+
+> **注意**: 以下 Branch 为 **2026-08-14 新增**，尚未接入 Pipeline。
+
+6.  **Branch D: Directory Scanning (目录/路径扫描) - Phase 2a**
+    - **Trigger**: `Service` 包含 `http`, `https`, `ssl/http`。
+    - **Action**: 调用 `DirScanner` 进行字典爆破。
+    - **特点**: 与 Web Scanner **并行执行**，不依赖 Web 扫描结果。
+    - **覆盖互补**: Web Scanner（被动爬取）vs Dir Scanner（主动爆破），能发现 Web Scanner 爬不到的隐藏路径。
+    - **状态**: 📝 **设计中**（见 `docs/目录扫描/`）
+
+7.  **Branch E: API Endpoint Extraction (API 接口提取) - Phase 2b**
+    - **Trigger**: Web Scanner 完成，产出 JS 文件列表。
+    - **Action**: 调用 `ApiScanner` 从 JS 文件中提取 API 端点。
+    - **特点**: **必须依赖 Web Scanner 产出**，串行执行。
+    - **覆盖率**: 比 CLI 独立运行（单页提取）高一个数量级。
+    - **状态**: 📝 **待接入 Pipeline**
 
 ## 4. 优势分析
 - **解耦**: 原子 Scanner 不需要知道自己在流水线中的位置，保持纯粹。
@@ -133,7 +174,30 @@ flowchart TD
 - **可扩展**: 新增原子能力（如子域名挖掘）后，只需在 `PipelineRunner` 中增加一个 Stage 即可集成到 `run` 命令中。
 
 ## 5. 实施计划 (Roadmap)
-1.  **Refactor**: 确保 `IpAliveScanner` 和 `PortServiceScanner` 可以被代码调用并返回结构化数据（而非直接打印到控制台）。
-2.  **Impl**: 实现 `internal/core/pipeline` 包，定义 `Pipeline` 和 `Stage` 接口。
-3.  **CLI**: 实现 `cmd/agent/scan/run.go`，解析聚合参数并启动 Pipeline。
-4.  **Auto**: 定义 `--auto` 的默认配置集 (Profile)。
+
+> **状态**: Phase 1-4 已完成，以下为基础阶段回顾。Phase 5+ 见 Pipeline README 第 5 节。
+
+| 阶段 | 项目 | 状态 | 完成日期 |
+|------|------|:---:|:---:|
+| 1 | 确保 `IpAliveScanner` 和 `PortServiceScanner` 返回结构化数据 | ✅ | — |
+| 2 | 实现 `internal/core/pipeline` 包 | ✅ | — |
+| 3 | 实现 `cmd/agent/scan/run.go` | ✅ | — |
+| 4 | 定义 `--auto` 默认配置集 | ✅ | — |
+| — | 引入 RunnerManager / Global Factory 统一扫描器注册 | ✅ | 2025-10 |
+| — | 实现 ServiceDispatcher (Phase 2 并行分发) | ✅ | 2025-10 |
+| — | Web Scanner 完整实现（含爬虫、被动分析、CDN 检测） | ✅ | 2026-08 |
+| — | Brute Scanner 完整实现 | ✅ | 2026-08 |
+| — | API Scanner 完整实现 | ✅ | 2026-08 |
+| — | **Dir Scanner 接入 Pipeline** | ❌ **待实施** | 规划中 |
+| — | **API Scanner 接入 Pipeline** | ❌ **待实施** | 规划中 |
+| — | **Vuln Scanner 实现并接入 Pipeline** | ❌ **待实施** | 规划中 |
+
+---
+
+## 6. Pipeline 演进文档
+
+当前 Pipeline 的详细架构文档（含 Phase 2 扫描器接入计划）已迁移至：
+
+> [`internal/core/pipeline/README.md`](../../../internal/core/pipeline/README.md) - **v1.1** (2026-08-14)
+
+该文档包含完整的改造计划、需修改的文件清单和核心设计原则。

@@ -1,0 +1,5 @@
+%AUTH_OP%.%EXT%
+auth/%AUTH_OP%
+account/%AUTH_OP%
+user/%AUTH_OP%
+oauth/%AUTH_OP%

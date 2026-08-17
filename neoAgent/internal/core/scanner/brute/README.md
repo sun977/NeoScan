@@ -50,6 +50,27 @@
 *   大部分协议使用 Go 标准库或成熟的开源驱动 (如 `go-sql-driver/mysql`, `lib/pq`, `crypto/ssh`)。
 *   RDP 协议使用内部移植的纯 Go 实现 (`protocol/rdp/`)，无需 CGO。
 
+## ⚠️ 已知问题：`rules/passwords/` 字典目录当前未生效
+
+`neoAgent/rules/passwords/` 下存放了按协议分类的用户名/密码字典文件（`ssh/user.txt`、`mysql/pass.txt` 等共 13 个协议目录），但**当前代码完全没有读取这些文件**。
+
+`dict.go` 的字典来源是硬编码在 Go 源码里的两个数组：
+
+```go
+var DefaultTopUsers = []string{"root", "admin", "user", ...}
+var DefaultTopPasswords = []string{"123456", "password", ...}
+```
+
+用户只能通过 Task `Params["users"]`/`Params["passwords"]` 传参来覆盖，无法直接通过修改 `rules/passwords/` 下的文件来影响行为。
+
+**后续优化方向**：将字典外部化，让 `rules/passwords/` 成为真正的可配置字典源：
+- 启动时扫描 `rules/passwords/<protocol>/user.txt` 和 `pass.txt`，按协议加载对应字典
+- 加载逻辑参考 `rules/fingerprint/web/web_fingerprints.json` 的多路径 fallback 范式（`os.ReadFile` 运行时加载，免重新编译）
+- 内置 Top 字典作为兜底默认值，外部文件存在时优先使用
+
+详见 `rules/README.md` 第三节"后续优化方向"。
+
 ## 相关文档
 *   [`DESIGN.md`](./DESIGN.md)：架构设计、数据流、调度器逻辑与开发进度。
 *   [`../../../../docs/Agent指令集规范.md`](../../../../docs/Agent指令集规范.md)：3.5 节记录了 `brute_force` 指令的完整 CLI/Task 参数映射。
+*   [`../../../../rules/README.md`](../../../../rules/README.md)：记录了 `rules/` 目录下所有规则文件的实际调用状态，含 `passwords/` 当前未生效的详细说明。

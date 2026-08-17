@@ -224,6 +224,9 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 | `--exclude-extensions` | — | 🔶 | 排除已知静态扩展 |
 | `--prefixes` | — | 🔶 | 自定义路径前缀 |
 | `--suffixes` | — | 🔶 | 自定义路径后缀 |
+| `--uppercase` | `-U` | 🔶 | 词表全部大写 |
+| `--lowercase` | `-L` | 🔶 | 词表全部小写 |
+| `--capital` | `-C` | 🔶 | 词表首字母大写 |
 
 **不做的原因**:
 - `--wordlist-categories`: NeoAgent 内置了 dirsearch 全部字典（`dicc.txt` + `categories/` + `templates/`），无需用户选择
@@ -231,7 +234,6 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 - `--wordlist-status`: 调试用，CLI 场景不需要
 - `--wordlist-max-size`: NeoAgent 通过 `--max-entries` 控制，与 Dir 扫描无直接关系
 - `--overwrite-extensions`: 使用场景有限，`-f` 已覆盖大部分需求
-- `--uppercase`/`--lowercase`/`--capital`: 路径扫描大小写敏感，不需要全量转换
 
 ---
 
@@ -249,6 +251,8 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 | `--max-retries` | `--retries` | ⚠️ | 最大重试次数（默认 2） |
 | `--rate-limit` | `--max-rate` | 🔶 | 每秒最大请求数 |
 | `--delay` | `--delay` | 🔶 | 请求间隔 |
+| `--max-time` | `--max-time` | 🔶 | 总扫描时间上限（秒） |
+| `--target-max-time` | `--target-max-time` | 🔶 | 单目标扫描时间上限（秒） |
 
 > **`--max-recursion-depth` 是什么**：控制递归扫描的层数上限，防止字典指数级膨胀。
 >
@@ -275,7 +279,6 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 - `--async`/`--sync`: Go 原生 goroutine 并发，不需要切换模型
 - `--filter-threshold`: NeoAgent 通配符检测已内置动态学习，不需要手动调阈值
 - `--subdirs`: NeoAgent 通过 `scan run` 全流程编排控制，不在此参数化
-- `--max-time`/`--target-max-time`: 目录扫描是 Pipeline 的一个阶段，时间控制由 Master 编排
 - `--exit-on-error`: Pipeline 场景中某个目标失败不应阻塞整个扫描
 
 ---
@@ -321,10 +324,10 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 | `--user-agent` | — | 🔶 | 自定义 User-Agent |
 | `--random-agent` | — | 🔶 | 随机 User-Agent |
 | `--auth` | — | 🔶 | 认证凭证 |
+| `--headers-file` | — | 🔶 | 从文件加载多个请求头（登录态/多头场景） |
 
 **不做的原因**:
 - `--data`/`--data-file`: 目录扫描是 GET 为主，POST 场景极少
-- `--headers-file`: 配置复杂度大于收益
 - `--cert-file`/`--key-file`: mTLS 场景在目录扫描中极少
 - `--cookie`: 可通过 `--auth` 或 `--header` 替代
 - `--request-backend`: 无 Rust 后端，不需要
@@ -352,12 +355,13 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 
 | NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
 |---------------|---------------|:---:|------|
-| `--output-format` | `-O` | ✅ | 输出格式（console/json/csv） |
-| `--output-file` | `-o` | ⚠️ | 输出文件路径 |
-| `--verbose` | `-v` | ⚠️ | 详细输出（响应时间/Content-Type） |
+| `--oj <path>` | — | ✅ | JSON 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
+| `--oc <path>` | — | ✅ | CSV 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
+| `--verbose` | `-v` | ⚠️ | 详细终端输出（响应时间/Content-Type） |
 | `--quiet` | `-q` | ⚠️ | 安静模式 |
 
 **不做的原因**:
+- `--output-format`/`--output-file`（dirsearch `-O`/`-o`）: NeoAgent 已有全局 `--oj`/`--oc` 统一处理文件输出，引入私有参数只会产生语义重叠和冲突，复用全局参数是唯一正确选择
 - `--mysql-url`/`--postgres-url`: NeoAgent 通过 Reporter 接口对接数据库，不直接在 CLI 参数暴露
 - `--log`: NeoAgent 统一日志管理
 - `--full-url`/`--redirects-history`/`--no-color`/`--disable-cli`: 输出样式调整，优先级低
@@ -377,8 +381,10 @@ Flags:
   --threads int             并发线程数（默认 25）
   --timeout int             请求超时秒数（默认 10）
   --recursive               启用递归扫描
-  --output-format string    输出格式：console/json/csv（默认 console）
-  --output-file string      输出文件路径
+
+Global Flags (继承自 scan 父命令):
+  --oj string               输出 JSON 文件路径
+  --oc string               输出 CSV 文件路径
 ```
 
 ### 4.2 重要参数（P1 - 应该有）
@@ -402,10 +408,16 @@ Flags:
   --exclude-extensions string   排除的扩展
   --prefixes string             路径前缀
   --suffixes string             路径后缀
+  --uppercase                   词表全部大写
+  --lowercase                   词表全部小写
+  --capital                     词表首字母大写
   --include-status string       要显示的状态码
   --exclude-text string         排除的关键词
   --exclude-regex string        排除的正则
   --rate-limit int              每秒最大请求数
+  --max-time int                总扫描时间上限（秒）
+  --target-max-time int         单目标扫描时间上限（秒）
+  --headers-file string         请求头文件（一行一个，格式: Name: Value）
   --random-agent                随机 User-Agent
   --auth string                 认证凭证
 ```
@@ -429,15 +441,14 @@ neoAgent scan dir example.com \
   --max-retries 2 \
   --exclude-status "404,500,502,503" \
   --recursive \
-  --max-recursion-depth 3 \
-  --output-format console
+  --max-recursion-depth 3
 ```
 
 ### 5.2 典型使用场景
 
 ```bash
 # 场景 1: 快速扫描（Pipeline 场景）
-neoAgent scan dir 10.0.0.1 -p 80 --output-format json -o result.json
+neoAgent scan dir 10.0.0.1 -p 80 --oj result.json
 
 # 场景 2: 深度扫描（带递归 + 指定扩展）
 neoAgent scan dir example.com -e php,asp,jsp,html --recursive --force-extensions -v
@@ -456,12 +467,12 @@ neoAgent scan dir example.com --proxy http://127.0.0.1:8080 -t 50
 | 维度 | dirsearch | NeoAgent DirScanner | 理由 |
 |------|-----------|-------------------|------|
 | **定位** | 独立工具 | 原子扫描器（嵌入 Pipeline） | NeoAgent 是安全扫描平台 |
-| **参数数量** | 90+ | V1: 7 个核心 + 5 个重要 + 7 个可选 | 最小可用原则 |
+| **参数数量** | 90+ | V1: 5 个核心 + 7 个重要 + 13 个可选 + 2 个全局继承 | 最小可用原则 |
 | **字典来源** | 文件路径指定 | 内置 dirsearch 全部字典 | 零配置启动 |
 | **递归控制** | 3 种模式 | 3 种模式全部保留 | 都有实用价值 |
 | **过滤能力** | 8 维 + 通配符 | 通配符 + 基础 3 层过滤 | V1 不做 8 维 |
 | **会话恢复** | 完整支持 | 不支持 | Pipeline 编排不依赖 |
-| **报告输出** | 8 种格式 | 3 种（console/json/csv） | NeoAgent Reporter 统一 |
+| **报告输出** | 8 种格式 | 2 种文件格式（JSON/CSV），复用全局 `--oj`/`--oc` | NeoAgent 全局 OutputOptions 统一 |
 | **请求后端** | Python/Rust 双后端 | Go 原生 | Go 并发模型不同 |
 | **并发模型** | threading/async/rust | goroutine + AdaptiveLimiter | 复用 NeoAgent QoS |
 

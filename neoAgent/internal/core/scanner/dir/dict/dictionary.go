@@ -283,15 +283,16 @@ func loadCustomRules() []string {
 			continue // 目录不存在或无法读取，尝试下一个
 		}
 
+		hasReadDir := true // ReadDir 成功执行，确认目录存在
 		var all []string
 		for _, entry := range entries {
 			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
 				continue
 			}
 			fullPath := filepath.Join(dir, entry.Name())
-			lines, err := loadExternalFile(fullPath)
-			if err != nil {
-				logger.Warnf("[DirDict] Failed to load custom rule %s: %v", fullPath, err)
+			lines, loadErr := loadExternalFile(fullPath)
+			if loadErr != nil {
+				logger.Warnf("[DirDict] Failed to load custom rule %s: %v", fullPath, loadErr)
 				continue
 			}
 			all = append(all, lines...)
@@ -301,10 +302,9 @@ func loadCustomRules() []string {
 		if len(all) > 0 {
 			return all
 		}
-		// 目录存在但为空（或所有文件加载失败），继续尝试下一个候选路径
-		if err == nil {
-			return nil // 目录存在但无可用文件，不继续 fallback
-		}
+		// 目录已确认存在但无可用文件，不继续 fallback
+		_ = hasReadDir
+		return nil
 	}
 
 	return nil

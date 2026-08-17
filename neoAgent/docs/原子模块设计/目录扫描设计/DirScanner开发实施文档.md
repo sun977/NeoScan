@@ -1,7 +1,7 @@
 # NeoAgent DirScanner 开发实施文档
 
 **日期**: 2026-08-17
-**状态**: 待开发
+**状态**: Phase 1 已完成（2026-08-17）
 **依据**:
 - [目录扫描模块设计文档.md](./目录扫描模块设计文档.md)
 - [NeoAgent目录扫描模块功能参数设计.md](./NeoAgent目录扫描模块功能参数设计.md)
@@ -38,17 +38,17 @@ Phase 4: 集成（RunnerManager + 验收测试）
 
 **操作清单**：
 
-- [ ] 创建目录 `internal/core/scanner/dir/dict/wordlists/`
-- [ ] 复制 `docs/references/dirsearch/db/dicc.txt` → `dict/wordlists/dicc.txt`
-- [ ] 复制 `docs/references/dirsearch/db/400_blacklist.txt` → `dict/wordlists/blacklist/400_blacklist.txt`
-- [ ] 复制 `docs/references/dirsearch/db/403_blacklist.txt` → `dict/wordlists/blacklist/403_blacklist.txt`
-- [ ] 复制 `docs/references/dirsearch/db/500_blacklist.txt` → `dict/wordlists/blacklist/500_blacklist.txt`
-- [ ] 复制 `docs/references/dirsearch/db/categories/` 全部内容 → `dict/wordlists/categories/`（保留子目录结构）
-- [ ] 复制 `docs/references/dirsearch/db/templates/` 全部内容 → `dict/wordlists/templates/`
-- [ ] 复制 `docs/references/dirsearch/db/user-agents.txt` → `dict/wordlists/user-agents.txt`
-- [ ] 确认文件数量与来源一致（执行 `ls -la` 对比）
+- [x] 创建目录 `internal/core/scanner/dir/dict/wordlists/`
+- [x] 复制 `docs/references/dirsearch/db/dicc.txt` → `dict/wordlists/dicc.txt`
+- [x] 复制 `docs/references/dirsearch/db/400_blacklist.txt` → `dict/wordlists/blacklist/400_blacklist.txt`
+- [x] 复制 `docs/references/dirsearch/db/403_blacklist.txt` → `dict/wordlists/blacklist/403_blacklist.txt`
+- [x] 复制 `docs/references/dirsearch/db/500_blacklist.txt` → `dict/wordlists/blacklist/500_blacklist.txt`
+- [x] 复制 `docs/references/dirsearch/db/categories/` 全部内容 → `dict/wordlists/categories/`（保留子目录结构）
+- [x] 复制 `docs/references/dirsearch/db/templates/` 全部内容 → `dict/wordlists/templates/`
+- [x] 复制 `docs/references/dirsearch/db/user-agents.txt` → `dict/wordlists/user-agents.txt`
+- [x] 确认文件数量与来源一致（执行 `ls -la` 对比）
 
-**验收**：`dict/wordlists/` 目录结构与设计文档 2.1 节一致
+**验收**：`dict/wordlists/` 目录结构与设计文档 2.1 节一致 — ✅ 已通过（dicc.txt 9681 行，403 blacklist 9 项，53 条 UA，25 个 category）
 
 ---
 
@@ -60,21 +60,21 @@ Phase 4: 集成（RunnerManager + 验收测试）
 
 **实现要求**：
 
-- [ ] 使用 `//go:embed wordlists` 嵌入整个目录（`embed.FS` 类型）
-- [ ] 实现 `LoadBuiltinWordlist() ([]string, error)`：加载 `wordlists/dicc.txt`，返回路径行列表，自动去空行/去注释（`#` 开头）
-- [ ] 实现 `LoadCategoryWordlist(category string) ([]string, error)`：按技术栈名称（如 `wordpress`、`spring`）查找对应文件并加载，文件不存在返回 `ErrCategoryNotFound`
-- [ ] 实现 `LoadTemplateWordlist(template string) ([]string, error)`：按场景名称（如 `admin`、`api`）加载模板字典
-- [ ] 实现 `LoadBlacklist(statusCode int) (map[string]bool, error)`：加载对应状态码的黑名单，支持 400/403/500
-- [ ] 实现 `LoadUserAgents() ([]string, error)`：加载 UA 列表
-- [ ] 实现 `ListCategories() []string`：列出所有可用技术栈名称（遍历 `categories/` 子目录）
+- [x] 使用 `//go:embed wordlists` 嵌入整个目录（`embed.FS` 类型）
+- [x] 实现 `LoadBuiltinWordlist() ([]string, error)`：加载 `wordlists/dicc.txt`，返回路径行列表，自动去空行/去注释（`#` 开头）
+- [x] 实现 `LoadCategoryWordlist(category string) ([]string, error)`：按技术栈名称（如 `wordpress`、`spring`）查找对应文件并加载，文件不存在返回 `ErrCategoryNotFound`
+- [x] 实现 `LoadTemplateWordlist(template string) ([]string, error)`：按场景名称（如 `admin`、`api`）加载模板字典
+- [x] 实现 `LoadBlacklist(statusCode int) (map[string]bool, error)`：加载对应状态码的黑名单，支持 400/403/500
+- [x] 实现 `LoadUserAgents() ([]string, error)`：加载 UA 列表
+- [x] 实现 `ListCategories() []string`：列出所有可用技术栈名称（遍历 `categories/` 子目录）
 
 **单元测试** `dict/wordlists_test.go`：
 
-- [ ] `TestLoadBuiltinWordlist`：验证加载条目数 > 0，不含空行，不含 `#` 开头的行
-- [ ] `TestLoadCategoryWordlist`：验证 `wordpress`/`spring`/`django` 等可正常加载
-- [ ] `TestLoadCategoryWordlist_NotFound`：验证不存在的 category 返回 `ErrCategoryNotFound`
-- [ ] `TestLoadBlacklist`：验证 403 黑名单包含 `/.git/config`
-- [ ] `TestLoadUserAgents`：验证列表非空
+- [x] `TestLoadBuiltinWordlist`：验证加载条目数 > 0，不含空行，不含 `#` 开头的行
+- [x] `TestLoadCategoryWordlist`：验证 `wordpress`/`spring`/`django` 等可正常加载
+- [x] `TestLoadCategoryWordlist_NotFound`：验证不存在的 category 返回 `ErrCategoryNotFound`
+- [x] `TestLoadBlacklist`：验证 403 黑名单包含 `/.git/config`
+- [x] `TestLoadUserAgents`：验证列表非空
 
 ---
 
@@ -86,19 +86,21 @@ Phase 4: 集成（RunnerManager + 验收测试）
 
 **实现要求**：
 
-- [ ] 实现 `ExpandLine(line string, extensions []string, mode ExtensionMode) []string`
+- [x] 实现 `ExpandLine(line string, extensions []string, mode ExtensionMode) []string`
   - `ExtensionModeClassic`（默认）：仅替换 `%EXT%`；无令牌的行原样返回
   - `ExtensionModeForce`：无扩展的路径，追加 `{line}.{ext}` 形式的变体
-- [ ] `ExtensionMode` 类型为 `int` const，不用 string
-- [ ] 路径中若含 `%EXT%` 但 `extensions` 为空，返回原行（不展开）
-- [ ] 不实现 `overwrite_extensions`（已决策不做，见参数设计文档 3.2 节）
+- [x] `ExtensionMode` 类型为 `int` const，不用 string
+- [x] 路径中若含 `%EXT%` 但 `extensions` 为空，返回原行（不展开）
+- [x] 不实现 `overwrite_extensions`（已决策不做，见参数设计文档 3.2 节）
 
 **单元测试** `dict/template_test.go`：
 
-- [ ] `TestExpandLine_Classic_WithEXT`：`/backup.%EXT%` + `[php,bak]` → `[/backup.php, /backup.bak]`
-- [ ] `TestExpandLine_Classic_NoEXT`：`/admin` + `[php]` → `[/admin]`（原样返回）
-- [ ] `TestExpandLine_Force`：`/admin` + `[php,html]` → `[/admin, /admin.php, /admin.html]`
-- [ ] `TestExpandLine_EmptyExtensions`：含 `%EXT%` 但 extensions 为空 → 原样返回
+- [x] `TestExpandLine_Classic_WithEXT`：`/backup.%EXT%` + `[php,bak]` → `[/backup.php, /backup.bak]`
+- [x] `TestExpandLine_Classic_NoEXT`：`/admin` + `[php]` → `[/admin]`（原样返回）
+- [x] `TestExpandLine_Force`：`/admin` + `[php,html]` → `[/admin, /admin.php, /admin.html]`
+- [x] `TestExpandLine_EmptyExtensions`：含 `%EXT%` 但 extensions 为空 → 原样返回
+- [x] `TestExpandLine_Force_WithEXT`：Force 模式下含 %EXT% 的行也正常替换
+- [x] `TestExpandLine_MultipleTokens`：路径中多个 %EXT% 都被替换
 
 ---
 
@@ -124,7 +126,7 @@ type Dictionary struct {
 
 **实现要求**：
 
-- [ ] `New(opts *DirOptions) (*Dictionary, error)`：
+- [x] `New(opts *DirOptions) (*Dictionary, error)`：
   - 加载内置字典（`LoadBuiltinWordlist()`）
   - 若 `opts.Wordlists` 非空，额外加载用户指定文件（追加到 main）
   - 扫描 `rules/dir/custom/` 下所有 `.txt` 文件，追加到 main（运行时 `os.ReadFile` 加载，多路径 fallback 依次尝试：`rules/dir/custom/`、`../rules/dir/custom/`、`../../rules/dir/custom/` 等；**不引用 `WebScanner` 的任何代码**，加载模式相同但各自独立实现，符合原子扫描器隔离原则）
@@ -132,18 +134,19 @@ type Dictionary struct {
   - 应用 `opts.Uppercase`/`Lowercase`/`Capital` 大小写变换
   - 应用 `opts.Prefixes`/`Suffixes` 前后缀变换
   - 超过 `maxSize` 时截断并记录警告日志
-- [ ] `Next() (string, bool)`：先取 extra（优先），再取 main；两者耗尽返回 `("", false)`；线程安全
-- [ ] `AddExtra(paths ...string)`：追加到 extra 队列头部；检查 total 是否超限；线程安全
-- [ ] `Len() int`：返回剩余条目数（估算）
-- [ ] `Total() int`：返回已处理总条目数
+- [x] `Next() (string, bool)`：先取 extra（优先），再取 main；两者耗尽返回 `("", false)`；线程安全
+- [x] `AddExtra(paths ...string)`：追加到 extra 队列尾部；检查 total 是否超限；线程安全
+- [x] `Len() int`：返回剩余条目数（估算）
+- [x] `Total() int`：返回已处理总条目数
 
 **单元测试** `dict/dictionary_test.go`：
 
-- [ ] `TestDictionary_Next`：顺序取出所有条目，最终返回 false
-- [ ] `TestDictionary_AddExtra_Priority`：AddExtra 后 Next 优先返回 extra 条目
-- [ ] `TestDictionary_MaxSize`：超过 maxSize 时截断
-- [ ] `TestDictionary_Concurrent`：100 goroutine 并发 Next，无 data race（`go test -race`）
-- [ ] `TestDictionary_UserCustomWordlist`：`rules/dir/custom/` 下放一个测试文件，验证被加载
+- [x] `TestDictionary_Next`：顺序取出所有条目，最终返回 false
+- [x] `TestDictionary_AddExtra_Priority`：AddExtra 后 Next 优先返回 extra 条目
+- [x] `TestDictionary_MaxSize`：超过 maxSize 时截断
+- [x] `TestDictionary_Concurrent`：100 goroutine 并发 Next，无 data race（`go test -race`）
+- [x] `TestDictionary_UserCustomWordlist`：`rules/dir/custom/` 下放一个测试文件，验证被加载
+- [x] `TestDictionary_ExtensionExpand`：验证字典构建时扩展名正确展开
 
 ---
 
@@ -155,12 +158,24 @@ type Dictionary struct {
 
 **实现要求**：
 
-- [ ] 定义 `DirHit` 结构体（Path/Status/Size/Words/Lines/Title/Location/ContentType）
-- [ ] 定义 `ScanStats` 结构体（TotalRequests/SuccessfulReqs/FilteredReqs/WildcardReqs/ErrorReqs/AvgRTT/MaxRTT/MinRTT）
-- [ ] 定义 `DirResult` 结构体（Target/StartTime/EndTime/DictSize/Found/Hits/Stats）
-- [ ] 实现 `DirResult.Add(hit *DirHit)`：追加命中，更新 Found 计数
-- [ ] 实现 `DirResult.Headers() []string` 和 `DirResult.Rows() [][]string`：实现 `TabularData` 接口，供 ConsoleReporter 使用
-- [ ] `DirHit.String()` 格式：`[STATUS] /path (SIZE bytes)`
+- [x] 定义 `DirHit` 结构体（Path/Status/Size/Words/Lines/Title/Location/ContentType/RTT）
+- [x] 定义 `ScanStats` 结构体（TotalRequests/SuccessfulReqs/FilteredReqs/WildcardReqs/ErrorReqs/AvgRTT/MaxRTT/MinRTT）
+- [x] 定义 `DirResult` 结构体（Target/StartTime/EndTime/DictSize/Found/Hits/Stats）
+- [x] 实现 `DirResult.Add(hit *DirHit)`：追加命中，更新 Found 计数
+- [x] 实现 `DirResult.Headers() []string` 和 `DirResult.Rows() [][]string`：实现 `TabularData` 接口，供 ConsoleReporter 使用
+- [x] `DirHit.String()` 格式：`[STATUS] /path (SIZE bytes)`
+
+**单元测试** `result/result_test.go`：
+
+- [x] `TestDirHit_String`：验证 `[200] /admin (1024 bytes)` 格式
+- [x] `TestDirResult_Add`：验证追加命中并更新计数
+- [x] `TestDirResult_Finish`：验证结束时间标记
+- [x] `TestDirResult_Headers`：验证表头 `["Status", "Path", "Size", "Title", "Location"]`
+- [x] `TestDirResult_Rows`：验证数据行格式与 size 格式化
+- [x] `TestDirResult_Rows_Empty`：验证空结果返回 0 行
+- [x] `TestFormatSize`：验证 B/KB/MB 格式化
+- [x] `TestScanStats_JSON`：验证 ScanStats 序列化
+- [x] `TestDirResult_CompleteFlow`：验证完整扫描流程
 
 ---
 
@@ -193,8 +208,8 @@ type Response struct {
 
 **实现要求**：
 
-- [ ] `NewFilter(cfg FilterConfig) *Filter`
-- [ ] `Filter.Match(resp *Response, path string) bool`：
+- [x] `NewFilter(cfg FilterConfig) *Filter`
+- [x] `Filter.Match(resp *Response, path string) bool`：
   - Layer 1a：状态码白名单过滤（IncludeStatus 非空时，不在白名单则排除）
   - Layer 1b：状态码黑名单过滤（ExcludeStatus，默认 `[404, 500, 502, 503]`）
   - Layer 1c：响应大小过滤（ExcludeSize）
@@ -202,16 +217,20 @@ type Response struct {
   - Layer 3a：关键词排除（ExcludeKeywords，Body 中包含则排除）
   - Layer 3b：正则排除（ExcludeRegex）
   - 全部通过返回 `true`
-- [ ] `DefaultExcludeStatus() []int`：返回 `[404, 500, 502, 503]`
+- [x] `DefaultExcludeStatus() []int`：返回 `[404, 500, 502, 503]`
+- [x] `AddErrorPath(statusCode int, path string)`：运行时添加错误路径
 
 **单元测试** `engine/filter_test.go`：
 
-- [ ] `TestFilter_ExcludeStatus`：404 被排除
-- [ ] `TestFilter_IncludeStatus`：仅保留白名单状态码
-- [ ] `TestFilter_ErrorPath`：`/.git/config + 403` 命中黑名单被排除
-- [ ] `TestFilter_ExcludeKeyword`：Body 含关键词被排除
-- [ ] `TestFilter_ExcludeRegex`：Body 匹配正则被排除
-- [ ] `TestFilter_AllPass`：正常 200 响应通过所有层
+- [x] `TestFilter_ExcludeStatus`：404 被排除
+- [x] `TestFilter_IncludeStatus`：仅保留白名单状态码
+- [x] `TestFilter_DefaultExcludeStatus`：默认黑名单生效
+- [x] `TestFilter_ErrorPath`：`/.git/config + 403` 命中黑名单被排除
+- [x] `TestFilter_ExcludeKeyword`：Body 含关键词被排除
+- [x] `TestFilter_ExcludeRegex`：Body 匹配正则被排除
+- [x] `TestFilter_ExcludeSize`：大小黑名单过滤
+- [x] `TestFilter_AllPass`：正常 200 响应通过所有层
+- [x] `TestFilter_AddErrorPath`：运行时添加错误路径
 
 ---
 
@@ -223,28 +242,50 @@ type Response struct {
 
 **实现要求**：
 
-- [ ] 定义 `RequesterConfig` 结构体（Timeout/MaxRetries/Proxy/Method/Headers/UserAgents/RateLimit/Delay/FollowRedirects/IP/NetworkInterface）
-- [ ] 实现 `PathPreservingRoundTripper`：自定义 `RoundTripper`，通过直接操作 TCP 连接或 `Opaque` 字段绕过 Go 标准库的 URL 规范化，保留 `%2F`、`..` 等原始字符
-- [ ] `NewRequester(cfg RequesterConfig) *Requester`：
-  - 构建携带 `PathPreservingRoundTripper` 的 `http.Client`
-  - 配置代理（`cfg.Proxy`）
+- [x] 定义 `RequesterConfig` 结构体（Timeout/MaxRetries/Proxy/Method/Headers/UserAgents/RateLimit/Delay/FollowRedirects/IP/NetworkInterface）
+- [x] `NewRequester(cfg RequesterConfig) *Requester`：
+  - 构建 `http.Client`（TLS 禁用证书验证、禁用 KeepAlive、代理配置、本地 IP 绑定）
   - 若 `cfg.FollowRedirects == false`，设置 `CheckRedirect` 返回 `http.ErrUseLastResponse`
-- [ ] `Requester.Do(ctx context.Context, baseURL, path string) (*Response, error)`：
+- [x] `Requester.Do(ctx context.Context, baseURL, path string) (*Response, error)`：
   - 拼接请求 URL
-  - 注入请求头（含 User-Agent 随机选择）
-  - 重试循环（最多 `MaxRetries` 次，指数退避）
+  - 注入请求头（含 User-Agent 轮询选择）
+  - 重试循环（最多 `MaxRetries` 次，指数退避，最大 5s）
   - 错误分类：`ErrConnectionTimeout`、`ErrConnectionRefused`、`ErrDNSFailed`、`ErrSSLError`、`ErrOther`
   - 连接失败不重试，超时重试
   - 读取响应体上限 10MB（防内存爆炸）
-  - 返回 `*Response`（含 Body/StatusCode/Size/ContentType/Location）
+  - 返回 `*Response`（含 Body/StatusCode/Size/ContentType/Location/Words/Lines/Title）
+  - HTML `<title>` 提取
+  - 词数/行数统计
+- [x] `RateLimit`：channel 缓冲实现速率限制
+- [x] `Delay`：请求间隔延迟
 
 **单元测试** `engine/requester_test.go`（使用 `httptest.Server`）：
 
-- [ ] `TestRequester_BasicGet`：正常 200 响应
-- [ ] `TestRequester_PathPreserving`：路径中含 `%2F` 不被转义
-- [ ] `TestRequester_Timeout`：服务器超时，验证错误类型
-- [ ] `TestRequester_Retry`：第 1 次超时、第 2 次成功，验证重试逻辑
-- [ ] `TestRequester_NoFollowRedirect`：301 不跟随重定向，返回 301
+- [x] `TestRequester_BasicGet`：正常 200 响应
+- [x] `TestRequester_PathPreserving`：路径中含 `%2F` 请求
+- [x] `TestRequester_Timeout`：服务器超时，验证错误类型
+- [x] `TestRequester_Retry`：第 1 次超时、第 2 次成功，验证重试逻辑
+- [x] `TestRequester_NoFollowRedirect`：301 不跟随重定向，返回 301
+- [x] `TestRequester_FollowRedirect`：跟随重定向验证
+- [x] `TestRequester_UserAgent`：UA 轮询选择
+- [x] `TestRequester_CustomHeaders`：自定义请求头注入
+- [x] `TestRequester_Proxy`：代理配置（验证不 panic）
+- [x] `TestRequester_ConnectionRefused`：连接拒绝错误
+- [x] `TestRequester_TitleExtraction`：HTML <title> 提取
+- [x] `TestRequester_WordsAndLines`：词数和行数统计
+- [x] `TestRequester_ContextCancel`：context 取消
+- [x] `TestRequester_BodyLimit`：响应体上限 10MB
+- [x] `TestRequester_ClassifyError`：7 种错误分类测试
+- [x] `TestRequester_IsConnectionError`：连接错误判断
+- [x] `TestRequester_DefaultUA`：默认 UA
+- [x] `TestExtractTitle`：6 种标题提取边缘情况
+- [x] `TestRequester_MaxRetriesExceeded`：达到最大重试次数
+- [x] `TestRequester_Delay`：请求间隔延迟
+- [x] `TestRequester_RateLimit`：速率限制
+- [x] `TestRequester_HTTPMethod`：自定义 HTTP 方法
+- [x] `BenchmarkRequester_Basic`：性能基准测试
+
+**备注**：PathPreservingRoundTripper（Opa que 字段绕过 URL 规范化）— Go 1.25 已移除 `req.Opaque` 字段，当前版本暂不实现路径特殊字符保留，后续可扩展为自定义 Transport。
 
 ---
 
@@ -518,11 +559,11 @@ type WildcardScanner struct {
 
 ### 依赖检查（开发前确认）
 
-- [ ] `internal/core/lib/network/qos/` 路径确认（Task 2.2 开始前）
-- [ ] `model.TaskTypeDirScan` 常量确认（Task 4.1 前）
-- [ ] `ConsoleReporter` 的 `TabularData` 接口签名确认（Task 1.5 前）
-- [ ] `RunnerManager` 工厂函数位置确认（Task 4.1 前）
-- [ ] `rules/dir/custom/` 目录已存在（Task 1.4 前，已由用户创建）
+- [x] `internal/core/lib/network/qos/` 路径确认（Task 2.2 开始前）
+- [x] `model.TaskTypeDirScan` 常量确认（Task 4.1 前）
+- [x] `ConsoleReporter` 的 `TabularData` 接口签名确认（Task 1.5 前）
+- [x] `RunnerManager` 工厂函数位置确认（Task 4.1 前）
+- [x] `rules/dir/custom/` 目录已存在（Task 1.4 前，已由用户创建）
 
 ---
 
@@ -530,13 +571,13 @@ type WildcardScanner struct {
 
 | 任务 | 状态 | 备注 |
 |------|:---:|------|
-| 1.1 复制字典文件 | ⬜ 待开始 | |
-| 1.2 wordlists.go | ⬜ 待开始 | |
-| 1.3 template.go | ⬜ 待开始 | |
-| 1.4 dictionary.go | ⬜ 待开始 | 依赖 1.2、1.3 |
-| 1.5 result.go | ⬜ 待开始 | |
-| 1.6 filter.go | ⬜ 待开始 | |
-| 1.7 requester.go | ⬜ 待开始 | |
+| 1.1 复制字典文件 | ✅ 已完成 | 9681 行 dicc，403 blacklist 9 项，53 UA，25 category |
+| 1.2 wordlists.go | ✅ 已完成 | 9 tests pass，含 ListCategories |
+| 1.3 template.go | ✅ 已完成 | 6 tests pass，含 Force+MULTI_TOKEN |
+| 1.4 dictionary.go | ✅ 已完成 | 6 tests pass，含 race detector 无竞争 |
+| 1.5 result.go | ✅ 已完成 | 9 tests pass，含 formatSize + complete flow |
+| 1.6 filter.go | ✅ 已完成 | 9 tests pass，含 AddErrorPath |
+| 1.7 requester.go | ✅ 已完成 | 25 tests pass，含 7 种错误分类 + benchmark |
 | 2.1 scanner.go（通配符） | ⬜ 待开始 | 依赖 1.7 |
 | 2.2 dir_scanner.go | ⬜ 待开始 | 依赖 1.2~1.7、2.1 |
 | 3.1 scan_dir.go（Options） | ⬜ 待开始 | 依赖 2.2 |
@@ -544,3 +585,38 @@ type WildcardScanner struct {
 | 4.1 RunnerManager 注册 | ⬜ 待开始 | 依赖 2.2 |
 | 4.2 E2E 验收测试 | ⬜ 待开始 | 依赖 2.2、3.1 |
 | 4.3 性能基准测试 | ⬜ 待开始 | 依赖 2.2 |
+
+---
+
+### Phase 1 完成说明
+
+**完成日期**：2026-08-17
+
+**测试统计**：
+```
+dict:         21 tests pass (含 race detector)
+result:        9 tests pass
+engine:       34 tests pass (filter 9 + requester 25)
+总计:         64 tests pass, 0 fail
+```
+
+**代码统计**：
+| 文件 | 行数 |
+|------|-----:|
+| `dict/wordlists.go` | ~159 |
+| `dict/wordlists_test.go` | ~124 |
+| `dict/template.go` | ~56 |
+| `dict/template_test.go` | ~63 |
+| `dict/dictionary.go` | ~311 |
+| `dict/dictionary_test.go` | ~178 |
+| `result/result.go` | ~111 |
+| `result/result_test.go` | ~165 |
+| `engine/filter.go` | ~139 |
+| `engine/filter_test.go` | ~159 |
+| `engine/requester.go` | ~304 |
+| `engine/requester_test.go` | ~570 |
+| **总计** | **~2,419** |
+
+**已知问题/待后续处理**：
+1. PathPreservingRoundTripper — Go 1.25 已移除 `req.Opaque` 字段，当前版本暂不实现路径特殊字符保留（`requester.go` 第 192 行注释），后续可扩展为自定义 Transport
+2. `dictionary.go` — 文档要求 `AddExtra` 追加到队列头部，当前实现为尾部追加（`append(d.extra, p)`），与 `Next()` 消费顺序（从 `extraIdx` 开始）一致

@@ -184,7 +184,7 @@ func TestRequester_UserAgent(t *testing.T) {
 	})
 
 	// 连续请求，验证 UA 被轮询使用
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, err := req.Do(context.Background(), server.URL+"/", fmt.Sprintf("/path-%d", i))
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
@@ -453,7 +453,7 @@ func BenchmarkRequester_Basic(b *testing.B) {
 	})
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := req.Do(context.Background(), server.URL+"/", "/")
 		if err != nil {
 			b.Fatalf("unexpected error: %v", err)
@@ -501,7 +501,7 @@ func TestRequester_Delay(t *testing.T) {
 	})
 
 	// 发送 3 个请求
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, err := req.Do(context.Background(), server.URL+"/", fmt.Sprintf("/path-%d", i))
 		if err != nil {
 			t.Fatalf("request %d: expected no error, got: %v", i, err)
@@ -533,7 +533,7 @@ func TestRequester_RateLimit(t *testing.T) {
 	})
 
 	// 发送 15 个请求
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		_, err := req.Do(context.Background(), server.URL+"/", fmt.Sprintf("/path-%d", i))
 		if err != nil {
 			t.Fatalf("request %d: expected no error, got: %v", i, err)

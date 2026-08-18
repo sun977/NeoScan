@@ -26,6 +26,11 @@ var (
 	ErrSSLError           = errors.New("SSL/TLS error")
 	ErrOther              = errors.New("request failed")
 	ErrMaxRetriesExceeded = errors.New("max retries exceeded")
+	// ErrInvalidRequest 表示请求在本地构造阶段就失败（如字典条目含非法 URL
+	// 转义序列，例如未展开的 "%EXT%"）。这类错误从未发出网络请求，重试没有
+	// 任何意义，必须直接判定为不可重试，否则会在含特殊字符的字典条目上
+	// 白白消耗 MaxRetries 次退避等待，拖慢整个扫描（真实复现过的性能 bug）。
+	ErrInvalidRequest = errors.New("invalid request")
 )
 
 // RequesterConfig 控制 Requester 行为。
@@ -50,7 +55,7 @@ type Requester struct {
 	uaList      []string
 	uaIndex     int
 	uaMu        sync.Mutex
-	rateLimiter chan struct{}
+	rateTicker  *time.Ticker // 按 RateLimit 定期发放令牌，Do() 每次请求前消费一个
 }
 
 // NewRequester 创建请求器。
@@ -62,7 +67,7 @@ func NewRequester(cfg RequesterConfig) *Requester {
 		cfg.MaxRetries = 2
 	}
 	if cfg.Method == "" {
-		cfg.Method = "http.MethodGet"
+		cfg.Method = http.MethodGet
 	}
 
 	transport := &http.Transport{
@@ -95,10 +100,12 @@ func NewRequester(cfg RequesterConfig) *Requester {
 		}
 	}
 
-	// 速率限制器
-	var rateLimiter chan struct{}
+	// 速率限制器：按 1s/RateLimit 的间隔发放令牌（标准令牌桶节流），
+	// Do() 每次请求前从 ticker 消费一次，避免过去"只写不读的 channel"
+	// 在超过 RateLimit 个请求后永久阻塞的 bug。
+	var rateTicker *time.Ticker
 	if cfg.RateLimit > 0 {
-		rateLimiter = make(chan struct{}, cfg.RateLimit)
+		rateTicker = time.NewTicker(time.Second / time.Duration(cfg.RateLimit))
 	}
 
 	return &Requester{
@@ -112,9 +119,9 @@ func NewRequester(cfg RequesterConfig) *Requester {
 				return nil
 			},
 		},
-		cfg:         cfg,
-		uaList:      cfg.UserAgents,
-		rateLimiter: rateLimiter,
+		cfg:        cfg,
+		uaList:     cfg.UserAgents,
+		rateTicker: rateTicker,
 	}
 }
 
@@ -139,10 +146,10 @@ func (r *Requester) Do(ctx context.Context, baseURL, path string) (*Response, er
 			}
 		}
 
-		// 速率限制
-		if r.rateLimiter != nil {
+		// 速率限制：消费一个 ticker 令牌，达到 RateLimit 后自动排队等待下一个节拍
+		if r.rateTicker != nil {
 			select {
-			case r.rateLimiter <- struct{}{}:
+			case <-r.rateTicker.C:
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
@@ -160,8 +167,8 @@ func (r *Requester) Do(ctx context.Context, baseURL, path string) (*Response, er
 		resp, err := r.doSingle(ctx, baseURL, path)
 		if err != nil {
 			lastErr = err
-			// 连接类错误不重试
-			if isConnectionError(err) {
+			// 连接类错误、本地构造请求失败均不重试（重试无法改变结果，只会浪费时间）
+			if isConnectionError(err) || errors.Is(err, ErrInvalidRequest) {
 				return nil, err
 			}
 			continue
@@ -174,11 +181,17 @@ func (r *Requester) Do(ctx context.Context, baseURL, path string) (*Response, er
 
 // doSingle 执行单次 HTTP 请求。
 func (r *Requester) doSingle(ctx context.Context, baseURL, path string) (*Response, error) {
+	// 字典条目不保证带前导斜杠（如 dirsearch 字典中的 "!.gitignore"）。
+	// 缺少 "/" 时直接拼接会产生 "http://host!.gitignore" 这种畸形 URL，
+	// 底层 DNS/连接尝试会长时间挂起而不是快速失败，必须在拼接前规范化。
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
 	target := baseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, r.cfg.Method, target, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrInvalidRequest, err)
 	}
 
 	// 注入请求头

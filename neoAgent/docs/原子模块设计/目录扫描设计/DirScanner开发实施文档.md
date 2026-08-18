@@ -317,11 +317,11 @@ type WildcardScanner struct {
 
 **实现要求**：
 
-- [ ] `NewWildcardScanner(req *Requester, baseURL string) *WildcardScanner`
-- [ ] `normalizeDynamic(content string) string`：移除 UUID/长hex/时间戳/Base64（4 个正则，见设计文档 4.3 节）；正则**编译一次，包级变量**，不在函数内 `MustCompile`
-- [ ] `extractStaticPatterns(body1, body2 string) ([]string, int)`：返回共同词列表和基准词数
-- [ ] `fingerprint(resp *Response) string`：按设计文档 4.4 节格式生成指纹
-- [ ] `WildcardScanner.Check(ctx context.Context, pathPrefix string, resp *Response) (isUnique bool, reason string)`：
+- [x] `NewWildcardScanner(req *Requester, baseURL string) *WildcardScanner`
+- [x] `normalizeDynamic(content string) string`：移除 UUID/长hex/时间戳/Base64（4 个正则，见设计文档 4.3 节）；正则**编译一次，包级变量**，不在函数内 `MustCompile`
+- [x] `extractStaticPatterns(body1, body2 string) ([]string, int)`：返回共同词列表和基准词数
+- [x] `fingerprint(resp *Response) string`：按设计文档 4.4 节格式生成指纹
+- [x] `WildcardScanner.Check(ctx context.Context, pathPrefix string, resp *Response) (isUnique bool, reason string)`：
   - 检查指纹是否已知通配符（`wildCardFPs`）→ 直接返回 false
   - 未达采样阈值 → 发送探测请求（随机不存在路径 `pathPrefix + randStealthWord()`），更新样本
   - 采样未完成 → 返回 `(false, "sampling")`（采样阶段压制输出）
@@ -329,16 +329,16 @@ type WildcardScanner struct {
   - 比对当前响应与静态模式：相似度 ≥ 0.9 且长度差异 ≤ 35% → 通配符，返回 false
   - 自校准：调用 `autoCalibrate`，更新 `fingerprints`，超阈值加入 `wildCardFPs`
   - 通过所有检测 → 返回 `(true, "unique")`
-- [ ] `randStealthWord() string`：生成随机 8 字符字符串（避免与真实路径冲突）
+- [x] `randStealthWord() string`：生成随机 8 字符字符串（避免与真实路径冲突）
 
 **单元测试** `engine/scanner_test.go`（使用 `httptest.Server`）：
 
-- [ ] `TestNormalizeDynamic`：UUID/hex/时间戳/Base64 被正确替换
-- [ ] `TestExtractStaticPatterns`：两个相同结构但动态内容不同的响应，提取到共同词
-- [ ] `TestWildcardScanner_CDN`：mock 服务器对任意路径返回同一个 404 页面 → Check 返回 false
-- [ ] `TestWildcardScanner_Unique`：mock 服务器对特定路径返回独特内容 → Check 返回 true
-- [ ] `TestWildcardScanner_SamplingPhase`：前 5 次 Check 均返回 `(false, "sampling")`
-- [ ] `TestWildcardScanner_Concurrent`：并发 Check，无 data race
+- [x] `TestNormalizeDynamic`：UUID/hex/时间戳/Base64 被正确替换
+- [x] `TestExtractStaticPatterns`：两个相同结构但动态内容不同的响应，提取到共同词
+- [x] `TestWildcardScanner_CDN`：mock 服务器对任意路径返回同一个 404 页面 → Check 返回 false
+- [x] `TestWildcardScanner_Unique`：mock 服务器对特定路径返回独特内容 → Check 返回 true
+- [x] `TestWildcardScanner_SamplingPhase`：前 5 次 Check 均返回 `(false, "sampling")`
+- [x] `TestWildcardScanner_Concurrent`：并发 Check，无 data race
 
 ---
 
@@ -350,16 +350,16 @@ type WildcardScanner struct {
 
 **实现要求**：
 
-- [ ] 定义 `DirScanner` 结构体，持有 `limiter *qos.AdaptiveLimiter` 字段（**不使用 Go struct embedding**，而是普通字段持有，与 `ApiScanner`/`IpAliveScanner` 的做法一致，保持封装边界清晰）
-- [ ] 实现 `Name() model.TaskType`：返回 `model.TaskTypeDirScan`
-- [ ] 实现 `Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error)`：
+- [x] 定义 `DirScanner` 结构体，持有 `limiter *qos.AdaptiveLimiter` 字段（**不使用 Go struct embedding**，而是普通字段持有，与 `ApiScanner`/`IpAliveScanner` 的做法一致，保持封装边界清晰）
+- [x] 实现 `Name() model.TaskType`：返回 `model.TaskTypeDirScan`
+- [x] 实现 `Run(ctx context.Context, task *model.Task) ([]*model.TaskResult, error)`：
   - 调用 `parseDirOptions(task.Params)` 解析参数（见 Task 3.1）
   - 初始化 `Dictionary`、`Requester`、`Filter`、`WildcardScanner`
   - 处理 `MaxTime`/`TargetMaxTime`：若非 0，用 `context.WithTimeout` 包装 ctx
   - 启动 Worker 池（goroutine 数 = `opts.Threads`）
   - 等待所有 Worker 完成，收集结果
   - 返回 `[]*model.TaskResult`（包含 `DirResult`）
-- [ ] 实现 `worker(ctx, dict, req, filter, scanner, results chan, opts)`：
+- [x] 实现 `worker(ctx, dict, req, filter, scanner, results chan, opts)`：
   - 从 `dict.Next()` 取路径
   - `limiter.Acquire(ctx)` 速率控制
   - 若 `opts.Delay > 0`，`time.Sleep(opts.Delay)`
@@ -367,19 +367,39 @@ type WildcardScanner struct {
   - `filter.Match()` 过滤
   - `scanner.Check()` 通配符检测
   - 命中则发送到 results channel，并判断是否递归
-- [ ] 实现 `shouldRecursion(resp, path, opts)`（三种递归模式，见设计文档 7.1 节）
-- [ ] 实现 `generateSubpaths(path string) []string`（深度递归子路径生成）
-- [ ] 递归调用 `dict.AddExtra(subpaths...)` 时检查递归深度（`MaxRecursionDepth`），超限则跳过
-- [ ] 实现 `parseDirOptions(params map[string]interface{}) *DirOptions`：从 task.Params 解析所有字段，含默认值（`Threads=25`、`Timeout=10s`、`MaxRetries=2`、`ExcludeStatus=[404,500,502,503]`、`MaxRecursionDepth=3`）
+- [x] 实现 `shouldRecursion(resp, path, opts)`（三种递归模式，见设计文档 7.1 节）
+- [x] 实现 `generateSubpaths(path string) []string`（深度递归子路径生成）
+- [x] 递归调用 `dict.AddExtra(subpaths...)` 时检查递归深度（`MaxRecursionDepth`），超限则跳过
+- [x] 实现 `parseDirOptions(params map[string]interface{}) *DirOptions`：从 task.Params 解析所有字段，含默认值（`Threads=25`、`Timeout=10s`、`MaxRetries=2`、`ExcludeStatus=[404,500,502,503]`、`MaxRecursionDepth=3`）
 
 **单元测试** `dir_scanner_test.go`（使用 `httptest.Server`）：
 
-- [ ] `TestDirScanner_BasicScan`：mock 服务器有 `/admin`（200）和 `/secret`（200），其他 404 → 均被发现
-- [ ] `TestDirScanner_WildcardCDN`：mock 服务器所有路径返回同一个 404 页面 → 零结果（无误报）
-- [ ] `TestDirScanner_Recursive`：`/api/`（301）触发递归，子路径被扫描
-- [ ] `TestDirScanner_MaxRecursionDepth`：递归深度限制为 2 时，第 3 层不扫描
-- [ ] `TestDirScanner_ContextCancel`：context 取消后扫描立即停止，无 goroutine 泄漏（检查 goroutine 数量）
-- [ ] `TestDirScanner_MaxEntries`：字典超过 500K 条时被截断，扫描不崩溃
+- [x] `TestDirScanner_BasicScan`：mock 服务器有 `/admin`（200）和 `/secret`（200），其他 404 → 均被发现
+- [x] `TestDirScanner_WildcardCDN`：mock 服务器所有路径返回同一个 404 页面 → 零结果（无误报）
+- [x] `TestDirScanner_Recursive`：`/api/`（301）触发递归，子路径被扫描
+- [x] `TestDirScanner_MaxRecursionDepth`：递归深度限制为 2 时，第 3 层不扫描
+- [x] `TestDirScanner_ContextCancel`：context 取消后扫描立即停止，无 goroutine 泄漏（检查 goroutine 数量）
+- [x] `TestDirScanner_MaxEntries`：字典超过 500K 条时被截断，扫描不崩溃
+
+> **Phase 2 完成说明**（全量测试通过，含 `-race -count=1`）
+>
+> **Task 2.1 — 通配符检测引擎** (`engine/scanner.go`)
+> - 实现了 `WildcardScanner` 全部方法：`Check`、`normalizeDynamic`、`extractStaticPatterns`、`fingerprint`、`randStealthWord`、`autoCalibrate`
+> - 4 个归一化正则编译为包级变量 `regexp.Regexp`，不在函数内重复编译
+> - 采样阈值 `defaultSampleThreshold = 5`，自校准阈值 `defaultFingerprintThresh = 10`
+> - **关键决策：Precheck 预采样机制**。设计文档原方案在首个真实路径 `Check` 时才启动采样，导致采样阶段返回 `"sampling"` 会丢弃该路径的真实命中。实际实现中 `DirScanner.Run` 在 Worker 池启动前调用 `scanner.Precheck(ctx)`，对根路径 `/` 发送 `sampleThreshold` 次随机探测请求完成初始化，确保扫描器在 Worker 拿到第一个字典路径时即具备识别能力
+> - 6 个单元测试全部通过，包括并发 50 goroutine 的 race detector 验证
+>
+> **Task 2.2 — 主扫描器** (`dir_scanner.go`)
+> - `DirScanner` 结构体持有 `limiter *qos.AdaptiveLimiter`（普通字段，非 embedding）
+> - `Run` 方法完整流程：`parseDirOptions` → 初始化 Dictionary/Requester/Filter/WildcardScanner → `Precheck` → `context.WithTimeout`（若 `MaxTime > 0`）→ Worker 池 → 收集结果
+> - Worker 从 `dict.Next()` 取路径 → `limiter.Acquire(ctx)` → `req.Do()` → `filter.Match()` → `scanner.Check()` → 命中则发送到 results channel，并判断递归
+> - `shouldRecursion` 支持三种模式：`Recursive`（目录列表 301/200+目录特征）、`DeepRecursive`（逐级父目录展开）、`ForceRecursive`（强制递归所有命中）
+> - `generateSubpaths` 为深度递归生成逐级父目录子路径
+> - `DirOptions` 增加 `SkipBuiltin` 字段，允许测试和定制场景跳过内置大字典加载，只加载用户指定 `Wordlists`
+> - 6 个单元测试全部通过，包括 context 取消后 goroutine 泄漏检测（`runtime.NumGoroutine` 对比）
+>
+> **附带修复**：`engine/requester.go` 中 `cfg.Method` 默认值从字符串字面量 `"http.MethodGet"` 修正为常量 `http.MethodGet`（Phase 1 遗留 bug）
 
 ---
 

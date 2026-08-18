@@ -29,6 +29,11 @@ type DirOptions struct {
 	Capital    bool          // 首字母大写（路径首字符）
 	Prefixes   []string      // 追加前缀
 	Suffixes   []string      // 追加后缀
+
+	// SkipBuiltin 跳过内置字典（dicc.txt），仅使用 Wordlists/自定义规则。
+	// 默认 false（生产环境行为不变）。仅供单元测试构造小规模、确定性的
+	// 字典使用，避免真实内置字典中的噪声路径干扰断言。
+	SkipBuiltin bool
 }
 
 // Dictionary 是线程安全的双队列字典迭代器。
@@ -63,13 +68,15 @@ func New(opts *DirOptions) (*Dictionary, error) {
 		maxSize: defaultMaxSize,
 	}
 
-	// 1. 内置字典
-	builtin, err := LoadBuiltinWordlist()
-	if err != nil {
-		logger.Warnf("[DirDict] Failed to load builtin wordlist: %v", err)
-		builtin = nil
+	// 1. 内置字典（测试场景可通过 SkipBuiltin 跳过，见 DirOptions 注释）
+	if !opts.SkipBuiltin {
+		builtin, err := LoadBuiltinWordlist()
+		if err != nil {
+			logger.Warnf("[DirDict] Failed to load builtin wordlist: %v", err)
+			builtin = nil
+		}
+		d.addToMain(builtin)
 	}
-	d.addToMain(builtin)
 
 	// 2. 用户额外指定的字典文件
 	for _, wlPath := range opts.Wordlists {

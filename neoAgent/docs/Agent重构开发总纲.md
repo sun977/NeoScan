@@ -142,7 +142,7 @@ neoAgent/
     - [ ] 根据 WebScanner 识别出的技术栈动态过滤 Nuclei 模板。
     - [ ] 真实落地 "Vuln First" 调度策略，打通全流程。
 - [ ] **5.4 目录与子域名扫描 (Dir & Subdomain Scanner)**:
-    - [ ] 实现 DirScanner，基于高并发 HTTP 请求进行敏感路径/备份文件爆破。
+    - [x] 实现 DirScanner，基于高并发 HTTP 请求进行敏感路径/备份文件爆破。（Phase 1~3 基础设施+核心引擎+CLI 已完成，Phase 4 RunnerManager 注册已完成，Task 4.2 E2E 验收测试 9/9 通过）
     - [ ] 实现 SubdomainScanner，基于并发 DNS 解析进行子域名枚举。
     - [ ] 完善对应 CLI 命令的底层调用联调。
 

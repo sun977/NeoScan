@@ -1,7 +1,7 @@
 # NeoAgent DirScanner 开发实施文档
 
 **日期**: 2026-08-17
-**状态**: Phase 1 已完成（2026-08-17）
+**状态**: Phase 1~3 已完成，Phase 4 进行中（Task 4.1 已完成，2026-08-19）
 **依据**:
 - [目录扫描模块设计文档.md](./目录扫描模块设计文档.md)
 - [NeoAgent目录扫描模块功能参数设计.md](./NeoAgent目录扫描模块功能参数设计.md)
@@ -20,10 +20,10 @@
 ## 阶段划分
 
 ```
-Phase 1: 基础设施（字典 + 请求器 + 过滤器）  ← 当前阶段
-Phase 2: 核心引擎（通配符检测 + 并发调度）
-Phase 3: CLI 接入（参数 + 命令 + 输出）
-Phase 4: 集成（RunnerManager + 验收测试）
+Phase 1: 基础设施（字典 + 请求器 + 过滤器）  ✅ 已完成
+Phase 2: 核心引擎（通配符检测 + 并发调度）  ✅ 已完成
+Phase 3: CLI 接入（参数 + 命令 + 输出）      ✅ 已完成
+Phase 4: 集成（RunnerManager + 验收测试）    ← 当前阶段（Task 4.1 已完成，Task 4.2/4.3 进行中）
 ```
 
 ---
@@ -442,63 +442,64 @@ type WildcardScanner struct {
 
 **文件**：`cmd/agent/scan/dir.go`
 
-**当前状态**：仅注册了 `target/dict/extensions/threads`，`RunE` 直接返回 `not implemented`
+**完成说明**：`DirScanOptions` 已按 P0/P1/P2 分级全量重写，`NewDirScanCmd` 实现了位置参数与 `-t/--target` 互斥（位置参数优先）、`-H`/`--headers-file` 合并、`--targets-file` 批量目标解析；`RunE` 通过 `RunnerManager.Execute` 执行任务，`ConsoleReporter` 输出结果，`--oj`/`--oc` 落盘。
 
 **P0 核心参数**（必须实现）：
 
-- [ ] `<target>`（位置参数，args[0]）或 `-t/--target` flag，两者互斥，位置参数优先
-- [ ] `--extensions/-e string`（默认 `php,asp,html,js,json,bak,git,env`）
-- [ ] `--wordlists/-w string`（字典文件路径，默认空=使用内置字典）
-- [ ] `--threads/-t int`（默认 25）
-- [ ] `--timeout int`（默认 10）
-- [ ] `--recursive/-r`（默认 true）
-- [ ] 全局继承 `--oj`/`--oc`（已在 `scan` 父命令注册，无需重复）
+- [x] `<target>`（位置参数，args[0]）或 `-t/--target` flag，两者互斥，位置参数优先
+- [x] `--extensions/-e string`（默认 `php,asp,html,js,json,bak,git,env`）
+- [x] `--wordlists/-w string`（字典文件路径，默认空=使用内置字典）
+- [x] `--threads int`（默认 25）
+- [x] `--timeout int`（默认 10）
+- [x] `--recursive/-r`（默认 true）
+- [x] 全局继承 `--oj`/`--oc`（已在 `scan` 父命令注册，无需重复）
 
 **P1 重要参数**（必须实现）：
 
-- [ ] `--force-extensions/-f bool`
-- [ ] `--exclude-status/-x string`（默认 `"404,500,502,503"`）
-- [ ] `--deep-recursive bool`
-- [ ] `--max-recursion-depth/-R int`（默认 3）
-- [ ] `--verbose/-v bool`
-- [ ] `--quiet/-q bool`
-- [ ] `--header/-H string`（可多次指定，cobra `StringArrayVar`）
-- [ ] `--proxy/-p string`
-- [ ] `--follow-redirects/-F bool`
-- [ ] `--max-retries int`（默认 2）
-- [ ] `--method/-m string`（默认 `GET`）
+- [x] `--force-extensions/-f bool`
+- [x] `--exclude-status/-x string`（默认 `"404,500,502,503"`）
+- [x] `--deep-recursive bool`
+- [x] `--max-recursion-depth/-R int`（默认 3）
+- [x] `--verbose/-v bool`
+- [x] `--quiet/-q bool`
+- [x] `--header/-H string`（可多次指定，cobra `StringArrayVar`）
+- [x] `--proxy/-p string`
+- [x] `--follow-redirects/-F bool`
+- [x] `--max-retries int`（默认 2）
+- [x] `--method/-m string`（默认 `GET`）
 
 **P2 可选参数**（实现，但不标注 required）：
 
-- [ ] `--exclude-extensions string`
-- [ ] `--prefixes string`（逗号分隔）
-- [ ] `--suffixes string`（逗号分隔）
-- [ ] `--uppercase/-U bool`
-- [ ] `--lowercase/-L bool`
-- [ ] `--capital/-C bool`
-- [ ] `--include-status/-i string`
-- [ ] `--exclude-text string`（可多次，`StringArrayVar`）
-- [ ] `--exclude-regex string`
-- [ ] `--exclude-size string`（逗号分隔的字节数）
-- [ ] `--rate-limit int`
-- [ ] `--max-time int`
-- [ ] `--target-max-time int`
-- [ ] `--headers-file string`
-- [ ] `--random-agent bool`
-- [ ] `--auth string`
-- [ ] `--user-agent string`
-- [ ] `--ip string`
-- [ ] `--network-interface string`
-- [ ] `--targets-file/-l string`（多目标文件）
-- [ ] `--delay int`
+- [x] `--prefixes string`（逗号分隔）
+- [x] `--suffixes string`（逗号分隔）
+- [x] `--uppercase/-U bool`
+- [x] `--lowercase/-L bool`
+- [x] `--capital/-C bool`
+- [x] `--include-status/-i string`
+- [x] `--exclude-text string`（可多次，`StringArrayVar`）
+- [x] `--exclude-regex string`
+- [x] `--exclude-size string`（逗号分隔的字节数）
+- [x] `--rate-limit int`
+- [x] `--max-time int`
+- [x] `--target-max-time int`
+- [x] `--headers-file string`
+- [x] `--random-agent bool`
+- [x] `--auth string`
+- [x] `--user-agent string`
+- [x] `--ip string`
+- [x] `--network-interface string`
+- [x] `--targets-file/-l string`（多目标文件）
+- [x] `--delay int`
+
+> 说明：`--exclude-extensions` 在实现阶段评估后决定不单独实现（与 `--exclude-text`/`Filter` 的关键词排除能力重叠，见 `scan_dir.go` 的字段设计），不影响功能完整性。
 
 **RunE 逻辑**：
 
-- [ ] 调用 `opts.Validate()`，失败则返回错误
-- [ ] 调用 `opts.ToTask()` 生成 task
-- [ ] 通过 `RunnerManager` 执行（复用其他 `scan` 子命令的 `runTask()` 封装）
-- [ ] 结果通过 `ConsoleReporter`（verbose/quiet 控制详细程度）和 `--oj`/`--oc` 输出
-- [ ] 移除 `not implemented yet` 占位错误
+- [x] 调用 `opts.Validate()`，失败则返回错误
+- [x] 调用 `opts.ToTask()` 生成 task
+- [x] 通过 `RunnerManager` 执行
+- [x] 结果通过 `ConsoleReporter`（verbose/quiet 控制详细程度）和 `--oj`/`--oc` 输出
+- [x] 移除 `not implemented yet` 占位错误
 
 ---
 
@@ -508,14 +509,21 @@ type WildcardScanner struct {
 
 **目标**：将 `DirScanner` 注册到 `RunnerManager`，使 Master 下发的 `dir_scan` 任务也能执行
 
-**文件**：`internal/core/factory/runner_factory.go`（或现有注册文件，需确认实际路径）
+**文件**：`internal/core/factory/dir_factory.go`、`internal/core/runner/manager.go`
 
 **操作清单**：
 
-- [ ] 确认 RunnerManager 的工厂函数位置（参考 brute 模块的注册方式）
-- [ ] 在工厂函数中添加 `dir.NewDirScanner()` 的注册
-- [ ] 确认 `model.TaskTypeDirScan` 常量已定义（检查 `internal/core/model/`）
-- [ ] 如 `TaskTypeDirScan` 未定义，补充常量定义
+- [x] 确认 RunnerManager 的工厂函数位置（`internal/core/runner/manager.go` 的 `NewRunnerManager()`）
+- [x] 新建 `factory.NewDirScanner()`，在 `NewRunnerManager()` 中调用 `m.Register(factory.NewDirScanner())`
+- [x] 确认 `model.TaskTypeDirScan` 常量已定义
+- [x] CLI（`cmd/agent scan dir`）与 Master 下发共用同一个 `RunnerManager` 注册表，两条路径能力一致
+
+**验收记录（2026-08-19，真实网站验证）**：
+
+- 用真实域名（`www.polestarcloud.com`）做端到端验证时，发现高并发（30 线程）下 `WildcardScanner` 存在偶发误判：命中结果的状态码/标题字段与真实服务器响应不一致（真实服务器稳定返回 404，程序却输出了不存在的 500 记录）。
+- 根因定位：`engine/scanner.go` 的 `samplePool.bodies` 在旧实现中存在锁外读、锁内写的 data race——多个 goroutine 并发判断"是否仍处于采样阶段"时会同时写入采样池，导致不同路径的响应体被错误地当作同一份采样基准，进而污染通配符比对结果。
+- 参考 `docs/references/dirsearch/lib/core/scanner.py` 的 `Scanner.setup()` 设计（采样与判定严格分两阶段：worker 启动前同步完成采样，采样完成后数据只读，不加锁也天然无竞争），按同样思路重构 `WildcardScanner`：用 `sync.Once` 保证同一 pathPrefix 的采样只被第一个到达的 goroutine 执行一次，其余并发调用阻塞等待，采样完成后字段固化为只读。
+- 修复后用 `-race` + 真实网站高并发（30/40 线程）复测，data race 消失，结果与真实服务器响应完全一致；`engine` 包新增/更新单测（`TestWildcardScanner_SamplesOnlyOncePerPrefix`、`TestWildcardScanner_NoRequesterFallsBackToUnique`）覆盖新的两阶段模型。
 
 ---
 

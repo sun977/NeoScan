@@ -13,6 +13,23 @@ import (
 	"sync"
 )
 
+// 设计说明（对齐 dirsearch lib/core/scanner.py 的 Scanner.setup()）：
+//
+// dirsearch 把"采样"和"判定"严格分成两个阶段：Fuzzer.setup_scanners() 在
+// worker 线程启动之前，同步、阻塞地为每个 pathPrefix 创建 Scanner 并完成
+// 两次探测采样；worker 线程池启动后，Scanner.check() 只读取已经采好、
+// 不再变化的 self.response/self.content_parser，天然没有竞争。
+//
+// 我们之前的实现把这两个阶段揉进了同一个 Check() 里，用运行时状态
+// （len(pool.bodies) < threshold）判断"是否还在采样"，导致高并发下
+// 多个 goroutine 同时误判"未采满"、同时 append、同时触发探测请求，
+// 这是产生 data race 与误判的根源。
+//
+// 这里对齐 dirsearch 的做法：用 sync.Once 把"采样"收拢成一次性、
+// 只由第一个到达的 goroutine 执行、其他 goroutine 阻塞等待的动作；
+// 采样完成后 samplePool 的字段全部固化为只读，Check() 的主路径不再
+// 需要为每次调用加锁读写采样状态。
+
 // 归一化正则，包级编译一次，避免每次调用重新编译（见实施文档约束）。
 var (
 	reUUID = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
@@ -33,11 +50,17 @@ const (
 )
 
 // samplePool 保存单个路径前缀的采样与判定状态。
+//
+// once 保证同一个 pathPrefix 的采样探测只会被第一个到达的 goroutine 执行
+// 一次，其余并发到达的 goroutine 会阻塞在 once.Do 上，直到采样完成——
+// 对齐 dirsearch Scanner.setup() 的"先采样、后判定"两阶段模型。
+// once.Do 返回之后，下面几个字段全部固化为只读，不再需要加锁访问。
 type samplePool struct {
-	bodies         []string // 采样响应体
-	staticPatterns []string // 提取出的共同静态词
-	baseWordCount  int      // 基准词数（采样阶段第一个响应的词数）
-	confirmed      bool     // 是否已确认为通配符（isStatic）
+	once           sync.Once
+	bodies         []string // 采样响应体（仅采样阶段写入，之后只读）
+	staticPatterns []string // 提取出的共同静态词（只读）
+	baseWordCount  int      // 基准词数（只读）
+	ready          bool     // 是否已完成采样固化（用于 sample 请求全部失败的兜底判断）
 }
 
 // WildcardScanner 移植 dirsearch 的 Scanner + DynamicContentParser 算法，
@@ -49,10 +72,12 @@ type WildcardScanner struct {
 	sampleThreshold   int // 采样阈值，默认 5
 	fingerprintThresh int // 自校准阈值，默认 10
 
-	mu           sync.Mutex
-	pools        map[string]*samplePool // pathPrefix → 采样状态
-	fingerprints map[string]int         // fingerprint → 出现次数
-	wildCardFPs  map[string]bool        // 已确认的通配符指纹
+	poolsMu sync.Mutex             // 仅保护 pools map 本身的读写，不保护 pool 内部字段
+	pools   map[string]*samplePool // pathPrefix → 采样状态
+
+	fpMu         sync.Mutex      // 保护 fingerprints/wildCardFPs 两个 map
+	fingerprints map[string]int  // fingerprint → 出现次数
+	wildCardFPs  map[string]bool // 已确认的通配符指纹
 }
 
 // NewWildcardScanner 创建通配符检测引擎。
@@ -69,59 +94,38 @@ func NewWildcardScanner(req *Requester, baseURL string) *WildcardScanner {
 	}
 }
 
-// Precheck 对根前缀 "/" 预先发送随机探测请求，完成采样池初始化。
+// Precheck 对根前缀 "/" 预先完成采样，等价于 dirsearch 在 worker 启动前
+// 调用 Fuzzer.setup_scanners() 同步初始化默认 Scanner。
 // 在 worker 启动前调用，确保正式扫描开始时根前缀采样池已就绪，
 // 避免小字典场景下采样阶段吞掉真实命中。
 func (s *WildcardScanner) Precheck(ctx context.Context) {
-	if s.requester == nil {
-		return
-	}
-	pool := &samplePool{}
-	s.pools["/"] = pool
-	for i := 0; i < s.sampleThreshold; i++ {
-		probePath := "/" + randStealthWord()
-		resp, err := s.requester.Do(ctx, s.baseURL, probePath)
-		if err != nil {
-			continue
-		}
-		pool.bodies = append(pool.bodies, resp.Body)
-	}
-	if len(pool.bodies) >= s.sampleThreshold {
-		s.finalizeSamples(pool)
-	}
+	s.ensurePoolReady(ctx, "/")
 }
 
 // Check 判断给定路径的响应是否为独立、真实存在的内容。
 //
 // 返回 (true, "unique") 表示应当作为命中结果输出；
 // 返回 (false, reason) 表示应当被丢弃（通配符/采样中/已知通配符指纹）。
+//
+// 并发模型对齐 dirsearch：ensurePoolReady 保证同一 pathPrefix 的采样只由
+// 一个 goroutine 执行、其余并发调用阻塞等待完成，采样完成后 pool 的
+// staticPatterns/baseWordCount 固化为只读，本函数不再需要为每次判定加锁。
 func (s *WildcardScanner) Check(ctx context.Context, pathPrefix string, resp *Response) (bool, string) {
 	fp := fingerprint(resp)
 
-	s.mu.Lock()
-	if s.wildCardFPs[fp] {
-		s.mu.Unlock()
+	if s.isKnownWildcardFP(fp) {
 		return false, "wildcard"
 	}
 
-	pool := s.pools[pathPrefix]
-	if pool == nil {
-		pool = &samplePool{}
-		s.pools[pathPrefix] = pool
-	}
-	s.mu.Unlock()
-
-	// 采样未完成：记录当前样本，发送一次探测请求补充样本，返回压制输出。
-	if len(pool.bodies) < s.sampleThreshold {
-		s.sample(ctx, pathPrefix, pool, resp)
-		if len(pool.bodies) < s.sampleThreshold {
-			return false, "sampling"
-		}
-		s.finalizeSamples(pool)
+	pool := s.ensurePoolReady(ctx, pathPrefix)
+	if !pool.ready {
+		// 采样请求全部失败（如目标不可达），无基准可比对，保守地当作
+		// 采样失败处理：不压制也不误判，直接放行由 Filter 层的状态码/
+		// 大小规则兜底，避免因通配符引擎自身故障导致全量丢弃命中。
+		return true, "unique"
 	}
 
-	// 采样完成后比对：命中静态模式 → 判定为通配符。
-	if s.compare(pool, resp) {
+	if compareToStaticPatterns(pool, resp) {
 		s.autoCalibrate(fp)
 		return false, "match"
 	}
@@ -130,63 +134,71 @@ func (s *WildcardScanner) Check(ctx context.Context, pathPrefix string, resp *Re
 	return true, "unique"
 }
 
-// sample 将当前响应体计入采样池，并主动发送一次随机探测请求补充样本，
-// 使采样池尽快达到 sampleThreshold，减少对真实路径的依赖。
-func (s *WildcardScanner) sample(ctx context.Context, pathPrefix string, pool *samplePool, resp *Response) {
-	s.mu.Lock()
-	pool.bodies = append(pool.bodies, resp.Body)
-	needProbe := len(pool.bodies) < s.sampleThreshold
-	s.mu.Unlock()
-
-	if !needProbe || s.requester == nil {
-		return
-	}
-
-	probePath := pathPrefix + randStealthWord()
-	probeResp, err := s.requester.Do(ctx, s.baseURL, probePath)
-	if err != nil {
-		return
-	}
-
-	s.mu.Lock()
-	pool.bodies = append(pool.bodies, probeResp.Body)
-	s.mu.Unlock()
+// isKnownWildcardFP 判断指纹是否已被自校准标记为通配符。
+func (s *WildcardScanner) isKnownWildcardFP(fp string) bool {
+	s.fpMu.Lock()
+	defer s.fpMu.Unlock()
+	return s.wildCardFPs[fp]
 }
 
-// finalizeSamples 从采样池中提取静态模式和基准词数（仅执行一次）。
-func (s *WildcardScanner) finalizeSamples(pool *samplePool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if pool.confirmed || len(pool.bodies) < 2 {
-		return
-	}
-	patterns, baseCount := extractStaticPatterns(pool.bodies[0], pool.bodies[1])
-	pool.staticPatterns = patterns
-	pool.baseWordCount = baseCount
-	pool.confirmed = true
+// ensurePoolReady 返回 pathPrefix 对应、采样已完成的 samplePool。
+//
+// 第一个到达的 goroutine 负责发起 sampleThreshold 次探测请求（对齐
+// dirsearch setup() 的 first/second probe + auto-calibrate 额外样本）；
+// 同一 pathPrefix 上后续并发到达的 goroutine 会阻塞在 pool.once.Do 上，
+// 直到采样完成后才继续，读到的是已经固化的只读字段——不存在"边采样
+// 边被其他 goroutine 读取"的窗口，从根上消除 data race。
+func (s *WildcardScanner) ensurePoolReady(ctx context.Context, pathPrefix string) *samplePool {
+	pool := s.getOrCreatePool(pathPrefix)
+	pool.once.Do(func() {
+		if s.requester == nil {
+			return
+		}
+		for i := 0; i < s.sampleThreshold; i++ {
+			probePath := pathPrefix + randStealthWord()
+			resp, err := s.requester.Do(ctx, s.baseURL, probePath)
+			if err != nil {
+				continue
+			}
+			pool.bodies = append(pool.bodies, resp.Body)
+		}
+		if len(pool.bodies) >= 2 {
+			pool.staticPatterns, pool.baseWordCount = extractStaticPatterns(pool.bodies[0], pool.bodies[1])
+			pool.ready = true
+		}
+	})
+	return pool
 }
 
-// compare 判断响应是否匹配已提取的静态模式（即为通配符响应）。
-func (s *WildcardScanner) compare(pool *samplePool, resp *Response) bool {
-	s.mu.Lock()
-	patterns := pool.staticPatterns
-	baseCount := pool.baseWordCount
-	s.mu.Unlock()
+// getOrCreatePool 按需创建路径前缀对应的采样池（只保护 map 本身，不保护
+// pool 内部字段——内部字段的并发安全由 pool.once 负责）。
+func (s *WildcardScanner) getOrCreatePool(pathPrefix string) *samplePool {
+	s.poolsMu.Lock()
+	defer s.poolsMu.Unlock()
+	pool := s.pools[pathPrefix]
+	if pool == nil {
+		pool = &samplePool{}
+		s.pools[pathPrefix] = pool
+	}
+	return pool
+}
 
-	if len(patterns) == 0 {
+// compareToStaticPatterns 判断响应是否匹配采样阶段提取的静态模式
+// （即为通配符响应）。pool 此时已经 ready，字段只读，无需加锁。
+func compareToStaticPatterns(pool *samplePool, resp *Response) bool {
+	if len(pool.staticPatterns) == 0 {
 		return false
 	}
 
 	body := normalizeDynamic(resp.Body)
-	for _, p := range patterns {
+	for _, p := range pool.staticPatterns {
 		if !strings.Contains(body, p) {
 			return false
 		}
 	}
 
 	wordCount := len(strings.Fields(body))
-	if baseCount > 0 && float64(wordCount) > float64(baseCount)*lengthDiffThreshold {
+	if pool.baseWordCount > 0 && float64(wordCount) > float64(pool.baseWordCount)*lengthDiffThreshold {
 		return false
 	}
 
@@ -195,8 +207,8 @@ func (s *WildcardScanner) compare(pool *samplePool, resp *Response) bool {
 
 // autoCalibrate 统计指纹出现频率，超过阈值的指纹自动加入通配符黑名单。
 func (s *WildcardScanner) autoCalibrate(fp string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.fpMu.Lock()
+	defer s.fpMu.Unlock()
 
 	s.fingerprints[fp]++
 	if s.fingerprints[fp] > s.fingerprintThresh {

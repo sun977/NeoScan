@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -149,29 +151,74 @@ func TestWildcardScanner_Unique(t *testing.T) {
 	}
 }
 
-// TestWildcardScanner_SamplingPhase 验证前几次 Check 处于采样阶段返回 (false, "sampling")。
-func TestWildcardScanner_SamplingPhase(t *testing.T) {
+// TestWildcardScanner_NoRequesterFallsBackToUnique 验证 requester 为 nil
+// （无法发起探测采样）时的兜底行为。
+//
+// 对齐 dirsearch 的两阶段模型后，采样与判定不再交织在每次 Check 调用里：
+// 采样在第一次 Check 时通过 sync.Once 同步完成（Check 内部阻塞直到采样
+// 结束），不存在"前几次调用处于 sampling 中间态"这种运行时状态。
+// 若采样因缺少 requester 而彻底失败，Check 应保守地判定为 unique（放行），
+// 而不是把所有响应都当作 sampling 静默丢弃——通配符引擎自身故障不应该
+// 导致真实命中被吞掉，见 Check 的实现注释。
+func TestWildcardScanner_NoRequesterFallsBackToUnique(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprint(w, "not found")
 	}))
 	defer server.Close()
 
-	// 无 requester 探测补充，每次 Check 只能新增 1 个样本，因此前 sampleThreshold-1 次必然处于采样阶段。
 	scanner := NewWildcardScanner(nil, server.URL)
 	ctx := context.Background()
 
 	req := NewRequester(RequesterConfig{Timeout: 5 * time.Second})
-	for i := 0; i < defaultSampleThreshold-1; i++ {
+	for i := 0; i < defaultSampleThreshold+2; i++ {
 		path := fmt.Sprintf("/sample-%d", i)
 		resp, err := req.Do(ctx, server.URL, path)
 		if err != nil {
 			t.Fatalf("request error: %v", err)
 		}
 		match, reason := scanner.Check(ctx, "/", resp)
-		if match || reason != "sampling" {
-			t.Errorf("iteration %d: expected (false, sampling), got (%v, %s)", i, match, reason)
+		if !match || reason != "unique" {
+			t.Errorf("iteration %d: expected (true, unique) when sampling is unavailable, got (%v, %s)", i, match, reason)
 		}
+	}
+}
+
+// TestWildcardScanner_SamplesOnlyOncePerPrefix 验证同一 pathPrefix 的采样
+// 只会被执行一次（sync.Once 语义），第一次 Check 调用内部阻塞完成全部
+// 采样探测，后续调用直接复用已固化的 staticPatterns，不再重复发起探测。
+func TestWildcardScanner_SamplesOnlyOncePerPrefix(t *testing.T) {
+	var probeCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/real-") {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, "real content for %s", r.URL.Path)
+			return
+		}
+		atomic.AddInt32(&probeCount, 1)
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, "not found, padding padding padding padding padding")
+	}))
+	defer server.Close()
+
+	req := NewRequester(RequesterConfig{Timeout: 5 * time.Second})
+	scanner := NewWildcardScanner(req, server.URL)
+	ctx := context.Background()
+
+	for i := 0; i < 10; i++ {
+		path := fmt.Sprintf("/real-%d", i)
+		resp, err := req.Do(ctx, server.URL, path)
+		if err != nil {
+			t.Fatalf("request error: %v", err)
+		}
+		match, reason := scanner.Check(ctx, "/", resp)
+		if !match {
+			t.Errorf("iteration %d: expected real content to be unique, got match=false reason=%s", i, reason)
+		}
+	}
+
+	if got := atomic.LoadInt32(&probeCount); got != int32(defaultSampleThreshold) {
+		t.Errorf("expected exactly %d probe requests (one-time sampling), got %d", defaultSampleThreshold, got)
 	}
 }
 

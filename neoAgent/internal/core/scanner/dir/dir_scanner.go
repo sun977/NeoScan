@@ -5,6 +5,7 @@ package dir
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -57,11 +58,11 @@ type DirOptions struct {
 	ExcludeRegex    []*regexp.Regexp
 
 	// 请求配置
-	Headers         map[string]string
-	FollowRedirects bool
-	UserAgents      []string
-	Proxy           string
-	IP              string
+	Headers          map[string]string
+	FollowRedirects  bool
+	UserAgents       []string
+	Proxy            string
+	IP               string
 	NetworkInterface string
 }
 
@@ -471,11 +472,53 @@ func parseDirOptions(params map[string]interface{}) *DirOptions {
 	if v := paramString(params, "network_interface"); v != "" {
 		opts.NetworkInterface = v
 	}
-	if v := paramString(params, "user_agent"); v != "" {
+
+	// User-Agent：random_agent 优先级高于单个 user_agent（内置池随机轮换，
+	// 见 engine.Requester.randomUA 的多值随机选择逻辑）。
+	if paramBool(params, "random_agent", false) {
+		if uas, err := dict.LoadUserAgents(); err == nil && len(uas) > 0 {
+			opts.UserAgents = uas
+		} else if err != nil {
+			logger.Warnf("[DirScanner] failed to load builtin user-agents: %v", err)
+		}
+	} else if v := paramString(params, "user_agent"); v != "" {
 		opts.UserAgents = []string{v}
 	}
 
+	// 自定义请求头："Key: Value" 按行分隔（CLI 层 -H 可多次指定，合并为多行字符串）。
+	if v := paramString(params, "headers"); v != "" {
+		opts.Headers = parseHeaderLines(v)
+	}
+	// Basic Auth："user:pass" 直接编码为 Authorization 头，覆盖同名自定义头。
+	if v := paramString(params, "auth"); v != "" {
+		if opts.Headers == nil {
+			opts.Headers = make(map[string]string)
+		}
+		opts.Headers["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte(v))
+	}
+
 	return opts
+}
+
+// parseHeaderLines 解析形如 "Key: Value\nKey2: Value2" 的多行请求头字符串。
+// 每行按第一个冒号切分，忽略空行和格式非法的行（记录警告但不中断扫描）。
+func parseHeaderLines(raw string) map[string]string {
+	headers := make(map[string]string)
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		idx := strings.Index(line, ":")
+		if idx <= 0 {
+			logger.Warnf("[DirScanner] invalid header line %q, expected \"Key: Value\"", line)
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		value := strings.TrimSpace(line[idx+1:])
+		headers[key] = value
+	}
+	return headers
 }
 
 // ── task.Params 解析辅助函数 ──────────────────────────────────────────────

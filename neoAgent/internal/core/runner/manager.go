@@ -22,8 +22,8 @@ func NewRunnerManager() *RunnerManager {
 
 	// 初始化并注册 BruteScanner
 	// 使用 Factory 获取全功能 BruteScanner
-	bs := factory.NewFullBruteScanner()
-	m.Register(bs)
+	bruteScanner := factory.NewFullBruteScanner()
+	m.Register(bruteScanner)
 
 	// 注册 AliveScanner
 	aliveScanner := factory.NewAliveScanner()
@@ -55,6 +55,12 @@ func NewRunnerManager() *RunnerManager {
 	// 见 docs/爬虫/web扫描模块重构文档.md。
 	ApiScanner := factory.NewApiScanner()
 	m.Register(ApiScanner)
+
+	// 注册 DirScanner
+	// 补齐 Master 集群下发 dir_scan 任务的执行能力，见
+	// docs/原子模块设计/目录扫描设计/DirScanner开发实施文档.md Task 4.1。
+	DirScanner := factory.NewDirScanner()
+	m.Register(DirScanner)
 
 	return m
 }

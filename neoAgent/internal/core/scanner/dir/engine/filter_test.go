@@ -57,24 +57,6 @@ func TestFilter_DefaultExcludeStatus(t *testing.T) {
 	}
 }
 
-func TestFilter_ErrorPath(t *testing.T) {
-	errorPaths := map[int]map[string]bool{
-		403: {"/.git/config": true},
-	}
-	f := NewFilter(FilterConfig{
-		ErrorPaths:    errorPaths,
-		ExcludeStatus: []int{},
-	})
-
-	if f.Match(makeResp(403, "", 0), "/.git/config") {
-		t.Error("/.git/config + 403 should be excluded by error path blacklist")
-	}
-	// 同样 403 但不同路径不受影响
-	if !f.Match(makeResp(403, "", 0), "/other") {
-		t.Error("/other + 403 should pass (not in error path blacklist)")
-	}
-}
-
 func TestFilter_ExcludeKeyword(t *testing.T) {
 	f := NewFilter(FilterConfig{
 		ExcludeStatus:   []int{},
@@ -140,20 +122,5 @@ func TestFilter_AllPass(t *testing.T) {
 	}
 	if !f.Match(resp, "/admin") {
 		t.Error("normal 200 response should pass all filters")
-	}
-}
-
-func TestFilter_AddErrorPath(t *testing.T) {
-	f := NewFilter(FilterConfig{
-		ExcludeStatus: []int{},
-	})
-
-	f.AddErrorPath(403, "/.env")
-
-	if f.Match(makeResp(403, "", 0), "/.env") {
-		t.Error("/.env + 403 should be excluded after AddErrorPath")
-	}
-	if !f.Match(makeResp(403, "", 0), "/other") {
-		t.Error("/other + 403 should still pass")
 	}
 }

@@ -28,10 +28,6 @@ type FilterConfig struct {
 	// Layer 1c：响应大小过滤
 	ExcludeSize []int64 // 精确大小黑名单（字节）
 
-	// Layer 2：错误路径黑名单（由 Requester 在通配符检测时填充）
-	// statusCode → set{path}
-	ErrorPaths map[int]map[string]bool
-
 	// Layer 3：内容过滤
 	ExcludeKeywords []string         // Body 含任意关键词时排除
 	ExcludeRegex    []*regexp.Regexp // Body 匹配任意正则时排除
@@ -55,9 +51,6 @@ type Filter struct {
 func NewFilter(cfg FilterConfig) *Filter {
 	if len(cfg.ExcludeStatus) == 0 {
 		cfg.ExcludeStatus = DefaultExcludeStatus()
-	}
-	if cfg.ErrorPaths == nil {
-		cfg.ErrorPaths = make(map[int]map[string]bool)
 	}
 
 	f := &Filter{
@@ -83,7 +76,6 @@ func NewFilter(cfg FilterConfig) *Filter {
 // Layer 1a: 白名单过滤（IncludeStatus 非空时启用）
 // Layer 1b: 黑名单过滤（ExcludeStatus）
 // Layer 1c: 响应大小黑名单过滤（ExcludeSize）
-// Layer 2:  错误路径黑名单（ErrorPaths[statusCode][path]）
 // Layer 3a: 关键词排除（ExcludeKeywords）
 // Layer 3b: 正则排除（ExcludeRegex）
 func (f *Filter) Match(resp *Response, path string) bool {
@@ -100,13 +92,6 @@ func (f *Filter) Match(resp *Response, path string) bool {
 	// Layer 1c：响应大小黑名单
 	if len(f.excludeSizeSet) > 0 && f.excludeSizeSet[resp.Size] {
 		return false
-	}
-
-	// Layer 2：错误路径黑名单
-	if pathSet, ok := f.cfg.ErrorPaths[resp.StatusCode]; ok {
-		if pathSet[path] {
-			return false
-		}
 	}
 
 	// Layer 3a：关键词排除（Body 中包含任意关键词则排除）
@@ -128,12 +113,4 @@ func (f *Filter) Match(resp *Response, path string) bool {
 	}
 
 	return true
-}
-
-// AddErrorPath 将路径+状态码组合加入错误路径黑名单（通配符检测时调用）。
-func (f *Filter) AddErrorPath(statusCode int, path string) {
-	if f.cfg.ErrorPaths[statusCode] == nil {
-		f.cfg.ErrorPaths[statusCode] = make(map[string]bool)
-	}
-	f.cfg.ErrorPaths[statusCode][path] = true
 }

@@ -63,35 +63,6 @@ func TestLoadCategoryWordlist_NotFound(t *testing.T) {
 	}
 }
 
-func TestLoadBlacklist(t *testing.T) {
-	// 403 黑名单必须包含常见敏感路径
-	bl, err := LoadBlacklist(403)
-	if err != nil {
-		t.Fatalf("LoadBlacklist(403) error: %v", err)
-	}
-	if len(bl) == 0 {
-		t.Fatal("expected non-empty 403 blacklist")
-	}
-	t.Logf("403 blacklist: %d entries", len(bl))
-
-	// 验证 400 和 500 也可加载
-	for _, code := range []int{400, 500} {
-		bl2, err2 := LoadBlacklist(code)
-		if err2 != nil {
-			t.Errorf("LoadBlacklist(%d) error: %v", code, err2)
-			continue
-		}
-		t.Logf("%d blacklist: %d entries", code, len(bl2))
-	}
-}
-
-func TestLoadBlacklist_Unsupported(t *testing.T) {
-	_, err := LoadBlacklist(999)
-	if err == nil {
-		t.Fatal("expected error for unsupported status code, got nil")
-	}
-}
-
 func TestLoadUserAgents(t *testing.T) {
 	agents, err := LoadUserAgents()
 	if err != nil {

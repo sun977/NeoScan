@@ -1,5 +1,0 @@
-logs/%ENV%.log
-log/%SUBJECT%.log
-%SUBJECT%.log
-%ENV%.log
-access_%DATE_COMPACT%.log

@@ -16,12 +16,6 @@ import (
 // ErrCategoryNotFound 当指定的技术栈分类文件不存在时返回
 var ErrCategoryNotFound = errors.New("category wordlist not found")
 
-// ErrTemplateNotFound 当指定的场景模板文件不存在时返回
-var ErrTemplateNotFound = errors.New("template wordlist not found")
-
-// ErrBlacklistNotFound 当指定状态码的黑名单文件不存在时返回
-var ErrBlacklistNotFound = errors.New("blacklist not found for the given status code")
-
 //go:embed wordlists
 var wordlistsFS embed.FS
 
@@ -48,43 +42,6 @@ func LoadCategoryWordlist(category string) ([]string, error) {
 		return nil, ErrCategoryNotFound
 	}
 	return loadLines(found)
-}
-
-// LoadTemplateWordlist 按场景名称加载模板字典（admin/api/auth/backups/crud/db/logs）。
-func LoadTemplateWordlist(template string) ([]string, error) {
-	path := "wordlists/templates/" + template + ".txt"
-	lines, err := loadLines(path)
-	if err != nil {
-		return nil, ErrTemplateNotFound
-	}
-	return lines, nil
-}
-
-// LoadBlacklist 加载指定状态码的错误路径黑名单，支持 400/403/500。
-// 返回 map[path]true，方便 O(1) 查询。
-func LoadBlacklist(statusCode int) (map[string]bool, error) {
-	var filename string
-	switch statusCode {
-	case 400:
-		filename = "wordlists/blacklist/400_blacklist.txt"
-	case 403:
-		filename = "wordlists/blacklist/403_blacklist.txt"
-	case 500:
-		filename = "wordlists/blacklist/500_blacklist.txt"
-	default:
-		return nil, ErrBlacklistNotFound
-	}
-
-	lines, err := loadLines(filename)
-	if err != nil {
-		return nil, ErrBlacklistNotFound
-	}
-
-	result := make(map[string]bool, len(lines))
-	for _, line := range lines {
-		result[line] = true
-	}
-	return result, nil
 }
 
 // LoadUserAgents 加载 User-Agent 列表。

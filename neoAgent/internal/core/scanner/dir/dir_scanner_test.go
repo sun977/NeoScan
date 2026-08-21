@@ -66,6 +66,64 @@ func TestDirScanner_BasicScan(t *testing.T) {
 	}
 }
 
+// TestDirScanner_StatsPopulated 验证 DirResult.Stats 在扫描结束后被正确填充，
+// 而不是保持零值（Bug: ScanStats 字段定义了但 worker/Run 从未写入）。
+func TestDirScanner_StatsPopulated(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/admin":
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "hit page")
+		case "/blocked":
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, "forbidden")
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, "not found")
+		}
+	}))
+	defer server.Close()
+
+	s := NewDirScanner()
+	task := newTestTask(server.URL, map[string]interface{}{
+		"threads":      3,
+		"timeout":      3,
+		"skip_builtin": true,
+	})
+	task.Params["wordlists"] = writeTempWordlist(t, []string{"/admin", "/blocked", "/nope1", "/nope2"})
+
+	results, err := s.Run(context.Background(), task)
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+	dr, ok := results[0].Result.(*result.DirResult)
+	if !ok {
+		t.Fatalf("TaskResult.Result is not *result.DirResult: %T", results[0].Result)
+	}
+
+	stats := dr.Stats
+	if stats.TotalRequests != 4 {
+		t.Errorf("TotalRequests = %d, want 4", stats.TotalRequests)
+	}
+	if stats.SuccessfulReqs != 4 {
+		t.Errorf("SuccessfulReqs = %d, want 4 (all requests got a response)", stats.SuccessfulReqs)
+	}
+	// 默认 ExcludeStatus 只包含 [404,500,502,503]，403 不在其中会被判定为命中，
+	// 只有两个 404 会被 Filter 过滤掉。
+	if stats.FilteredReqs != 2 {
+		t.Errorf("FilteredReqs = %d, want 2 (2x404)", stats.FilteredReqs)
+	}
+	if stats.ErrorReqs != 0 {
+		t.Errorf("ErrorReqs = %d, want 0", stats.ErrorReqs)
+	}
+	if stats.AvgRTT <= 0 {
+		t.Errorf("AvgRTT = %v, want > 0", stats.AvgRTT)
+	}
+	if stats.MaxRTT <= 0 || stats.MinRTT <= 0 {
+		t.Errorf("MaxRTT/MinRTT = %v/%v, want both > 0", stats.MaxRTT, stats.MinRTT)
+	}
+}
+
 // TestDirScanner_WildcardCDN 验证所有路径返回相同响应时，通配符检测生效，零误报。
 func TestDirScanner_WildcardCDN(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

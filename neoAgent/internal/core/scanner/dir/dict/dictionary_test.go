@@ -124,6 +124,49 @@ func TestDictionary_Concurrent(t *testing.T) {
 	t.Logf("Concurrent: consumed %d entries total", len(results))
 }
 
+// TestDictionary_CategoryWordlist 验证 New() 会加载 opts.Categories 指定的内置分类字典，
+// 并追加到 main 队列（Bug 修复：LoadCategoryWordlist 此前无任何调用方）。
+func TestDictionary_CategoryWordlist(t *testing.T) {
+	d, err := New(&DirOptions{
+		SkipBuiltin: true, // 跳过内置大字典，避免真实内置条目干扰断言
+		Categories:  []string{"wordpress"},
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	wpLines, err := LoadCategoryWordlist("wordpress")
+	if err != nil {
+		t.Fatalf("LoadCategoryWordlist(wordpress) error: %v", err)
+	}
+	if len(wpLines) == 0 {
+		t.Fatalf("LoadCategoryWordlist(wordpress) returned no entries")
+	}
+	if d.Total() != len(wpLines) {
+		t.Errorf("Dictionary.Total() = %d, want %d (only wordpress category loaded)", d.Total(), len(wpLines))
+	}
+
+	first, ok := d.Next()
+	if !ok || first != wpLines[0] {
+		t.Errorf("Next() = %q, ok=%v, want %q", first, ok, wpLines[0])
+	}
+}
+
+// TestDictionary_CategoryWordlist_NotFound 验证不存在的分类名不会导致 New() 报错，
+// 仅记录警告并跳过（与 Wordlists 加载失败时的容错行为一致）。
+func TestDictionary_CategoryWordlist_NotFound(t *testing.T) {
+	d, err := New(&DirOptions{
+		SkipBuiltin: true,
+		Categories:  []string{"no-such-category"},
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	if d.Total() != 0 {
+		t.Errorf("Dictionary.Total() = %d, want 0 (invalid category should be skipped, not fatal)", d.Total())
+	}
+}
+
 func TestDictionary_UserCustomWordlist(t *testing.T) {
 	// 在临时目录创建模拟的 rules/dir/custom/ 结构
 	tmpDir := t.TempDir()

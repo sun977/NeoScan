@@ -1,7 +1,7 @@
 # NeoAgent DirScanner 开发实施文档
 
-**日期**: 2026-08-17
-**状态**: Phase 1~3 已完成，Phase 4 进行中（Task 4.1 已完成，2026-08-19）
+**日期**: 2026-08-17（2026-08-22 追加 Phase 5：断层修复）
+**状态**: Phase 1~4 已完成，Phase 5（断层修复）已完成
 **依据**:
 - [目录扫描模块设计文档.md](./目录扫描模块设计文档.md)
 - [NeoAgent目录扫描模块功能参数设计.md](./NeoAgent目录扫描模块功能参数设计.md)
@@ -23,7 +23,8 @@
 Phase 1: 基础设施（字典 + 请求器 + 过滤器）  ✅ 已完成
 Phase 2: 核心引擎（通配符检测 + 并发调度）  ✅ 已完成
 Phase 3: CLI 接入（参数 + 命令 + 输出）      ✅ 已完成
-Phase 4: 集成（RunnerManager + 验收测试）    ← 当前阶段（Task 4.1 已完成，Task 4.2/4.3 进行中）
+Phase 4: 集成（RunnerManager + 验收测试）    ✅ 已完成
+Phase 5: 断层修复（已实现但未接入主流程的功能审查）  ✅ 已完成（2026-08-22）
 ```
 
 ---
@@ -569,6 +570,88 @@ type WildcardScanner struct {
 
 ---
 
+## Phase 5 — 断层修复（2026-08-22）
+
+**背景**：对照设计文档与实现代码做完整性审查时，发现多处"底层能力已实现、但主扫描流程未调用"
+的断层。逐项用 Linus 式五层分析框架审查后，三项修复接入、一项明确决定不接入。
+
+### Task 5.1 — 修复 `--force-recursive` CLI flag 缺失 ✅
+
+**问题**：`DirOptions.ForceRecursive`、`shouldRecursion()` 判断逻辑、`task.Params["force_recursive"]`
+传递链路全部早已完整，唯独 `cmd/agent/scan/dir.go` 漏注册了 `flags.BoolVar(&opts.ForceRecursive,
+"force-recursive", ...)` 这一行，导致 CLI 用户无法从命令行开启强制递归，只能走 Pipeline 下发 task 参数。
+
+**修复**：补注册该 flag（1 行代码）。属于笔误级 bug，非设计决策。
+
+**文件**：`cmd/agent/scan/dir.go`
+
+### Task 5.2 — 实现 `ScanStats` 填充 ✅
+
+**问题**：`result.ScanStats` 的 8 个字段（`TotalRequests`/`SuccessfulReqs`/`FilteredReqs`/
+`WildcardReqs`/`ErrorReqs`/`AvgRTT`/`MaxRTT`/`MinRTT`）全部定义完整、JSON tag 就位、CLI 输出格式也
+留了位置，但 `dir_scanner.go` 一直没有代码给 `dirResult.Stats` 赋值——输出 JSON 里 `stats` 全是零值，
+会误导用户做决策。属于纯 bug，不是未开发的功能。
+
+**修复**：新增 `statsAccumulator` 类型，8 个字段全用 `atomic.Int64`（RTT 以纳秒存储），在 `worker()`
+现有的每个分支尾部顺手累加（无需新增任何 if 分支）；所有 worker 退出后单线程调用 `Finalize()`
+转换为普通值写入 `dirResult.Stats`。`result.ScanStats` 结构本身保持纯数据、不引入 `atomic` 类型污染。
+
+**测试**：新增 `TestDirScanner_StatsPopulated` 验证 4 个请求（1 个 200、1 个 403、2 个 404）的
+计数：TotalRequests=4、SuccessfulReqs=4、FilteredReqs=2（默认黑名单只含 404/500/502/503，403 算命中）、
+ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
+
+**文件**：`internal/core/scanner/dir/dir_scanner.go`、`internal/core/scanner/dir/dir_scanner_test.go`
+
+### Task 5.3 — 接入 `LoadCategoryWordlist`（新增 `--category` CLI flag）✅
+
+**问题**：`dict.LoadCategoryWordlist(category string)` 在 Phase 1 Task 1.2 已实现并通过单元测试，
+但一直没有调用方。用户扫一个已知是 WordPress 的站时想用 `wordpress.txt` 而不是通用大字典，这是真实、
+常见的需求（dirsearch 本身也没有自动化 TechStack 联动，都是用户手动指定）。
+
+**修复**：三层打通
+- `dict.DirOptions` 新增 `Categories []string` 字段
+- `dict.New()` 加载顺序新增第 3 步：遍历 `opts.Categories`，调用 `LoadCategoryWordlist()` 追加到 main 队列
+- `scanner/dir.DirOptions` 新增对应字段，`toDictOptions()` 透传
+- `parseDirOptions()` 解析 `task.Params["category"]`（逗号分隔）
+- `options.DirScanOptions` 新增 `Category string` 字段，`ToTask()` 写入 `task.Params["category"]`
+- `cmd/agent/scan/dir.go` 注册 `flags.StringVar(&opts.Category, "category", ...)`
+
+**明确不做**：不实现"自动从 WebScanner 的 TechStack 产出联动"——NeoAgent 目前没有 Pipeline 层
+把两个扫描器结果互传的机制，写了也是孤岛代码，且违反参数设计文档 7.1 节"DirScanner 是独立
+原子扫描器、不耦合其他扫描器结果"的决策。
+
+**测试**：新增 `TestDictionary_CategoryWordlist`（验证 wordpress 字典被加载）和
+`TestDictionary_CategoryWordlist_NotFound`（验证不存在的分类名仅警告、不报错）。
+
+**文件**：`internal/core/scanner/dir/dict/dictionary.go`、`internal/core/scanner/dir/dict/dictionary_test.go`、
+`internal/core/scanner/dir/dir_scanner.go`、`internal/core/options/scan_dir.go`、`cmd/agent/scan/dir.go`
+
+### Task 5.4 — 错误路径黑名单（`LoadBlacklist`/`Filter.ErrorPaths`）审查定论：不接入 ❌
+
+**问题**：`dict.LoadBlacklist(statusCode)` 和 `Filter.AddErrorPath()`/`Filter.ErrorPaths` 在 Phase 1
+已实现，但 `dir_scanner.go` 的 `Run()` 从未调用它们把黑名单文件加载结果灌进 `Filter.ErrorPaths`。
+
+**审查结论：不接入**，理由：
+1. 查看 `403_blacklist.txt` 等文件的真实内容，条目形如 `%2e%2e//google.com`、`%ff`、
+   `../../../../../../etc/passwd`、`..;/`、`%3f/`——这些根本不是"目录路径"，而是 dirsearch
+   原版用来探测服务器/WAF 是否对畸形请求返回假 403/500 的 **payload**。
+2. dirsearch 原版用法是拿这些 payload 单独发请求，如果目标对任意畸形请求都返回同一个状态码，
+   就把该状态码判定为噪音统一过滤——本质上是通配符检测的一种变体，已被 `WildcardScanner` 覆盖。
+3. 而当前 `Filter.ErrorPaths[statusCode][path]` 的查表方式是用**真实字典路径**（如 `/admin`）做 key；
+   字典里的路径与 `%2e%2e//google.com` 这类畸形 payload 永远不会重合，就算写代码把 `LoadBlacklist()`
+   的结果灌进 `ErrorPaths`，`Layer 2` 也永远不会命中。
+4. 这是接入方式与数据语义从一开始就不匹配的设计错误，不是缺一行调用代码的疏漏。补上调用只会
+   制造一个"看起来在生效、实际永远没有效果"的假功能，比保持现状不接入更危险（用户会误以为
+   自己已被保护）。
+
+**处理方式**：`LoadBlacklist()`/`AddErrorPath()`/`Filter.ErrorPaths`/`Layer 2` 全部保留在代码中，
+但明确不接入主扫描流程，文档（设计文档 5.3 节、参数设计文档 3.3 节）已标注定论与原因。若未来确有
+"识别 WAF 对畸形请求返回假状态码"的真实需求，应作为独立特性走完整设计评审——正确用法是像
+`WildcardScanner.Precheck()` 一样在扫描开始前用这批 payload 单独探测一次，而不是往 `ErrorPaths`
+里塞真实字典路径。
+
+---
+
 ## 关键约束与注意事项
 
 ### 不可违反的约束
@@ -621,7 +704,11 @@ type WildcardScanner struct {
 | 3.2 dir.go（CLI） | ✅ 已完成 | `scan dir` 子命令完整接入，见 Task 3.2 |
 | 4.1 RunnerManager 注册 | ✅ 已完成 | 已在 `NewRunnerManager()` 注册，CLI/Master 共用同一注册表 |
 | 4.2 E2E 验收测试 | ✅ 已完成 | 9 tests pass (含 race detector) |
-| 4.3 性能基准测试 | ⬜ 待开始 | 依赖 2.2（已满足），当前进行中 |
+| 4.3 性能基准测试 | ✅ 已完成 | 4 benchmarks pass，实测数据见设计文档 11.2 节；附带修复连接池复用 bug |
+| 5.1 `--force-recursive` flag 补注册 | ✅ 已完成 | 笔误级 bug，1 行代码修复 |
+| 5.2 `ScanStats` 填充接入 | ✅ 已完成 | `statsAccumulator` + `atomic.Int64`，`TestDirScanner_StatsPopulated` 验证 |
+| 5.3 `--category` CLI flag 接入 | ✅ 已完成 | 三层打通：CLI → DirOptions → dict.New()，2 个新测试覆盖 |
+| 5.4 错误路径黑名单审查 | ❌ 不接入 | 数据语义不匹配，明确决定不接入（见 Task 5.4） |
 
 ---
 

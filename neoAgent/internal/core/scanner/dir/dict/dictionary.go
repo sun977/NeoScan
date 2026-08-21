@@ -22,6 +22,7 @@ const (
 // 避免循环依赖（options 包会 import scanner/dir，不能反向 import）。
 type DirOptions struct {
 	Wordlists  []string      // 用户额外指定的字典文件路径
+	Categories []string      // 技术栈分类字典名称（如 "wordpress"、"php/laravel"），见 LoadCategoryWordlist
 	Extensions []string      // 文件扩展名列表（用于 %EXT% 展开）
 	ExtMode    ExtensionMode // 扩展模式（Classic / Force）
 	Uppercase  bool          // 全部转大写
@@ -56,7 +57,8 @@ type Dictionary struct {
 // New 创建并初始化字典。加载顺序：
 //  1. 内置字典（go:embed dicc.txt）
 //  2. opts.Wordlists 中用户指定的额外文件
-//  3. rules/dir/custom/*.txt（运行时加载，多路径 fallback）
+//  3. opts.Categories 中指定的技术栈分类字典（内置，go:embed categories/）
+//  4. rules/dir/custom/*.txt（运行时加载，多路径 fallback）
 //
 // 加载完成后按 opts 中的扩展/大小写/前后缀配置展开。
 func New(opts *DirOptions) (*Dictionary, error) {
@@ -88,11 +90,21 @@ func New(opts *DirOptions) (*Dictionary, error) {
 		d.addToMain(lines)
 	}
 
-	// 3. rules/dir/custom/*.txt 运行时加载（多路径 fallback，独立实现，不依赖其他扫描器）
+	// 3. 用户指定的技术栈分类字典（如 --category wordpress,spring）
+	for _, category := range opts.Categories {
+		lines, err := LoadCategoryWordlist(category)
+		if err != nil {
+			logger.Warnf("[DirDict] Failed to load category wordlist %q: %v", category, err)
+			continue
+		}
+		d.addToMain(lines)
+	}
+
+	// 4. rules/dir/custom/*.txt 运行时加载（多路径 fallback，独立实现，不依赖其他扫描器）
 	customLines := loadCustomRules()
 	d.addToMain(customLines)
 
-	// 4. 展开（%EXT% 替换、大小写、前后缀）
+	// 5. 展开（%EXT% 替换、大小写、前后缀）
 	d.expand(opts)
 
 	logger.Infof("[DirDict] Dictionary initialized: %d entries (max=%d)", len(d.main), d.maxSize)

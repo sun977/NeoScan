@@ -221,6 +221,7 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 | NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
 |---------------|---------------|:---:|:---:|------|
 | `--wordlists`/`-w` | `-w` | ✅ | ✅ | 指定字典文件路径，支持逗号分隔多路径 |
+| `--category` | — | 🔶 | ✅ | 追加内置技术栈分类字典（逗号分隔，如 `wordpress,php/laravel`），2026-08-22 新增，与 `--wordlists` 并列的字典来源，需用户手动指定，不做自动 TechStack 联动（见设计文档第 10 节） |
 | `--extensions`/`-e` | `-e` | ✅ | ✅ | 扩展列表，默认值 `php,asp,html,js,json,bak,git,env` |
 | `--force-extensions`/`-f` | `-f` | ⚠️ | ✅ | 对不含 `%EXT%` 的条目也追加扩展名变体 |
 | `--exclude-extensions` | — | 🔶 | ❌ | 排除已知静态扩展，未实现 |
@@ -233,7 +234,7 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 > 注：字典条目仅支持 `%EXT%` 模板 token 展开，dirsearch 的 `%SUBJECT%`（子域名/关键词替换）token 未实现。
 
 **不做的原因**:
-- `--wordlist-categories`: NeoAgent 内置了 dirsearch 全部字典（`dicc.txt` + `categories/` + `templates/`），无需用户选择；`categories/`/`templates/` 目前有加载函数但未接入主扫描流程
+- `--wordlist-categories`: NeoAgent 内置了 dirsearch 全部字典（`dicc.txt` + `categories/` + `templates/`）；`categories/` 已通过 `--category` 接入（2026-08-22），`templates/` 与其功能重叠仍未接入
 - `--wordlist-backend`: 无 Rust 后端，不需要
 - `--wordlist-status`: 调试用，CLI 场景不需要
 - `--wordlist-max-size`: NeoAgent 未实现独立的字典条目数硬上限校验（见 7.4 节）
@@ -248,7 +249,7 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 | `--threads` | `-t` | ✅ | ✅ | 并发线程数（默认 25），同时决定连接池大小（`MaxConns = threads`） |
 | `--recursive`/`-r` | `-r` | ✅ | ✅ | 递归扫描，默认开启（见 7.2 节） |
 | `--deep-recursive` | — | ✅ | ✅ | 深度递归（命中路径逐级展开父目录） |
-| `--force-recursive` | — | ⚠️ | 🔸 | `DirOptions.ForceRecursive`/`shouldRecursion()` 底层已支持（`force_recursive` task 参数），但 CLI 层未注册对应 flag，暂无法从命令行直接开启 |
+| `--force-recursive` | — | ✅ | ✅ | 强制递归（所有命中路径），CLI flag 已于 2026-08-22 补注册，之前仅底层支持、CLI 无法开启 |
 | `--max-recursion-depth`/`-R` | `-R` | ⚠️ | ✅ | 最大递归深度（默认 3，范围 0~10，`Validate()` 校验） |
 | `--recursion-status` | — | 🔶 | ❌ | 递归触发状态码可配置，未实现；当前固定为 `200/301/302/403`（`isDirectoryStatus()`） |
 | `--timeout` | — | ✅ | ✅ | 请求超时（默认 10s，范围 1~300，`Validate()` 校验） |
@@ -310,7 +311,9 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
   ├── IncludeStatus 白名单（命中即通过，优先于下方黑名单判断）
   ├── ExcludeStatus 黑名单（默认 404,500,502,503）
   ├── ExcludeSize / ExcludeKeywords / ExcludeRegex（均可选，未配置则跳过）
-  └── 注：内置"黑名单路径"未实现，dict 包有 LoadBlacklist() 但未接入扫描流程
+  └── 注：内置"黑名单路径"结论为不接入（2026-08-22 审查定论）——dict.LoadBlacklist() 加载的
+      实际是畸形请求探测 payload，与 ErrorPaths[status][path] 按真实路径查表的方式语义不匹配，
+      接入只会做出一个永远不生效的假功能，详见设计文档 5.3 节
 
 第二层：WildcardScanner 通配符检测（两阶段 sync.Once 采样，见第 5 节）
 
@@ -403,6 +406,7 @@ Global Flags (继承自 scan 父命令):
   --force-extensions, -f          对不含 %EXT% 的词也追加扩展变体
   --exclude-status, -x string     排除的状态码，逗号分隔（默认 404,500,502,503）
   --deep-recursive                深度递归（命中目录时逐级展开父目录并一并扫描）
+  --force-recursive                强制递归（对每个命中路径都继续扫描，不限于目录）
   --max-recursion-depth, -R int   最大递归深度（默认 3，范围 0~10）
   --verbose, -v                    输出详细扫描信息
   --quiet, -q                      静默模式，仅输出最终结果
@@ -413,7 +417,7 @@ Global Flags (继承自 scan 父命令):
   --method, -m string               HTTP 请求方法（默认 GET）
 ```
 
-> 🔸 `--force-recursive`：底层（`DirOptions.ForceRecursive`）已实现，但 `dir.go` 未注册对应 flag，当前无法从 CLI 开启，仅能通过 Pipeline 直接下发 `force_recursive=true` 的 task 参数使用。
+> ✅ `--force-recursive`：2026-08-22 已补注 CLI flag，与底层 `DirOptions.ForceRecursive` 打通，现可直接从命令行开启，不再依赖 Pipeline 下发 task 参数。
 
 ### 4.3 可选参数（P2）
 
@@ -488,7 +492,7 @@ neoAgent scan dir example.com --proxy http://127.0.0.1:8080 -t 50
 | **定位** | 独立工具 | 原子扫描器（嵌入 Pipeline） | NeoAgent 是安全扫描平台 |
 | **参数数量** | 90+ | 6 个核心 + 8 个重要 + 12 个可选 + 2 个全局继承（实际 flag 数） | 最小可用原则 |
 | **字典来源** | 文件路径指定 | 内置 dirsearch 全部字典（`go:embed`） | 零配置启动 |
-| **递归控制** | 3 种模式 | 底层 3 种模式均实现，但 `--force-recursive` 未暴露 CLI flag | 基础/深度递归可用，强制递归仅 Pipeline 可用 |
+| **递归控制** | 3 种模式 | 3 种模式均实现且均已暴露 CLI flag（2026-08-22 补上 `--force-recursive`） | 基础/深度/强制递归均可直接从 CLI 使用 |
 | **过滤能力** | 8 维 + 通配符 | 通配符 + 基础 3 层过滤 | V1 不做 8 维 |
 | **字典条目上限** | `wordlist_max_size=500K`，超限报错退出 | 未实现对应硬上限校验 | 见 7.4 节讨论 |
 | **会话恢复** | 完整支持 | 不支持 | Pipeline 编排不依赖 |
@@ -523,9 +527,9 @@ NeoAgent 决策（接受建议）：
 - 通过 `--max-recursion-depth` 控制深度上限
 - 深度递归保持手动启用（`--deep-recursive`），因为该模式字典膨胀大，需要用户明确授权
 
-**已决定**：递归默认开启（基础递归），深度递归需显式启用
+**已决定**：递归默认开启（基础递归），深度递归/强制递归需显式启用
 
-> ⚠️ **与实现的差异**："强制递归需显式启用"原意是提供 `--force-recursive` flag 供用户显式开启，但实际代码中 `cmd/agent/scan/dir.go` **并未注册该 flag**。即使底层 `DirOptions.ForceRecursive`/`shouldRecursion()` 已完整实现，当前 CLI 用户无法从命令行开启强制递归，只能通过 Pipeline/Master 直接下发 `force_recursive=true` 的 task 参数使用。若需 CLI 也能使用，需补充一行 `flags.BoolVar(&opts.ForceRecursive, "force-recursive", ...)`。
+> ✅ **已修复**：之前 `cmd/agent/scan/dir.go` 漏注册了 `--force-recursive` flag，导致底层 `DirOptions.ForceRecursive`/`shouldRecursion()` 虽完整但 CLI 无法开启，2026-08-22 已补上该 flag，现可直接从命令行使用，不再需要通过 Pipeline/Master 下发 task 参数。
 
 ### 7.3 通配符检测默认行为
 

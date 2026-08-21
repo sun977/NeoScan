@@ -18,6 +18,7 @@ type DirScanOptions struct {
 
 	// 字典配置
 	Wordlists       string
+	Category        string
 	Extensions      string
 	ForceExtensions bool
 	Prefixes        string
@@ -133,6 +134,9 @@ func (o *DirScanOptions) ToTask() *model.Task {
 
 	if o.Wordlists != "" {
 		p["wordlists"] = o.Wordlists
+	}
+	if o.Category != "" {
+		p["category"] = o.Category
 	}
 	if o.Extensions != "" {
 		p["extensions"] = o.Extensions

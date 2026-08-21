@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"neoagent/internal/core/lib/network/qos"
@@ -27,6 +28,7 @@ import (
 type DirOptions struct {
 	// 字典配置
 	Wordlists   []string
+	Categories  []string // 技术栈分类字典名称（如 wordpress、php/laravel），见 dict.LoadCategoryWordlist
 	Extensions  []string
 	ForceExt    bool
 	Prefixes    []string
@@ -86,6 +88,7 @@ func (o *DirOptions) toDictOptions() *dict.DirOptions {
 	}
 	return &dict.DirOptions{
 		Wordlists:   o.Wordlists,
+		Categories:  o.Categories,
 		Extensions:  o.Extensions,
 		ExtMode:     mode,
 		Uppercase:   o.Uppercase,
@@ -188,6 +191,7 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		opts:  opts,
 		depth: make(map[string]int),
 	}
+	stats := &statsAccumulator{}
 
 	hits := make(chan *result.DirHit, 256)
 	var wg sync.WaitGroup
@@ -195,7 +199,7 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s.worker(ctx, baseURL, dictionary, requester, filter, wildcardScanner, rc, hits)
+			s.worker(ctx, baseURL, dictionary, requester, filter, wildcardScanner, rc, stats, hits)
 		}()
 	}
 
@@ -207,6 +211,7 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	for h := range hits {
 		dirResult.Add(h)
 	}
+	dirResult.Stats = stats.Finalize()
 	dirResult.Finish()
 
 	taskResults := []*model.TaskResult{
@@ -227,6 +232,60 @@ type recursionCtl struct {
 	opts  *DirOptions
 	mu    sync.Mutex
 	depth map[string]int
+}
+
+// statsAccumulator 是 worker 并发写入的统计计数器。
+// 字段全部使用 atomic.Int64，避免为一组简单计数器引入额外的锁；
+// RTT 相关字段以纳秒存储，扫描结束后由 Finalize() 一次性转换为
+// 只读的 result.ScanStats 值对象（该转换发生在所有 worker 退出之后，
+// 单线程执行，无需原子读）。
+type statsAccumulator struct {
+	total      atomic.Int64
+	successful atomic.Int64
+	filtered   atomic.Int64
+	wildcard   atomic.Int64
+	errored    atomic.Int64
+	sumRTT     atomic.Int64
+	maxRTT     atomic.Int64
+	minRTT     atomic.Int64
+}
+
+// recordRTT 更新最大/最小/累计 RTT（用于最终计算平均值）。
+func (s *statsAccumulator) recordRTT(rtt time.Duration) {
+	n := int64(rtt)
+	s.sumRTT.Add(n)
+	for {
+		cur := s.maxRTT.Load()
+		if n <= cur || s.maxRTT.CompareAndSwap(cur, n) {
+			break
+		}
+	}
+	for {
+		cur := s.minRTT.Load()
+		if cur != 0 && n >= cur || s.minRTT.CompareAndSwap(cur, n) {
+			break
+		}
+	}
+}
+
+// Finalize 把累加结果转换为 result.ScanStats 值对象。
+func (s *statsAccumulator) Finalize() result.ScanStats {
+	total := s.total.Load()
+	successful := s.successful.Load()
+	var avg time.Duration
+	if successful > 0 {
+		avg = time.Duration(s.sumRTT.Load() / successful)
+	}
+	return result.ScanStats{
+		TotalRequests:  int(total),
+		SuccessfulReqs: int(successful),
+		FilteredReqs:   int(s.filtered.Load()),
+		WildcardReqs:   int(s.wildcard.Load()),
+		ErrorReqs:      int(s.errored.Load()),
+		AvgRTT:         avg,
+		MaxRTT:         time.Duration(s.maxRTT.Load()),
+		MinRTT:         time.Duration(s.minRTT.Load()),
+	}
 }
 
 // depthOf 返回路径已记录的递归深度，未记录视为第 0 层（初始字典条目）。
@@ -253,6 +312,7 @@ func (s *DirScanner) worker(
 	filter *engine.Filter,
 	wildcardScanner *engine.WildcardScanner,
 	rc *recursionCtl,
+	stats *statsAccumulator,
 	hits chan<- *result.DirHit,
 ) {
 	for {
@@ -280,20 +340,26 @@ func (s *DirScanner) worker(
 			}
 		}
 
+		stats.total.Add(1)
 		start := time.Now()
 		resp, err := requester.Do(ctx, baseURL, path)
 		s.limiter.Release()
 		if err != nil {
+			stats.errored.Add(1)
 			continue // 请求失败，跳过该路径
 		}
 		rtt := time.Since(start)
+		stats.successful.Add(1)
+		stats.recordRTT(rtt)
 
 		if !filter.Match(resp, path) {
+			stats.filtered.Add(1)
 			continue
 		}
 
 		isUnique, _ := wildcardScanner.Check(ctx, engine.PathPrefixOf(path), resp)
 		if !isUnique {
+			stats.wildcard.Add(1)
 			continue
 		}
 
@@ -415,6 +481,9 @@ func parseDirOptions(params map[string]interface{}) *DirOptions {
 
 	if v := paramString(params, "wordlists"); v != "" {
 		opts.Wordlists = splitCSV(v)
+	}
+	if v := paramString(params, "category"); v != "" {
+		opts.Categories = splitCSV(v)
 	}
 	if v := paramString(params, "extensions"); v != "" {
 		opts.Extensions = splitCSV(v)

@@ -1,8 +1,10 @@
 # NeoAgent 目录扫描模块功能参数设计
 
-**日期**: 2026-08-14
-**状态**: 设计讨论阶段
+**日期**: 2026-08-14（最近同步代码: 2026-08-22）
+**状态**: 已实现（V1），本文档第 3~7 节已对照 `cmd/agent/scan/dir.go` 与 `internal/core/options/scan_dir.go` 校订
 **参考**: dirsearch v0.4.3 (https://github.com/maurosoria/dirsearch)
+
+> **实现状态图例**：✅ 已实现并暴露为 CLI flag　🔸 底层已支持但未暴露 CLI flag　❌ 未实现
 
 ---
 
@@ -199,11 +201,11 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 
 ### 3.1 目标输入
 
-| NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
-|---------------|---------------|:---:|------|
-| `target`（位置参数） | `--url` | ✅ | 核心目标，CLI 唯一必须 |
-| `--targets-file` | `--urls-file` | ⚠️ | 多目标批量扫描需要 |
-| `--stdin` | `--stdin` | 🔶 | 管道集成场景需要，优先级低 |
+| NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
+|---------------|---------------|:---:|:---:|------|
+| `target`（位置参数 / `-t/--target`） | `--url` | ✅ | ✅ | 核心目标，CLI 唯一必须；位置参数优先于 `-t` |
+| `--targets-file`/`-l` | `--urls-file` | ⚠️ | ✅ | 多目标批量扫描，逐行读取后依次扫描并汇总结果 |
+| `--stdin` | `--stdin` | 🔶 | ❌ | 管道集成场景需要，优先级低，未实现 |
 
 **不做的原因**:
 - `--cidr`: NeoAgent 已有 `scan alive -r` 处理 CIDR，目录扫描接收的是已发现的目标
@@ -216,43 +218,45 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 
 ### 3.2 字典配置
 
-| NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
-|---------------|---------------|:---:|------|
-| `--wordlists` | `-w` | ✅ | 指定字典文件路径 |
-| `--extensions` | `-e` | ✅ | 扩展列表 |
-| `--force-extensions` | `-f` | ⚠️ | 扩展模式切换 |
-| `--exclude-extensions` | — | 🔶 | 排除已知静态扩展 |
-| `--prefixes` | — | 🔶 | 自定义路径前缀 |
-| `--suffixes` | — | 🔶 | 自定义路径后缀 |
-| `--uppercase` | `-U` | 🔶 | 词表全部大写 |
-| `--lowercase` | `-L` | 🔶 | 词表全部小写 |
-| `--capital` | `-C` | 🔶 | 词表首字母大写 |
+| NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
+|---------------|---------------|:---:|:---:|------|
+| `--wordlists`/`-w` | `-w` | ✅ | ✅ | 指定字典文件路径，支持逗号分隔多路径 |
+| `--extensions`/`-e` | `-e` | ✅ | ✅ | 扩展列表，默认值 `php,asp,html,js,json,bak,git,env` |
+| `--force-extensions`/`-f` | `-f` | ⚠️ | ✅ | 对不含 `%EXT%` 的条目也追加扩展名变体 |
+| `--exclude-extensions` | — | 🔶 | ❌ | 排除已知静态扩展，未实现 |
+| `--prefixes` | — | 🔶 | ✅ | 自定义路径前缀 |
+| `--suffixes` | — | 🔶 | ✅ | 自定义路径后缀 |
+| `--uppercase`/`-U` | `-U` | 🔶 | ✅ | 词表全部大写 |
+| `--lowercase`/`-L` | `-L` | 🔶 | ✅ | 词表全部小写 |
+| `--capital`/`-C` | `-C` | 🔶 | ✅ | 词表首字母大写 |
+
+> 注：字典条目仅支持 `%EXT%` 模板 token 展开，dirsearch 的 `%SUBJECT%`（子域名/关键词替换）token 未实现。
 
 **不做的原因**:
-- `--wordlist-categories`: NeoAgent 内置了 dirsearch 全部字典（`dicc.txt` + `categories/` + `templates/`），无需用户选择
+- `--wordlist-categories`: NeoAgent 内置了 dirsearch 全部字典（`dicc.txt` + `categories/` + `templates/`），无需用户选择；`categories/`/`templates/` 目前有加载函数但未接入主扫描流程
 - `--wordlist-backend`: 无 Rust 后端，不需要
 - `--wordlist-status`: 调试用，CLI 场景不需要
-- `--wordlist-max-size`: NeoAgent 通过 `--max-entries` 控制，与 Dir 扫描无直接关系
+- `--wordlist-max-size`: NeoAgent 未实现独立的字典条目数硬上限校验（见 7.4 节）
 - `--overwrite-extensions`: 使用场景有限，`-f` 已覆盖大部分需求
 
 ---
 
 ### 3.3 扫描控制
 
-| NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
-|---------------|---------------|:---:|------|
-| `--threads` | `-t` | ✅ | 并发线程数（默认 25） |
-| `--recursive` | `-r` | ✅ | 递归扫描 |
-| `--deep-recursive` | — | ✅ | 深度递归 |
-| `--force-recursive` | — | ⚠️ | 强制递归 |
-| `--max-recursion-depth` | `-R` | ⚠️ | 最大递归深度（默认 3） |
-| `--recursion-status` | — | 🔶 | 递归触发状态码 |
-| `--timeout` | — | ✅ | 请求超时（默认 10s） |
-| `--max-retries` | `--retries` | ⚠️ | 最大重试次数（默认 2） |
-| `--rate-limit` | `--max-rate` | 🔶 | 每秒最大请求数 |
-| `--delay` | `--delay` | 🔶 | 请求间隔 |
-| `--max-time` | `--max-time` | 🔶 | 总扫描时间上限（秒） |
-| `--target-max-time` | `--target-max-time` | 🔶 | 单目标扫描时间上限（秒） |
+| NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
+|---------------|---------------|:---:|:---:|------|
+| `--threads` | `-t` | ✅ | ✅ | 并发线程数（默认 25），同时决定连接池大小（`MaxConns = threads`） |
+| `--recursive`/`-r` | `-r` | ✅ | ✅ | 递归扫描，默认开启（见 7.2 节） |
+| `--deep-recursive` | — | ✅ | ✅ | 深度递归（命中路径逐级展开父目录） |
+| `--force-recursive` | — | ⚠️ | 🔸 | `DirOptions.ForceRecursive`/`shouldRecursion()` 底层已支持（`force_recursive` task 参数），但 CLI 层未注册对应 flag，暂无法从命令行直接开启 |
+| `--max-recursion-depth`/`-R` | `-R` | ⚠️ | ✅ | 最大递归深度（默认 3，范围 0~10，`Validate()` 校验） |
+| `--recursion-status` | — | 🔶 | ❌ | 递归触发状态码可配置，未实现；当前固定为 `200/301/302/403`（`isDirectoryStatus()`） |
+| `--timeout` | — | ✅ | ✅ | 请求超时（默认 10s，范围 1~300，`Validate()` 校验） |
+| `--max-retries` | `--retries` | ⚠️ | ✅ | 最大重试次数（默认 2） |
+| `--rate-limit` | `--max-rate` | 🔶 | ✅ | 每秒最大请求数（0=不限） |
+| `--delay` | `--delay` | 🔶 | ✅ | 请求间隔（毫秒） |
+| `--max-time` | `--max-time` | 🔶 | ✅ | 总扫描时间上限（秒，0=不限） |
+| `--target-max-time` | `--target-max-time` | 🔶 | ✅ | 单目标扫描时间上限（秒，0=不限） |
 
 > **`--max-recursion-depth` 是什么**：控制递归扫描的层数上限，防止字典指数级膨胀。
 >
@@ -285,13 +289,13 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 
 ### 3.4 响应过滤
 
-| NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
-|---------------|---------------|:---:|------|
-| `--include-status` | `-i` | ⚠️ | 要显示的状态码白名单 |
-| `--exclude-status` | `-x` | ⚠️ | 要排除的状态码黑名单 |
-| `--exclude-size` | `--exclude-sizes` | 🔶 | 排除特定大小 |
-| `--exclude-text` | — | 🔶 | 排除关键词 |
-| `--exclude-regex` | — | 🔶 | 排除正则 |
+| NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
+|---------------|---------------|:---:|:---:|------|
+| `--include-status`/`-i` | `-i` | ⚠️ | ✅ | 仅包含的状态码白名单，优先于 `--exclude-status` |
+| `--exclude-status`/`-x` | `-x` | ⚠️ | ✅ | 排除的状态码黑名单（默认 `404,500,502,503`） |
+| `--exclude-size` | `--exclude-sizes` | 🔶 | ✅ | 排除特定响应体大小（字节，逗号分隔） |
+| `--exclude-text` | — | 🔶 | ✅ | 排除响应体关键词，可多次指定 |
+| `--exclude-regex` | — | 🔶 | ✅ | 排除响应体正则（仅支持单条表达式） |
 
 **不做的原因**:
 - 全部 8 维过滤（`--match-*`/`--filter-*`）：V1 不做，DirScanner 只关心"路径是否存在"
@@ -299,32 +303,33 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 - `--auto-calibration`: 通配符检测自动校准，不需要用户干预
 - `--exclude-redirect`/`--exclude-response`/`--skip-on-status`: 优先级低，V2 评估
 
-**核心过滤设计**：DirScanner 的过滤管道比 dirsearch 简化为 3 层：
+**实际过滤管道**（`engine/filter.go` + `engine/scanner.go`，与最初设计的 3 层基本一致）：
 
 ```
-第一层：快速过滤
-  ├── 排除状态码（可配置）
-  ├── 排除大小（可配置）
-  └── 黑名单路径（内置 400/403/500 特定路径）
+第一层：Filter 快速过滤（engine.Filter.Match）
+  ├── IncludeStatus 白名单（命中即通过，优先于下方黑名单判断）
+  ├── ExcludeStatus 黑名单（默认 404,500,502,503）
+  ├── ExcludeSize / ExcludeKeywords / ExcludeRegex（均可选，未配置则跳过）
+  └── 注：内置"黑名单路径"未实现，dict 包有 LoadBlacklist() 但未接入扫描流程
 
-第二层：通配符检测（动态学习，自动校准）
+第二层：WildcardScanner 通配符检测（两阶段 sync.Once 采样，见第 5 节）
 
-第三层：（可选）关键词/正则排除
+第三层：以上均通过才计为一次 DirHit
 ```
 
 ---
 
 ### 3.5 请求配置
 
-| NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
-|---------------|---------------|:---:|------|
-| `--method` | `--http-method` | ⚠️ | HTTP 方法（默认 GET） |
-| `--header` | `-H` | 🔶 | 自定义请求头 |
-| `--follow-redirects` | `-F` | 🔶 | 跟随重定向 |
-| `--user-agent` | — | 🔶 | 自定义 User-Agent |
-| `--random-agent` | — | 🔶 | 随机 User-Agent |
-| `--auth` | — | 🔶 | 认证凭证 |
-| `--headers-file` | — | 🔶 | 从文件加载多个请求头（登录态/多头场景） |
+| NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
+|---------------|---------------|:---:|:---:|------|
+| `--method`/`-m` | `--http-method` | ⚠️ | ✅ | HTTP 方法（默认 GET） |
+| `--header`/`-H` | `-H` | 🔶 | ✅ | 自定义请求头，可多次指定 |
+| `--follow-redirects`/`-F` | `-F` | 🔶 | ✅ | 跟随重定向 |
+| `--user-agent` | — | 🔶 | ✅ | 自定义 User-Agent（优先级低于 `--random-agent`） |
+| `--random-agent` | — | 🔶 | ✅ | 从内置 User-Agent 池随机轮换（非每请求随机，见 6.） |
+| `--auth` | — | 🔶 | ✅ | 仅支持 Basic Auth（`user:pass`，编码为 Authorization 头） |
+| `--headers-file` | — | 🔶 | ✅ | 从文件加载多个请求头，CLI 层与 `-H` 合并后一起下发 |
 
 **不做的原因**:
 - `--data`/`--data-file`: 目录扫描是 GET 为主，POST 场景极少
@@ -332,15 +337,17 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 - `--cookie`: 可通过 `--auth` 或 `--header` 替代
 - `--request-backend`: 无 Rust 后端，不需要
 
+> 注：`--auth-type`（digest/bearer/ntlm/jwt 等）未实现，仅支持 Basic Auth。
+
 ---
 
 ### 3.6 网络配置
 
-| NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
-|---------------|---------------|:---:|------|
-| `--proxy` | `-p` | ⚠️ | 代理 URL |
-| `--ip` | — | 🔶 | 指定服务器 IP |
-| `--network-interface` | — | 🔶 | 指定网络接口 |
+| NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
+|---------------|---------------|:---:|:---:|------|
+| `--proxy`/`-p` | `-p` | ⚠️ | ✅ | 代理 URL（单个字符串，不支持多代理轮换） |
+| `--ip` | — | 🔶 | ✅ | 绑定本地出口 IP |
+| `--network-interface` | — | 🔶 | ✅ | 绑定网络接口 |
 
 **不做的原因**:
 - `--proxies-file`: 代理列表通过配置管理
@@ -353,12 +360,12 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 
 ### 3.7 输出配置
 
-| NeoAgent 参数 | dirsearch 对应 | 级别 | 理由 |
-|---------------|---------------|:---:|------|
-| `--oj <path>` | — | ✅ | JSON 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
-| `--oc <path>` | — | ✅ | CSV 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
-| `--verbose` | `-v` | ⚠️ | 详细终端输出（响应时间/Content-Type） |
-| `--quiet` | `-q` | ⚠️ | 安静模式 |
+| NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
+|---------------|---------------|:---:|:---:|------|
+| `--oj <path>` | — | ✅ | ✅ | JSON 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
+| `--oc <path>` | — | ✅ | ✅ | CSV 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
+| `--verbose`/`-v` | `-v` | ⚠️ | ✅ | 详细终端输出 |
+| `--quiet`/`-q` | `-q` | ⚠️ | ✅ | 安静模式 |
 
 **不做的原因**:
 - `--output-format`/`--output-file`（dirsearch `-O`/`-o`）: NeoAgent 已有全局 `--oj`/`--oc` 统一处理文件输出，引入私有参数只会产生语义重叠和冲突，复用全局参数是唯一正确选择
@@ -366,60 +373,71 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 - `--log`: NeoAgent 统一日志管理
 - `--full-url`/`--redirects-history`/`--no-color`/`--disable-cli`: 输出样式调整，优先级低
 
+> 注：`--verbose`/`--quiet` 仅控制 CLI 本地打印详略程度，不会下发到 `task.Params`（Runner 不关心 CLI 端的展示偏好）。
+
 ---
 
-## 4. NeoAgent DirScanner 最终参数清单（V1）
+## 4. NeoAgent DirScanner 最终参数清单（V1 已实现，与 `cmd/agent/scan/dir.go` 实际 flag 一致）
 
-### 4.1 核心参数（P0 - 必须实现）
+### 4.1 核心参数（P0）
 
 ```bash
 neoAgent scan dir <target> [flags]
 
 Flags:
-  --extensions string       扩展列表，逗号分隔（如 php,asp,html）
-  --wordlists string        字典文件路径（默认使用内置 dirsearch 字典）
-  --threads int             并发线程数（默认 25）
-  --timeout int             请求超时秒数（默认 10）
-  --recursive               启用递归扫描
+  --extensions, -e string       扩展列表，逗号分隔（默认 php,asp,html,js,json,bak,git,env）
+  --wordlists, -w string        字典文件路径（默认使用内置 dirsearch 字典）
+  --threads int                 并发线程数（默认 25，1~500）
+  --timeout int                 请求超时秒数（默认 10，1~300）
+  --recursive, -r                递归扫描（默认已开启，见 7.2）
+  --target, -t string            目标 URL（也可用位置参数，位置参数优先）
 
 Global Flags (继承自 scan 父命令):
   --oj string               输出 JSON 文件路径
   --oc string               输出 CSV 文件路径
 ```
 
-### 4.2 重要参数（P1 - 应该有）
+### 4.2 重要参数（P1）
 
 ```bash
-  --force-extensions        对所有词追加扩展
-  --exclude-status string   排除的状态码，逗号分隔（默认 404,500,502,503）
-  --deep-recursive          启用深度递归（每级目录）
-  --max-recursion-depth int 最大递归深度（默认 3）
-  --verbose                 详细输出
-  --quiet                   安静模式
-  --header string           自定义请求头
-  --proxy string            代理 URL
-  --follow-redirects        跟随重定向
-  --max-retries int         最大重试次数（默认 2）
+  --force-extensions, -f          对不含 %EXT% 的词也追加扩展变体
+  --exclude-status, -x string     排除的状态码，逗号分隔（默认 404,500,502,503）
+  --deep-recursive                深度递归（命中目录时逐级展开父目录并一并扫描）
+  --max-recursion-depth, -R int   最大递归深度（默认 3，范围 0~10）
+  --verbose, -v                    输出详细扫描信息
+  --quiet, -q                      静默模式，仅输出最终结果
+  --header, -H stringArray         自定义请求头 "Key: Value"，可多次指定
+  --proxy, -p string               代理地址（如 http://127.0.0.1:8080）
+  --follow-redirects, -F           跟随重定向
+  --max-retries int                请求失败最大重试次数（默认 2）
+  --method, -m string               HTTP 请求方法（默认 GET）
 ```
 
-### 4.3 可选参数（P2 - 可以做）
+> 🔸 `--force-recursive`：底层（`DirOptions.ForceRecursive`）已实现，但 `dir.go` 未注册对应 flag，当前无法从 CLI 开启，仅能通过 Pipeline 直接下发 `force_recursive=true` 的 task 参数使用。
+
+### 4.3 可选参数（P2）
 
 ```bash
-  --exclude-extensions string   排除的扩展
-  --prefixes string             路径前缀
-  --suffixes string             路径后缀
-  --uppercase                   词表全部大写
-  --lowercase                   词表全部小写
-  --capital                     词表首字母大写
-  --include-status string       要显示的状态码
-  --exclude-text string         排除的关键词
-  --exclude-regex string        排除的正则
-  --rate-limit int              每秒最大请求数
-  --max-time int                总扫描时间上限（秒）
-  --target-max-time int         单目标扫描时间上限（秒）
-  --headers-file string         请求头文件（一行一个，格式: Name: Value）
-  --random-agent                随机 User-Agent
-  --auth string                 认证凭证
+  --prefixes string             追加前缀（逗号分隔）
+  --suffixes string             追加后缀（逗号分隔）
+  --uppercase, -U                字典条目转大写
+  --lowercase, -L                字典条目转小写
+  --capital, -C                   字典条目首字母大写
+  --include-status, -i string    仅包含的状态码（逗号分隔，优先于 --exclude-status）
+  --exclude-text stringArray     响应体中排除的关键字，可多次指定
+  --exclude-regex string         响应体排除正则
+  --exclude-size string          排除的响应体大小（字节，逗号分隔）
+  --rate-limit int               每秒最大请求数（0=不限）
+  --delay int                    每次请求间隔（毫秒）
+  --max-time int                 整个扫描的最长运行时间（秒，0=不限）
+  --target-max-time int          单个目标的最长扫描时间（秒，0=不限）
+  --headers-file string          从文件加载请求头，每行一条 "Key: Value"
+  --random-agent                 使用内置 User-Agent 池随机轮换
+  --auth string                  Basic Auth 凭据，格式 user:pass
+  --user-agent string            自定义 User-Agent（优先级低于 --random-agent）
+  --ip string                    绑定本地出口 IP
+  --network-interface string     绑定网络接口
+  --targets-file, -l string      批量目标文件，每行一个 URL
 ```
 
 ---
@@ -432,16 +450,17 @@ Global Flags (继承自 scan 父命令):
 # 最小化命令
 neoAgent scan dir example.com
 
-# 等价于
+# 等价于（与 options.NewDirScanOptions() 默认值一致）
 neoAgent scan dir example.com \
-  --extensions "" \
-  --wordlists "builtin" \
+  --extensions "php,asp,html,js,json,bak,git,env" \
+  --wordlists "" \
   --threads 25 \
   --timeout 10 \
   --max-retries 2 \
   --exclude-status "404,500,502,503" \
   --recursive \
-  --max-recursion-depth 3
+  --max-recursion-depth 3 \
+  --method GET
 ```
 
 ### 5.2 典型使用场景
@@ -464,13 +483,14 @@ neoAgent scan dir example.com --proxy http://127.0.0.1:8080 -t 50
 
 ## 6. 与 dirsearch 的设计差异
 
-| 维度 | dirsearch | NeoAgent DirScanner | 理由 |
+| 维度 | dirsearch | NeoAgent DirScanner（实际） | 理由 |
 |------|-----------|-------------------|------|
 | **定位** | 独立工具 | 原子扫描器（嵌入 Pipeline） | NeoAgent 是安全扫描平台 |
-| **参数数量** | 90+ | V1: 5 个核心 + 7 个重要 + 13 个可选 + 2 个全局继承 | 最小可用原则 |
-| **字典来源** | 文件路径指定 | 内置 dirsearch 全部字典 | 零配置启动 |
-| **递归控制** | 3 种模式 | 3 种模式全部保留 | 都有实用价值 |
+| **参数数量** | 90+ | 6 个核心 + 8 个重要 + 12 个可选 + 2 个全局继承（实际 flag 数） | 最小可用原则 |
+| **字典来源** | 文件路径指定 | 内置 dirsearch 全部字典（`go:embed`） | 零配置启动 |
+| **递归控制** | 3 种模式 | 底层 3 种模式均实现，但 `--force-recursive` 未暴露 CLI flag | 基础/深度递归可用，强制递归仅 Pipeline 可用 |
 | **过滤能力** | 8 维 + 通配符 | 通配符 + 基础 3 层过滤 | V1 不做 8 维 |
+| **字典条目上限** | `wordlist_max_size=500K`，超限报错退出 | 未实现对应硬上限校验 | 见 7.4 节讨论 |
 | **会话恢复** | 完整支持 | 不支持 | Pipeline 编排不依赖 |
 | **报告输出** | 8 种格式 | 2 种文件格式（JSON/CSV），复用全局 `--oj`/`--oc` | NeoAgent 全局 OutputOptions 统一 |
 | **请求后端** | Python/Rust 双后端 | Go 原生 | Go 并发模型不同 |
@@ -501,9 +521,11 @@ NeoAgent 决策（接受建议）：
 
 - 默认开启基础递归（`--recursive`），因为 ServiceScanner 识别出的 Web 端口大概率有隐藏路径
 - 通过 `--max-recursion-depth` 控制深度上限
-- 深度递归和强制递归保持手动启用（`--deep-recursive` / `--force-recursive`），因为这两种模式字典膨胀大，需要用户明确授权
+- 深度递归保持手动启用（`--deep-recursive`），因为该模式字典膨胀大，需要用户明确授权
 
-**已决定**：递归默认开启（基础递归 + 深度递归），强制递归需显式启用
+**已决定**：递归默认开启（基础递归），深度递归需显式启用
+
+> ⚠️ **与实现的差异**："强制递归需显式启用"原意是提供 `--force-recursive` flag 供用户显式开启，但实际代码中 `cmd/agent/scan/dir.go` **并未注册该 flag**。即使底层 `DirOptions.ForceRecursive`/`shouldRecursion()` 已完整实现，当前 CLI 用户无法从命令行开启强制递归，只能通过 Pipeline/Master 直接下发 `force_recursive=true` 的 task 参数使用。若需 CLI 也能使用，需补充一行 `flags.BoolVar(&opts.ForceRecursive, "force-recursive", ...)`。
 
 ### 7.3 通配符检测默认行为
 
@@ -539,6 +561,8 @@ NeoAgent 决策：
 
 **已决定**：默认 500K；递归必须限制深度，即使用户只开 `-r` 也要自动限制 3 层
 
+> ⚠️ **与实现的差异**：`--max-entries`/字典总条目数硬上限校验在当前代码中**未实现**——`options.DirScanOptions.Validate()` 只校验了 `MaxRecursionDepth`（0~10）、`Threads`（1~500）、`Timeout`（1~300），没有对字典总条目数设上限。当前完全依赖递归深度限制（3 层默认、最大 10 层）作为唯一防膨胀手段，未形成本节所说的"双重保险"。
+
 ### 7.5 递归深度自动限制策略（新增）
 
 > **问题**：用户开了 `--recursive`（基础递归），但不知道 `--max-recursion-depth`，会扫到多深？
@@ -563,3 +587,5 @@ NeoAgent 决策：
 - **与 `--wordlist-max-size` 形成双重保险**：3 层是主动控制，500K 是兜底保护
 
 **已决定**：递归深度默认 3 层，用户可覆盖；`--recursive` 和 `--max-recursion-depth` 互为补充，缺一不可失控
+
+**实现验证**：与代码完全一致——`options.NewDirScanOptions()` 默认 `MaxRecursionDepth: 3`，`Validate()` 强制 `0~10` 范围校验（用户传参超出范围直接报错拒绝执行，而非静默截断），"自动限制 3 层"体现为默认值而非运行时动态兜底。字典总条目数 500K 的"兜底保护"未实现（见 7.4 节），当前仅有递归深度这一层控制手段。

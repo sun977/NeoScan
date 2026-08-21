@@ -64,7 +64,7 @@ func BenchmarkDirScanner_25Threads(b *testing.B) {
 func runScanBenchmark(b *testing.B, threads int, limit time.Duration) {
 	b.Helper()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		server := newBenchServer()
 		s := NewDirScanner()
 		task := newBenchTask(server.URL, threads)
@@ -94,7 +94,7 @@ func runScanBenchmark(b *testing.B, threads int, limit time.Duration) {
 func BenchmarkDirScanner_MemoryUsage(b *testing.B) {
 	const memLimitBytes = 150 * 1024 * 1024 // 150MB
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		runtime.GC()
 		var before runtime.MemStats
 		runtime.ReadMemStats(&before)
@@ -126,7 +126,7 @@ func BenchmarkDirScanner_MemoryUsage(b *testing.B) {
 // 首次 Check() 内部，本身耗时受网络往返影响很大、不适合作为性能基准，
 // 真正需要控制的是"额外发了多少次探测请求"，这才是采样机制的真实成本。
 func BenchmarkWildcardScanner_Sampling(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var probeCount int
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			probeCount++

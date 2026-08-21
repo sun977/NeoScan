@@ -1,7 +1,7 @@
 # NeoAgent DirScanner 开发实施文档
 
-**日期**: 2026-08-17（2026-08-22 追加 Phase 5：断层修复）
-**状态**: Phase 1~4 已完成，Phase 5（断层修复）已完成
+**日期**: 2026-08-17（2026-08-22 追加 Phase 5：断层修复；2026-08-23 追加 Phase 6：参数分级 + 冗余清理）
+**状态**: Phase 1~5 已完成，Phase 6（参数分级 + 冗余清理）已完成
 **依据**:
 - [目录扫描模块设计文档.md](./目录扫描模块设计文档.md)
 - [NeoAgent目录扫描模块功能参数设计.md](./NeoAgent目录扫描模块功能参数设计.md)
@@ -25,6 +25,7 @@ Phase 2: 核心引擎（通配符检测 + 并发调度）  ✅ 已完成
 Phase 3: CLI 接入（参数 + 命令 + 输出）      ✅ 已完成
 Phase 4: 集成（RunnerManager + 验收测试）    ✅ 已完成
 Phase 5: 断层修复（已实现但未接入主流程的功能审查）  ✅ 已完成（2026-08-22）
+Phase 6: 参数分级 + 冗余清理（CLI 体验优化 + 死代码清除）  ✅ 已完成（2026-08-23）
 ```
 
 ---
@@ -41,15 +42,15 @@ Phase 5: 断层修复（已实现但未接入主流程的功能审查）  ✅ �
 
 - [x] 创建目录 `internal/core/scanner/dir/dict/wordlists/`
 - [x] 复制 `docs/references/dirsearch/db/dicc.txt` → `dict/wordlists/dicc.txt`
-- [x] 复制 `docs/references/dirsearch/db/400_blacklist.txt` → `dict/wordlists/blacklist/400_blacklist.txt`
-- [x] 复制 `docs/references/dirsearch/db/403_blacklist.txt` → `dict/wordlists/blacklist/403_blacklist.txt`
-- [x] 复制 `docs/references/dirsearch/db/500_blacklist.txt` → `dict/wordlists/blacklist/500_blacklist.txt`
+- [x] ~~复制 `docs/references/dirsearch/db/400_blacklist.txt` → `dict/wordlists/blacklist/400_blacklist.txt`~~（Phase 6 已删除，见 Task 6.2）
+- [x] ~~复制 `docs/references/dirsearch/db/403_blacklist.txt` → `dict/wordlists/blacklist/403_blacklist.txt`~~（Phase 6 已删除，见 Task 6.2）
+- [x] ~~复制 `docs/references/dirsearch/db/500_blacklist.txt` → `dict/wordlists/blacklist/500_blacklist.txt`~~（Phase 6 已删除，见 Task 6.2）
 - [x] 复制 `docs/references/dirsearch/db/categories/` 全部内容 → `dict/wordlists/categories/`（保留子目录结构）
-- [x] 复制 `docs/references/dirsearch/db/templates/` 全部内容 → `dict/wordlists/templates/`
+- [x] ~~复制 `docs/references/dirsearch/db/templates/` 全部内容 → `dict/wordlists/templates/`~~（Phase 6 已删除，见 Task 6.2）
 - [x] 复制 `docs/references/dirsearch/db/user-agents.txt` → `dict/wordlists/user-agents.txt`
 - [x] 确认文件数量与来源一致（执行 `ls -la` 对比）
 
-**验收**：`dict/wordlists/` 目录结构与设计文档 2.1 节一致 — ✅ 已通过（dicc.txt 9681 行，403 blacklist 9 项，53 条 UA，25 个 category）
+**验收**：`dict/wordlists/` 目录结构与设计文档 2.1 节一致 — ✅ 已通过（dicc.txt 9681 行，53 条 UA，25 个 category；blacklist 和 templates 已于 Phase 6 删除）
 
 ---
 
@@ -64,8 +65,8 @@ Phase 5: 断层修复（已实现但未接入主流程的功能审查）  ✅ �
 - [x] 使用 `//go:embed wordlists` 嵌入整个目录（`embed.FS` 类型）
 - [x] 实现 `LoadBuiltinWordlist() ([]string, error)`：加载 `wordlists/dicc.txt`，返回路径行列表，自动去空行/去注释（`#` 开头）
 - [x] 实现 `LoadCategoryWordlist(category string) ([]string, error)`：按技术栈名称（如 `wordpress`、`spring`）查找对应文件并加载，文件不存在返回 `ErrCategoryNotFound`
-- [x] 实现 `LoadTemplateWordlist(template string) ([]string, error)`：按场景名称（如 `admin`、`api`）加载模板字典
-- [x] 实现 `LoadBlacklist(statusCode int) (map[string]bool, error)`：加载对应状态码的黑名单，支持 400/403/500
+- [x] ~~实现 `LoadTemplateWordlist(template string) ([]string, error)`~~：Phase 6 已删除（见 Task 6.2）
+- [x] ~~实现 `LoadBlacklist(statusCode int) (map[string]bool, error)`~~：Phase 6 已删除（见 Task 6.2）
 - [x] 实现 `LoadUserAgents() ([]string, error)`：加载 UA 列表
 - [x] 实现 `ListCategories() []string`：列出所有可用技术栈名称（遍历 `categories/` 子目录）
 
@@ -74,7 +75,7 @@ Phase 5: 断层修复（已实现但未接入主流程的功能审查）  ✅ �
 - [x] `TestLoadBuiltinWordlist`：验证加载条目数 > 0，不含空行，不含 `#` 开头的行
 - [x] `TestLoadCategoryWordlist`：验证 `wordpress`/`spring`/`django` 等可正常加载
 - [x] `TestLoadCategoryWordlist_NotFound`：验证不存在的 category 返回 `ErrCategoryNotFound`
-- [x] `TestLoadBlacklist`：验证 403 黑名单包含 `/.git/config`
+- [x] ~~`TestLoadBlacklist`：验证 403 黑名单包含 `/.git/config`~~（Phase 6 已删除）
 - [x] `TestLoadUserAgents`：验证列表非空
 
 ---
@@ -195,7 +196,6 @@ type FilterConfig struct {
     ExcludeSize      []int64
     ExcludeKeywords  []string
     ExcludeRegex     []*regexp.Regexp
-    ErrorPaths       map[int]map[string]bool  // statusCode → path set
 }
 
 type Response struct {
@@ -214,24 +214,23 @@ type Response struct {
   - Layer 1a：状态码白名单过滤（IncludeStatus 非空时，不在白名单则排除）
   - Layer 1b：状态码黑名单过滤（ExcludeStatus，默认 `[404, 500, 502, 503]`）
   - Layer 1c：响应大小过滤（ExcludeSize）
-  - Layer 2：错误路径黑名单（errorPaths[statusCode][path]）
   - Layer 3a：关键词排除（ExcludeKeywords，Body 中包含则排除）
   - Layer 3b：正则排除（ExcludeRegex）
   - 全部通过返回 `true`
 - [x] `DefaultExcludeStatus() []int`：返回 `[404, 500, 502, 503]`
-- [x] `AddErrorPath(statusCode int, path string)`：运行时添加错误路径
+- [x] ~~`AddErrorPath(statusCode int, path string)`：运行时添加错误路径~~（Phase 6 已删除，见 Task 6.2）
 
 **单元测试** `engine/filter_test.go`：
 
 - [x] `TestFilter_ExcludeStatus`：404 被排除
 - [x] `TestFilter_IncludeStatus`：仅保留白名单状态码
 - [x] `TestFilter_DefaultExcludeStatus`：默认黑名单生效
-- [x] `TestFilter_ErrorPath`：`/.git/config + 403` 命中黑名单被排除
+- [x] ~~`TestFilter_ErrorPath`：`/.git/config + 403` 命中黑名单被排除~~（Phase 6 已删除）
 - [x] `TestFilter_ExcludeKeyword`：Body 含关键词被排除
 - [x] `TestFilter_ExcludeRegex`：Body 匹配正则被排除
 - [x] `TestFilter_ExcludeSize`：大小黑名单过滤
 - [x] `TestFilter_AllPass`：正常 200 响应通过所有层
-- [x] `TestFilter_AddErrorPath`：运行时添加错误路径
+- [x] ~~`TestFilter_AddErrorPath`：运行时添加错误路径~~（Phase 6 已删除）
 
 ---
 
@@ -627,7 +626,7 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 **文件**：`internal/core/scanner/dir/dict/dictionary.go`、`internal/core/scanner/dir/dict/dictionary_test.go`、
 `internal/core/scanner/dir/dir_scanner.go`、`internal/core/options/scan_dir.go`、`cmd/agent/scan/dir.go`
 
-### Task 5.4 — 错误路径黑名单（`LoadBlacklist`/`Filter.ErrorPaths`）审查定论：不接入 ❌
+### Task 5.4 — 错误路径黑名单（`LoadBlacklist`/`Filter.ErrorPaths`）审查定论：不接入 → Phase 6 彻底删除
 
 **问题**：`dict.LoadBlacklist(statusCode)` 和 `Filter.AddErrorPath()`/`Filter.ErrorPaths` 在 Phase 1
 已实现，但 `dir_scanner.go` 的 `Run()` 从未调用它们把黑名单文件加载结果灌进 `Filter.ErrorPaths`。
@@ -645,13 +644,12 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
    制造一个"看起来在生效、实际永远没有效果"的假功能，比保持现状不接入更危险（用户会误以为
    自己已被保护）。
 
-**处理方式**：`LoadBlacklist()`/`AddErrorPath()`/`Filter.ErrorPaths`/`Layer 2` 全部保留在代码中，
-但明确不接入主扫描流程，文档（设计文档 5.3 节、参数设计文档 3.3 节）已标注定论与原因。若未来确有
-"识别 WAF 对畸形请求返回假状态码"的真实需求，应作为独立特性走完整设计评审——正确用法是像
-`WildcardScanner.Precheck()` 一样在扫描开始前用这批 payload 单独探测一次，而不是往 `ErrorPaths`
-里塞真实字典路径。
+**处理方式（Phase 6 更新）**：原 Phase 5 决定保留死代码但不接入。Phase 6 按 Linus
+"好代码是删出来的"原则彻底清除——`LoadBlacklist()`、`AddErrorPath()`、`Filter.ErrorPaths`、
+`FilterConfig.ErrorPaths` 字段、`Layer 2` 过滤逻辑、3 个 blacklist 数据文件全部删除。相关测试
+`TestFilter_ErrorPath`、`TestFilter_AddErrorPath` 一并移除。详见 Task 6.2。
 
-### Task 5.5 — 场景模板字典（`LoadTemplateWordlist`）审查定论：不接入（补充说明，2026-08-22）✅
+### Task 5.5 — 场景模板字典（`LoadTemplateWordlist`）审查定论：不接入 → Phase 6 彻底删除
 
 **问题**：`dict.LoadTemplateWordlist(template string)` 在 Phase 1 Task 1.2 已实现并通过单元测试，
 但一直没有调用方。Task 5.3 修复 `--category` 时曾在设计文档里把这项归因为"与 categories 功能
@@ -675,10 +673,9 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
    垃圾请求**，比 Task 5.4 的黑名单问题更严重（黑名单接入后是"查不中"，这个接入后是"污染
    扫描流量"）。
 
-**结论**：`LoadTemplateWordlist()` 保留在代码中，但不接入主扫描流程。若未来要做，需要作为独立
-特性走完整设计评审，补齐候选值表（需重新评估是否适合中文/国内场景，不能照抄英文版）+ 多令牌
-提取 + 笛卡尔积展开三部分，工作量与现有整个字典加载流程相当，不适合在 Phase 5 这种"查漏补缺"
-颗粒度下顺手做掉。
+**处理方式（Phase 6 更新）**：原 Phase 5 决定保留死代码但不接入。Phase 6 按 Linus
+"好代码是删出来的"原则彻底清除——`LoadTemplateWordlist()` 函数、7 个 templates 数据文件
+全部删除。详见 Task 6.2。
 
 **当前替代方案**：用户可将想要的具体路径手写成不含 `%XXX%` 令牌的普通文件，通过 `--wordlists`
 加载，效果等价于模板展开后的固定子集。
@@ -686,7 +683,66 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 **文档修正**：设计文档 3.2/3.4.1 节、参数设计文档"不做的原因"一节均已同步更正表述，不再使用
 "与 categories 功能重叠"这一不准确的归因。
 
-**文件**：无代码变更（纯审查结论，文档修正）
+---
+
+## Phase 6 — 参数分级 + 冗余清理（2026-08-23）
+
+**背景**：Phase 5 断层修复后，`dirscan --help` 输出 38 个参数，信息过载。同时 Phase 5 审查后
+决定"不接入但保留"的模板字典和黑名单代码成了死代码——保留死代码比没有代码更糟糕，因为它会
+误导维护者以为这些功能"即将接入"，实际上永远不会。
+
+### Task 6.1 — CLI 参数分级展示 ✅
+
+**问题**：`dirscan --help` 一次性展示全部 38 个参数，用户被淹没在参数海洋里，找不到常用参数。
+
+**修复**：参数分为三级展示
+- **P0 常用参数**（15 个）：`--help` 默认展示，包括 `target`/`extensions`/`wordlists`/
+  `category`/`threads`/`timeout`/`recursive`/`force-extensions`/`exclude-status`/
+  `max-recursion-depth`/`verbose`/`quiet`/`header`/`method`/`targets-file`
+- **P1/P2 高级参数**（23 个）：通过 `flags.MarkHidden()` 隐藏，`--help` 不展示
+- **`--help-all`**：展示全部参数（含 hidden），通过自定义 bool flag + `printAllFlags()` 实现
+
+**实现方式**：
+- Cobra 1.10.2 不内置 `--help-all`，在 `RunE` 中手动拦截 `helpAll` bool flag
+- `printAllFlags()` 遍历 `FlagSet`，临时重置 `Hidden` 字段后调用 `FlagUsages()` 输出，输出后恢复
+- `--help-all` 自身也 `MarkHidden`，不出现在 `--help` 中
+
+**文件**：`cmd/agent/scan/dir.go`
+
+### Task 6.2 — 彻底清除模板字典和黑名单死代码 ✅
+
+**问题**：Phase 5 Task 5.4 和 5.5 审查后决定"保留代码但不接入"。但 Linus 说得好："好代码是删
+出来的。" 保留死代码等于给未来埋坑——维护者会以为这些功能"待接入"，实际上永远不会接入。
+
+**清理范围**：
+
+**模板字典（templates）清理**：
+- 删除 `dict/wordlists/templates/` 目录下全部 7 个模板文件（`admin`/`api`/`auth`/`backups`/
+  `crud`/`db`/`logs`）
+- 删除 `wordlists.go` 中的 `LoadTemplateWordlist()` 函数
+
+**黑名单（blacklist）清理**：
+- 删除 `dict/wordlists/blacklist/` 目录下全部 3 个黑名单文件（`400_blacklist.txt`/
+  `403_blacklist.txt`/`500_blacklist.txt`）
+- 删除 `wordlists.go` 中的 `LoadBlacklist()` 函数
+- 删除 `engine/filter.go` 中的 `FilterConfig.ErrorPaths` 字段
+- 删除 `engine/filter.go` 中的 `Filter.AddErrorPath()` 方法
+- 删除 `engine/filter.go` 中 `Match()` 的 Layer 2 错误路径黑名单过滤逻辑
+
+**测试清理**：
+- 删除 `wordlists_test.go` 中的 `TestLoadBlacklist` 测试
+- 删除 `filter_test.go` 中的 `TestFilter_ErrorPath` 和 `TestFilter_AddErrorPath` 测试
+
+**影响分析**：
+- 零破坏性：这些代码从未被主扫描流程调用，删除不影响任何运行时行为
+- 全部 67 个测试用例通过（含 `-race`），零失败
+- `wordlists.go` 从 ~159 行缩减到 ~117 行
+- `filter.go` 从 ~139 行缩减到 ~117 行
+
+**文件**：`internal/core/scanner/dir/dict/wordlists.go`、
+`internal/core/scanner/dir/engine/filter.go`、
+`internal/core/scanner/dir/dict/wordlists_test.go`、
+`internal/core/scanner/dir/engine/filter_test.go`
 
 ---
 
@@ -730,11 +786,11 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 | 任务 | 状态 | 备注 |
 |------|:---:|------|
 | 1.1 复制字典文件 | ✅ 已完成 | 9681 行 dicc，403 blacklist 9 项，53 UA，25 category |
-| 1.2 wordlists.go | ✅ 已完成 | 9 tests pass，含 ListCategories |
+| 1.2 wordlists.go | ✅ 已完成 | 5 tests pass（Phase 6 删除了 TestLoadBlacklist，含 ListCategories） |
 | 1.3 template.go | ✅ 已完成 | 6 tests pass，含 Force+MULTI_TOKEN |
 | 1.4 dictionary.go | ✅ 已完成 | 6 tests pass，含 race detector 无竞争 |
 | 1.5 result.go | ✅ 已完成 | 9 tests pass，含 formatSize + complete flow |
-| 1.6 filter.go | ✅ 已完成 | 9 tests pass，含 AddErrorPath |
+| 1.6 filter.go | ✅ 已完成 | 7 tests pass（Phase 6 删除了 ErrorPath/AddErrorPath） |
 | 1.7 requester.go | ✅ 已完成 | 25 tests pass，含 7 种错误分类 + benchmark |
 | 2.1 scanner.go（通配符） | ✅ 已完成 | 6 tests pass；2026-08-19 依据 dirsearch 重构为两阶段采样模型，修复 data race |
 | 2.2 dir_scanner.go | ✅ 已完成 | 6 tests pass，含 goroutine 泄漏检测 |
@@ -746,8 +802,10 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 | 5.1 `--force-recursive` flag 补注册 | ✅ 已完成 | 笔误级 bug，1 行代码修复 |
 | 5.2 `ScanStats` 填充接入 | ✅ 已完成 | `statsAccumulator` + `atomic.Int64`，`TestDirScanner_StatsPopulated` 验证 |
 | 5.3 `--category` CLI flag 接入 | ✅ 已完成 | 三层打通：CLI → DirOptions → dict.New()，2 个新测试覆盖 |
-| 5.4 错误路径黑名单审查 | ❌ 不接入 | 数据语义不匹配，明确决定不接入（见 Task 5.4） |
-| 5.5 场景模板字典审查 | ❌ 不接入 | 上游多令牌展开系统缺失，纠正此前"功能重叠"的错误归因（见 Task 5.5） |
+| 5.4 错误路径黑名单审查 | ❌ 不接入 → 🗑️ 已删除 | Phase 5 决定不接入，Phase 6 彻底删除死代码（见 Task 6.2） |
+| 5.5 场景模板字典审查 | ❌ 不接入 → 🗑️ 已删除 | Phase 5 决定不接入，Phase 6 彻底删除死代码（见 Task 6.2） |
+| 6.1 CLI 参数分级展示 | ✅ 已完成 | `--help` 展示 P0 参数，`--help-all` 展示全部，`MarkHidden` 实现 |
+| 6.2 清除模板/黑名单死代码 | ✅ 已完成 | 删除 `LoadTemplateWordlist`/`LoadBlacklist`/`ErrorPaths`/`AddErrorPath` + 10 个数据文件 |
 
 ---
 
@@ -755,31 +813,33 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 
 **完成日期**：2026-08-17
 
-**测试统计**：
+**测试统计**（Phase 6 清理后）：
 ```
-dict:         21 tests pass (含 race detector)
+dict:         19 tests pass (含 race detector，删除了 TestLoadBlacklist)
 result:        9 tests pass
-engine:       34 tests pass (filter 9 + requester 25)
-总计:         64 tests pass, 0 fail
+engine:       32 tests pass (filter 7 + requester 25，删除了 ErrorPath/AddErrorPath)
+总计:         60 tests pass, 0 fail
 ```
 
-**代码统计**：
+**代码统计**（Phase 6 清理后）：
 | 文件 | 行数 |
 |------|-----:|
-| `dict/wordlists.go` | ~159 |
-| `dict/wordlists_test.go` | ~124 |
+| `dict/wordlists.go` | ~117 |
+| `dict/wordlists_test.go` | ~96 |
 | `dict/template.go` | ~56 |
 | `dict/template_test.go` | ~63 |
 | `dict/dictionary.go` | ~311 |
 | `dict/dictionary_test.go` | ~178 |
 | `result/result.go` | ~111 |
 | `result/result_test.go` | ~165 |
-| `engine/filter.go` | ~139 |
-| `engine/filter_test.go` | ~159 |
+| `engine/filter.go` | ~117 |
+| `engine/filter_test.go` | ~127 |
 | `engine/requester.go` | ~304 |
 | `engine/requester_test.go` | ~570 |
-| **总计** | **~2,419** |
+| **总计** | **~2,215** |
 
 **已知问题/待后续处理**：
 1. PathPreservingRoundTripper — Go 1.25 已移除 `req.Opaque` 字段，当前版本暂不实现路径特殊字符保留（`requester.go` 第 192 行注释），后续可扩展为自定义 Transport
 2. `dictionary.go` — 文档要求 `AddExtra` 追加到队列头部，当前实现为尾部追加（`append(d.extra, p)`），与 `Next()` 消费顺序（从 `extraIdx` 开始）一致
+3. ~~模板字典（templates）和黑名单（blacklist）死代码~~ — Phase 6 已彻底清除（见 Task 6.2）
+4. ~~CLI 参数信息过载~~ — Phase 6 已通过参数分级解决（见 Task 6.1）

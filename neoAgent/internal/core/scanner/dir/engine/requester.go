@@ -46,6 +46,7 @@ type RequesterConfig struct {
 	FollowRedirects  bool              // 是否跟随重定向（默认 false）
 	IP               string            // 绑定本地 IP
 	NetworkInterface string            // 绑定网络接口
+	MaxConns         int               // 连接池大小，通常等于扫描并发线程数（默认 100）
 }
 
 // Requester 封装 HTTP 请求能力，支持路径保留、重试、代理等。
@@ -69,12 +70,26 @@ func NewRequester(cfg RequesterConfig) *Requester {
 	if cfg.Method == "" {
 		cfg.Method = http.MethodGet
 	}
+	if cfg.MaxConns <= 0 {
+		cfg.MaxConns = 100
+	}
 
+	// 连接复用：对齐 dirsearch（lib/connection/requester.py 用
+	// requests.Session + pool_maxsize=thread_count）的做法，按并发线程数
+	// 分配空闲连接槽位，避免每个请求都重新三次握手。
+	//
+	// 曾经这里是 DisableKeepAlives: true（"禁用连接复用"），但设计/实施
+	// 文档都没有给出任何理由——真实代价是扫一次上万条目字典要建立上万个
+	// 短连接，高并发下会快速耗尽本地临时端口、堆积 TIME_WAIT，在压测
+	// 中表现为同一进程内连续扫描的耗时逐轮递增（4s → 7.5s → 12s → 15s）。
+	// 这是解决"假想的连接复用风险"而制造的真实性能问题，予以修正。
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true, // 允许自签名证书
 		},
-		DisableKeepAlives: true, // 禁用连接复用
+		MaxIdleConns:        cfg.MaxConns,
+		MaxIdleConnsPerHost: cfg.MaxConns,
+		IdleConnTimeout:     30 * time.Second,
 	}
 
 	// 代理配置
@@ -122,6 +137,18 @@ func NewRequester(cfg RequesterConfig) *Requester {
 		cfg:        cfg,
 		uaList:     cfg.UserAgents,
 		rateTicker: rateTicker,
+	}
+}
+
+// Close 立即释放连接池中的空闲连接。
+//
+// 一次扫描任务结束后应调用它：Transport 复用连接默认要等 IdleConnTimeout
+// （30s）才会自然断开，扫描器进程若频繁创建/丢弃 Requester（如多目标
+// 扫描、单元测试判断 goroutine 是否退出干净），不主动清理会造成连接和
+// 对应读循环 goroutine 短暂堆积。
+func (r *Requester) Close() {
+	if transport, ok := r.client.Transport.(*http.Transport); ok {
+		transport.CloseIdleConnections()
 	}
 }
 
@@ -197,7 +224,11 @@ func (r *Requester) doSingle(ctx context.Context, baseURL, path string) (*Respon
 	// 注入请求头
 	req.Header.Set("User-Agent", r.randomUA())
 	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Connection", "close")
+	// 不显式设置 "Connection: close"：这个请求头会让服务器和 Transport
+	// 都在响应后关闭连接，即使 Transport 配置了连接池（MaxIdleConnsPerHost）
+	// 也会被这里的应用层声明架空——两处配置互相矛盾，是 Transport 连接池
+	// 配置形同虚设的真正原因（对齐 dirsearch 的 requests.Session 长连接
+	// 复用做法，见 NewRequester 的 MaxIdleConnsPerHost 注释）。
 	for k, v := range r.cfg.Headers {
 		req.Header.Set(k, v)
 	}

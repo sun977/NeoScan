@@ -244,7 +244,7 @@ type Response struct {
 
 - [x] 定义 `RequesterConfig` 结构体（Timeout/MaxRetries/Proxy/Method/Headers/UserAgents/RateLimit/Delay/FollowRedirects/IP/NetworkInterface）
 - [x] `NewRequester(cfg RequesterConfig) *Requester`：
-  - 构建 `http.Client`（TLS 禁用证书验证、禁用 KeepAlive、代理配置、本地 IP 绑定）
+- 构建 `http.Client`（TLS 禁用证书验证、连接池复用（`MaxIdleConnsPerHost` 对齐 `Threads`）、代理配置、本地 IP 绑定）
   - 若 `cfg.FollowRedirects == false`，设置 `CheckRedirect` 返回 `http.ErrUseLastResponse`
 - [x] `Requester.Do(ctx context.Context, baseURL, path string) (*Response, error)`：
   - 拼接请求 URL
@@ -411,12 +411,12 @@ type WildcardScanner struct {
 
 **文件**：`internal/core/options/scan_dir.go`
 
-**当前状态**：仅有 `Target/Dict/Extensions/Threads/Output` 4 个字段，需全部重写
+**完成说明**：`DirScanOptions` 已按设计文档 8.2 节字段全量重写，覆盖字典/扫描控制/过滤/请求/多目标/输出六大类配置；`Validate()` 完成 Target 必填、状态码/大小/正则的一次性解析校验；`ToTask()` 按下划线命名写入 `task.Params`，与 `dir_scanner.go` 的 `parseDirOptions()` 解析 key 一一对应。
 
 **实现要求**：
 
-- [ ] 定义 `DirScanOptions` 结构体，字段与设计文档 8.2 节 `DirOptions` 完全对应（但不含 `ExcludeRegex`，由 `Validate` 编译）
-- [ ] `NewDirScanOptions() *DirScanOptions`：设置所有默认值：
+- [x] 定义 `DirScanOptions` 结构体，字段与设计文档 8.2 节 `DirOptions` 完全对应（但不含 `ExcludeRegex`，由 `Validate` 编译）
+- [x] `NewDirScanOptions() *DirScanOptions`：设置所有默认值：
   - `Threads = 25`
   - `Timeout = 10`（秒）
   - `MaxRetries = 2`
@@ -425,14 +425,14 @@ type WildcardScanner struct {
   - `MaxRecursionDepth = 3`
   - `Extensions = "php,asp,html,js,json,bak,git,env"`（默认扩展列表）
   - `HTTPMethod = "GET"`
-- [ ] `Validate() error`：
-  - Target 必填
+- [x] `Validate() error`：
+  - Target 必填（或 `TargetsFile` 非空）
   - 解析 ExcludeStatus 字符串为 `[]int`（逗号分隔），非法值报错
   - 解析 ExcludeRegex 字符串为 `[]*regexp.Regexp`，编译失败报错
   - `MaxRecursionDepth` 最大值限制为 10（防误操作）
   - `Threads` 范围 1~500
   - `Timeout` 范围 1~300
-- [ ] `ToTask() *model.Task`：将所有字段写入 `task.Params`（key 名统一使用下划线命名，如 `max_recursion_depth`）；复用 `Output.ApplyToParams()`
+- [x] `ToTask() *model.Task`：将所有字段写入 `task.Params`（key 名统一使用下划线命名，如 `max_recursion_depth`）；复用 `Output.ApplyToParams()`
 
 ---
 
@@ -560,10 +560,12 @@ type WildcardScanner struct {
 
 **文件**：`internal/core/scanner/dir/dir_scanner_bench_test.go`
 
-- [ ] `BenchmarkDirScanner_SingleThread`：单线程扫 10K 条字典，验证吞吐（目标：内网 ≤ 60s）
-- [ ] `BenchmarkDirScanner_25Threads`：25 线程扫 10K 条字典（目标：内网 ≤ 5s）
-- [ ] `BenchmarkDirScanner_MemoryUsage`：加载全部字典后测量内存（目标：≤ 150MB）
-- [ ] `BenchmarkWildcardScanner_Sampling`：通配符检测采样开销（目标：≤ 5 次额外请求）
+- [x] `BenchmarkDirScanner_SingleThread`：单线程扫全量内置字典（9681 条），验证吞吐（目标：内网 ≤ 60s，实测约 1.7s）
+- [x] `BenchmarkDirScanner_25Threads`：25 线程扫全量内置字典（目标：内网 ≤ 5s，实测约 0.7s）
+- [x] `BenchmarkDirScanner_MemoryUsage`：加载全部字典后测量内存（目标：≤ 150MB，实测约 1.5MB）
+- [x] `BenchmarkWildcardScanner_Sampling`：通配符检测采样开销（目标：≤ 5 次额外请求，实测 5 次）
+
+**完成说明**：benchmark 编写过程中发现并修复了一个真实性能 bug——`engine/requester.go` 的 `NewRequester` 曾设置 `DisableKeepAlives: true`，且每次请求显式声明 `Connection: close`（后者是根因，即使配置连接池也会被这一层应用层声明架空）。这会导致扫一次 9681 条内置字典就建立近万个短连接，连续多轮扫描时 TIME_WAIT 堆积、耗时逐轮递增（连续 5 轮从 7.5s 递增到 15s）。参考 dirsearch（`lib/connection/requester.py` 用 `requests.Session` + `pool_maxsize=thread_count`）的做法，改为按 `Threads` 设置 `MaxIdleConnsPerHost` 并移除 `Connection: close`，同时给 `Requester` 增加 `Close()` 方法在扫描结束后主动释放空闲连接（避免 `TestE2E_HighConcurrency` 的 goroutine 泄漏检测误报）。修复后 25 线程连续 5 轮稳定在约 0.7s/轮，不再随轮次增加。
 
 ---
 
@@ -613,13 +615,13 @@ type WildcardScanner struct {
 | 1.5 result.go | ✅ 已完成 | 9 tests pass，含 formatSize + complete flow |
 | 1.6 filter.go | ✅ 已完成 | 9 tests pass，含 AddErrorPath |
 | 1.7 requester.go | ✅ 已完成 | 25 tests pass，含 7 种错误分类 + benchmark |
-| 2.1 scanner.go（通配符） | ⬜ 待开始 | 依赖 1.7 |
-| 2.2 dir_scanner.go | ⬜ 待开始 | 依赖 1.2~1.7、2.1 |
-| 3.1 scan_dir.go（Options） | ⬜ 待开始 | 依赖 2.2 |
-| 3.2 dir.go（CLI） | ⬜ 待开始 | 依赖 3.1 |
-| 4.1 RunnerManager 注册 | ⬜ 待开始 | 依赖 2.2 |
+| 2.1 scanner.go（通配符） | ✅ 已完成 | 6 tests pass；2026-08-19 依据 dirsearch 重构为两阶段采样模型，修复 data race |
+| 2.2 dir_scanner.go | ✅ 已完成 | 6 tests pass，含 goroutine 泄漏检测 |
+| 3.1 scan_dir.go（Options） | ✅ 已完成 | P0/P1/P2 全部参数已实现，见 Task 3.1 |
+| 3.2 dir.go（CLI） | ✅ 已完成 | `scan dir` 子命令完整接入，见 Task 3.2 |
+| 4.1 RunnerManager 注册 | ✅ 已完成 | 已在 `NewRunnerManager()` 注册，CLI/Master 共用同一注册表 |
 | 4.2 E2E 验收测试 | ✅ 已完成 | 9 tests pass (含 race detector) |
-| 4.3 性能基准测试 | ⬜ 待开始 | 依赖 2.2 |
+| 4.3 性能基准测试 | ⬜ 待开始 | 依赖 2.2（已满足），当前进行中 |
 
 ---
 

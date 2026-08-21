@@ -149,7 +149,11 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		FollowRedirects:  opts.FollowRedirects,
 		IP:               opts.IP,
 		NetworkInterface: opts.NetworkInterface,
+		MaxConns:         opts.Threads, // 连接池大小对齐并发线程数，见 engine.NewRequester 注释
 	})
+	// 扫描结束后立即释放空闲连接，不必等 IdleConnTimeout 自然超时，
+	// 避免多目标扫描或频繁创建 DirScanner 时连接/goroutine 短暂堆积。
+	defer requester.Close()
 
 	filter := engine.NewFilter(engine.FilterConfig{
 		IncludeStatus:   opts.IncludeStatus,

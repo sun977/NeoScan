@@ -573,7 +573,8 @@ type WildcardScanner struct {
 ## Phase 5 — 断层修复（2026-08-22）
 
 **背景**：对照设计文档与实现代码做完整性审查时，发现多处"底层能力已实现、但主扫描流程未调用"
-的断层。逐项用 Linus 式五层分析框架审查后，三项修复接入、一项明确决定不接入。
+的断层。逐项用 Linus 式五层分析框架审查后，三项修复接入、两项明确决定不接入（其中场景模板
+字典 Task 5.5 是对 Task 5.3 结论的补充复查修正，见下）。
 
 ### Task 5.1 — 修复 `--force-recursive` CLI flag 缺失 ✅
 
@@ -650,6 +651,43 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 `WildcardScanner.Precheck()` 一样在扫描开始前用这批 payload 单独探测一次，而不是往 `ErrorPaths`
 里塞真实字典路径。
 
+### Task 5.5 — 场景模板字典（`LoadTemplateWordlist`）审查定论：不接入（补充说明，2026-08-22）✅
+
+**问题**：`dict.LoadTemplateWordlist(template string)` 在 Phase 1 Task 1.2 已实现并通过单元测试，
+但一直没有调用方。Task 5.3 修复 `--category` 时曾在设计文档里把这项归因为"与 categories 功能
+重叠、优先级低、暂不做"——**这个归因是不准确的，本次补充复查后予以更正**。
+
+**复查结论：不接入，但原因与黑名单（Task 5.4）性质不同**：
+
+1. `LoadTemplateWordlist()` 函数本身没有 bug，实现方式与 `LoadCategoryWordlist()` 完全一致
+   （按文件名读取 + 去空行/去注释）。真正的问题在 `templates/*.txt` 的**文件内容**上。
+2. 查看 7 个模板文件（`admin`/`api`/`auth`/`backups`/`crud`/`db`/`logs`）的真实内容，条目形如
+   `admin/%ADMIN_OP%/%SUBJECT%`、`%CRUD_OP%_%SUBJECT%.%EXT%`、`backup_%DATE%.%ARCHIVE%`，
+   普遍含有 `%ADMIN_OP%`/`%SUBJECT%`/`%CRUD_OP%`/`%AUTH_OP%`/`%API_VERSION%`/`%ARCHIVE%`/
+   `%ENV%`/`%DB%`/`%DATE%`/`%DATE_COMPACT%` 等 **9+ 种令牌**，而 `dict/template.go` 的
+   `ExpandLine()` 只实现了 `%EXT%` 一种令牌的替换。
+3. 参考 dirsearch 原版 `lib/core/wordlist_template.py`：这些令牌各自挂了一份预置候选值表
+   （`DEFAULT_PLACEHOLDERS`，如 `SUBJECT` 对应 15 个候选词、`ADMIN_OP` 对应 8 个候选词），
+   用 `itertools.product` 做笛卡尔积组合展开——`admin/%ADMIN_OP%/%SUBJECT%` 一行实际会展开成
+   `8 × 15 = 120` 条真实路径。NeoAgent 目前既没有候选值表，也没有多令牌提取/组合展开逻辑。
+4. 如果现在把 `LoadTemplateWordlist()` 接进 `dict.New()`，产出的是带 `%ADMIN_OP%`/`%SUBJECT%`
+   字面量的原始字符串，会被当作真实路径原样发出请求——**不会产生任何有效字典条目，纯粹是
+   垃圾请求**，比 Task 5.4 的黑名单问题更严重（黑名单接入后是"查不中"，这个接入后是"污染
+   扫描流量"）。
+
+**结论**：`LoadTemplateWordlist()` 保留在代码中，但不接入主扫描流程。若未来要做，需要作为独立
+特性走完整设计评审，补齐候选值表（需重新评估是否适合中文/国内场景，不能照抄英文版）+ 多令牌
+提取 + 笛卡尔积展开三部分，工作量与现有整个字典加载流程相当，不适合在 Phase 5 这种"查漏补缺"
+颗粒度下顺手做掉。
+
+**当前替代方案**：用户可将想要的具体路径手写成不含 `%XXX%` 令牌的普通文件，通过 `--wordlists`
+加载，效果等价于模板展开后的固定子集。
+
+**文档修正**：设计文档 3.2/3.4.1 节、参数设计文档"不做的原因"一节均已同步更正表述，不再使用
+"与 categories 功能重叠"这一不准确的归因。
+
+**文件**：无代码变更（纯审查结论，文档修正）
+
 ---
 
 ## 关键约束与注意事项
@@ -709,6 +747,7 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 | 5.2 `ScanStats` 填充接入 | ✅ 已完成 | `statsAccumulator` + `atomic.Int64`，`TestDirScanner_StatsPopulated` 验证 |
 | 5.3 `--category` CLI flag 接入 | ✅ 已完成 | 三层打通：CLI → DirOptions → dict.New()，2 个新测试覆盖 |
 | 5.4 错误路径黑名单审查 | ❌ 不接入 | 数据语义不匹配，明确决定不接入（见 Task 5.4） |
+| 5.5 场景模板字典审查 | ❌ 不接入 | 上游多令牌展开系统缺失，纠正此前"功能重叠"的错误归因（见 Task 5.5） |
 
 ---
 

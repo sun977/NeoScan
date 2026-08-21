@@ -231,10 +231,12 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 | `--lowercase`/`-L` | `-L` | 🔶 | ✅ | 词表全部小写 |
 | `--capital`/`-C` | `-C` | 🔶 | ✅ | 词表首字母大写 |
 
-> 注：字典条目仅支持 `%EXT%` 模板 token 展开，dirsearch 的 `%SUBJECT%`（子域名/关键词替换）token 未实现。
+> 注：字典条目仅支持 `%EXT%` 模板 token 展开。`%SUBJECT%`/`%ADMIN_OP%`/`%CRUD_OP%` 等 dirsearch
+> 模板系统的其余 9+ 种 token 均未实现（这些 token 正是 `templates/*.txt` 无法接入的根因，见下方
+> `--wordlist-categories` 条目说明）。
 
 **不做的原因**:
-- `--wordlist-categories`: NeoAgent 内置了 dirsearch 全部字典（`dicc.txt` + `categories/` + `templates/`）；`categories/` 已通过 `--category` 接入（2026-08-22），`templates/` 与其功能重叠仍未接入
+- `--wordlist-categories`: NeoAgent 内置了 dirsearch 全部字典（`dicc.txt` + `categories/` + `templates/`）；`categories/` 已通过 `--category` 接入（2026-08-22）。`templates/` 仍未接入——2026-08-22 补充审查：并非"与 categories 功能重叠"，而是 `templates/*.txt` 内容依赖 `%ADMIN_OP%`/`%SUBJECT%`/`%CRUD_OP%` 等 9+ 种令牌的笛卡尔积组合展开（对照 dirsearch `wordlist_template.py` 的 `DEFAULT_PLACEHOLDERS`），NeoAgent 的 `dict/template.go` 只实现了 `%EXT%` 一种令牌，接入前置条件（多令牌展开系统）本身不存在，详见设计文档 3.4.1 节
 - `--wordlist-backend`: 无 Rust 后端，不需要
 - `--wordlist-status`: 调试用，CLI 场景不需要
 - `--wordlist-max-size`: NeoAgent 未实现独立的字典条目数硬上限校验（见 7.4 节）

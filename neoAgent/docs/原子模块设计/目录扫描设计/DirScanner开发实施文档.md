@@ -1142,3 +1142,168 @@ if opts.ForceRecursive {
 | 7.4 classifyError 改用 errors.As | ✅ 已完成 | 类型断言优先（net.Error/DNSError/tls.RecordHeaderError）+ 字符串兜底；`TestRequester_ClassifyError_RealTypes` 覆盖 |
 | 7.5 loadCustomRules 环境变量 | ✅ 已完成 | `NEOSCAN_RULES_DIR` 环境变量作为最高优先级路径 |
 | 7.6 shouldRecursion 互斥修正 | ✅ 已完成 | `ForceRecursive=true` 时重置 `DeepRecursive=false`，消除语义歧义 |
+
+---
+
+## Phase 8 — 复审发现（2026-08-24，待决策）
+
+**背景**：Phase 7 全部完成后对 dirscan 模块做第二轮 Linus 式复审，发现 **1 个致命功能缺陷 + 3 个真实问题**。Phase 7 的 5 个改动本身全部验证正确，但其中一个致命问题让所有递归相关代码的价值需要重新评估。
+
+### Task 8.1 — 🔴 P0 递归扫描是假功能：只做"重复请求"，从不做"深入枚举"（待决策）
+
+**问题**：dirsearch 的递归语义是"扫 `/` 发现 `/admin/` → 以 `/admin/` 为新前缀，**字典重新迭代一遍**（`/admin/config.php`、`/admin/login`……）"。当前实现实际做的是：
+
+```go
+// worker 递归分支
+subpaths := generateSubpaths(path, rc.opts.DeepRecursive)
+// 基础模式：generateSubpaths("/admin/", false) → ["/admin/"]
+// 就是命中路径本身，没有任何字典拼接
+dictionary.AddExtra(subpaths...)
+```
+
+`generateSubpaths` 注释写着"与内置字典拼接由 Dictionary 负责"——**Dictionary 从未实现这个职责**。`Next()` 只是顺序返回队列条目。
+
+**实际行为链条**：
+1. main 消费 `/admin/` → 请求 → 命中 200
+2. `tryMark` 深度 0→1 → `AddExtra("/admin/")`
+3. extra 消费 `/admin/` → **再次请求 `/admin/` 本身**（重复请求）
+4. 又命中 → `tryMark` 1→2 → `AddExtra` 被 7.2 的 `seen` 拦截 → 结束
+
+**结果：`/admin/` 被请求 2 次，递归终止。`/admin/` 下面的内容一个都没扫。**
+
+**测试为什么全绿**：`TestDirScanner_Recursive` 的唯一断言是 `found["/api"]`——`/api` 在 main 字典里，不递归也能找到。测试在测一个不需要递归就能通过的断言。`TestDirScanner_MaxRecursionDepth` 只验证"不会无限递归挂起"。
+
+**连带症状：`MaxRecursionDepth` 参数失效**。7.2 的 `seen` 去重后任何路径最多请求 2 次（main + extra），深度 3/10/100 行为完全一样。该参数已成摆设，而 CLI help 还在承诺它控制递归深度。
+
+**Linus 复审意见**：递归语义确实错误，但 Phase 8 的二选一方案需要修正。
+
+看 `worker()` 第 388-398 行，`generateSubpaths` 确实不做字典拼接，只是返回路径本身或其父目录。`Next()` 就是顺序消费队列，没有"前缀×字典"逻辑。
+
+**Phase 8 的实际行为链条分析有偏差**：Phase 7 的 `seen` 去重 + `tryMark` 原子标记后，实际行为是：
+
+1. main 消费 `/api` → 命中 → `tryMark("/api", 3)` → depth=1 → `AddExtra(["/api"])`
+2. extra 消费 `/api` → 再次请求 → `tryMark` → depth=2 → `AddExtra` 被 `seen` 拦截
+3. 再次 `tryMark` → depth=3
+4. 再次 `tryMark` → depth≥3 → 退出
+
+**结论：`/api` 被请求 4 次（main 1 + extra 3），不是 Phase 8 说的 2 次。** `MaxRecursionDepth` 控制的是同一路径被请求的次数，不是"深入目录的层数"——**语义确实错**，但深度参数确实有作用（只是效果不是你预期的）。
+
+**Phase 8 的两个方案判断需要修正**：
+
+- 方案 B "彻底删除"——**太极端**。正确做法不是删功能，而是重构 `generateSubpaths`：返回 `["/" + entry for entry in dict]` 实现字典拼接，不依赖 `recursionCtl` 做路径嵌套计数，Phase 7 的 `recursionCtl` 保留但改为限制递归触发次数。
+
+- Phase 8 说"从不做深入枚举"是 bug——**这是设计选择失误，不是假功能**。目录扫描的标准行为就是"扫字典发现命中 → 对命中路径做深度探测"。
+
+```
+✅ 结论正确：递归语义错误（Phase 8 判断对）
+⚠️ 方案需要调整：不删功能，重构 generateSubpaths 实现字典拼接
+⚠️ 优先级：P0（功能核心问题）
+```
+
+**涉及文件**：`internal/core/scanner/dir/dir_scanner.go`、`internal/core/scanner/dir/dict/dictionary.go`
+
+### Task 8.2 — 🟡 P1 `Delay` 双重计费
+
+**问题**：`Run()` 把同一个 `opts.Delay` 同时用于两处 sleep：
+- `dir_scanner.go` worker 中：每次请求前 `time.After(rc.opts.Delay)`
+- `engine/requester.go` `Do()` 中：每次 attempt 前 `time.After(r.cfg.Delay)`（含重试）
+
+用户设 `--delay 100`，实际每次请求延迟 200ms；重试场景第 N 次尝试前累计睡 N×Delay + 退避。配置语义重复，真实速率无法预期。
+
+**方案**：删 worker 里的 Delay，保留 requester 内的一处（与 RateLimit 同属请求层，职责内聚）。
+
+**涉及文件**：`internal/core/scanner/dir/dir_scanner.go`
+
+**Linus 复审意见**：完全正确，值得做。
+
+实际效果：用户设 `--delay 100ms`
+- 请求 1：worker sleep 100ms → requester sleep 100ms → 实际 200ms
+- 请求 1 重试 1 次：worker sleep 100ms → requester 重试退避 500ms + sleep 100ms → 实际 700ms
+
+Phase 8 的方案正确：删 worker 处的 Delay。worker 是"业务调度层"，不应重复请求层的节流。
+
+```
+✅ 值得做（方案正确，删 worker 处的 Delay）
+优先级：P1（合理）
+```
+
+### Task 8.3 — 🟡 P1 通配符探测请求绕过并发限制
+
+**问题**：worker 中 `s.limiter.Release()` 在 `requester.Do` 返回后立即执行，随后才调 `wildcardScanner.Check()`。`Check → ensurePoolReady` 为每个新 pathPrefix 串行发起最多 5 个探测请求——**发生在 limiter 槽位已释放之后**，不受并发上限约束。
+
+实际后果：25 个 worker 各自遇到新前缀时，理论可瞬间叠加 25×5=125 个并发探测，远超 `Threads=25` 的承诺。
+
+**方案**：探测请求复用 worker 已持有的槽位（把 `limiter.Release()` 挪到 `Check()` 之后），或在 `WildcardScanner` 内部加并发门。
+
+**涉及文件**：`internal/core/scanner/dir/dir_scanner.go`（或 `engine/scanner.go`）
+
+**Linus 复审意见**：完全正确，且比 Phase 8 说的更严重。
+
+看 worker 代码：
+- 336: `limiter.Acquire()`
+- 352: `limiter.Release()`（释放槽位）
+- 360: `wildcard.Check()`（探测请求在此发生）
+
+**Release 在 Check 之前**，所以探测请求确实不受 limiter 约束。25 个 worker → 25 × 5 = 125 并发探测，远超 `Threads=25` 的承诺。且这些探测走同一个 Transport 的连接池，会抢占正常请求的连接资源。
+
+Phase 8 的方案（Release 挪后）方向对，但不够彻底。更正确的做法：**探测请求也走 limiter**，或在 `WildcardScanner` 内部加并发门控。
+
+```
+✅ 值得做（方案正确，但 Release 挪后不够彻底，需内部门控）
+优先级：P1（合理）
+```
+
+### Task 8.4 — 🟢 P2 `stats.successful` 语义与注释不符
+
+**问题**：`result.go` 注释 `SuccessfulReqs // 通过过滤器的请求数`，但 worker 在**请求成功后、filter 之前**就 `stats.successful.Add(1)`，被过滤的 404 也计入 successful。
+
+**方案**：二选一——改注释为"收到响应的请求数"（推荐，改动小），或把计数挪到 filter 之后（改动语义，影响已有用户）。
+
+**涉及文件**：`internal/core/scanner/dir/result/result.go` 或 `dir_scanner.go`
+
+**Linus 复审意见**：完全正确，值得做。
+
+`result.go` 第 33 行：`SuccessfulReqs // 通过过滤器的请求数`
+看 worker 第 352 行：`stats.successful.Add(1)` —— 在 `filter.Match()` 之前。被过滤的 404 请求也被计入 successful。
+
+实际语义：**收到 HTTP 响应的请求数**（无论通过或未经过过滤）。Phase 8 的方案（改注释）正确。改动 1 行，无风险。
+
+```
+✅ 值得做（改动极小，修复文档）
+优先级：P2（合理）
+```
+
+---
+
+## Phase 8 复审品味评分
+
+| 维度 | 评分 | 说明 |
+|------|------|------|
+| 递归功能 | 🔴 | 复杂机制（深度表/原子标记/三种模式）服务错误语义——需重构 generateSubpaths |
+| 速率控制 | 🟡 | Delay 双计费 + 探测绕过 limiter，承诺与实际不符 |
+| 统计数据 | � | 仅注释问题，1 行改动 |
+| Phase 7 改动本身 | 🟢 | 全部验证正确，7.2 的 total 语义修正尤为重要 |
+
+## Phase 8 任务状态跟踪
+
+| 任务 | 状态 | 备注 |
+|------|:---:|------|
+| 8.1 递归扫描语义决策（真递归 or 删除） | ✅ 已复审 | P0，重构 generateSubpaths（不删功能），Phase 7 recursionCtl 改为限制触发次数 |
+| 8.2 删 worker 里的 Delay 双重计费 | ⏳ 待开始 | P1，Phase 8 方案正确，删 worker 处 Delay |
+| 8.3 探测请求纳入并发控制 | ⏳ 待开始 | P1，Phase 8 方案需增强（Release 挪后 + 内部门控） |
+| 8.4 修正 successful 语义注释 | ⏳ 待开始 | P2，改注释为"收到响应的请求数" |
+
+---
+
+## Phase 8 Linus 复审总结
+
+**全部 4 个任务验证通过，建议全部实施。**
+
+| 任务 | Phase 8 判断 | 复审结论 | 决策 |
+|------|-------------|---------|------|
+| 8.1 递归语义 | P0 结论正确 | ⚠️ 结论对但方案需调整 | ✅ 重构 generateSubpaths 实现字典拼接 |
+| 8.2 Delay 双计费 | P1 正确 | ✅ 完全正确 | ✅ 删 worker 处 Delay |
+| 8.3 探测绕过 limiter | P1 正确 | ✅ 完全正确，125 并发存在 | ✅ Release 挪后 + 内部门控 |
+| 8.4 successful 语义 | P2 正确 | ✅ 完全正确 | ✅ 改注释即可 |
+
+**实施顺序**：8.2 → 8.4 → 8.3 → 8.1（先做确定性改动，递归重构留到专项实施）

@@ -268,6 +268,10 @@ type statsAccumulator struct {
 // recordRTT 更新最大/最小/累计 RTT（用于最终计算平均值）。
 func (s *statsAccumulator) recordRTT(rtt time.Duration) {
 	n := int64(rtt)
+	if n <= 0 {
+		return // 时钟分辨率不足时 time.Since 可返回 0，无统计意义；
+		// 且 0 是 minRTT 的"未初始化"哨兵，参与比较会覆盖已设置的正值（flaky test 根因）
+	}
 	s.sumRTT.Add(n)
 	for {
 		cur := s.maxRTT.Load()
@@ -389,7 +393,11 @@ func (s *DirScanner) worker(
 			}
 			entries := dictionary.MainEntries()
 			for _, dir := range dirs {
-				if dirDepth(dir) > rc.opts.MaxRecursionDepth {
+				depth := dirDepth(dir)
+				if depth == 0 {
+					continue // 根目录展开等于重放整个 main 队列，永远无意义（且 seen 不跟踪 main，会全量重复）
+				}
+				if depth > rc.opts.MaxRecursionDepth {
 					continue
 				}
 				if !rc.tryMarkExpand(dir) {

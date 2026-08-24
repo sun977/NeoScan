@@ -147,7 +147,7 @@ func NewDirScanCmd() *cobra.Command {
 	flags.BoolVar(&opts.DeepRecursive, "deep-recursive", opts.DeepRecursive, "深度递归：命中目录时逐级展开父目录一并扫描")
 	flags.MarkHidden("deep-recursive")
 
-	flags.BoolVar(&opts.ForceRecursive, "force-recursive", opts.ForceRecursive, "强制递归：对每个命中路径都继续扫描，不限于目录")
+	flags.BoolVar(&opts.ForceRecursive, "force-recursive", opts.ForceRecursive, "强制递归：对每个命中路径都继续扫描，不限于目录（警告：每个命中路径都会重放整个字典，流量急剧放大）")
 	flags.MarkHidden("force-recursive")
 
 	flags.StringVarP(&opts.Proxy, "proxy", "p", opts.Proxy, "代理地址（如 http://127.0.0.1:8080）")

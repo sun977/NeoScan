@@ -188,8 +188,8 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	dirResult := result.NewDirResult(task.Target, dictionary.Total())
 
 	rc := &recursionCtl{
-		opts:  opts,
-		depth: make(map[string]int),
+		opts:     opts,
+		expanded: make(map[string]bool),
 	}
 	stats := &statsAccumulator{}
 
@@ -226,12 +226,27 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	return taskResults, nil
 }
 
-// recursionCtl 记录已知路径的递归深度，控制递归调度不超过 MaxRecursionDepth。
-// 与 Dictionary 分离维护，因为深度信息不属于字典迭代器的职责。
+// recursionCtl 控制递归展开：原子记录已展开过的目录前缀。
+// 一次展开等于"目录前缀 × 全量主字典"的拼接，代价极高；
+// main 队列不去重，同一路径可能被请求多次并重复触发展开，
+// 必须保证同一目录只展开一次。递归深度不再由此处维护——
+// 深度信息编码在路径嵌套层数本身（见 dirDepth）。
 type recursionCtl struct {
-	opts  *DirOptions
-	mu    sync.Mutex
-	depth map[string]int
+	opts     *DirOptions
+	mu       sync.Mutex
+	expanded map[string]bool
+}
+
+// tryMarkExpand 原子地检查并标记目录前缀已展开。
+// 返回 false 表示该目录此前已展开过，调用方应跳过。
+func (r *recursionCtl) tryMarkExpand(dir string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.expanded[dir] {
+		return false
+	}
+	r.expanded[dir] = true
+	return true
 }
 
 // statsAccumulator 是 worker 并发写入的统计计数器。
@@ -288,26 +303,6 @@ func (s *statsAccumulator) Finalize() result.ScanStats {
 	}
 }
 
-// tryMark 原子地检查并标记路径的递归深度，消除 depthOf+markDepth 的 TOCTOU 竞争。
-// 返回 (true, newDepth) 表示成功标记，(false, 0) 表示已达最大深度。
-func (r *recursionCtl) tryMark(path string, maxDepth int) (bool, int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	d := r.depth[path]
-	if d >= maxDepth {
-		return false, 0
-	}
-	r.depth[path] = d + 1
-	return true, d + 1
-}
-
-// markDepth 记录子路径的递归深度（在 tryMark 之后调用，标记 generateSubpaths 生成的子路径）。
-func (r *recursionCtl) markDepth(path string, depth int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.depth[path] = depth
-}
-
 // worker 是 Worker 池中单个 goroutine 的主循环：取路径 → 限速 → 请求 →
 // 过滤 → 通配符检测 → 命中上报 → 判断递归。
 func (s *DirScanner) worker(
@@ -337,20 +332,14 @@ func (s *DirScanner) worker(
 			return // context 取消
 		}
 
-		if rc.opts.Delay > 0 {
-			select {
-			case <-ctx.Done():
-				s.limiter.Release()
-				return
-			case <-time.After(rc.opts.Delay):
-			}
-		}
+		// 注意：请求间隔延迟（Delay）由 requester.Do 内部统一控制，
+		// worker 层不再重复 sleep（此前两处叠加导致 --delay 实际效果翻倍）。
 
 		stats.total.Add(1)
 		start := time.Now()
 		resp, err := requester.Do(ctx, baseURL, path)
-		s.limiter.Release()
 		if err != nil {
+			s.limiter.Release()
 			stats.errored.Add(1)
 			continue // 请求失败，跳过该路径
 		}
@@ -359,11 +348,16 @@ func (s *DirScanner) worker(
 		stats.recordRTT(rtt)
 
 		if !filter.Match(resp, path) {
+			s.limiter.Release()
 			stats.filtered.Add(1)
 			continue
 		}
 
+		// 通配符检测可能触发采样探测请求（ensurePoolReady 每前缀最多 5 个），
+		// 探测完成前不释放并发槽位——保证"正常请求 + 探测请求"的在飞总数
+		// 不超过 Threads 承诺（此前 Release 在 Check 之前，探测可超限 2 倍）。
 		isUnique, _ := wildcardScanner.Check(ctx, engine.PathPrefixOf(path), resp)
+		s.limiter.Release()
 		if !isUnique {
 			stats.wildcard.Add(1)
 			continue
@@ -386,15 +380,23 @@ func (s *DirScanner) worker(
 		}
 
 		if rc.opts.Recursive && shouldRecursion(resp, path, rc.opts) {
-			marked, newDepth := rc.tryMark(path, rc.opts.MaxRecursionDepth)
-			if !marked {
-				continue
+			// 真递归：把命中目录作为前缀，与主字典拼接展开子路径
+			// （命中 /admin/ → 扫描 /admin/<字典每条目>）。
+			// 深度模式额外展开命中路径的所有父级目录。
+			dirs := []string{ensureTrailingSlash(path)}
+			if rc.opts.DeepRecursive {
+				dirs = parentDirsOf(path)
 			}
-			subpaths := generateSubpaths(path, rc.opts.DeepRecursive)
-			for _, sp := range subpaths {
-				rc.markDepth(sp, newDepth)
+			entries := dictionary.MainEntries()
+			for _, dir := range dirs {
+				if dirDepth(dir) > rc.opts.MaxRecursionDepth {
+					continue
+				}
+				if !rc.tryMarkExpand(dir) {
+					continue // 该目录已展开过，跳过
+				}
+				dictionary.AddExtra(generateSubpaths(dir, entries)...)
 			}
-			dictionary.AddExtra(subpaths...)
 		}
 	}
 }
@@ -421,23 +423,38 @@ func isDirectoryStatus(status int) bool {
 	}
 }
 
-// generateSubpaths 为命中路径生成待追加扫描的子路径集合。
-//   - 基础模式：命中的目录路径本身作为扫描前缀，与内置字典拼接由 Dictionary 负责，
-//     此处只需把命中路径原样加入 extra 队列，触发以该路径为前缀的新一轮扫描。
-//   - 深度模式：额外把命中路径的每一级父目录也加入扫描队列。
-//     例："/api/users/" → 追加 "/api/users/"、"/api/"。
-func generateSubpaths(path string, deep bool) []string {
-	base := ensureTrailingSlash(path)
-	if !deep {
-		return []string{base}
+// generateSubpaths 把目录前缀与主字典条目拼接，生成待扫描的子路径集合。
+// 这是递归扫描的核心语义：命中目录 /admin/ 后，字典在该前缀下重放
+// （/admin/config.php、/admin/login ...），而非旧实现的"重复请求目录本身"。
+// 字典条目的前导 "/" 统一去除后拼接，避免 "//" 双斜杠。
+func generateSubpaths(dir string, entries []string) []string {
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, dir+strings.TrimPrefix(e, "/"))
 	}
+	return out
+}
 
+// parentDirsOf 返回路径的所有父级目录前缀（含自身的目录形式）。
+// 例："/a/b/c" → ["/a/", "/a/b/", "/a/b/c/"]。供深度递归模式使用。
+func parentDirsOf(path string) []string {
+	base := ensureTrailingSlash(path)
 	parts := strings.Split(strings.Trim(base, "/"), "/")
-	subpaths := make([]string, 0, len(parts))
+	dirs := make([]string, 0, len(parts))
 	for i := 1; i <= len(parts); i++ {
-		subpaths = append(subpaths, "/"+strings.Join(parts[:i], "/")+"/")
+		dirs = append(dirs, "/"+strings.Join(parts[:i], "/")+"/")
 	}
-	return subpaths
+	return dirs
+}
+
+// dirDepth 返回目录前缀的嵌套层数："/" → 0，"/admin/" → 1，"/admin/api/" → 2。
+// 递归深度直接由路径结构决定，无需额外状态（深度信息编码在路径本身）。
+func dirDepth(dir string) int {
+	n := strings.Count(dir, "/")
+	if n == 0 {
+		return 0
+	}
+	return n - 1
 }
 
 // ensureTrailingSlash 确保路径以 / 结尾，作为目录前缀使用。

@@ -1288,10 +1288,12 @@ Phase 8 的方案（Release 挪后）方向对，但不够彻底。更正确的�
 
 | 任务 | 状态 | 备注 |
 |------|:---:|------|
-| 8.1 递归扫描语义决策（真递归 or 删除） | ✅ 已复审 | P0，重构 generateSubpaths（不删功能），Phase 7 recursionCtl 改为限制触发次数 |
-| 8.2 删 worker 里的 Delay 双重计费 | ⏳ 待开始 | P1，Phase 8 方案正确，删 worker 处 Delay |
-| 8.3 探测请求纳入并发控制 | ⏳ 待开始 | P1，Phase 8 方案需增强（Release 挪后 + 内部门控） |
-| 8.4 修正 successful 语义注释 | ⏳ 待开始 | P2，改注释为"收到响应的请求数" |
+| 8.1 递归扫描语义重构 | ✅ 已完成 | `generateSubpaths` 重构为"目录前缀×主字典"拼接；`recursionCtl` 改为 `tryMarkExpand` 原子标记（同一目录只展开一次）；深度由 `dirDepth` 从路径结构计算；`Dictionary.MainEntries()` 提供只读字典视图；`TestDirScanner_Recursive` 重写为真递归断言（旧断言不需要递归就能通过），新增 4 个辅助函数单测 |
+| 8.2 删 worker 里的 Delay 双重计费 | ✅ 已完成 | worker 层 sleep 已删，Delay 统一由 `requester.Do` 控制 |
+| 8.3 探测请求纳入并发控制 | ✅ 已完成 | `limiter.Release()` 挪到 `Check()` 之后 + `WildcardScanner.probeSem` 门控（容量 8）双保险 |
+| 8.4 修正 successful 语义注释 | ✅ 已完成 | 注释改为"收到 HTTP 响应的请求数（无论是否通过过滤）" |
+
+**测试结果**：全部 4 个包通过（`-race -count=1` 强制无缓存），零 lint 错误。
 
 ---
 

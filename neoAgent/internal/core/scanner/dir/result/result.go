@@ -30,7 +30,7 @@ func (h *DirHit) String() string {
 // ScanStats 扫描统计信息。
 type ScanStats struct {
 	TotalRequests  int           `json:"total_requests"`
-	SuccessfulReqs int           `json:"successful_reqs"` // 通过过滤器的请求数
+	SuccessfulReqs int           `json:"successful_reqs"` // 收到 HTTP 响应的请求数（无论是否通过过滤）
 	FilteredReqs   int           `json:"filtered_reqs"`   // 被过滤掉的请求数
 	WildcardReqs   int           `json:"wildcard_reqs"`   // 被通配符检测拦截的请求数
 	ErrorReqs      int           `json:"error_reqs"`      // 请求出错数

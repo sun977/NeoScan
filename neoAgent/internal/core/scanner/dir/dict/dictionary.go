@@ -180,6 +180,13 @@ func (d *Dictionary) Total() int {
 	return len(d.main) + len(d.extra)
 }
 
+// MainEntries 返回主字典条目列表。main 在 New() 完成后不再变更，
+// 返回的切片可安全并发读取（调用方不得修改其内容）。
+// 供递归扫描按"命中目录前缀 × 主字典"展开子路径。
+func (d *Dictionary) MainEntries() []string {
+	return d.main
+}
+
 // ── 内部方法 ──────────────────────────────────────────────────────────────────
 
 // addToMain 批量追加到主字典，超限时截断。

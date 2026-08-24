@@ -47,6 +47,10 @@ const (
 	similarityThreshold = 0.9
 	// lengthDiffThreshold 响应词数相对基准的最大允许膨胀比例。
 	lengthDiffThreshold = 1.35
+	// defaultProbeConcurrency 采样探测请求的并发门控上限。
+	// worker 层 limiter 已把"正常请求 + 探测"总量约束在 Threads 内，
+	// 此门控是第二道保险：防止未来新增的 Check 调用方绕过 limiter 直接触发探测。
+	defaultProbeConcurrency = 8
 )
 
 // samplePool 保存单个路径前缀的采样与判定状态。
@@ -78,6 +82,8 @@ type WildcardScanner struct {
 	fpMu         sync.Mutex      // 保护 fingerprints/wildCardFPs 两个 map
 	fingerprints map[string]int  // fingerprint → 出现次数
 	wildCardFPs  map[string]bool // 已确认的通配符指纹
+
+	probeSem chan struct{} // 采样探测并发门控（容量 defaultProbeConcurrency）
 }
 
 // NewWildcardScanner 创建通配符检测引擎。
@@ -91,6 +97,7 @@ func NewWildcardScanner(req *Requester, baseURL string) *WildcardScanner {
 		pools:             make(map[string]*samplePool),
 		fingerprints:      make(map[string]int),
 		wildCardFPs:       make(map[string]bool),
+		probeSem:          make(chan struct{}, defaultProbeConcurrency),
 	}
 }
 
@@ -155,8 +162,15 @@ func (s *WildcardScanner) ensurePoolReady(ctx context.Context, pathPrefix string
 			return
 		}
 		for i := 0; i < s.sampleThreshold; i++ {
+			// 探测并发门控：获取许可失败（ctx 取消）时直接放弃采样
+			select {
+			case s.probeSem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
 			probePath := pathPrefix + randStealthWord()
 			resp, err := s.requester.Do(ctx, s.baseURL, probePath)
+			<-s.probeSem
 			if err != nil {
 				continue
 			}

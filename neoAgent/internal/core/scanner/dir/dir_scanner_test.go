@@ -156,12 +156,15 @@ func TestDirScanner_WildcardCDN(t *testing.T) {
 func TestDirScanner_Recursive(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api":
-			w.Header().Set("Location", "/api/")
-			w.WriteHeader(http.StatusMovedPermanently)
+		case "/api/":
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "api-root-content")
+		case "/api/config":
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "config-content")
 		case "/api/users":
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "users list")
+			fmt.Fprint(w, "users-content")
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprint(w, "not found")
@@ -171,21 +174,30 @@ func TestDirScanner_Recursive(t *testing.T) {
 
 	s := NewDirScanner()
 	task := newTestTask(server.URL, map[string]interface{}{
-		"threads":              5,
-		"timeout":              3,
-		"skip_builtin":         true,
-		"recursive":            true,
-		"max_recursion_depth":  3,
+		"threads":             5,
+		"timeout":             3,
+		"skip_builtin":        true,
+		"recursive":           true,
+		"max_recursion_depth": 3,
 	})
-	task.Params["wordlists"] = writeTempWordlist(t, []string{"/api", "/api/users"})
+	// 字典含目录条目 /api/ 和两个文件名条目；
+	// /api/config、/api/users 只能通过"命中 /api/ 后字典在其前缀下重放"被发现。
+	task.Params["wordlists"] = writeTempWordlist(t, []string{"/api/", "config", "users"})
 
 	results, err := s.Run(context.Background(), task)
 	if err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
 	found := collectHitPaths(t, results[0])
-	if !found["/api"] {
-		t.Errorf("expected /api to be found, got %v", found)
+	if !found["/api/"] {
+		t.Errorf("expected /api/ to be found, got %v", found)
+	}
+	// 真递归的核心断言：子路径是"前缀×字典"拼接展开的，不在原始字典里
+	if !found["/api/config"] {
+		t.Errorf("expected /api/config to be found via recursion, got %v", found)
+	}
+	if !found["/api/users"] {
+		t.Errorf("expected /api/users to be found via recursion, got %v", found)
 	}
 }
 
@@ -293,6 +305,64 @@ func TestDirScanner_MaxEntries(t *testing.T) {
 	}
 	if len(results) != 1 {
 		t.Fatalf("expected 1 TaskResult, got %d", len(results))
+	}
+}
+
+// TestGenerateSubpaths 验证"目录前缀 × 字典"拼接逻辑（真递归核心）。
+func TestGenerateSubpaths(t *testing.T) {
+	entries := []string{"config.php", "/login", "admin/"}
+	got := generateSubpaths("/api/", entries)
+	want := []string{"/api/config.php", "/api/login", "/api/admin/"}
+	if len(got) != len(want) {
+		t.Fatalf("generateSubpaths len = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("generateSubpaths[%d] = %q, want %q", i, got[i], w)
+		}
+	}
+}
+
+// TestParentDirsOf 验证父级目录枚举（深度递归模式）。
+func TestParentDirsOf(t *testing.T) {
+	got := parentDirsOf("/a/b/c")
+	want := []string{"/a/", "/a/b/", "/a/b/c/"}
+	if len(got) != len(want) {
+		t.Fatalf("parentDirsOf len = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("parentDirsOf[%d] = %q, want %q", i, got[i], w)
+		}
+	}
+}
+
+// TestDirDepth 验证目录嵌套层数计算（递归深度判断依据）。
+func TestDirDepth(t *testing.T) {
+	cases := map[string]int{
+		"/":           0,
+		"/admin/":     1,
+		"/admin/api/": 2,
+		"/a/b/c/d/":   4,
+	}
+	for dir, want := range cases {
+		if got := dirDepth(dir); got != want {
+			t.Errorf("dirDepth(%q) = %d, want %d", dir, got, want)
+		}
+	}
+}
+
+// TestRecursionCtl_TryMarkExpand 验证同一目录只能被展开一次（原子标记）。
+func TestRecursionCtl_TryMarkExpand(t *testing.T) {
+	rc := &recursionCtl{expanded: make(map[string]bool)}
+	if !rc.tryMarkExpand("/admin/") {
+		t.Error("first tryMarkExpand(/admin/) should return true")
+	}
+	if rc.tryMarkExpand("/admin/") {
+		t.Error("second tryMarkExpand(/admin/) should return false (already expanded)")
+	}
+	if !rc.tryMarkExpand("/api/") {
+		t.Error("tryMarkExpand(/api/) should return true (different dir)")
 	}
 }
 

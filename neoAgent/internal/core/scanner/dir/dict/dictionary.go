@@ -52,6 +52,11 @@ type Dictionary struct {
 	extraIdx int
 	maxSize  int // 字典条目上限
 	total    int // 已生成条目计数（含展开后的数量）
+
+	// seen 仅跟踪 extra 队列中已入队的路径，用于 AddExtra 去重。
+	// 不跟踪 main：递归命中已在 main 中的目录路径（如 "/admin/"）时，
+	// 仍允许其加入 extra 触发新一轮递归扫描（现有行为，不能破坏）。
+	seen map[string]struct{}
 }
 
 // New 创建并初始化字典。加载顺序：
@@ -134,16 +139,28 @@ func (d *Dictionary) Next() (string, bool) {
 }
 
 // AddExtra 将一批路径追加到 extra 队列（递归扫描时调用）。
+// extra 队列内部去重：已入队过的路径直接跳过，且不占用 total 名额——
+// 保证 maxSize 限制的是唯一路径数而非总入队次数，避免字典接近满载时
+// 重复路径抢占名额导致递归子路径被提前截断（递归功能退化 bug）。
 // 超过 maxSize 的条目直接丢弃。线程安全。
 func (d *Dictionary) AddExtra(paths ...string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	// 防御性初始化：兼容直接字面量构造的 Dictionary（如单元测试）
+	if d.seen == nil {
+		d.seen = make(map[string]struct{}, 64)
+	}
+
 	for _, p := range paths {
+		if _, dup := d.seen[p]; dup {
+			continue // 重复路径跳过，不占 total 名额
+		}
 		if d.total >= d.maxSize {
 			logger.Warnf("[DirDict] Max entries (%d) reached, dropping extra path: %s", d.maxSize, p)
 			break
 		}
+		d.seen[p] = struct{}{}
 		d.extra = append(d.extra, p)
 		d.total++
 	}
@@ -286,7 +303,12 @@ func loadExternalFile(path string) ([]string, error) {
 // 不引用任何其他扫描器的代码（原子扫描器隔离原则）。
 func loadCustomRules() []string {
 	// 多路径 fallback，覆盖不同运行目录（项目根/测试包目录等）
-	candidateDirs := []string{
+	// 环境变量 NEOSCAN_RULES_DIR 作为最高优先级路径，解决容器化部署时 CWD 不可预测的问题
+	candidateDirs := []string{}
+	if envDir := os.Getenv("NEOSCAN_RULES_DIR"); envDir != "" {
+		candidateDirs = append(candidateDirs, envDir)
+	}
+	candidateDirs = append(candidateDirs,
 		"rules/dir/custom",
 		"../rules/dir/custom",
 		"../../rules/dir/custom",
@@ -294,7 +316,7 @@ func loadCustomRules() []string {
 		"../../../../rules/dir/custom",
 		"../../../../../rules/dir/custom",
 		"neoAgent/rules/dir/custom",
-	}
+	)
 
 	for _, dir := range candidateDirs {
 		entries, err := os.ReadDir(dir)

@@ -40,6 +40,60 @@ func TestDictionary_Next(t *testing.T) {
 	t.Logf("Dictionary.Next: iterated %d entries", count)
 }
 
+// TestDictionary_AddExtra_Dedup 验证 AddExtra 的 extra 队列内部去重：
+// 重复路径跳过且不占用 total 名额（total 只统计唯一路径数）。
+func TestDictionary_AddExtra_Dedup(t *testing.T) {
+	d := &Dictionary{
+		main:    []string{"/main-path"},
+		maxSize: defaultMaxSize,
+	}
+	d.total = 1
+
+	// 首次入队 + 重复入队混合
+	d.AddExtra("/api/", "/admin/", "/api/", "/api/")
+	d.AddExtra("/admin/", "/config/")
+
+	// extra 队列应只有 3 条唯一路径
+	if len(d.extra) != 3 {
+		t.Errorf("extra len = %d, want 3 (dedup failed): %v", len(d.extra), d.extra)
+	}
+
+	// total = 1(main) + 3(唯一 extra)，重复路径不占名额
+	if d.total != 4 {
+		t.Errorf("total = %d, want 4 (1 main + 3 unique extra)", d.total)
+	}
+
+	// 消费顺序不受影响：extra 优先，按首次入队顺序
+	want := []string{"/api/", "/admin/", "/config/", "/main-path"}
+	for i, w := range want {
+		got, ok := d.Next()
+		if !ok || got != w {
+			t.Errorf("Next()[%d] = %q (ok=%v), want %q", i, got, ok, w)
+		}
+	}
+}
+
+// TestDictionary_AddExtra_Dedup_MaxSize 验证字典接近满载时，
+// 重复路径不再抢占 total 名额，真正的新路径不会被提前截断。
+func TestDictionary_AddExtra_Dedup_MaxSize(t *testing.T) {
+	d := &Dictionary{
+		maxSize: 3,
+	}
+	d.total = 2 // 模拟已接近满载
+
+	// 重复路径应被去重跳过，不占名额；/new-path 应成功入队
+	d.AddExtra("/dup", "/dup", "/dup")
+	if d.total != 3 {
+		t.Errorf("total = %d, want 3 (only 1 unique path counted)", d.total)
+	}
+
+	// 此时已满载，新路径应被截断
+	d.AddExtra("/overflow")
+	if len(d.extra) != 1 {
+		t.Errorf("extra len = %d, want 1 (overflow should be dropped)", len(d.extra))
+	}
+}
+
 func TestDictionary_AddExtra_Priority(t *testing.T) {
 	// 构造一个只有 1 条主字典的字典
 	d := &Dictionary{

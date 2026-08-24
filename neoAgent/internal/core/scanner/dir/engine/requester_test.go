@@ -2,7 +2,9 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -365,6 +367,35 @@ func TestRequester_ClassifyError(t *testing.T) {
 					tt.inputErr, got, got, tt.expected, tt.expected)
 			}
 		})
+	}
+}
+
+// TestRequester_ClassifyError_RealTypes 验证真实网络错误类型通过
+// errors.As 类型断言路径分类（不依赖错误消息字符串）。
+func TestRequester_ClassifyError_RealTypes(t *testing.T) {
+	// *net.DNSError → ErrDNSFailed（消息中不含 "no such host" 也能识别）
+	dnsErr := &net.DNSError{Err: "server misbehaving", Name: "nonexistent.example", IsNotFound: true}
+	if got := classifyError(dnsErr); got != ErrDNSFailed {
+		t.Errorf("classifyError(*net.DNSError) = %v, want %v", got, ErrDNSFailed)
+	}
+
+	// 包装的 *net.DNSError（模拟 *url.Error 包装场景）也能穿透识别
+	wrapped := fmt.Errorf("Get %q: %w", "http://nonexistent.example/", dnsErr)
+	if got := classifyError(wrapped); got != ErrDNSFailed {
+		t.Errorf("classifyError(wrapped *net.DNSError) = %v, want %v", got, ErrDNSFailed)
+	}
+
+	// 实现 net.Error 的超时错误 → ErrConnectionTimeout（消息中不含 "timeout" 也能识别）
+	timeoutErr := &net.DNSError{Err: "timed out", Name: "slow.example", IsTimeout: true}
+	if got := classifyError(timeoutErr); got != ErrConnectionTimeout {
+		t.Errorf("classifyError(net.Error timeout) = %v, want %v", got, ErrConnectionTimeout)
+	}
+
+	// 包装的 context.Canceled 也能通过 errors.Is 识别（classifyError 原样返回保留错误链，
+	// 调用方统一用 errors.Is 判断）
+	wrappedCancel := fmt.Errorf("request failed: %w", context.Canceled)
+	if got := classifyError(wrappedCancel); !errors.Is(got, context.Canceled) {
+		t.Errorf("classifyError(wrapped context.Canceled) = %v, want errors.Is(context.Canceled)", got)
 	}
 }
 

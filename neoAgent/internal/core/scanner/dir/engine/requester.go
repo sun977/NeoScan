@@ -283,29 +283,59 @@ func (r *Requester) randomUA() string {
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
 // classifyError 根据错误类型分类。
+//
+// 分类策略：类型断言优先，字符串匹配兜底。
+//   - errors.Is/As 能穿透 *url.Error 的包装，对真实网络错误分类准确、
+//     不依赖 Go 版本间可能变化的错误消息措辞；
+//   - 字符串匹配作为兜底保留：connection refused 在 Windows/Unix 的
+//     错误类型不同（WSAECONNREFUSED vs ECONNREFUSED），用 syscall 常量
+//     断言需要 build tags，复杂度不值；同时兼容测试中 fmt.Errorf 构造
+//     的模拟错误（Never break userspace，包括测试）。
 func classifyError(err error) error {
-	if err == context.DeadlineExceeded || err == context.Canceled {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return err
 	}
 
+	// ── 类型断言（准确路径）──
+
+	// 超时：net.Error 接口覆盖 *net.OpError、*url.Error、*net.DNSError 等
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return ErrConnectionTimeout
+	}
+
+	// DNS 失败：*net.DNSError 覆盖 NXDOMAIN、无此类主机等所有解析失败
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return ErrDNSFailed
+	}
+
+	// TLS 错误：记录头错误（协议不匹配、证书损坏等）
+	var tlsErr tls.RecordHeaderError
+	if errors.As(err, &tlsErr) {
+		return ErrSSLError
+	}
+
+	// ── 字符串匹配（兜底路径）──
+
 	errStr := err.Error()
 
-	// 超时
+	// 超时（兼容非 net.Error 实现的超时错误消息）
 	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "i/o timeout") {
 		return ErrConnectionTimeout
 	}
 
-	// 连接被拒绝
+	// 连接被拒绝（Windows: "connection refused"/WSAECONNREFUSED，Unix: ECONNREFUSED）
 	if strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "ECONNREFUSED") {
 		return ErrConnectionRefused
 	}
 
-	// DNS 失败
+	// DNS 失败（兼容非 *net.DNSError 的消息形式）
 	if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "NXDOMAIN") {
 		return ErrDNSFailed
 	}
 
-	// SSL 错误
+	// SSL 错误（x509 证书校验等未被 RecordHeaderError 覆盖的场景）
 	if strings.Contains(errStr, "ssl") || strings.Contains(errStr, "tls:") || strings.Contains(errStr, "certificate") {
 		return ErrSSLError
 	}

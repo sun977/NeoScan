@@ -288,14 +288,20 @@ func (s *statsAccumulator) Finalize() result.ScanStats {
 	}
 }
 
-// depthOf 返回路径已记录的递归深度，未记录视为第 0 层（初始字典条目）。
-func (r *recursionCtl) depthOf(path string) int {
+// tryMark 原子地检查并标记路径的递归深度，消除 depthOf+markDepth 的 TOCTOU 竞争。
+// 返回 (true, newDepth) 表示成功标记，(false, 0) 表示已达最大深度。
+func (r *recursionCtl) tryMark(path string, maxDepth int) (bool, int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.depth[path]
+	d := r.depth[path]
+	if d >= maxDepth {
+		return false, 0
+	}
+	r.depth[path] = d + 1
+	return true, d + 1
 }
 
-// markDepth 记录子路径的递归深度。
+// markDepth 记录子路径的递归深度（在 tryMark 之后调用，标记 generateSubpaths 生成的子路径）。
 func (r *recursionCtl) markDepth(path string, depth int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -380,14 +386,15 @@ func (s *DirScanner) worker(
 		}
 
 		if rc.opts.Recursive && shouldRecursion(resp, path, rc.opts) {
-			depth := rc.depthOf(path)
-			if depth < rc.opts.MaxRecursionDepth {
-				subpaths := generateSubpaths(path, rc.opts.DeepRecursive)
-				for _, sp := range subpaths {
-					rc.markDepth(sp, depth+1)
-				}
-				dictionary.AddExtra(subpaths...)
+			marked, newDepth := rc.tryMark(path, rc.opts.MaxRecursionDepth)
+			if !marked {
+				continue
 			}
+			subpaths := generateSubpaths(path, rc.opts.DeepRecursive)
+			for _, sp := range subpaths {
+				rc.markDepth(sp, newDepth)
+			}
+			dictionary.AddExtra(subpaths...)
 		}
 	}
 }
@@ -508,6 +515,10 @@ func parseDirOptions(params map[string]interface{}) *DirOptions {
 	opts.Recursive = paramBool(params, "recursive", opts.Recursive)
 	opts.DeepRecursive = paramBool(params, "deep_recursive", opts.DeepRecursive)
 	opts.ForceRecursive = paramBool(params, "force_recursive", opts.ForceRecursive)
+	// ForceRecursive 优先级高于 DeepRecursive，消除语义歧义
+	if opts.ForceRecursive {
+		opts.DeepRecursive = false
+	}
 	opts.MaxRecursionDepth = paramInt(params, "max_recursion_depth", opts.MaxRecursionDepth)
 	opts.RateLimit = paramInt(params, "rate_limit", opts.RateLimit)
 	opts.Delay = paramDurationMillis(params, "delay", opts.Delay)

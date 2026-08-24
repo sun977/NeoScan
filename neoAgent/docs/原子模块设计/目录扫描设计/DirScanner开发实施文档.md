@@ -1136,9 +1136,9 @@ if opts.ForceRecursive {
 
 | 任务 | 状态 | 备注 |
 |------|:---:|------|
-| 7.1 修复 recursionCtl TOCTOU 竞争 | ⏳ 待开始 | P0，真实数据竞争 bug |
-| 7.2 字典去重机制 | ⏳ 待开始 | P0，性能优化 |
-| 7.3 math/rand seed 确认 | ⏳ 待开始 | P1，兼容性检查 |
-| 7.4 classifyError 改用 errors.As | ⏳ 待开始 | P1，健壮性提升 |
-| 7.5 loadCustomRules 环境变量 | ⏳ 待开始 | P2，部署友好性 |
-| 7.6 shouldRecursion 枚举化 | ⏳ 待开始 | P3，代码整洁 |
+| 7.1 修复 recursionCtl TOCTOU 竞争 | ✅ 已完成 | `tryMark()` 原子操作替代 `depthOf()`+`markDepth()`，消除竞争窗口 |
+| 7.2 字典去重机制 | ✅ 已完成 | `seen` map 仅跟踪 extra 队列，重复路径跳过且不占 `total` 名额；`TestDictionary_AddExtra_Dedup` 等 2 个新测试覆盖 |
+| 7.3 math/rand seed 确认 | 🔒 已关闭 | Go 1.25 自动 seed，伪问题 |
+| 7.4 classifyError 改用 errors.As | ✅ 已完成 | 类型断言优先（net.Error/DNSError/tls.RecordHeaderError）+ 字符串兜底；`TestRequester_ClassifyError_RealTypes` 覆盖 |
+| 7.5 loadCustomRules 环境变量 | ✅ 已完成 | `NEOSCAN_RULES_DIR` 环境变量作为最高优先级路径 |
+| 7.6 shouldRecursion 互斥修正 | ✅ 已完成 | `ForceRecursive=true` 时重置 `DeepRecursive=false`，消除语义歧义 |

@@ -451,7 +451,7 @@ type WildcardScanner struct {
 - [x] `--wordlists/-w string`（字典文件路径，默认空=使用内置字典）
 - [x] `--threads int`（默认 25）
 - [x] `--timeout int`（默认 10）
-- [x] `--recursive/-r`（默认 true）
+- [x] `--recursive/-r`（默认 false；2026-08-25 由 true 变更，对齐 dirsearch）
 - [x] 全局继承 `--oj`/`--oc`（已在 `scan` 父命令注册，无需重复）
 
 **P1 重要参数**（必须实现）：
@@ -460,8 +460,9 @@ type WildcardScanner struct {
 - [x] `--exclude-status/-x string`（默认 `"404,500,502,503"`）
 - [x] `--deep-recursive bool`
 - [x] `--max-recursion-depth/-R int`（默认 3）
-- [x] `--verbose/-v bool`
-- [x] `--quiet/-q bool`
+- [ ] ~~`--verbose/-v bool`~~（2026-08-25 移除：实现后从未接线，是死参数；详细日志统一使用根命令 `--log-level debug`）
+- [x] `--quiet/-q bool`（取反写入 `progress` 参数，控制 Runner 实时进度输出）
+- [x] `--no-builtin bool`（2026-08-25 新增：暴露既有 `skip_builtin`，仅用外部字典）
 - [x] `--header/-H string`（可多次指定，cobra `StringArrayVar`）
 - [x] `--proxy/-p string`
 - [x] `--follow-redirects/-F bool`
@@ -498,8 +499,15 @@ type WildcardScanner struct {
 - [x] 调用 `opts.Validate()`，失败则返回错误
 - [x] 调用 `opts.ToTask()` 生成 task
 - [x] 通过 `RunnerManager` 执行
-- [x] 结果通过 `ConsoleReporter`（verbose/quiet 控制详细程度）和 `--oj`/`--oc` 输出
+- [x] 结果通过 `ConsoleReporter` 和 `--oj`/`--oc` 输出；扫描过程中由 Runner 输出实时进度（stderr 进度行 + stdout 命中流式打印）
 - [x] 移除 `not implemented yet` 占位错误
+
+> 🔧 **2026-08-25 运行时行为修正**（实测驱动，详见模块 README v1.1）：
+> 1. `recursive` 默认值 true → false：实测"默认递归 + 深度递归"对目录型站点/反爬封禁页流量爆炸（13.5K 字典 → 87K+ 请求，跑满 2h 超时），递归改为显式 `-r` 开启，`--deep-recursive`/`--force-recursive` 隐式开启；
+> 2. `--deep-recursive` 仅对目录类状态码（200/301/302/403）命中展开，含 `..` 的路径不触发递归——修复封禁页/穿越探测条目引爆字典重放；
+> 3. 新增实时进度输出（`progress` 参数）：stderr 每 2s 进度行（量/reqs/hits/wildcard/ETA）+ stdout 命中流式打印，解决"扫描全程无输出干等"；
+> 4. 新增 `--no-builtin`，暴露底层已有的 `skip_builtin` 能力；
+> 5. 移除 `-v/--verbose` 死参数。
 
 ---
 
@@ -696,9 +704,10 @@ ErrorReqs=0、AvgRTT/MaxRTT/MinRTT 均 >0。
 **问题**：`dirscan --help` 一次性展示全部 38 个参数，用户被淹没在参数海洋里，找不到常用参数。
 
 **修复**：参数分为三级展示
-- **P0 常用参数**（15 个）：`--help` 默认展示，包括 `target`/`extensions`/`wordlists`/
+- **P0 常用参数**（14 个）：`--help` 默认展示，包括 `target`/`extensions`/`wordlists`/
   `category`/`threads`/`timeout`/`recursive`/`force-extensions`/`exclude-status`/
-  `max-recursion-depth`/`verbose`/`quiet`/`header`/`method`/`targets-file`
+  `max-recursion-depth`/`quiet`/`header`/`method`/`targets-file`
+  （原 `verbose` 为死参数，2026-08-25 移除，15 → 14）
 - **P1/P2 高级参数**（23 个）：通过 `flags.MarkHidden()` 隐藏，`--help` 不展示
 - **`--help-all`**：展示全部参数（含 hidden），通过自定义 bool flag + `printAllFlags()` 实现
 

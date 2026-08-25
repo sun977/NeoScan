@@ -249,7 +249,7 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 | NeoAgent 参数 | dirsearch 对应 | 级别 | 实现 | 理由 |
 |---------------|---------------|:---:|:---:|------|
 | `--threads` | `-t` | ✅ | ✅ | 并发线程数（默认 25），同时决定连接池大小（`MaxConns = threads`） |
-| `--recursive`/`-r` | `-r` | ✅ | ✅ | 递归扫描，默认开启（见 7.2 节） |
+| `--recursive`/`-r` | `-r` | ✅ | ✅ | 递归扫描，默认关闭（2026-08-25 变更，见 7.2 节） |
 | `--deep-recursive` | — | ✅ | ✅ | 深度递归（命中路径逐级展开父目录） |
 | `--force-recursive` | — | ✅ | ✅ | 强制递归（所有命中路径），CLI flag 已于 2026-08-22 补注册，之前仅底层支持、CLI 无法开启 |
 | `--max-recursion-depth`/`-R` | `-R` | ⚠️ | ✅ | 最大递归深度（默认 3，范围 0~10，`Validate()` 校验） |
@@ -369,16 +369,17 @@ Legend: ✅ P0 必须    ⚠️ P1 应该有    🔶 P2 可以做    ❌ 不做
 |---------------|---------------|:---:|:---:|------|
 | `--oj <path>` | — | ✅ | ✅ | JSON 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
 | `--oc <path>` | — | ✅ | ✅ | CSV 文件输出（复用全局 `OutputOptions`，与其他扫描器一致） |
-| `--verbose`/`-v` | `-v` | ⚠️ | ✅ | 详细终端输出 |
-| `--quiet`/`-q` | `-q` | ⚠️ | ✅ | 安静模式 |
+| `--quiet`/`-q` | `-q` | ⚠️ | ✅ | 安静模式（同时关闭实时进度输出） |
+| 实时进度输出（`progress` 参数） | — | ⚠️ | ✅ | stderr 周期进度行 + stdout 命中流式打印；CLI 默认开启，`-q` 关闭，server 模式缺省关闭 |
 
 **不做的原因**:
 - `--output-format`/`--output-file`（dirsearch `-O`/`-o`）: NeoAgent 已有全局 `--oj`/`--oc` 统一处理文件输出，引入私有参数只会产生语义重叠和冲突，复用全局参数是唯一正确选择
 - `--mysql-url`/`--postgres-url`: NeoAgent 通过 Reporter 接口对接数据库，不直接在 CLI 参数暴露
 - `--log`: NeoAgent 统一日志管理
 - `--full-url`/`--redirects-history`/`--no-color`/`--disable-cli`: 输出样式调整，优先级低
+- `--verbose`/`-v`：曾实现但从未接线（死参数），2026-08-25 移除；详细日志统一使用根命令 `--log-level debug`
 
-> 注：`--verbose`/`--quiet` 仅控制 CLI 本地打印详略程度，不会下发到 `task.Params`（Runner 不关心 CLI 端的展示偏好）。
+> 注：`--quiet` 取反后写入 `task.Params["progress"]`，控制 Runner 的实时进度输出；server 模式不经 `ToTask()`，`progress` 缺省为 false。
 
 ---
 
@@ -394,7 +395,7 @@ Flags:
   --wordlists, -w string        字典文件路径（默认使用内置 dirsearch 字典）
   --threads int                 并发线程数（默认 25，1~500）
   --timeout int                 请求超时秒数（默认 10，1~300）
-  --recursive, -r                递归扫描（默认已开启，见 7.2）
+  --recursive, -r                递归扫描（默认关闭，需显式开启，见 7.2）
   --target, -t string            目标 URL（也可用位置参数，位置参数优先）
 
 Global Flags (继承自 scan 父命令):
@@ -409,8 +410,8 @@ Global Flags (继承自 scan 父命令):
   --exclude-status, -x string     排除的状态码，逗号分隔（默认 404,500,502,503）
   --deep-recursive                深度递归（命中目录时逐级展开父目录并一并扫描）
   --force-recursive                强制递归（对每个命中路径都继续扫描，不限于目录）
+  --no-builtin                     跳过内置字典，仅使用 -w/--category 外部字典
   --max-recursion-depth, -R int   最大递归深度（默认 3，范围 0~10）
-  --verbose, -v                    输出详细扫描信息
   --quiet, -q                      静默模式，仅输出最终结果
   --header, -H stringArray         自定义请求头 "Key: Value"，可多次指定
   --proxy, -p string               代理地址（如 http://127.0.0.1:8080）
@@ -530,6 +531,8 @@ NeoAgent 决策（接受建议）：
 - 深度递归保持手动启用（`--deep-recursive`），因为该模式字典膨胀大，需要用户明确授权
 
 **已决定**：递归默认开启（基础递归），深度递归/强制递归需显式启用
+
+> 🔁 **2026-08-25 决策变更**：递归默认改为**关闭**，回到 dirsearch 语义。实测发现"默认递归 + 深度递归"组合面对目录型站点（如镜像站）和反爬统一封禁页时，会把请求量放大一个数量级（13.5K 字典膨胀到 87K+ 请求）并跑满 2h 任务超时，且产出全为假阳性。递归作为流量放大器必须是用户的显式选择。同时补充两条护栏：`--deep-recursive`/`--force-recursive` 隐式开启递归（避免 Recursive 默认关闭后单指定 deep 静默失效）；深度递归仅对目录类状态码（200/301/302/403）的命中展开，含 `..` 的穿越探测条目不触发展开。
 
 > ✅ **已修复**：之前 `cmd/agent/scan/dir.go` 漏注册了 `--force-recursive` flag，导致底层 `DirOptions.ForceRecursive`/`shouldRecursion()` 虽完整但 CLI 无法开启，2026-08-22 已补上该 flag，现可直接从命令行使用，不再需要通过 Pipeline/Master 下发 task 参数。
 

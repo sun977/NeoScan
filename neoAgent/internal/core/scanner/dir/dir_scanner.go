@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -51,6 +52,7 @@ type DirOptions struct {
 	Delay             time.Duration
 	MaxTime           int
 	TargetMaxTime     int
+	Progress          bool // 实时进度输出（CLI 经 task.Params 开启，server 模式缺省关闭）
 
 	// 过滤配置
 	IncludeStatus   []int
@@ -194,6 +196,15 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	stats := &statsAccumulator{}
 
 	hits := make(chan *result.DirHit, 256)
+
+	// 实时进度输出：进度行走 stderr（单行覆写），命中流式打印走 stdout。
+	// 只读 atomics 与字典长度，不与 worker/消费循环竞争。
+	var progressDone chan struct{}
+	if opts.Progress {
+		progressDone = make(chan struct{})
+		go reportProgress(progressDone, dictionary, stats, startTime)
+	}
+
 	var wg sync.WaitGroup
 	for i := 0; i < opts.Threads; i++ {
 		wg.Add(1)
@@ -210,6 +221,12 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 
 	for h := range hits {
 		dirResult.Add(h)
+		if opts.Progress {
+			printHit(h)
+		}
+	}
+	if progressDone != nil {
+		close(progressDone)
 	}
 	dirResult.Stats = stats.Finalize()
 	dirResult.Finish()
@@ -383,10 +400,12 @@ func (s *DirScanner) worker(
 			return
 		}
 
-		if rc.opts.Recursive && shouldRecursion(resp, path, rc.opts) {
+		if rc.opts.Recursive && shouldRecursion(resp, path, rc.opts) && !strings.Contains(path, "..") {
 			// 真递归：把命中目录作为前缀，与主字典拼接展开子路径
 			// （命中 /admin/ → 扫描 /admin/<字典每条目>）。
 			// 深度模式额外展开命中路径的所有父级目录。
+			// 含 ".." 的字典探测条目（目录穿越测试）展开父级只会生成
+			// 畸形前缀并消耗整本字典，禁止其触发递归。
 			dirs := []string{ensureTrailingSlash(path)}
 			if rc.opts.DeepRecursive {
 				dirs = parentDirsOf(path)
@@ -409,13 +428,72 @@ func (s *DirScanner) worker(
 	}
 }
 
+// ── 实时进度输出（Progress） ────────────────────────────────────────────────
+
+// reportProgress 每 2 秒向 stderr 输出一行进度（单行覆写），扫描结束时
+// 输出最终行并换行。只读 atomics 与字典长度，无锁、不影响 worker。
+func reportProgress(done <-chan struct{}, dictionary *dict.Dictionary, stats *statsAccumulator, start time.Time) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			fmt.Fprintf(os.Stderr, "\r%-110s\n", progressLine(dictionary, stats, start))
+			return
+		case <-ticker.C:
+			fmt.Fprintf(os.Stderr, "\r%-110s", progressLine(dictionary, stats, start))
+		}
+	}
+}
+
+// progressLine 汇总当前扫描进度为一行文本。
+// 命中数不读 dirResult（避免与主消费 goroutine 竞争），由
+// successful - filtered - wildcard 推导：每个成功响应必走三者之一。
+// 分母 total+remaining 是"当前已知工作量"——递归会动态追加队列，
+// 进度百分比可能回退，这与 dirsearch 的行为一致。
+func progressLine(dictionary *dict.Dictionary, stats *statsAccumulator, start time.Time) string {
+	total := stats.total.Load()
+	succ := stats.successful.Load()
+	filtered := stats.filtered.Load()
+	wildcard := stats.wildcard.Load()
+	errored := stats.errored.Load()
+	hits := succ - filtered - wildcard
+	remaining := int64(dictionary.Len())
+	elapsed := time.Since(start)
+
+	rate := float64(total) / elapsed.Seconds()
+	eta := "unknown"
+	if rate > 0.01 && remaining > 0 {
+		eta = (time.Duration(float64(remaining)/rate) * time.Second).Round(time.Second).String()
+	}
+	return fmt.Sprintf("[progress] %d/%d done | %.1f req/s | hits %d | wildcard %d | filtered %d | err %d | elapsed %s | ETA %s",
+		total, total+remaining, rate, hits, wildcard, filtered, errored, elapsed.Round(time.Second), eta)
+}
+
+// printHit 命中即时流式打印（stdout），列与最终表格保持一致。
+func printHit(h *result.DirHit) {
+	loc := h.Location
+	if loc == "" {
+		loc = "-"
+	}
+	title := h.Title
+	if title == "" {
+		title = "-"
+	}
+	fmt.Printf("[hit] %d %s (size:%d, words:%d, title:%q, redirect:%s)\n",
+		h.Status, h.Path, h.Size, h.Words, title, loc)
+}
+
 // shouldRecursion 判断该命中路径是否应当触发递归扫描（三种模式，见设计文档 7.1 节）。
 func shouldRecursion(resp *engine.Response, path string, opts *DirOptions) bool {
 	if opts.ForceRecursive {
 		return true
 	}
 	if opts.DeepRecursive {
-		return true
+		// 深度递归只对目录类响应展开：403 封禁页、400 畸形请求这类
+		// "命中"没有目录信息价值，对它们重放整本字典是纯粹的流量放大
+		// （真实复现：对反爬统一封禁页递归导致请求量 ×6.4，跑满 2h 超时）。
+		return isDirectoryStatus(resp.StatusCode)
 	}
 	// 基础递归：仅对目录类型路径递归（以 / 结尾 且 状态码属于目录类响应）
 	return strings.HasSuffix(path, "/") && isDirectoryStatus(resp.StatusCode)
@@ -544,6 +622,12 @@ func parseDirOptions(params map[string]interface{}) *DirOptions {
 	if opts.ForceRecursive {
 		opts.DeepRecursive = false
 	}
+	// 对齐 dirsearch：deep/force-recursive 隐式开启递归。
+	// Recursive 默认关闭后，单独指定 deep/force 不应静默退化为不递归。
+	if opts.DeepRecursive || opts.ForceRecursive {
+		opts.Recursive = true
+	}
+	opts.Progress = paramBool(params, "progress", opts.Progress)
 	opts.MaxRecursionDepth = paramInt(params, "max_recursion_depth", opts.MaxRecursionDepth)
 	opts.RateLimit = paramInt(params, "rate_limit", opts.RateLimit)
 	opts.Delay = paramDurationMillis(params, "delay", opts.Delay)

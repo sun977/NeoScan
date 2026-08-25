@@ -127,7 +127,7 @@ func NewDirScanCmd() *cobra.Command {
 	// P0 核心参数
 	flags.StringVarP(&opts.Target, "target", "t", opts.Target, "目标 URL（也可用位置参数指定，如 scan dir <target>）")
 	flags.StringVarP(&opts.Extensions, "extensions", "e", opts.Extensions, "文件扩展名列表（逗号分隔，用于 %EXT% 展开）")
-	flags.StringVarP(&opts.Wordlists, "wordlists", "w", opts.Wordlists, "自定义字典文件路径（默认使用内置字典）")
+	flags.StringVarP(&opts.Wordlists, "wordlists", "w", opts.Wordlists, "自定义字典文件路径（默认追加到内置字典；配合 --no-builtin 可仅用指定字典）")
 	flags.StringVar(&opts.Category, "category", opts.Category, "追加内置技术栈分类字典（逗号分隔，如 wordpress,php/laravel）")
 	flags.IntVar(&opts.Threads, "threads", opts.Threads, "并发线程数")
 	flags.IntVar(&opts.Timeout, "timeout", opts.Timeout, "单个请求超时时间（秒）")
@@ -137,7 +137,6 @@ func NewDirScanCmd() *cobra.Command {
 	flags.BoolVarP(&opts.ForceExtensions, "force-extensions", "f", opts.ForceExtensions, "对不含 %EXT% 的字典条目也追加扩展名变体")
 	flags.StringVarP(&opts.ExcludeStatus, "exclude-status", "x", opts.ExcludeStatus, "排除的状态码（逗号分隔）")
 	flags.IntVarP(&opts.MaxRecursionDepth, "max-recursion-depth", "R", opts.MaxRecursionDepth, "最大递归深度（0~10）")
-	flags.BoolVarP(&opts.Verbose, "verbose", "v", opts.Verbose, "输出详细扫描信息")
 	flags.BoolVarP(&opts.Quiet, "quiet", "q", opts.Quiet, "静默模式，仅输出最终结果")
 	flags.StringArrayVarP(&headers, "header", "H", nil, "自定义请求头 \"Key: Value\"，可多次指定")
 	flags.StringVarP(&opts.Method, "method", "m", opts.Method, "HTTP 请求方法")
@@ -149,6 +148,9 @@ func NewDirScanCmd() *cobra.Command {
 
 	flags.BoolVar(&opts.ForceRecursive, "force-recursive", opts.ForceRecursive, "强制递归：对每个命中路径都继续扫描，不限于目录（警告：每个命中路径都会重放整个字典，流量急剧放大）")
 	flags.MarkHidden("force-recursive")
+
+	flags.BoolVar(&opts.NoBuiltin, "no-builtin", opts.NoBuiltin, "跳过内置字典，仅使用 -w/--category 指定的外部字典")
+	flags.MarkHidden("no-builtin")
 
 	flags.StringVarP(&opts.Proxy, "proxy", "p", opts.Proxy, "代理地址（如 http://127.0.0.1:8080）")
 	flags.MarkHidden("proxy")

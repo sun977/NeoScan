@@ -1,7 +1,8 @@
 # DirScanner — 目录/文件扫描模块
 
-- **版本**: v1.0
+- **版本**: v1.1
 - **日期**: 2026-08-25
+- **v1.1 变更**: 递归默认关闭（对齐 dirsearch）；新增 `--no-builtin`；新增实时进度输出；`--deep-recursive` 仅对目录类状态码展开；移除从未接线的 `-v/--verbose` 死参数（详细日志用根命令 `--log-level debug`）
 
 DirScanner 是 NeoAgent 的目录与敏感文件扫描原子模块，移植自 dirsearch 的核心算法并用 Go 原生重写。内置通配符（动态 404）检测引擎，可有效避免 CDN/WAF 统一错误页造成的误报。
 
@@ -54,6 +55,9 @@ flowchart TD
 - 递归深度 = 路径嵌套层数（`/admin/` 深度 1，`/admin/api/` 深度 2），无需额外状态
 - 同一目录通过 `tryMarkExpand` 原子标记，只展开一次
 - 三种模式：基础递归（仅目录）、深度递归（含所有父级目录）、强制递归（任意命中路径）
+- **递归默认关闭**（对齐 dirsearch），需 `-r` 显式开启；`--deep-recursive`/`--force-recursive` 隐式开启递归
+- 深度递归仅对目录类状态码（200/301/302/403）的命中展开：403 封禁页、400 畸形响应这类"命中"没有目录信息价值，对它们重放整本字典是纯粹的流量放大（实测：对反爬统一封禁页递归导致请求量 ×6.4，跑满 2h 任务超时）
+- 含 `..` 的字典探测条目（目录穿越测试）不触发递归展开，避免生成畸形前缀
 
 **3. 通配符检测（engine/scanner.go）**
 
@@ -71,6 +75,15 @@ flowchart TD
 **5. 统计（statsAccumulator）**
 
 全部使用 `atomic.Int64` 无锁计数：总请求/成功响应/被过滤/通配符拦截/错误 + RTT 最大值/最小值/平均值。扫描结束后单线程 `Finalize()` 一次性转换。
+
+**6. 实时进度输出（Progress）**
+
+CLI 扫描默认开启（`-q` 关闭；server 模式不经 `ToTask()`，`progress` 参数缺省为 false，零侵入）：
+
+- **进度行**：stderr 每 2 秒单行覆写，包含已完成/已知总量、实时 req/s、hits/wildcard/filtered/err 计数、elapsed 与 ETA。递归动态追加队列时分母（已知工作量）会增长，进度百分比可能回退，与 dirsearch 行为一致
+- **命中流式打印**：命中即时输出 `[hit]` 行到 stdout，不再干等到扫描结束
+- 命中数由 `successful - filtered - wildcard` 推导（每个成功响应必走三者之一），不读 DirResult，与主消费 goroutine 无竞争
+- 逐请求详细日志使用根命令 `--log-level debug`（requester 的重试/退避等 Debugf 日志随之可见）
 
 ## 目录结构
 
@@ -112,7 +125,7 @@ internal/core/factory/dir_factory.go # 扫描器工厂（RunnerManager 注册用
 
 ### 参数分级
 
-- `neoagent scan dir --help`：只显示 P0 常用参数（15 个）
+- `neoagent scan dir --help`：只显示 P0 常用参数（14 个）
 - `neoagent scan dir --help-all`：显示全部参数（40 个，含高级参数）
 
 ### P0 常用参数
@@ -125,12 +138,11 @@ internal/core/factory/dir_factory.go # 扫描器工厂（RunnerManager 注册用
 | `--category` | — | — | 追加技术栈字典，如 `wordpress,spring` |
 | `--threads` | — | 25 | 并发线程数（1~500） |
 | `--timeout` | — | 10 | 单请求超时（秒，1~300） |
-| `--recursive` | `-r` | true | 命中目录后递归扫描 |
+| `--recursive` | `-r` | false | 命中目录后递归扫描（流量放大，需显式开启） |
 | `--force-extensions` | `-f` | false | 不含 %EXT% 的条目也追加扩展名变体 |
 | `--exclude-status` | `-x` | `404,500,502,503` | 状态码黑名单 |
 | `--max-recursion-depth` | `-R` | 3 | 最大递归深度（0~10） |
-| `--verbose` | `-v` | false | 详细输出 |
-| `--quiet` | `-q` | false | 静默模式 |
+| `--quiet` | `-q` | false | 静默模式（同时关闭实时进度输出） |
 | `--header` | `-H` | — | 自定义请求头，可多次指定 |
 | `--method` | `-m` | GET | HTTP 方法 |
 | `--targets-file` | `-l` | — | 批量目标文件（每行一个 URL） |
@@ -141,6 +153,7 @@ internal/core/factory/dir_factory.go # 扫描器工厂（RunnerManager 注册用
 |------|:---:|------|
 | `--deep-recursive` | false | 深度递归：命中路径的所有父级目录也展开 |
 | `--force-recursive` | false | 强制递归：任意命中路径都展开 ⚠️ 每个命中路径重放整个字典，流量急剧放大 |
+| `--no-builtin` | false | 跳过内置字典，仅使用 `-w`/`--category` 指定的外部字典 |
 | `--proxy` | — | 代理地址 `http://127.0.0.1:8080` |
 | `--follow-redirects` | false | 跟随 301/302 重定向 |
 | `--max-retries` | 2 | 失败重试次数（指数退避，上限 5s） |
@@ -163,16 +176,19 @@ internal/core/factory/dir_factory.go # 扫描器工厂（RunnerManager 注册用
 ### 使用示例
 
 ```bash
-# 基本扫描（内置字典 + 默认递归）
+# 基本扫描（内置字典，默认不递归，带实时进度输出）
 neoagent scan dir https://example.com
 
 # 指定扩展名 + 技术栈字典（目标已知是 WordPress）
 neoagent scan dir https://example.com -e php,bak --category wordpress
 
-# 自定义字典 + 关闭递归（快速扫一层）
-neoagent scan dir https://example.com -w mydict.txt -r=false
+# 仅用自定义小字典（跳过内置字典，快速验证）
+neoagent scan dir https://example.com -w mydict.txt --no-builtin
 
-# 深度递归，限制深度 2（探测每个父级目录）
+# 开启递归并限制深度 2
+neoagent scan dir https://example.com -r -R 2
+
+# 深度递归（隐式开启递归，仅对目录类状态码命中展开）
 neoagent scan dir https://example.com --deep-recursive -R 2
 
 # 低速率扫描（规避 WAF/限速）
@@ -243,7 +259,8 @@ Master 下发时 `meta` 中的 key 必须使用**下划线命名**，与 `parseD
 | `auth` | string（`user:pass`） | `--auth` |
 | `headers` | string（多行 `Key: Value`） | `-H` / `--headers-file` |
 | `ip` / `network_interface` | string | `--ip` / `--network-interface` |
-| `skip_builtin` | bool | （仅测试用，跳过内置字典） |
+| `skip_builtin` | bool | `--no-builtin` |
+| `progress` | bool | （CLI 自动注入：默认 true，`-q` 时为 false） |
 
 ### 编程调用示例
 
@@ -268,7 +285,7 @@ results, err := manager.Execute(ctx, task)
 
 ## 注意事项
 
-1. **递归流量**：默认 `recursive=true`，真递归下每个命中目录会重放整个主字典（内置字典展开后约 13,600 条）。目标目录结构深时请评估流量，或用 `-r=false` 关闭、`-R 1` 限制深度。
+1. **递归流量**：递归默认关闭（`-r` 显式开启，`--deep-recursive`/`--force-recursive` 隐式开启）。真递归下每个命中目录会重放整个主字典（内置字典展开后约 13,600 条），目标目录结构深时请评估流量并用 `-R` 限制深度。`--deep-recursive` 仅对目录类状态码（200/301/302/403）命中展开，含 `..` 的路径不触发展开。
 2. **递归上限**：字典条目上限 500,000。内置字典约 13.6K 条，理论上第 36 个命中目录后递归展开会被截断（日志有 Warnf 提示，不中断扫描）。
 3. **`--force-recursive` 警告**：命中文件（如 `/admin/config.php`）也会当目录展开，产生大量无效请求，仅建议在确认目标行为后使用。
 4. **通配符站点**：目标对任意路径返回 200 时，通配符检测会自动识别并抑制误报，统计中的 `wildcard_reqs` 反映被拦截数量。

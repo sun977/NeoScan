@@ -26,6 +26,7 @@ type DirScanOptions struct {
 	Uppercase       bool
 	Lowercase       bool
 	Capital         bool
+	NoBuiltin       bool // 跳过内置字典，仅使用 -w/--category 等外部字典
 
 	// 扫描控制
 	Threads           int
@@ -62,10 +63,10 @@ type DirScanOptions struct {
 	// 多目标
 	TargetsFile string
 
-	// 输出/日志：仅控制 CLI 本地打印详细程度，不下发给 Runner，
-	// 因此不写入 task.Params（Runner 不关心 CLI 端的展示偏好）。
-	Verbose bool
-	Quiet   bool
+	// 输出/日志：Quiet 取反写入 progress 参数，控制 Runner 的实时进度输出。
+	// 详细日志统一走根命令的 --log-level debug（原 -v/--verbose 从未接线，
+	// 是死参数，已移除）。
+	Quiet bool
 
 	Output OutputOptions
 }
@@ -77,7 +78,9 @@ func NewDirScanOptions() *DirScanOptions {
 		Timeout:           10,
 		MaxRetries:        2,
 		ExcludeStatus:     "404,500,502,503",
-		Recursive:         true,
+		// Recursive 默认关闭，对齐 dirsearch：递归意味着"每个命中目录 × 全量字典"
+		// 的流量放大，必须是用户的显式选择（-r），而非悄无声息的默认行为。
+		Recursive:         false,
 		MaxRecursionDepth: 3,
 		Extensions:        "php,asp,html,js,json,bak,git,env",
 		Method:            "GET",
@@ -142,6 +145,7 @@ func (o *DirScanOptions) ToTask() *model.Task {
 		p["extensions"] = o.Extensions
 	}
 	p["force_extensions"] = o.ForceExtensions
+	p["skip_builtin"] = o.NoBuiltin
 	if o.Prefixes != "" {
 		p["prefixes"] = o.Prefixes
 	}
@@ -162,6 +166,9 @@ func (o *DirScanOptions) ToTask() *model.Task {
 	p["deep_recursive"] = o.DeepRecursive
 	p["force_recursive"] = o.ForceRecursive
 	p["max_recursion_depth"] = o.MaxRecursionDepth
+	// 实时进度输出：CLI 默认开启，--quiet 关闭；server 模式不经过 ToTask，
+	// 参数缺省为 false，零侵入。
+	p["progress"] = !o.Quiet
 	if o.RateLimit > 0 {
 		p["rate_limit"] = o.RateLimit
 	}

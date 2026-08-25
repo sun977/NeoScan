@@ -33,7 +33,7 @@ DirScanner 当前注册了 **40+ 个 CLI flag**，`--help` 输出一屏放不下
 
 ## 2. 参数分级
 
-### 2.1 P0 常用参数（`--help` 展示，15 个）
+### 2.1 P0 常用参数（`--help` 展示，14 个）
 
 用户 90% 场景下需要的参数：
 
@@ -53,9 +53,10 @@ DirScanner 当前注册了 **40+ 个 CLI flag**，`--help` 输出一屏放不下
 | `-i` / `--include-status` | `include_status` | 仅包含状态码 |
 | `-H` / `--header` | `headers` | 自定义请求头 |
 | `-m` / `--method` | `method` | HTTP 方法 |
-| `-v` / `--verbose` | — | 详细输出 |
 
-### 2.2 P1 高级参数（`--help-all` 展示，`--help` 隐藏，18 个）
+> 注：原 `-v`/`--verbose` 从未接线（死参数），2026-08-25 移除，P0 由 15 个减为 14 个；详细日志统一使用根命令 `--log-level debug`。
+
+### 2.2 P1 高级参数（`--help-all` 展示，`--help` 隐藏，19 个）
 
 高级用户和编排层需要的参数：
 
@@ -68,6 +69,7 @@ DirScanner 当前注册了 **40+ 个 CLI flag**，`--help` 输出一屏放不下
 | `--suffixes` | `suffixes` | 追加后缀 | 同上 |
 | `--deep-recursive` | `deep_recursive` | 深度递归 | 会导致请求量爆炸 |
 | `--force-recursive` | `force_recursive` | 强制递归 | 同上 |
+| `--no-builtin` | `skip_builtin` | 跳过内置字典 | 小字典快速验证场景（2026-08-25 新增） |
 | `--rate-limit` | `rate_limit` | 每秒最大请求数 | QoS 已自适应 |
 | `--delay` | `delay` | 请求间隔 | 和 rate-limit 重叠 |
 | `--max-time` | `max_time` | 总扫描时间上限 | 高级控制 |
@@ -171,14 +173,13 @@ Flags:
   -f, --force-extensions        对不含 %EXT% 的条目也追加扩展变体
       --threads int             并发线程数（默认 25）
       --timeout int             请求超时秒数（默认 10）
-  -r, --recursive               递归扫描（默认开启）
+  -r, --recursive               递归扫描（默认关闭）
   -R, --max-recursion-depth int 最大递归深度（默认 3）
   -x, --exclude-status string   排除的状态码（默认 404,500,502,503）
   -i, --include-status string   仅包含的状态码
   -H, --header stringArray      自定义请求头 "Key: Value"
   -m, --method string           HTTP 请求方法（默认 GET）
   -l, --targets-file string     批量目标文件
-  -v, --verbose                 详细输出
 
 Global Flags:
       --oj string               输出 JSON 文件路径

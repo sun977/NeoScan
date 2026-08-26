@@ -537,19 +537,20 @@ func reportProgress(done <-chan struct{}, dictionary *dict.Dictionary, stats *st
 // 分母 total+remaining 是"当前已知工作量"——递归会动态追加队列，
 // 进度百分比可能回退，这与 dirsearch 的行为一致。
 func progressLine(dictionary *dict.Dictionary, stats *statsAccumulator, start time.Time) string {
-	total := stats.total.Load()
+	total := stats.total.Load() // 已发起请求数
 	succ := stats.successful.Load()
-	filtered := stats.filtered.Load()
-	wildcard := stats.wildcard.Load()
-	errored := stats.errored.Load()
-	hits := succ - filtered - wildcard
-	remaining := int64(dictionary.Len())
-	elapsed := time.Since(start)
+	filtered := stats.filtered.Load()    // 过滤器拦截数：响应状态码命中黑名单（默认 404/500/502/503）或被你指定的排除规则（大小/关键词/正则）过滤掉的数量
+	wildcard := stats.wildcard.Load()    // 通配符请求数 目标对不存在路径也返回"像样"的响应（如 CDN/WAF 统一错误页），被通配符检测引擎识别并压制的数量。这个值很高说明目标有统一错误页
+	errored := stats.errored.Load()      // 失败请求数：超时、连接拒绝、DNS 失败等根本没拿到有效响应的请求数。这个值持续快速增长通常意味着目标把你拉黑了
+	hits := succ - filtered - wildcard   // 命中数
+	remaining := int64(dictionary.Len()) // 当前已知剩余工作量
+	elapsed := time.Since(start)         // 扫描已运行时长
 
-	rate := float64(total) / elapsed.Seconds()
+	rate := float64(total) / elapsed.Seconds() // 平均吞吐速率 = 总请求数 ÷ 已运行时间
 	eta := "unknown"
 	if rate > 0.01 && remaining > 0 {
 		eta = (time.Duration(float64(remaining)/rate) * time.Second).Round(time.Second).String()
+		// 预计剩余时间 = 队列剩余数 ÷ 当前速率。它只是按当前速率的线性外推——速率暴跌时 ETA 会跟着爆炸（实测中从 10 分钟涨到 2.5 小时），递归追加队列时也会变长，只能当趋势参考
 	}
 	return fmt.Sprintf("[progress] %d/%d done | %.1f req/s | hits %d | wildcard %d | filtered %d | err %d | elapsed %s | ETA %s",
 		total, total+remaining, rate, hits, wildcard, filtered, errored, elapsed.Round(time.Second), eta)

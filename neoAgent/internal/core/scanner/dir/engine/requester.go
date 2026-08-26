@@ -203,7 +203,9 @@ func (r *Requester) Do(ctx context.Context, baseURL, path string) (*Response, er
 		return resp, nil
 	}
 
-	return nil, fmt.Errorf("%w: %v", ErrMaxRetriesExceeded, lastErr)
+	// 双 %w 包装：errors.Is 需要穿透 ErrMaxRetriesExceeded 识别底层分类错误
+	// （如 ErrConnectionTimeout），供调用方做"连续超时熔断"这类基于错误语义的决策。
+	return nil, fmt.Errorf("%w: %w", ErrMaxRetriesExceeded, lastErr)
 }
 
 // doSingle 执行单次 HTTP 请求。

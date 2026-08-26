@@ -152,6 +152,9 @@ func NewDirScanCmd() *cobra.Command {
 	flags.BoolVar(&opts.NoBuiltin, "no-builtin", opts.NoBuiltin, "跳过内置字典，仅使用 -w/--category 指定的外部字典")
 	flags.MarkHidden("no-builtin")
 
+	flags.IntVar(&opts.CircuitBreaker, "circuit-breaker", opts.CircuitBreaker, "连续超时熔断阈值（0=禁用；目标丢包封禁时自动终止扫描）")
+	flags.MarkHidden("circuit-breaker")
+
 	flags.StringVarP(&opts.Proxy, "proxy", "p", opts.Proxy, "代理地址（如 http://127.0.0.1:8080）")
 	flags.MarkHidden("proxy")
 

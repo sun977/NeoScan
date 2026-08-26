@@ -392,3 +392,123 @@ func collectHitPaths(t *testing.T, tr *model.TaskResult) map[string]bool {
 	}
 	return found
 }
+
+// ── 熔断器（circuitBreaker，实施文档 Task 9.1） ──────────────────────────────
+
+// hangServer 模拟"丢包模式"目标：/hang 前缀的路径挂起 2s（超过客户端 1s 超时），
+// 其余路径（通配符探测等）快速 404，保证 Precheck/采样不拖慢测试。
+func hangServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/hang") {
+			time.Sleep(2 * time.Second)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+}
+
+func hangWordlist(t *testing.T, n int) string {
+	t.Helper()
+	paths := make([]string, n)
+	for i := range paths {
+		paths[i] = fmt.Sprintf("/hang%03d", i)
+	}
+	return writeTempWordlist(t, paths)
+}
+
+// TestDirScanner_CircuitBreaker 验证连续超时达到阈值后扫描被取消：
+// 无熔断时 200 条 × ~4.5s（3 次尝试×1s+退避）/ 3 线程 ≈ 300s；
+// 有熔断时 5 个连续超时即触发（约两轮线程，~10s 量级）。
+func TestDirScanner_CircuitBreaker(t *testing.T) {
+	server := hangServer()
+	defer server.Close()
+
+	s := NewDirScanner()
+	task := newTestTask(server.URL, map[string]interface{}{
+		"threads":         3,
+		"timeout":         1,
+		"skip_builtin":    true,
+		"circuit_breaker": 5,
+	})
+	task.Params["wordlists"] = hangWordlist(t, 200)
+
+	start := time.Now()
+	results, err := s.Run(context.Background(), task)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+	if elapsed > 60*time.Second {
+		t.Fatalf("circuit breaker did not abort scan in time, elapsed %v", elapsed)
+	}
+	dr := results[0].Result.(*result.DirResult)
+	if dr.Stats.ErrorReqs >= 100 {
+		t.Errorf("expected scan aborted early by breaker, got %d errors", dr.Stats.ErrorReqs)
+	}
+}
+
+// TestDirScanner_CircuitBreakerDisabled 验证 circuit_breaker=0 时熔断不生效，
+// 全部路径都会走完（保持旧行为，Never break userspace）。
+func TestDirScanner_CircuitBreakerDisabled(t *testing.T) {
+	server := hangServer()
+	defer server.Close()
+
+	s := NewDirScanner()
+	task := newTestTask(server.URL, map[string]interface{}{
+		"threads":         5,
+		"timeout":         1,
+		"skip_builtin":    true,
+		"circuit_breaker": 0, // 禁用
+	})
+	task.Params["wordlists"] = hangWordlist(t, 6)
+
+	results, err := s.Run(context.Background(), task)
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+	dr := results[0].Result.(*result.DirResult)
+	if dr.Stats.ErrorReqs != 6 {
+		t.Errorf("expected all 6 paths errored with breaker disabled, got %d", dr.Stats.ErrorReqs)
+	}
+}
+
+// TestDirScanner_CircuitBreakerResetOnSuccess 验证成功响应清零连续超时计数：
+// 超时与成功交替出现时计数无法累积到阈值，扫描不被熔断（偶发抖动不误判）。
+func TestDirScanner_CircuitBreakerResetOnSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/hang") {
+			time.Sleep(2 * time.Second)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
+	}))
+	defer server.Close()
+
+	s := NewDirScanner()
+	task := newTestTask(server.URL, map[string]interface{}{
+		"threads":         1, // 单线程保证"超时-成功"严格交替
+		"timeout":         1,
+		"skip_builtin":    true,
+		"circuit_breaker": 3,
+	})
+	// 交替构造：超时、成功、超时、成功……连续超时永远到不了 3
+	var paths []string
+	for i := 0; i < 4; i++ {
+		paths = append(paths, fmt.Sprintf("/hang%03d", i), fmt.Sprintf("/ok%03d", i))
+	}
+	task.Params["wordlists"] = writeTempWordlist(t, paths)
+
+	results, err := s.Run(context.Background(), task)
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+	dr := results[0].Result.(*result.DirResult)
+	// 4 个超时 + 4 个成功全部走完：未被熔断截断
+	if dr.Stats.ErrorReqs != 4 {
+		t.Errorf("expected 4 timeout errors, got %d", dr.Stats.ErrorReqs)
+	}
+	if dr.Stats.SuccessfulReqs != 4 {
+		t.Errorf("expected 4 successful requests, got %d", dr.Stats.SuccessfulReqs)
+	}
+}

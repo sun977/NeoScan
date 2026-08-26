@@ -2,7 +2,7 @@
 
 - **版本**: v1.1
 - **日期**: 2026-08-25
-- **v1.1 变更**: 递归默认关闭（对齐 dirsearch）；新增 `--no-builtin`；新增实时进度输出；`--deep-recursive` 仅对目录类状态码展开；移除从未接线的 `-v/--verbose` 死参数（详细日志用根命令 `--log-level debug`）
+- **v1.1 变更**: 递归默认关闭（对齐 dirsearch）；新增 `--no-builtin`；新增实时进度输出；`--deep-recursive` 仅对目录类状态码展开；移除从未接线的 `-v/--verbose` 死参数（详细日志用根命令 `--log-level debug`）；新增连续超时熔断器（`--circuit-breaker`，默认 20，0=禁用）
 
 DirScanner 是 NeoAgent 的目录与敏感文件扫描原子模块，移植自 dirsearch 的核心算法并用 Go 原生重写。内置通配符（动态 404）检测引擎，可有效避免 CDN/WAF 统一错误页造成的误报。
 
@@ -85,6 +85,12 @@ CLI 扫描默认开启（`-q` 关闭；server 模式不经 `ToTask()`，`progres
 - 命中数由 `successful - filtered - wildcard` 推导（每个成功响应必走三者之一），不读 DirResult，与主消费 goroutine 无竞争
 - 逐请求详细日志使用根命令 `--log-level debug`（requester 的重试/退避等 Debugf 日志随之可见）
 
+**7. 连续超时熔断器（circuitBreaker）**
+
+目标进入丢包模式（WAF 封禁扫描 IP 的典型特征）时，超时重试数学上不可能成功，但每个路径要烧 3×timeout+退避——实测对 zhutix.com 扫描中 87% 的时间被扔进这个黑洞。熔断器以**连续超时计数**（成功响应即清零）区分"偶发失败"与"持续封禁"：达到阈值（默认 20，`--circuit-breaker` 可调，0=禁用）即取消整个扫描 context，worker 自然退出，stderr 输出熔断诊断，已完成的结果正常保留。
+
+超时识别覆盖两种语义来源：网络层 i/o timeout（`ErrConnectionTimeout` 哨兵）与 `http.Client.Timeout` 本地计时器（`context.DeadlineExceeded`，classifyError 为保留 ctx 语义原样透传）——只判前者会导致熔断永不触发。
+
 ## 目录结构
 
 ```
@@ -154,6 +160,7 @@ internal/core/factory/dir_factory.go # 扫描器工厂（RunnerManager 注册用
 | `--deep-recursive` | false | 深度递归：命中路径的所有父级目录也展开 |
 | `--force-recursive` | false | 强制递归：任意命中路径都展开 ⚠️ 每个命中路径重放整个字典，流量急剧放大 |
 | `--no-builtin` | false | 跳过内置字典，仅使用 `-w`/`--category` 指定的外部字典 |
+| `--circuit-breaker` | 20 | 连续超时熔断阈值（0=禁用；目标丢包封禁时自动终止扫描） |
 | `--proxy` | — | 代理地址 `http://127.0.0.1:8080` |
 | `--follow-redirects` | false | 跟随 301/302 重定向 |
 | `--max-retries` | 2 | 失败重试次数（指数退避，上限 5s） |
@@ -261,6 +268,7 @@ Master 下发时 `meta` 中的 key 必须使用**下划线命名**，与 `parseD
 | `ip` / `network_interface` | string | `--ip` / `--network-interface` |
 | `skip_builtin` | bool | `--no-builtin` |
 | `progress` | bool | （CLI 自动注入：默认 true，`-q` 时为 false） |
+| `circuit_breaker` | int | `--circuit-breaker` |
 
 ### 编程调用示例
 

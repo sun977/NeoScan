@@ -6,6 +6,7 @@ package dir
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -53,6 +54,7 @@ type DirOptions struct {
 	MaxTime           int
 	TargetMaxTime     int
 	Progress          bool // 实时进度输出（CLI 经 task.Params 开启，server 模式缺省关闭）
+	CircuitBreaker    int  // 连续超时熔断阈值（默认 20，0=禁用）
 
 	// 过滤配置
 	IncludeStatus   []int
@@ -79,6 +81,7 @@ func defaultDirOptions() *DirOptions {
 		HTTPMethod:        "GET",
 		ExcludeStatus:     engine.DefaultExcludeStatus(),
 		MaxRecursionDepth: 3,
+		CircuitBreaker:    20,
 	}
 }
 
@@ -132,6 +135,13 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 
 	opts := parseDirOptions(task.Params)
 	baseURL := normalizeTarget(task.Target, task.PortRange)
+
+	// 熔断器 context：必须在所有下游（含 Precheck 探测与 worker）之前建立，
+	// 熔断触发时取消整个扫描。后续 MaxTime 的 WithTimeout 包装在其外层，
+	// 两种取消互不干扰（取消沿 context 链向下传播）。
+	ctx, breakerCancel := context.WithCancel(ctx)
+	defer breakerCancel()
+	breaker := newCircuitBreaker(opts.CircuitBreaker, breakerCancel)
 
 	if opts.Threads > 0 {
 		s.limiter = qos.NewAdaptiveLimiter(opts.Threads, 5, opts.Threads*4)
@@ -199,10 +209,17 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 
 	// 实时进度输出：进度行走 stderr（单行覆写），命中流式打印走 stdout。
 	// 只读 atomics 与字典长度，不与 worker/消费循环竞争。
+	// progressWG 保证 goroutine 完全退出后再打印后续诊断（熔断提示等），
+	// 避免最终进度行与诊断信息在同一行上竞争交错。
 	var progressDone chan struct{}
+	var progressWG sync.WaitGroup
 	if opts.Progress {
 		progressDone = make(chan struct{})
-		go reportProgress(progressDone, dictionary, stats, startTime)
+		progressWG.Add(1)
+		go func() {
+			defer progressWG.Done()
+			reportProgress(progressDone, dictionary, stats, startTime)
+		}()
 	}
 
 	var wg sync.WaitGroup
@@ -210,7 +227,7 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s.worker(ctx, baseURL, dictionary, requester, filter, wildcardScanner, rc, stats, hits)
+			s.worker(ctx, baseURL, dictionary, requester, filter, wildcardScanner, rc, stats, breaker, hits)
 		}()
 	}
 
@@ -227,6 +244,11 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	}
 	if progressDone != nil {
 		close(progressDone)
+		progressWG.Wait() // 等最终进度行完整输出，避免与下面的诊断交错
+	}
+	// 熔断诊断：扫描已因持续丢包提前终止，已产出的结果仍然有效但必须让用户知情
+	if breaker.Tripped() {
+		fmt.Fprintf(os.Stderr, "[!] Scan aborted by circuit breaker: target dropped %d+ consecutive requests (possible WAF ban). Partial results kept. Hint: lower --rate-limit/--threads, or retry from another source IP.\n", opts.CircuitBreaker)
 	}
 	dirResult.Stats = stats.Finalize()
 	dirResult.Finish()
@@ -264,6 +286,57 @@ func (r *recursionCtl) tryMarkExpand(dir string) bool {
 	}
 	r.expanded[dir] = true
 	return true
+}
+
+// circuitBreaker 连续超时熔断器（实施文档 Task 9.1）。
+//
+// 目标进入丢包模式（WAF 封禁扫描 IP 的典型特征）时，超时重试在数学上不可能
+// 成功，但每个路径要烧掉 3×timeout+退避 ≈ 31.5s——实测对 zhutix.com 扫描中
+// 87% 的时间（104s/120s）被扔进这个黑洞。熔断器区分"偶发失败"（重试有价值）
+// 与"持续封禁"（重试无价值）：成功响应即清零连续计数，只有持续性丢包才会
+// 达到阈值并取消整个扫描 context，worker 随之自然退出。
+type circuitBreaker struct {
+	threshold int64
+	consec    atomic.Int64 // 连续超时计数（成功响应清零）
+	tripped   atomic.Bool
+	cancel    context.CancelFunc
+}
+
+// newCircuitBreaker 创建熔断器；threshold<=0 或 cancel 为空时返回 nil（禁用，
+// 保持旧行为，Never break userspace）。调用方统一以 nil 判断，主路径零分支。
+func newCircuitBreaker(threshold int, cancel context.CancelFunc) *circuitBreaker {
+	if threshold <= 0 || cancel == nil {
+		return nil
+	}
+	return &circuitBreaker{threshold: int64(threshold), cancel: cancel}
+}
+
+// recordTimeout 记录一次超时错误，连续计数达到阈值即熔断（只触发一次）。
+func (b *circuitBreaker) recordTimeout() {
+	if b == nil {
+		return
+	}
+	if b.consec.Add(1) >= b.threshold && b.tripped.CompareAndSwap(false, true) {
+		logger.Warnf("[DirScanner] circuit breaker tripped: %d consecutive timeouts, "+
+			"target appears to be dropping packets (possible WAF ban), aborting scan. "+
+			"Hint: lower --rate-limit/--threads, or retry later from another source IP", b.consec.Load())
+		b.cancel()
+	}
+}
+
+// recordSuccess 成功响应清零连续超时计数：偶发网络抖动不会累积成误判。
+func (b *circuitBreaker) recordSuccess() {
+	if b == nil {
+		return
+	}
+	if b.consec.Load() != 0 {
+		b.consec.Store(0)
+	}
+}
+
+// Tripped 返回熔断器是否已触发（供 Run 结束后输出诊断）。
+func (b *circuitBreaker) Tripped() bool {
+	return b != nil && b.tripped.Load()
 }
 
 // statsAccumulator 是 worker 并发写入的统计计数器。
@@ -335,6 +408,7 @@ func (s *DirScanner) worker(
 	wildcardScanner *engine.WildcardScanner,
 	rc *recursionCtl,
 	stats *statsAccumulator,
+	breaker *circuitBreaker,
 	hits chan<- *result.DirHit,
 ) {
 	for {
@@ -362,10 +436,21 @@ func (s *DirScanner) worker(
 		if err != nil {
 			s.limiter.Release()
 			stats.errored.Add(1)
+			// 仅超时计入熔断。超时有两个语义来源，必须都识别：
+			// - ErrConnectionTimeout：网络层 i/o timeout（目标丢包，WAF 封禁特征）
+			// - context.DeadlineExceeded：http.Client.Timeout 本地计时器触发，
+			//   classifyError 为保留 ctx 语义会原样透传，不会映射为上面的哨兵
+			// DNS失败/连接拒绝是快速失败不占线程，不计入；扫描 ctx 取消
+			// （Canceled）不会被误判；MaxTime 到期导致的 DeadlineExceeded 即便
+			// 计入也无害——扫描本就在结束。
+			if errors.Is(err, engine.ErrConnectionTimeout) || errors.Is(err, context.DeadlineExceeded) {
+				breaker.recordTimeout()
+			}
 			continue // 请求失败，跳过该路径
 		}
 		rtt := time.Since(start)
 		stats.successful.Add(1)
+		breaker.recordSuccess()
 		stats.recordRTT(rtt)
 
 		if !filter.Match(resp, path) {
@@ -628,6 +713,7 @@ func parseDirOptions(params map[string]interface{}) *DirOptions {
 		opts.Recursive = true
 	}
 	opts.Progress = paramBool(params, "progress", opts.Progress)
+	opts.CircuitBreaker = paramInt(params, "circuit_breaker", opts.CircuitBreaker)
 	opts.MaxRecursionDepth = paramInt(params, "max_recursion_depth", opts.MaxRecursionDepth)
 	opts.RateLimit = paramInt(params, "rate_limit", opts.RateLimit)
 	opts.Delay = paramDurationMillis(params, "delay", opts.Delay)

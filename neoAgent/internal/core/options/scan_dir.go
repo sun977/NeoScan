@@ -41,6 +41,7 @@ type DirScanOptions struct {
 	Delay             int
 	MaxTime           int
 	TargetMaxTime     int
+	CircuitBreaker    int // 连续超时熔断阈值（0=禁用）
 
 	// 过滤配置
 	IncludeStatus string
@@ -82,6 +83,7 @@ func NewDirScanOptions() *DirScanOptions {
 		// 的流量放大，必须是用户的显式选择（-r），而非悄无声息的默认行为。
 		Recursive:         false,
 		MaxRecursionDepth: 3,
+		CircuitBreaker:    20,
 		Extensions:        "php,asp,html,js,json,bak,git,env",
 		Method:            "GET",
 	}
@@ -122,6 +124,9 @@ func (o *DirScanOptions) Validate() error {
 	}
 	if o.Timeout < 1 || o.Timeout > 300 {
 		return fmt.Errorf("--timeout must be in range 1~300, got %d", o.Timeout)
+	}
+	if o.CircuitBreaker < 0 {
+		return fmt.Errorf("--circuit-breaker must be >= 0, got %d", o.CircuitBreaker)
 	}
 
 	return nil
@@ -181,6 +186,7 @@ func (o *DirScanOptions) ToTask() *model.Task {
 	if o.TargetMaxTime > 0 {
 		p["target_max_time"] = o.TargetMaxTime
 	}
+	p["circuit_breaker"] = o.CircuitBreaker
 
 	if o.IncludeStatus != "" {
 		p["include_status"] = o.IncludeStatus

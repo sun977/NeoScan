@@ -84,7 +84,7 @@ CLI 扫描默认开启（`-q` 关闭；server 模式不经 `ToTask()`，`progres
 - **命中流式打印**：命中即时输出 `[hit]` 行到 stdout；stdout 是终端时先擦除当前进度行、命中换行后立即重画进度——命中行依次上滚，进度行始终停留在最后一行，两者永不互相覆盖
 - 命中数由 `successful - filtered - wildcard` 推导（每个成功响应必走三者之一），不读 DirResult，无竞争
 - 重定向到文件/管道时自动停用 `\r` 控制序列（`isTerminal` 检测），输出纯文本
-- `--log-level debug` 时自动关闭周期进度行：DEBU 日志流不经消费循环，且其本身就是活性信号
+- `--log-level debug` 时进度行自动退化为换行文本行（而非 `\r` 原地覆写），与 DEBU 日志流以换行原子行安全共存，两者均可见
 - 逐请求详细日志使用根命令 `--log-level debug`（requester 的重试/退避等 Debugf 日志随之可见）
 
 **7. 连续超时熔断器（circuitBreaker）**

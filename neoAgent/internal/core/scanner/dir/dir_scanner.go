@@ -211,9 +211,12 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 	// 同一个 select 中多路复用——全部终端写入都只发生在这一个 goroutine 里，
 	// 顺序由结构保证，不需要任何锁（优于"两个 goroutine + 互斥锁"的方案：
 	// 锁只能约束记得拿锁的写入方，logrus 等外部写入会绕过它）。
-	// debug 日志模式下关闭周期进度行：DEBU 流不经本循环，其本身就是活性信号。
-	progressOn := opts.Progress && !debugLoggingEnabled()
-	clearBeforeHit := progressOn && isTerminal(os.Stdout)
+	// inPlace：终端正常模式下进度行 \r 原地覆写；debug 日志模式或非终端时
+	// 退化为换行文本行——DEBU 流不经本循环，\r 覆写会与之互踩，换行文本行
+	// 则可以与之安全共存（debug 下屏幕本就在滚动）。
+	progressOn := opts.Progress
+	inPlace := progressOn && !debugLoggingEnabled() && isTerminal(os.Stderr)
+	clearBeforeHit := inPlace && isTerminal(os.Stdout)
 	var progressTicker *time.Ticker
 	var tick <-chan time.Time // nil channel 永久阻塞：未开启进度时 select 只剩命中分支
 	if progressOn {
@@ -248,16 +251,20 @@ consume:
 			dirResult.Add(h)
 			if opts.Progress {
 				printHit(h, clearBeforeHit)
-				redrawProgress(progressOn, dictionary, stats, startTime)
+				// 仅 inPlace 模式需要在命中后立即重画进度行（保持其停在最后一行）；
+				// 文本行模式下进度随节拍输出即可，避免每个命中多刷一行。
+				redrawProgress(inPlace, inPlace, dictionary, stats, startTime)
 			}
 		case <-tick:
-			redrawProgress(true, dictionary, stats, startTime)
+			redrawProgress(true, inPlace, dictionary, stats, startTime)
 		}
 	}
 	// 最终进度行换行收尾，随后的诊断信息顺序天然确定（同一 goroutine）。
 	if progressOn {
-		redrawProgress(true, dictionary, stats, startTime)
-		fmt.Fprintln(os.Stderr)
+		redrawProgress(true, inPlace, dictionary, stats, startTime)
+		if inPlace {
+			fmt.Fprintln(os.Stderr)
+		}
 	}
 	// 熔断诊断：扫描已因持续丢包提前终止，已产出的结果仍然有效但必须让用户知情
 	if breaker.Tripped() {
@@ -528,14 +535,19 @@ func (s *DirScanner) worker(
 
 // ── 实时进度输出（Progress） ────────────────────────────────────────────────
 
-// redrawProgress 向 stderr 覆写当前进度行（\r 原地重画，不换行）。
-// enabled=false 时直接返回：命中分支用它统一处理"未开启进度"的场景，
-// 消除调用点的重复条件判断。只在 Run 的消费 goroutine 中调用。
-func redrawProgress(enabled bool, dictionary *dict.Dictionary, stats *statsAccumulator, start time.Time) {
+// redrawProgress 输出当前进度行。inPlace=true：\r 原地覆写（终端正常模式，
+// 不换行）；inPlace=false：换行文本行（debug 日志模式/非终端，与日志流安全
+// 共存）。enabled=false 时直接返回，消除调用点的重复条件判断。
+// 只在 Run 的消费 goroutine 中调用。
+func redrawProgress(enabled, inPlace bool, dictionary *dict.Dictionary, stats *statsAccumulator, start time.Time) {
 	if !enabled {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "\r%-110s", progressLine(dictionary, stats, start))
+	if inPlace {
+		fmt.Fprintf(os.Stderr, "\r%-110s", progressLine(dictionary, stats, start))
+	} else {
+		fmt.Fprintln(os.Stderr, progressLine(dictionary, stats, start))
+	}
 }
 
 // debugLoggingEnabled 检测全局日志是否处于 debug 级别。

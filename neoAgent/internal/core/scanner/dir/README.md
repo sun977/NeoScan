@@ -78,11 +78,13 @@ flowchart TD
 
 **6. 实时进度输出（Progress）**
 
-CLI 扫描默认开启（`-q` 关闭；server 模式不经 `ToTask()`，`progress` 参数缺省为 false，零侵入）：
+CLI 扫描默认开启（`-q` 关闭；server 模式不经 `ToTask()`，`progress` 参数缺省为 false，零侵入）。终端输出采用**单写入 goroutine 模型**：命中事件与 2 秒进度节拍在消费循环的同一个 `select` 中多路复用——全部终端写入只发生在一个 goroutine 里，输出顺序由结构保证，无需任何锁：
 
-- **进度行**：stderr 每 2 秒单行覆写，包含已完成/已知总量、实时 req/s、hits/wildcard/filtered/err 计数、elapsed 与 ETA。递归动态追加队列时分母（已知工作量）会增长，进度百分比可能回退，与 dirsearch 行为一致
-- **命中流式打印**：命中即时输出 `[hit]` 行到 stdout，不再干等到扫描结束
-- 命中数由 `successful - filtered - wildcard` 推导（每个成功响应必走三者之一），不读 DirResult，与主消费 goroutine 无竞争
+- **进度行**：stderr `\r` 原地覆写，包含已完成/已知总量、实时 req/s、hits/wildcard/filtered/err 计数、elapsed 与 ETA。递归动态追加队列时分母（已知工作量）会增长，进度百分比可能回退，与 dirsearch 行为一致
+- **命中流式打印**：命中即时输出 `[hit]` 行到 stdout；stdout 是终端时先擦除当前进度行、命中换行后立即重画进度——命中行依次上滚，进度行始终停留在最后一行，两者永不互相覆盖
+- 命中数由 `successful - filtered - wildcard` 推导（每个成功响应必走三者之一），不读 DirResult，无竞争
+- 重定向到文件/管道时自动停用 `\r` 控制序列（`isTerminal` 检测），输出纯文本
+- `--log-level debug` 时自动关闭周期进度行：DEBU 日志流不经消费循环，且其本身就是活性信号
 - 逐请求详细日志使用根命令 `--log-level debug`（requester 的重试/退避等 Debugf 日志随之可见）
 
 **7. 连续超时熔断器（circuitBreaker）**

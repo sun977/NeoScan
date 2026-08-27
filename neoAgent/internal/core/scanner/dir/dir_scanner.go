@@ -207,19 +207,19 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 
 	hits := make(chan *result.DirHit, 256)
 
-	// 实时进度输出：进度行走 stderr（单行覆写），命中流式打印走 stdout。
-	// 只读 atomics 与字典长度，不与 worker/消费循环竞争。
-	// progressWG 保证 goroutine 完全退出后再打印后续诊断（熔断提示等），
-	// 避免最终进度行与诊断信息在同一行上竞争交错。
-	var progressDone chan struct{}
-	var progressWG sync.WaitGroup
-	if opts.Progress {
-		progressDone = make(chan struct{})
-		progressWG.Add(1)
-		go func() {
-			defer progressWG.Done()
-			reportProgress(progressDone, dictionary, stats, startTime)
-		}()
+	// 终端输出模型（单写入 goroutine）：命中事件与进度节拍在下方消费循环的
+	// 同一个 select 中多路复用——全部终端写入都只发生在这一个 goroutine 里，
+	// 顺序由结构保证，不需要任何锁（优于"两个 goroutine + 互斥锁"的方案：
+	// 锁只能约束记得拿锁的写入方，logrus 等外部写入会绕过它）。
+	// debug 日志模式下关闭周期进度行：DEBU 流不经本循环，其本身就是活性信号。
+	progressOn := opts.Progress && !debugLoggingEnabled()
+	clearBeforeHit := progressOn && isTerminal(os.Stdout)
+	var progressTicker *time.Ticker
+	var tick <-chan time.Time // nil channel 永久阻塞：未开启进度时 select 只剩命中分支
+	if progressOn {
+		progressTicker = time.NewTicker(2 * time.Second)
+		tick = progressTicker.C
+		defer progressTicker.Stop()
 	}
 
 	var wg sync.WaitGroup
@@ -236,15 +236,28 @@ func (s *DirScanner) Run(ctx context.Context, task *model.Task) (results []*mode
 		close(hits)
 	}()
 
-	for h := range hits {
-		dirResult.Add(h)
-		if opts.Progress {
-			printHit(h)
+	// 消费循环：hits 关闭（全部 worker 退出）即扫描结束。命中打印后立即
+	// 重画进度行，视觉上进度始终停留在终端最后一行、命中行依次向上滚动。
+consume:
+	for {
+		select {
+		case h, ok := <-hits:
+			if !ok {
+				break consume
+			}
+			dirResult.Add(h)
+			if opts.Progress {
+				printHit(h, clearBeforeHit)
+				redrawProgress(progressOn, dictionary, stats, startTime)
+			}
+		case <-tick:
+			redrawProgress(true, dictionary, stats, startTime)
 		}
 	}
-	if progressDone != nil {
-		close(progressDone)
-		progressWG.Wait() // 等最终进度行完整输出，避免与下面的诊断交错
+	// 最终进度行换行收尾，随后的诊断信息顺序天然确定（同一 goroutine）。
+	if progressOn {
+		redrawProgress(true, dictionary, stats, startTime)
+		fmt.Fprintln(os.Stderr)
 	}
 	// 熔断诊断：扫描已因持续丢包提前终止，已产出的结果仍然有效但必须让用户知情
 	if breaker.Tripped() {
@@ -515,20 +528,31 @@ func (s *DirScanner) worker(
 
 // ── 实时进度输出（Progress） ────────────────────────────────────────────────
 
-// reportProgress 每 2 秒向 stderr 输出一行进度（单行覆写），扫描结束时
-// 输出最终行并换行。只读 atomics 与字典长度，无锁、不影响 worker。
-func reportProgress(done <-chan struct{}, dictionary *dict.Dictionary, stats *statsAccumulator, start time.Time) {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-done:
-			fmt.Fprintf(os.Stderr, "\r%-110s\n", progressLine(dictionary, stats, start))
-			return
-		case <-ticker.C:
-			fmt.Fprintf(os.Stderr, "\r%-110s", progressLine(dictionary, stats, start))
-		}
+// redrawProgress 向 stderr 覆写当前进度行（\r 原地重画，不换行）。
+// enabled=false 时直接返回：命中分支用它统一处理"未开启进度"的场景，
+// 消除调用点的重复条件判断。只在 Run 的消费 goroutine 中调用。
+func redrawProgress(enabled bool, dictionary *dict.Dictionary, stats *statsAccumulator, start time.Time) {
+	if !enabled {
+		return
 	}
+	fmt.Fprintf(os.Stderr, "\r%-110s", progressLine(dictionary, stats, start))
+}
+
+// debugLoggingEnabled 检测全局日志是否处于 debug 级别。
+// 通过 GetLevel().String() 读取而非 import logrus 比较常量——
+// logger 包刻意隔离 logrus 的封装边界不在扫描器里打破。
+// LoggerInstance 未初始化（单元测试等场景）时安全返回 false。
+func debugLoggingEnabled() bool {
+	if logger.LoggerInstance == nil {
+		return false
+	}
+	return logger.LoggerInstance.GetLogger().GetLevel().String() == "debug"
+}
+
+// isTerminal 判断文件是否为终端设备（用于决定输出中是否可以包含 \r 控制序列）。
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
 
 // progressLine 汇总当前扫描进度为一行文本。
@@ -557,7 +581,10 @@ func progressLine(dictionary *dict.Dictionary, stats *statsAccumulator, start ti
 }
 
 // printHit 命中即时流式打印（stdout），列与最终表格保持一致。
-func printHit(h *result.DirHit) {
+// clearLine 为 true（进度行活跃且 stdout 是终端）时，先清除当前进度行
+//（\r + 空格填充 + \r 回行首），命中打在干净行上换行，随后调用方立即
+// 重画进度行。只在 Run 的消费 goroutine 中调用，无需加锁。
+func printHit(h *result.DirHit, clearLine bool) {
 	loc := h.Location
 	if loc == "" {
 		loc = "-"
@@ -565,6 +592,9 @@ func printHit(h *result.DirHit) {
 	title := h.Title
 	if title == "" {
 		title = "-"
+	}
+	if clearLine {
+		fmt.Printf("\r%-110s\r", "")
 	}
 	fmt.Printf("[hit] %d %s (size:%d, words:%d, title:%q, redirect:%s)\n",
 		h.Status, h.Path, h.Size, h.Words, title, loc)
